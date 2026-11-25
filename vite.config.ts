@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
@@ -32,8 +33,15 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+// La fabrique JSX du projet : celle de React, plus la typographie française
+// (espaces insécables) posée sur tous les textes affichés. Voir src/jsx/.
+const JSX = "@grattouille/jsx";
+
 export default defineConfig({
-  plugins: [react(), devApi(), contentSecurityPolicy()],
+  plugins: [react({ jsxImportSource: JSX }), devApi(), contentSecurityPolicy()],
+  resolve: {
+    alias: { [JSX]: fileURLToPath(new URL("./src/jsx", import.meta.url)) },
+  },
   build: {
     target: "es2022",
     cssMinify: true,

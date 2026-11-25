@@ -57,7 +57,7 @@ npm run dev        # http://localhost:5173, avec une API en mémoire
 | `npm run dev` | Serveur de développement. `/api/*` est servi en mémoire : rien à installer d'autre. |
 | `npm run build` | Vérifie les types puis construit `dist/`. |
 | `npm run serve` | Sert `dist/` et l'API en mémoire sur http://localhost:4173, comme en ligne. |
-| `npm test` | Les tests : économie, moteurs de tickets, règles, serveur, stockage Blobs, simulation. |
+| `npm test` | Les tests : économie, moteurs de tickets, règles, serveur, stockage Blobs, simulation, typographie. |
 | `npm run simulate` | Simule des parties complètes et compare au tableau de la section 5.7 du brief. |
 | `npm run zip` | Fabrique `livraison/grattouille-netlify.zip`, l'archive à déposer sur Netlify. |
 
@@ -85,6 +85,7 @@ src/art/             toutes les illustrations, en SVG
 src/fx/              particules, son synthétisé, vibrations
 src/screens/         un dossier par écran
 src/ui/              boutons, bourse, feuilles, en-têtes
+src/jsx/             la fabrique JSX : celle de React, plus la typographie française
 scripts/             simulation, serveur local, fabrication de l'archive
 tests/
 ```

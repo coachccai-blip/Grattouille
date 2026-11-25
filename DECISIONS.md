@@ -18,7 +18,7 @@ ouvert ») et propose le bac à sable.
 
 Ce qui a été vérifié à la place, à partir de l'archive décompressée dans un dossier vide :
 
-- `npm install`, `npm run build`, `npm test` (144 tests) et `npm run simulate` passent ;
+- `npm install`, `npm run build`, `npm test` (155 tests) et `npm run simulate` passent ;
 - `netlify/functions` est empaqueté sans erreur par l'outil de construction de Netlify,
   `@netlify/zip-it-and-ship-it` 16.6.0 : une fonction `api`, API de fonctions version 2,
   route `/api/*`, `@netlify/blobs` embarqué ;
@@ -131,6 +131,11 @@ dans le code.
 - **Pannes au lancement.** Trois écrans : pas de réseau, serveur en erreur, page publiée
   sans sa fonction. Un compte que le serveur ne connaît plus ramène à l'écran de
   bienvenue avec un message.
+- **Typographie française.** Les textes s'écrivent avec des espaces ordinaires. La
+  fabrique JSX du projet (`src/jsx/`, branchée dans `vite.config.ts`) pose les espaces
+  insécables à l'affichage (`src/app/typo.ts`) : avant « ; ! ? : », à l'intérieur des
+  guillemets, entre un nombre et son unité, après « Mme » et « Mlle ». Une ligne ne
+  commence donc jamais par « ! » ou « € », et il n'y a rien à appeler à la main.
 - **Chiffres tabulaires.** Jost n'en fournit pas (mesuré : `tabular-nums` ne change rien).
   La bourse et le Standing affichent donc chaque chiffre dans une case de largeur fixe,
   comme le prévoit la section 13.5.
