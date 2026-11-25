@@ -1,0 +1,47 @@
+// Le cœur de l'API, indépendant de Netlify : une requête, des dépendances, une réponse.
+// La fonction Netlify (router.ts), les tests, le serveur de développement et le mode
+// bac à sable passent tous par ici (BRIEF.md, section 15.5).
+
+import { ApiError, fail } from "./errors";
+import { ackTickets, buyTickets, houseTicket } from "./handlers/tickets";
+import { ban, health, leaderboard } from "./handlers/misc";
+import { createPlayer, deleteMe, getMe, openSession } from "./handlers/players";
+import { buyItem, setLook } from "./handlers/shop";
+import { errorResponse, type Deps } from "./http";
+
+type Handler = (req: Request, deps: Deps) => Promise<Response>;
+
+const ROUTES: Record<string, Handler> = {
+  "GET /api/health": health,
+  "POST /api/players": createPlayer,
+  "POST /api/session": openSession,
+  "GET /api/me": getMe,
+  "DELETE /api/me": deleteMe,
+  "POST /api/tickets/buy": buyTickets,
+  "POST /api/tickets/house": houseTicket,
+  "POST /api/tickets/ack": ackTickets,
+  "POST /api/shop/buy": buyItem,
+  "POST /api/look": setLook,
+  "GET /api/leaderboard": leaderboard,
+  "POST /api/admin/ban": ban,
+};
+
+export async function handle(req: Request, deps: Deps): Promise<Response> {
+  let route = "";
+  try {
+    const url = new URL(req.url);
+    const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
+    route = `${req.method.toUpperCase()} ${path}`;
+    const handler = ROUTES[route];
+    // Aucun en-tête CORS : aucune requête d'une autre origine n'est servie.
+    if (!handler) fail("NOT_FOUND");
+    return await handler(req, deps);
+  } catch (error) {
+    if (error instanceof ApiError) return errorResponse(error);
+    // Les journaux ne contiennent ni code de récupération ni empreinte : seulement la route et l'erreur.
+    console.error("[grattouille]", route, error instanceof Error ? `${error.name}: ${error.message}` : "erreur inconnue");
+    return errorResponse(new ApiError("SERVER_ERROR"));
+  }
+}
+
+export type { Deps } from "./http";

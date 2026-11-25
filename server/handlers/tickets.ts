@@ -1,0 +1,90 @@
+// Tickets : achat, ticket de la maison, déclaration (BRIEF.md, sections 5.5, 6.5, 15.4 et 15.6).
+
+import { FIRST_TICKET_MULTIPLIER, HOUSE_MULTIPLIER, drawGain } from "../../shared/economy";
+import {
+  BUY_COOLDOWN_MS, DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, MAX_PENDING,
+  dayOf, houseEligible, houseTicketDef, isPlaceOpen, standingOf,
+} from "../../shared/rules";
+import { ticketById } from "../../shared/tickets";
+import type { PendingTicket } from "../../shared/types";
+import { newTicketId } from "../auth";
+import { fail } from "../errors";
+import { commit, json, readAck, readBody, unchanged, writePlayer, type Deps } from "../http";
+import { safeAdd } from "../player";
+
+/** POST /api/tickets/buy { type, qty, ack? } → { tickets, state } */
+export async function buyTickets(req: Request, deps: Deps): Promise<Response> {
+  const body = await readBody(req);
+  const ack = readAck(body);
+  const def = typeof body.type === "string" ? ticketById(body.type) : undefined;
+  if (!def) fail("BAD_REQUEST");
+  const qty = body.qty;
+  if (qty !== 1 && qty !== 5 && qty !== 10) fail("BAD_REQUEST");
+
+  const { result, state } = await writePlayer(req, deps, ack, (p, now) => {
+    const cost = def.price * qty;
+    if (!isPlaceOpen(def.place, standingOf(p.owned, p.kiosk))) fail("PLACE_LOCKED");
+    if (p.pending.length + qty > MAX_PENDING) fail("PENDING_FULL");
+    if (p.balance < cost) fail("INSUFFICIENT_FUNDS");
+    if (now - p.lastBuyAt < BUY_COOLDOWN_MS) fail("TOO_FAST");
+    const today = dayOf(now);
+    const boughtToday = p.day === today ? p.dayTickets : 0;
+    if (boughtToday + qty > DAILY_TICKET_LIMIT) fail("DAILY_LIMIT");
+
+    // Le gain est décidé ici, au moment de l'achat. Il sera versé à la déclaration.
+    const tickets: PendingTicket[] = [];
+    for (let i = 0; i < qty; i++) {
+      // Le premier ticket acheté par un compte gagne toujours 5 fois son prix.
+      const first = p.stats.tickets === 0 && i === 0;
+      const gain = first ? def.price * FIRST_TICKET_MULTIPLIER : drawGain(def, deps.random32);
+      tickets.push({ id: newTicketId(deps.random32), type: def.id, gain, seed: deps.random32() >>> 0, at: now });
+    }
+    p.balance -= cost;
+    p.pending.push(...tickets);
+    p.stats.tickets += qty;
+    p.stats.wagered = safeAdd(p.stats.wagered, cost);
+    p.lastBuyAt = now;
+    p.day = today;
+    p.dayTickets = boughtToday + qty;
+    return commit(tickets);
+  });
+  return json({ tickets: result, state });
+}
+
+/**
+ * POST /api/tickets/house { ack? } → { tickets, state }
+ * Le coup de pouce de la maison : un exemplaire du ticket le moins cher du meilleur
+ * lieu débloqué, toujours gagnant, qui rapporte 3 fois son prix.
+ */
+export async function houseTicket(req: Request, deps: Deps): Promise<Response> {
+  const body = await readBody(req);
+  const ack = readAck(body);
+  const { result, state } = await writePlayer(req, deps, ack, (p, now) => {
+    const standing = standingOf(p.owned, p.kiosk);
+    // Conditions vérifiées après `ack` : aucun ticket en attente, solde trop court.
+    if (!houseEligible({ balance: p.balance, pendingCount: p.pending.length, standing })) {
+      fail("HOUSE_NOT_ELIGIBLE");
+    }
+    if (now - p.lastHouseAt < HOUSE_COOLDOWN_MS) {
+      fail("HOUSE_NOT_ELIGIBLE", "La maison prépare ton ticket. Réessaie dans un instant.");
+    }
+    const def = houseTicketDef(standing);
+    const ticket: PendingTicket = {
+      id: newTicketId(deps.random32), type: def.id, gain: def.price * HOUSE_MULTIPLIER,
+      seed: deps.random32() >>> 0, house: true, at: now,
+    };
+    p.pending.push(ticket);
+    p.stats.tickets += 1;
+    p.lastHouseAt = now;
+    return commit([ticket]);
+  });
+  return json({ tickets: result, state });
+}
+
+/** POST /api/tickets/ack { ack } → { state } */
+export async function ackTickets(req: Request, deps: Deps): Promise<Response> {
+  const body = await readBody(req);
+  const ack = readAck(body, true);
+  const { state } = await writePlayer(req, deps, ack, (_p, _now, paid) => (paid > 0 ? commit(null) : unchanged(null)));
+  return json({ state });
+}
