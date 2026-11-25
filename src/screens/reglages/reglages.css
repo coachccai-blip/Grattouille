@@ -1,0 +1,99 @@
+/* Réglages et à propos. */
+
+.reglages { padding-bottom: calc(var(--bas) + var(--e7)); }
+
+.reglages .rubrique:first-of-type {
+  gap: 0;
+  margin-top: var(--e2);
+}
+
+.reglages .rubrique__titre {
+  color: var(--ecume);
+  font: 700 20px/24px var(--texte);
+}
+
+.reglages__sous-titre {
+  margin: var(--e2) 0 0;
+  font: 700 16px/24px var(--texte);
+}
+
+.reglages .bouton--secondaire {
+  align-self: flex-start;
+  gap: 8px;
+}
+
+.reglages .bouton--secondaire .bouton__texte {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Le code de récupération : gros, espacé, facile à recopier. */
+.code {
+  display: block;
+  padding: 16px 12px;
+  border: 2px dashed var(--mimosa);
+  border-radius: 6px;
+  background: #0A242D;
+  color: var(--mimosa);
+  font: 700 clamp(18px, 5.4vw, 22px)/28px var(--texte);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+  text-align: center;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+.carnet-de-bord {
+  display: flex;
+  flex-direction: column;
+}
+
+.carnet-de-bord > div {
+  display: flex;
+  gap: var(--e3);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(180, 205, 208, .22);
+}
+
+.carnet-de-bord dt { color: var(--brume); }
+
+.carnet-de-bord dd {
+  font-weight: 700;
+  text-align: right;
+}
+
+/* Le numéro reste dans la phrase, avec une cible de toucher de 48 px. */
+.reglages__numero {
+  display: inline-block;
+  margin: -12px -6px;
+  padding: 12px 6px;
+  color: var(--mimosa);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reglages__danger {
+  margin-top: var(--e7);
+  padding-top: var(--e5);
+  border-top: 1px solid rgba(180, 205, 208, .22);
+}
+
+.reglages__suppression {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+
+.reglages__supprimer {
+  background: var(--cerise);
+  color: #fff;
+  box-shadow: 0 4px 0 #7E1C24;
+}
+
+.reglages__supprimer:active:not(:disabled) {
+  box-shadow: 0 1px 0 #7E1C24;
+  transform: translateY(3px);
+}

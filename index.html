@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <!-- csp -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Grattouille</title>
+    <meta name="description" content="Grattouille : un jeu de fiction de tickets à gratter. Aucun argent réel. Réservé aux adultes." />
+    <meta name="theme-color" content="#0E2F3A" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icone-192.png" sizes="192x192" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Grattouille" />
+    <meta name="application-name" content="Grattouille" />
+    <meta name="format-detection" content="telephone=no" />
+    <style>
+      /* Premier chargement : logo et pièce qui tourne, avant même le script. */
+      html, body { margin: 0; height: 100%; background: #0E2F3A; }
+      .amorce {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 24px; background: #0E2F3A; color: #E6F2F0;
+        font: 400 40px/44px "Abril Fatface", Georgia, serif;
+      }
+      .amorce__piece {
+        width: 40px; height: 40px; border-radius: 50%; background: #F7C948;
+        box-shadow: inset -4px -4px 0 #B88A14; animation: amorce 1s ease-in-out infinite;
+      }
+      .amorce__mention { font: 500 12px/16px system-ui, sans-serif; color: #B4CDD0; }
+      @keyframes amorce { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.12); } }
+      @media (prefers-reduced-motion: reduce) { .amorce__piece { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="amorce" role="status" aria-label="Chargement de Grattouille">
+        <span aria-hidden="true">Grattouille</span>
+        <span class="amorce__piece" aria-hidden="true"></span>
+        <span class="amorce__mention">Jeu de fiction. Aucun argent réel.</span>
+      </div>
+    </div>
+    <noscript>
+      <p style="padding: 24px; color: #E6F2F0; font: 16px/24px system-ui, sans-serif;">
+        Grattouille a besoin de JavaScript pour fonctionner. Active-le, puis recharge la page.
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

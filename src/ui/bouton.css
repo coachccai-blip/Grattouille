@@ -1,0 +1,108 @@
+/* Boutons (BRIEF.md, section 13.5). Cibles tactiles de 48 px au moins. */
+
+.bouton {
+  position: relative;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 24px;
+  overflow: hidden;
+  border-radius: 99px;
+  font: 700 20px/24px var(--texte);
+  text-align: center;
+  text-decoration: none;
+  transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear, opacity var(--t-bascule) linear;
+}
+
+.bouton--bloc {
+  display: flex;
+  width: 100%;
+}
+
+.bouton__texte {
+  position: relative;
+  padding: 8px 0;
+}
+
+/* Principal : pilule mimosa, texte nuit, tranche pleine de 4 px, sans flou. */
+.bouton--principal {
+  background: var(--mimosa);
+  color: var(--nuit);
+  box-shadow: 0 4px 0 var(--mimosa-fonce);
+}
+
+/* Enfoncé : 3 px, en 80 ms. */
+.bouton--principal:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--mimosa-fonce);
+  transform: translateY(3px);
+}
+
+/* Désactivé : opacité 40 %, sans tranche. */
+.bouton:disabled {
+  box-shadow: none;
+  opacity: .4;
+}
+
+/* En attente : la pièce tourne. */
+.bouton--attente:disabled { opacity: 1; }
+.bouton--principal.bouton--attente:disabled { box-shadow: 0 4px 0 var(--mimosa-fonce); }
+.bouton--attente .bouton__texte { opacity: .55; }
+
+.bouton__piece {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  animation: piece-tourne 800ms ease-in-out infinite;
+}
+
+/* Secondaire : contour de 2 px, texte seul. */
+.bouton--secondaire {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 2px solid currentColor;
+  color: var(--ecume);
+  font: 500 16px/20px var(--texte);
+}
+
+.bouton--secondaire:active:not(:disabled) { transform: translateY(2px); }
+
+.sur-papier .bouton--secondaire,
+.papier .bouton--secondaire { color: var(--nuit); }
+
+.bouton--texte {
+  min-height: 48px;
+  padding: 0 12px;
+  color: inherit;
+  font: 500 16px/20px var(--texte);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.bouton--texte:active:not(:disabled) { opacity: .7; }
+
+/* Maintenir pour acheter : le bouton se remplit. */
+.bouton__jauge {
+  position: absolute;
+  inset: 0;
+  background: var(--mimosa-fonce);
+  opacity: .55;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 120ms linear;
+}
+
+.bouton--tenu .bouton__jauge {
+  transform: scaleX(1);
+  transition: transform var(--duree, 600ms) linear;
+}
+
+.bouton--maintenir {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}

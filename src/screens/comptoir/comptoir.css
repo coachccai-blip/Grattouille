@@ -1,0 +1,214 @@
+/* Le comptoir : le décor du lieu en fond, le carrousel de tickets, puis le zinc où
+   sont posés tous les boutons. */
+
+.comptoir {
+  gap: var(--e3);
+  padding-bottom: 0;
+  overflow-x: hidden;
+  color: var(--nuit);
+}
+
+.comptoir--ecume { color: var(--ecume); }
+
+/* Le dégradé du Casino passe par un rose moyen où rien n'est lisible : le titre y
+   est posé sur un bandeau nuit (section 4.2). */
+.comptoir--bandeau { color: var(--ecume); }
+
+.comptoir--bandeau .comptoir__haut {
+  margin: calc((var(--haut) + var(--e2)) * -1) calc(var(--e4) * -1) 0;
+  padding: calc(var(--haut) + var(--e2)) var(--e4) 0;
+  background: var(--nuit);
+}
+
+.comptoir__hote { flex: none; }
+
+.carrousel {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0 calc(var(--e4) * -1);
+  padding: 8px 0 12px;
+  touch-action: pan-y;
+}
+
+.carrousel__piste {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  transition: transform var(--t-ecran) var(--sortie);
+}
+
+.carrousel__ticket {
+  flex: none;
+  border-radius: 10px;
+  opacity: .78;
+  transform: scale(.8);
+  transition: transform var(--t-ecran) var(--sortie), opacity var(--t-ecran) var(--sortie);
+}
+
+.carrousel__ticket--choisi {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Le zinc : un comptoir nuit bordé de laiton. Texte écume, lisible dans tous les lieux. */
+.comptoir__zinc {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0 calc(var(--e4) * -1);
+  padding: var(--e2) var(--e4) calc(var(--bas) + var(--e3));
+  border-top: 4px solid transparent;
+  background: linear-gradient(var(--nuit), var(--nuit)) padding-box, var(--laiton) border-box;
+  color: var(--ecume);
+}
+
+.comptoir__infos {
+  display: flex;
+  gap: var(--e2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.comptoir__infos .bouton { margin-right: -12px; }
+
+.comptoir__carnets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e2);
+}
+
+.comptoir__carnets .bouton { padding: 0 10px; }
+
+.comptoir__zinc > .bouton--texte { align-self: center; }
+
+.comptoir__piou { margin-bottom: 4px; }
+
+/* ---------------------------------------------------------------- Fiche d'un ticket */
+
+.fiche-ticket__tete {
+  display: flex;
+  gap: var(--e3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.fiche-ticket__prix {
+  flex: none;
+  padding: 4px 14px;
+  border-radius: 99px;
+  background: var(--nuit);
+  color: var(--ivoire);
+  font: 700 20px/24px var(--texte);
+}
+
+.fiche-ticket p { margin-top: var(--e3); }
+
+.fiche-ticket .jauge {
+  margin-top: var(--e2);
+  color: var(--encre-douce);
+}
+
+.lots {
+  width: 100%;
+  margin-top: var(--e4);
+  border-collapse: collapse;
+  font: 400 16px/24px var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+
+.lots caption {
+  padding-bottom: 6px;
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
+  text-align: left;
+}
+
+.lots th,
+.lots td {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(14, 47, 58, .16);
+}
+
+.lots th {
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
+  text-align: left;
+}
+
+.lots td:last-child,
+.lots th:last-child { text-align: right; }
+
+.lots td:first-child { font-weight: 700; }
+.lots tr.lots__perdu td:first-child { color: var(--encre-douce); font-weight: 400; }
+
+.fiche-ticket__acheter { margin-top: var(--e5); }
+
+/* ---------------------------------------------------------------- À gratter */
+
+.a-gratter { gap: var(--e4); }
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Chaque ticket en attente : un talon, avec sa perforation. */
+.pile__ticket {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 14px 6px 10px;
+  border-left: 3px dashed rgba(14, 47, 58, .4);
+  border-radius: 6px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  text-align: left;
+  box-shadow: 0 3px 0 rgba(6, 24, 30, .5);
+  transition: transform var(--t-appui) linear;
+}
+
+.pile__ticket:active { transform: translateY(2px); }
+
+.pile__vignette {
+  flex: none;
+  width: 60px;
+}
+
+.pile__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 700 16px/20px var(--texte);
+}
+
+.pile__nom small {
+  display: block;
+  color: var(--persienne-fonce);
+  font: 500 12px/16px var(--texte);
+}
+
+.pile__prix {
+  flex: none;
+  font: 500 14px/20px var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+
+.a-gratter__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin-top: auto;
+  padding: var(--e3) 0 calc(var(--bas) + var(--e2));
+  background: linear-gradient(to bottom, transparent, var(--nuit) 18px);
+}

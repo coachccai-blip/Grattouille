@@ -1,0 +1,197 @@
+/* Classement : un podium, puis des plaques de laiton vissées. */
+
+.classement { gap: var(--e3); }
+
+.classement__tirer {
+  overflow: hidden;
+  color: var(--brume);
+  font: 500 14px/20px var(--texte);
+  text-align: center;
+}
+
+.classement__tourne { animation: tourne 900ms linear infinite; }
+
+.classement__vide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  align-items: center;
+  margin: var(--e7) 0;
+  color: var(--brume);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- Podium */
+
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: var(--e2);
+  align-items: end;
+  margin-top: var(--e2);
+}
+
+.podium__place {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0 4px 10px;
+  border-radius: 6px 6px 0 0;
+  background: var(--lagune);
+  text-align: center;
+}
+
+/* Le premier est au centre, plus haut. */
+.podium__place--1 { order: 2; padding-bottom: 26px; }
+.podium__place--2 { order: 1; }
+.podium__place--3 { order: 3; }
+
+.podium__avatar {
+  width: 86%;
+  margin-top: -18%;
+}
+
+.podium__rang {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--laiton);
+  color: var(--nuit);
+  font: 700 16px/1 var(--texte);
+}
+
+.podium__nom {
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  font: 700 16px/20px var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium__fortune {
+  color: var(--mimosa);
+  font: 700 16px/24px var(--texte);
+  white-space: nowrap;
+}
+
+.podium__place--toi {
+  background: var(--ivoire);
+  color: var(--nuit);
+}
+
+.podium__place--toi .podium__fortune { color: var(--persienne-fonce); }
+
+/* Les propriétaires du Kiosque portent un liseré d'or. */
+.podium__place--kiosque { box-shadow: inset 0 0 0 3px #F2C94C; }
+
+/* ---------------------------------------------------------------- Plaques de rang */
+
+.plaques {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Plaque de rang : bande de laiton mat, deux vis, rayon de 4 px. */
+.plaque {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 4px 18px;
+  border-radius: 4px;
+  background: linear-gradient(170deg, #D9B866 0%, #B98F38 55%, #9C7526 100%);
+  color: var(--nuit);
+}
+
+.plaque::before,
+.plaque::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6B4E14;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, .35);
+  transform: translateY(-50%);
+}
+
+.plaque::before { left: 6px; }
+.plaque::after { right: 6px; }
+
+.plaque__rang {
+  flex: none;
+  min-width: 30px;
+  font: 700 16px/24px var(--texte);
+  text-align: right;
+}
+
+.plaque__avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--lagune);
+}
+
+.plaque__avatar svg { width: 100%; height: 100%; }
+
+.plaque__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font: 700 16px/24px var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plaque__standing {
+  flex: none;
+  color: #6E1239;
+  font: 700 14px/20px var(--texte);
+  white-space: nowrap;
+}
+
+.plaque__fortune {
+  flex: none;
+  font: 700 16px/24px var(--texte);
+  white-space: nowrap;
+}
+
+/* Toi : fond ivoire. */
+.plaque--toi { background: var(--ivoire); }
+.plaque--toi .plaque__standing { color: var(--bougainvillier-fonce); }
+
+/* Propriétaire du Kiosque : liseré d'or. */
+.plaque--kiosque { box-shadow: inset 0 0 0 3px #FFE9A6, 0 0 0 2px #B88A14; }
+
+.classement__epingle {
+  position: sticky;
+  bottom: calc(var(--bas) + var(--onglets) + 14px);
+  z-index: 10;
+  margin-top: auto;
+}
+
+.plaque--epinglee { box-shadow: 0 6px 16px rgba(6, 24, 30, .6); }
+
+.classement__hors {
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 500 14px/20px var(--texte);
+  box-shadow: 0 6px 16px rgba(6, 24, 30, .6);
+}

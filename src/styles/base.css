@@ -1,0 +1,257 @@
+/* Socle : remise à plat, typographie, gabarit de l'application (BRIEF.md, section 13). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  /* Rien ne doit élargir la page : sur mobile, un débord horizontal dézoome tout l'écran. */
+  overflow-x: hidden;
+  background: var(--nuit);
+  color: var(--ecume);
+  font-family: var(--texte);
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--nuit);
+  overscroll-behavior-y: none;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+a {
+  color: inherit;
+}
+
+svg {
+  display: block;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--mimosa);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sur-papier :focus-visible {
+  outline-color: var(--nuit);
+}
+
+/* Rôles typographiques (section 13.3). Rien en dessous de 12 px. */
+.t-jackpot { font: 400 64px/64px var(--titre); }
+.t-gain { font: 400 40px/44px var(--titre); }
+.t-titre { font: 400 28px/32px var(--titre); }
+.t-fort { font: 700 20px/24px var(--texte); }
+.t-courant { font: 400 16px/24px var(--texte); }
+.t-second { font: 400 14px/20px var(--texte); }
+.t-mention { font: 500 12px/16px var(--texte); }
+
+.chiffres {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.invisible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Gabarit : une colonne de 480 px au plus, centrée. Au-delà, le fond continue. */
+#root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--colonne);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+}
+
+.ecran {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--haut) + var(--e2)) calc(var(--droite) + var(--e4)) calc(var(--bas) + var(--e4)) calc(var(--gauche) + var(--e4));
+  animation: ecran-entre var(--t-ecran) var(--sortie) both;
+}
+
+.ecran--onglets {
+  padding-bottom: calc(var(--bas) + var(--onglets) + var(--e5));
+}
+
+@keyframes ecran-entre {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fondu {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tourne {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes piece-tourne {
+  0% { transform: scaleX(1); }
+  50% { transform: scaleX(.12); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes rebond {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* Papier : le grain recouvre les grandes surfaces, depuis une seule texture. */
+.papier {
+  position: relative;
+  background-color: var(--ivoire);
+  color: var(--nuit);
+}
+
+.papier::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--grain);
+  background-size: 128px 128px;
+  mix-blend-mode: multiply;
+  opacity: .5;
+  pointer-events: none;
+}
+
+/* Animations d'ambiance du domaine : une seule par décor, lente (section 9.4). */
+.amb-scintille { animation: amb-scintille 5s ease-in-out infinite; }
+.amb-flotte { animation: amb-flotte 6s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 50%; }
+.amb-vacille { animation: amb-vacille 7s linear infinite; }
+
+@keyframes amb-scintille {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
+@keyframes amb-flotte {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-7deg) scaleX(.94); }
+}
+
+@keyframes amb-vacille {
+  0%, 100% { opacity: 1; }
+  42% { opacity: 1; }
+  45% { opacity: .55; }
+  48% { opacity: .95; }
+  71% { opacity: .7; }
+  74% { opacity: 1; }
+}
+
+/* Animations réduites : réglage du jeu ou préférence du système (section 14.1).
+   Fondus de 200 ms, pas de boucle, pas de déplacement. */
+.calme *,
+.calme *::before,
+.calme *::after {
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+.calme .ecran {
+  animation: fondu 200ms linear both;
+}
+
+.calme .amb-scintille,
+.calme .amb-flotte,
+.calme .amb-vacille {
+  animation: none;
+}
+
+/* Paysage sur téléphone : « Tourne ton téléphone. » (section 17.3) */
+.paysage {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 480px) and (pointer: coarse) {
+  .paysage {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e4);
+    align-items: center;
+    justify-content: center;
+    background: var(--nuit);
+    color: var(--ecume);
+    text-align: center;
+  }
+
+  .paysage svg {
+    width: 56px;
+    height: 56px;
+  }
+}

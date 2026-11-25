@@ -1,0 +1,58 @@
+/* Planche de contrôle : un outil de travail, pas un écran du jeu. */
+
+#root:has(.planche) { max-width: none; }
+
+.planche {
+  padding: 24px;
+  color: var(--ecume);
+}
+
+.planche h2 {
+  margin: 32px 0 12px;
+  font: 700 20px/24px var(--texte);
+}
+
+.planche__grille,
+.planche__avatars,
+.planche__tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.planche__avatars { grid-template-columns: repeat(5, minmax(96px, 150px)); }
+.planche__grille--petit { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+.planche__grille--moyen { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.planche__grille--large { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+.planche__tickets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.tuile { margin: 0; }
+
+.tuile__dessin {
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--lagune);
+  background-size: 100% 100%;
+}
+
+.tuile__motif {
+  margin-top: 4px;
+  padding: 18px 12px;
+  border-radius: 6px;
+  font: 500 14px/20px var(--texte);
+}
+
+.tuile figcaption {
+  padding-top: 4px;
+  color: var(--brume);
+  font: 500 12px/16px var(--texte);
+  overflow-wrap: anywhere;
+}
+
+.tuile--manque figcaption { color: var(--cerise-clair); }

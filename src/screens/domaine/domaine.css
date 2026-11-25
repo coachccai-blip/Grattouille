@@ -1,0 +1,248 @@
+/* Le Domaine et le dressing. */
+
+.domaine { gap: var(--e3); }
+
+/* La scène : le ciel du meilleur lieu débloqué, puis ce que le joueur possède. */
+.domaine__scene {
+  position: relative;
+  flex: none;
+  height: clamp(220px, 40vh, 320px);
+  margin: 0 calc(var(--e4) * -1);
+  overflow: hidden;
+  border-bottom: 4px solid #0A242D;
+  background-size: 100% 100%;
+}
+
+.domaine__residence {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(100%, 440px);
+  transform: translateX(-50%);
+}
+
+.domaine__vehicule {
+  position: absolute;
+  bottom: 3%;
+  left: 2%;
+  width: 34%;
+  min-height: 48px;
+}
+
+.domaine__a-pied {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(14, 47, 58, .78);
+  color: var(--ecume);
+  font: 500 12px/16px var(--texte);
+}
+
+.domaine__avatar {
+  position: absolute;
+  bottom: -5%;
+  left: 50%;
+  z-index: 2;
+  width: clamp(128px, 38%, 180px);
+  transform: translateX(-50%);
+  transition: transform var(--t-appui) linear;
+}
+
+.domaine__avatar:active { transform: translateX(-50%) scale(.97); }
+
+/* Les trésors, exposés sur une console : 3 à l'écran au plus. */
+.domaine__tresors {
+  position: absolute;
+  right: 2%;
+  bottom: 4%;
+  width: 28%;
+  /* Les trésors se regardent : un toucher passe à la résidence, derrière. */
+  pointer-events: none;
+}
+
+.domaine__tresors-rang {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.domaine__tresors-rang svg,
+.domaine__tresors-rang img {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 44px;
+}
+
+.domaine__console {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--laiton);
+  box-shadow: 0 3px 0 rgba(14, 47, 58, .45);
+}
+
+.domaine__identite {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.domaine__fortune { color: var(--brume); }
+.domaine__fortune strong { color: var(--mimosa); font-weight: 700; }
+
+/* Carte d'objectif : une plaque de rue émaillée, vissée aux quatre coins. */
+.objectif {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 20px 16px;
+  border: 2px solid var(--ecume);
+  border-radius: 6px;
+  background: var(--lagune);
+  color: var(--ecume);
+  text-align: left;
+  box-shadow: inset 0 0 0 3px var(--lagune), inset 0 0 0 4px rgba(230, 242, 240, .35);
+}
+
+.objectif::before,
+.objectif::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--laiton);
+  transform: translateY(-50%);
+}
+
+.objectif::before { left: 7px; }
+.objectif::after { right: 7px; }
+
+.objectif__titre { font: 700 20px/24px var(--texte); }
+
+.objectif__compte {
+  margin-bottom: 4px;
+  color: var(--brume);
+  font: 400 14px/20px var(--texte);
+}
+
+.objectif--kiosque {
+  border-color: var(--mimosa);
+  background: #0A242D;
+}
+
+.objectif--kiosque .objectif__titre,
+.objectif--patron .objectif__titre { color: var(--mimosa); }
+
+.objectif--patron { border-color: var(--mimosa); }
+
+/* Le rappel des tickets en attente : un talon de ticket. */
+.talon-lien {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px 0 20px;
+  border-left: 3px dashed rgba(14, 47, 58, .45);
+  border-radius: 6px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 700 16px/24px var(--texte);
+  text-align: left;
+  box-shadow: 0 4px 0 rgba(6, 24, 30, .5);
+  transition: transform var(--t-appui) linear;
+}
+
+.talon-lien:active { transform: translateY(2px); }
+.talon-lien > span { flex: 1 1 auto; }
+.talon-lien > svg:first-child { color: var(--bougainvillier-fonce); --icone-fond: var(--ivoire); }
+
+.conseil .bulle__texte { flex: 1 1 auto; }
+.conseil .bouton { display: flex; margin: 2px 0 -6px -12px; color: var(--persienne-fonce); }
+.conseil__actions { display: flex; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- Dressing */
+
+.dressing { gap: var(--e3); }
+
+.dressing__miroir {
+  flex: none;
+  align-self: center;
+  width: min(62%, 240px);
+  padding: 8px 8px 0;
+  border: 4px solid transparent;
+  border-radius: 120px 120px 8px 8px;
+  background: linear-gradient(#1E6470, var(--lagune)) padding-box, var(--laiton) border-box;
+}
+
+.dressing__onglets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.dressing__onglet {
+  min-height: 48px;
+  border-bottom: 3px solid transparent;
+  color: var(--brume);
+  font: 500 14px/20px var(--texte);
+}
+
+.dressing__onglet[aria-selected="true"] {
+  border-bottom-color: var(--mimosa);
+  color: var(--mimosa);
+}
+
+.choix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--e2);
+}
+
+.choix__article {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 104px;
+  padding: 8px 6px;
+  border: 2px solid transparent;
+  border-radius: 6px 6px 6px 18px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 500 12px/16px var(--texte);
+  text-align: center;
+  transition: transform var(--t-appui) linear, border-color var(--t-bascule) var(--sortie);
+}
+
+.choix__article svg,
+.choix__article img {
+  width: 100%;
+  max-height: 64px;
+}
+
+.choix__article:active { transform: scale(.97); }
+
+.choix__article[aria-pressed="true"] {
+  border-color: var(--mimosa);
+  box-shadow: 0 0 0 2px var(--mimosa);
+}
+
+.choix__rien {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+  color: var(--encre-douce);
+}
+
+.dressing .especes__grille { margin-top: 0; }

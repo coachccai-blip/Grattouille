@@ -1,0 +1,68 @@
+/* Jetons de design (BRIEF.md, section 13).
+   Une Riviera vue de nuit depuis la baie : fond bleu profond, papier ivoire pour
+   tout ce qui est en papier, jaune mimosa pour l'argent, rose bougainvillier pour
+   le Standing et la fête, vert persienne pour dire « tu peux ». */
+
+:root {
+  /* Fonds et textes */
+  --nuit: #0E2F3A;                /* fond de l'application ; encre sur papier */
+  --lagune: #17505C;              /* surfaces posées sur le fond nuit */
+  --ecume: #E6F2F0;               /* texte principal sur fond sombre */
+  --brume: #B4CDD0;               /* texte secondaire sur fond sombre */
+  --ivoire: #FFF7E6;              /* papier : tickets, étiquettes, feuilles */
+  --encre-douce: #4A6670;         /* texte secondaire sur papier */
+
+  /* Sens */
+  --mimosa: #F7C948;              /* argent, gains, action principale */
+  --mimosa-fonce: #B88A14;        /* tranche des boutons et des pièces, jamais du texte */
+  --bougainvillier: #D9457A;      /* Standing, fête : grandes formes et icônes */
+  --bougainvillier-fonce: #B02A5F;/* le même, pour du texte sur papier */
+  --bougainvillier-clair: #F08DB1;/* le même, pour du texte sur fond sombre */
+  --persienne: #2F8F72;           /* « tu peux » : formes et icônes */
+  --persienne-fonce: #1F6F57;     /* texte sur papier */
+  --persienne-clair: #5FC9A6;     /* texte sur fond sombre */
+  --cerise: #C8323C;              /* erreur, somme manquante, sur papier */
+  --cerise-clair: #FF8A8F;        /* le même sur fond sombre */
+
+  /* Métaux : les seuls dégradés de l'interface */
+  --laiton: linear-gradient(160deg, #F3D58A 0%, #C99A3A 45%, #8F6A1F 100%);
+  --encre-argent: linear-gradient(135deg, #C9CED4 0%, #F1F3F5 40%, #AEB5BC 60%, #D9DDE1 100%);
+  --or: linear-gradient(150deg, #FFF0B8 0%, #F2C94C 38%, #D9A520 62%, #9A6F0E 100%);
+
+  /* Typographie */
+  --titre: "Abril Fatface", "Bodoni 72", "Didot", Georgia, serif;
+  --texte: "Jost", "Futura", "Century Gothic", "Trebuchet MS", system-ui, sans-serif;
+
+  /* Espaces : 4, 8, 12, 16, 24, 32, 48 */
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 24px;
+  --e6: 32px;
+  --e7: 48px;
+
+  /* Ombres : teintées de nuit, jamais grises */
+  --ombre-papier: 0 10px 24px rgba(14, 47, 58, .35);
+  --ombre-posee: 0 4px 10px rgba(14, 47, 58, .3);
+
+  /* Mouvement */
+  --sortie: cubic-bezier(.2, .8, .2, 1);
+  --rebond: cubic-bezier(.34, 1.56, .64, 1);
+  --t-appui: 80ms;
+  --t-bascule: 160ms;
+  --t-ecran: 280ms;
+  --t-ticket: 600ms;
+  --t-rebond: 300ms;
+
+  /* Gabarit */
+  --colonne: 480px;
+  --onglets: 64px;
+  --haut: env(safe-area-inset-top, 0px);
+  --bas: env(safe-area-inset-bottom, 0px);
+  --gauche: env(safe-area-inset-left, 0px);
+  --droite: env(safe-area-inset-right, 0px);
+
+  /* Grain de papier : une texture rendue une seule fois au lancement (src/fx/grain.ts). */
+  --grain: none;
+}

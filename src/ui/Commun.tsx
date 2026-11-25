@@ -1,0 +1,221 @@
+// Petits composants communs (BRIEF.md, section 13.5) : en-tête d'écran, barre
+// d'onglets, message bref, bulle de personnage, jauge de tempérament, interrupteur.
+
+import type { ReactNode } from "react";
+import { TEMPERAMENT_LABELS } from "../../shared/economy";
+import type { Temperament } from "../../shared/types";
+import type { Line } from "../app/dialogues";
+import { nav, type Tab } from "../app/nav";
+import { dismissToast, toScratch, useGame } from "../app/store";
+import { Portrait } from "../art/Illustration";
+import { Etoile, Icon, type IconName } from "../art/icons";
+import { playTap, unlockAudio } from "../fx/audio";
+import { cx } from "../ticket/parts";
+import "./commun.css";
+
+/** Une phrase où chaque ★ devient l'étoile du Standing. */
+export function Phrase({ text }: { text: string }) {
+  const parts = text.split("★");
+  if (parts.length === 1) return <>{text}</>;
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {i > 0 && (
+            <>
+              <Etoile />
+              <span className="invisible">étoiles</span>
+            </>
+          )}
+          {part}
+        </span>
+      ))}
+    </>
+  );
+}
+
+interface EnteteProps {
+  titre: string;
+  /** Flèche de retour à gauche. */
+  retour?: boolean;
+  gauche?: ReactNode;
+  droite?: ReactNode;
+  /** Titre masqué à l'œil, mais lu. */
+  titreDiscret?: boolean;
+  /** Titre sur sa propre ligne, sous la barre : pour les noms longs. */
+  grand?: boolean;
+}
+
+export function Entete({ titre, retour = false, gauche, droite, titreDiscret = false, grand = false }: EnteteProps) {
+  const title = <h1 className={cx("entete__titre", titreDiscret && "invisible", grand && "entete__titre--grand")}>{titre}</h1>;
+  return (
+    <header className={cx("entete", grand && "entete--grand")}>
+      <div className="entete__barre">
+        {retour && (
+          <button type="button" className="entete__bouton entete__retour" onClick={() => nav.back()} aria-label="Retour">
+            <Icon name="retour" />
+          </button>
+        )}
+        {gauche}
+        {!grand && title}
+        {droite && <div className="entete__droite">{droite}</div>}
+      </div>
+      {grand && title}
+    </header>
+  );
+}
+
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: "domaine", label: "Domaine", icon: "domaine" },
+  { id: "promenade", label: "Jouer", icon: "jouer" },
+  { id: "boutiques", label: "Boutiques", icon: "boutiques" },
+  { id: "classement", label: "Classement", icon: "classement" },
+];
+
+/** Quatre onglets, icône et mot. « Jouer » porte une pastille mimosa plus grande. */
+export function Onglets({ actif }: { actif: Tab | null }) {
+  const waiting = useGame((s) => toScratch(s).length);
+  return (
+    <nav className="onglets" aria-label="Navigation principale">
+      {TABS.map((tab) => {
+        const active = tab.id === actif;
+        const jouer = tab.id === "promenade";
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={cx("onglet", active && "onglet--actif", jouer && "onglet--jouer")}
+            aria-current={active ? "page" : undefined}
+            onPointerDown={() => {
+              unlockAudio();
+              playTap();
+            }}
+            onClick={() => nav.tab(tab.id)}
+          >
+            <span className="onglet__pastille">
+              <Icon name={tab.icon} plein={active || jouer} size={jouer ? 30 : 26} />
+              {jouer && waiting > 0 && <span className="onglet__compte" aria-hidden="true">{waiting}</span>}
+            </span>
+            <span className="onglet__mot">
+              {tab.label}
+              {jouer && waiting > 0 && <span className="invisible">, {waiting} à gratter</span>}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Message bref : bandeau au-dessus des onglets, 3 secondes. Information ou erreur. */
+export function Message({ onglets }: { onglets: boolean }) {
+  const toast = useGame((s) => s.toast);
+  if (!toast) return <div className="invisible" role="status" aria-live="polite" />;
+  return (
+    <div
+      key={toast.id}
+      className={cx("message", toast.kind === "erreur" && "message--erreur", onglets && "message--onglets")}
+      role={toast.kind === "erreur" ? "alert" : "status"}
+      onClick={dismissToast}
+    >
+      <Phrase text={toast.text} />
+    </div>
+  );
+}
+
+/** Bandeau hors connexion. */
+export function HorsLigne() {
+  const online = useGame((s) => s.online);
+  if (online) return null;
+  return (
+    <div className="hors-ligne" role="status">
+      <Icon name="hors-ligne" size={20} />
+      <span>Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.</span>
+    </div>
+  );
+}
+
+/** Bulle de personnage : portrait rond de l'hôte et une phrase. */
+export function Bulle({ line, className }: { line: Line | null; className?: string }) {
+  if (!line) return null;
+  return (
+    <div className={cx("bulle", className)}>
+      <Portrait pnj={line.speaker} />
+      <p className="bulle__texte">
+        <span className="bulle__nom">{line.name}</span>
+        {line.gesture ? <em className="bulle__geste">{line.text}</em> : <>«&nbsp;{line.text}&nbsp;»</>}
+      </p>
+    </div>
+  );
+}
+
+/** La même bulle, pour un texte libre (Piou). */
+export function BulleLibre({ pnj, nom, children, className }: { pnj: string; nom: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cx("bulle", className)}>
+      <Portrait pnj={pnj} />
+      <p className="bulle__texte">
+        <span className="bulle__nom">{nom}</span>
+        {children}
+      </p>
+    </div>
+  );
+}
+
+const GAUGE: Record<Temperament, number> = { pepere: 1, joueur: 2, "casse-cou": 3 };
+
+/** Jauge de tempérament : trois pastilles, dont une, deux ou trois pleines, et le mot à côté. */
+export function Jauge({ temperament }: { temperament: Temperament }) {
+  const level = GAUGE[temperament];
+  return (
+    <span className="jauge">
+      <span className="jauge__pastilles" aria-hidden="true">
+        {[1, 2, 3].map((i) => <span key={i} className={cx("jauge__pastille", i <= level && "jauge__pastille--pleine")} />)}
+      </span>
+      <span>tempérament : {TEMPERAMENT_LABELS[temperament]}</span>
+    </span>
+  );
+}
+
+interface InterrupteurProps {
+  label: string;
+  aide?: string;
+  icon: IconName;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+export function Interrupteur({ label, aide, icon, checked, onChange }: InterrupteurProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className={cx("interrupteur", checked && "interrupteur--actif")}
+      onClick={() => {
+        unlockAudio();
+        playTap();
+        onChange(!checked);
+      }}
+    >
+      <Icon name={icon} className="interrupteur__icone" />
+      <span className="interrupteur__texte">
+        <span>{label}</span>
+        {aide && <span className="interrupteur__aide">{aide}</span>}
+      </span>
+      <span className="interrupteur__rail" aria-hidden="true">
+        <span className="interrupteur__bouton" />
+      </span>
+    </button>
+  );
+}
+
+/** Barre de progression, pour la carte d'objectif. */
+export function Barre({ value, max }: { value: number; max: number }) {
+  const ratio = max <= 0 ? 1 : Math.max(0, Math.min(1, value / max));
+  return (
+    <span className="barre" role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(value, max)}>
+      <span className="barre__plein" style={{ transform: `scaleX(${ratio})` }} />
+    </span>
+  );
+}

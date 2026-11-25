@@ -1,0 +1,339 @@
+/* En-tête, onglets, message bref, bulle, jauge, interrupteur (BRIEF.md, section 13.5). */
+
+/* ---------------------------------------------------------------- En-tête */
+
+.entete {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
+
+.entete__barre {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+}
+
+.entete__titre {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font: 400 clamp(24px, 6.6vw, 28px)/32px var(--titre);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nom long : il a sa propre ligne, et peut passer sur deux. */
+.entete__titre--grand {
+  overflow: visible;
+  font-size: 28px;
+  text-wrap: balance;
+  white-space: normal;
+}
+
+.entete__bouton {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: inherit;
+}
+
+.entete__retour { margin-left: -12px; }
+
+.entete__bouton:active { transform: scale(.92); }
+
+/* La bourse et le Standing. Quand ils ne tiennent plus côte à côte (écran très
+   étroit, texte agrandi, fortune à rallonge), le Standing passe sous la bourse. */
+.entete__droite {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: min-content;
+  margin-left: auto;
+}
+
+/* Sans titre visible, la droite garde sa place à droite. */
+.entete__titre.invisible + .entete__droite { margin-left: auto; }
+
+/* ---------------------------------------------------------------- Onglets */
+
+.onglets {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  max-width: var(--colonne);
+  height: calc(var(--onglets) + var(--bas));
+  padding: 0 calc(var(--droite) + 4px) var(--bas) calc(var(--gauche) + 4px);
+  background: var(--lagune);
+  box-shadow: 0 -2px 0 rgba(6, 24, 30, .35);
+  transform: translateX(-50%);
+}
+
+.onglet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 48px;
+  padding-bottom: 8px;
+  color: var(--brume);
+  font: 500 12px/16px var(--texte);
+  transition: color var(--t-bascule) var(--sortie);
+}
+
+.onglet__pastille {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+}
+
+/* Actif : icône pleine, mot en mimosa. */
+.onglet--actif { color: var(--mimosa); }
+
+.onglet:active .onglet__pastille { transform: scale(.92); }
+
+/* « Jouer » porte une pastille mimosa plus grande. */
+.onglet--jouer .onglet__pastille {
+  width: 54px;
+  height: 54px;
+  margin-top: -22px;
+  border-radius: 50%;
+  background: var(--mimosa);
+  color: var(--nuit);
+  --icone-fond: var(--mimosa);
+  box-shadow: 0 4px 0 var(--mimosa-fonce), 0 0 0 5px var(--lagune);
+  transition: transform var(--t-appui) linear;
+}
+
+.onglet__compte {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--bougainvillier-fonce);
+  color: #fff;
+  font: 700 12px/22px var(--texte);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- Message bref */
+
+.message {
+  position: fixed;
+  bottom: calc(var(--bas) + 16px);
+  left: 50%;
+  z-index: 60;
+  width: calc(100% - 32px);
+  max-width: calc(var(--colonne) - 32px);
+  padding: 12px 16px;
+  border-left: 6px solid var(--persienne-clair);
+  border-radius: 4px 12px 12px 4px;
+  background: #0A242D;
+  color: var(--ecume);
+  font: 400 16px/22px var(--texte);
+  box-shadow: 0 10px 24px rgba(6, 24, 30, .5);
+  transform: translateX(-50%);
+  animation: message-entre 200ms var(--sortie) both;
+}
+
+.message--onglets { bottom: calc(var(--bas) + var(--onglets) + 20px); }
+.message--erreur { border-left-color: var(--cerise-clair); }
+
+@keyframes message-entre {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.hors-ligne {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 calc(var(--e4) * -1) var(--e2);
+  padding: calc(var(--haut) + 8px) 16px 8px;
+  background: var(--cerise);
+  color: #fff;
+  font: 500 14px/20px var(--texte);
+}
+
+.hors-ligne svg { flex: none; }
+
+/* ---------------------------------------------------------------- Étoile dans une phrase */
+
+.etoile {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin: 0 .08em;
+  vertical-align: -.12em;
+}
+
+/* ---------------------------------------------------------------- Bulle de personnage */
+
+.portrait {
+  display: block;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--lagune);
+  box-shadow: 0 0 0 3px var(--ivoire), 0 4px 10px rgba(14, 47, 58, .3);
+}
+
+.portrait svg,
+.portrait img {
+  width: 100%;
+  height: 100%;
+}
+
+.bulle {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* Une bulle a la forme d'une bulle : un coin pointe vers celui qui parle. */
+.bulle__texte {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 4px 0 0;
+  padding: 8px 14px 10px;
+  border-radius: 3px 18px 18px 18px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 400 16px/22px var(--texte);
+  box-shadow: 0 4px 10px rgba(14, 47, 58, .3);
+}
+
+.bulle__nom {
+  display: block;
+  color: var(--encre-douce);
+  font: 500 12px/16px var(--texte);
+}
+
+.bulle__geste { color: var(--encre-douce); }
+
+/* ---------------------------------------------------------------- Jauge de tempérament */
+
+.jauge {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font: 500 14px/20px var(--texte);
+}
+
+.jauge__pastilles {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.jauge__pastille {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.jauge__pastille--pleine { background: currentColor; }
+
+/* ---------------------------------------------------------------- Interrupteur */
+
+.interrupteur {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
+  color: inherit;
+  font: 400 16px/24px var(--texte);
+  text-align: left;
+}
+
+.interrupteur__icone { flex: none; }
+
+.interrupteur__texte {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.interrupteur__aide {
+  color: var(--brume);
+  font: 400 14px/20px var(--texte);
+}
+
+.interrupteur__rail {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 30px;
+  border: 2px solid var(--brume);
+  border-radius: 99px;
+  transition: background-color var(--t-bascule) var(--sortie), border-color var(--t-bascule) var(--sortie);
+}
+
+.interrupteur__bouton {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brume);
+  transition: transform var(--t-bascule) var(--sortie), background-color var(--t-bascule) var(--sortie);
+}
+
+.interrupteur--actif .interrupteur__rail {
+  border-color: var(--persienne-clair);
+  background: var(--persienne);
+}
+
+.interrupteur--actif .interrupteur__bouton {
+  background: #fff;
+  transform: translateX(22px);
+}
+
+/* ---------------------------------------------------------------- Barre de progression */
+
+.barre {
+  display: block;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(230, 242, 240, .18);
+}
+
+.barre__plein {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--bougainvillier);
+  transform-origin: left center;
+  transition: transform 600ms var(--sortie);
+}

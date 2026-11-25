@@ -1,0 +1,90 @@
+/* Les grands moments : plein écran, au-dessus de tout le reste. */
+
+.moment {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  max-width: var(--colonne);
+  margin: 0 auto;
+  overflow-y: auto;
+  background: var(--nuit);
+  color: var(--ecume);
+  animation: fondu 280ms linear both;
+}
+
+/* L'écran s'assombrit autour de la colonne. */
+.moment::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #06181E;
+}
+
+.moment__decor {
+  flex: none;
+  padding-top: calc(var(--haut) + 24px);
+  background-size: 100% 100%;
+}
+
+.moment__decor svg,
+.moment__decor img {
+  display: block;
+  width: 100%;
+  animation: moment-facade 600ms var(--sortie) both;
+}
+
+@keyframes moment-facade {
+  from { opacity: 0; transform: translateY(24px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.calme .moment__decor svg { animation: none; }
+
+.moment__corps {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e5) var(--e4) calc(var(--bas) + var(--e4));
+  border-top: 4px solid transparent;
+  background: linear-gradient(var(--nuit), var(--nuit)) padding-box, var(--laiton) border-box;
+}
+
+/* Les boutons restent en bas, à portée de pouce. */
+.moment__corps .bouton--principal { margin-top: auto; }
+.moment__corps .bouton--texte { align-self: center; }
+
+.moment__moment {
+  color: var(--mimosa);
+  font: 500 14px/20px var(--texte);
+}
+
+/* Nom d'un lieu : Abril Fatface, 40 / 44. */
+.moment__titre {
+  font: 400 clamp(30px, 9vw, 40px)/1.1 var(--titre);
+  text-wrap: balance;
+}
+
+.moment__hote {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: var(--e2) 0 var(--e3);
+  color: var(--brume);
+}
+
+.moment--fin .moment__titre { color: var(--mimosa); }
+
+.moment__fx {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

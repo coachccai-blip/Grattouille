@@ -1,0 +1,771 @@
+/* Le ticket (BRIEF.md, section 7.2). Toutes les dimensions sont en em : la taille de
+   police du ticket vaut un vingt-cinquième de sa largeur. Les textes gardent une
+   taille minimale de 12 px (--tk-min), sauf sur les miniatures. */
+
+.ticket {
+  --tk-min: 12px;
+  --talon: 3.5em;
+  position: relative;
+  flex: none;
+  width: 25em;
+  aspect-ratio: 5 / 8;
+  color: var(--tk-texte);
+  font-family: var(--texte);
+  line-height: 1.25;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ticket--9-16 { aspect-ratio: 9 / 16; }
+
+.ticket--mini {
+  --tk-min: 0px;
+  pointer-events: none;
+}
+
+.ticket__ombre {
+  position: absolute;
+  inset: 0;
+  border-radius: .875em; /* 14 px à pleine taille */
+  box-shadow: var(--ombre-papier);
+}
+
+.ticket__papier {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: .875em;
+  background: var(--tk-papier);
+  /* Les deux encoches du talon détachable. */
+  -webkit-mask:
+    radial-gradient(circle .6em at 0 calc(100% - var(--talon)), #0000 96%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle .6em at 100% calc(100% - var(--talon)), #0000 96%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle .6em at 0 calc(100% - var(--talon)), #0000 96%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle .6em at 100% calc(100% - var(--talon)), #0000 96%, #000) right / 51% 100% no-repeat;
+  transition: filter 300ms linear, opacity 300ms linear;
+}
+
+/* Guilloché à 8 % d'opacité, puis le grain de papier. */
+.ticket__papier::before,
+.ticket__papier::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ticket__papier::before {
+  background-image: var(--tk-guilloche);
+  background-size: 3em 3em;
+  opacity: .08;
+}
+
+.ticket__papier::after {
+  background-image: var(--grain);
+  background-size: 128px 128px;
+  mix-blend-mode: multiply;
+  opacity: .4;
+}
+
+/* Perdu : le ticket pâlit. */
+.ticket--perdu .ticket__papier {
+  filter: saturate(.25);
+  opacity: .72;
+}
+
+.ticket__bandeau {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  gap: .5em;
+  align-items: center;
+  min-height: 4.2em;
+  padding: .45em .8em .45em 1em;
+  background: var(--tk-bandeau);
+  color: var(--tk-bandeau-texte);
+}
+
+.ticket__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 400 1.75em/1.05 var(--titre);
+  text-wrap: balance;
+}
+
+.ticket__nom--long { font-size: 1.38em; }
+
+.ticket__prix {
+  flex: none;
+  padding: .22em .7em;
+  border-radius: 99em;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.1em);
+  line-height: 1.25;
+  white-space: nowrap;
+  box-shadow: 0 .14em 0 rgba(14, 47, 58, .4);
+}
+
+.ticket__promesse {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  gap: .5em;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3em;
+  padding: .25em 1em 0;
+}
+
+.ticket__jusqua {
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.05em);
+  line-height: 1.2;
+}
+
+.ticket__offert {
+  display: block;
+  font-weight: 500;
+  font-size: max(var(--tk-min), .8em);
+  color: var(--tk-accent);
+}
+
+/* La vignette déborde un peu sur le bandeau : la mascotte s'y accoude. */
+.ticket__vignette {
+  flex: none;
+  width: 5.4em;
+  margin: -1em 0 -.35em;
+}
+
+.ticket__zone {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  margin: .35em .5em 0;
+  padding: .45em;
+  border-radius: .55em;
+  background: var(--tk-zone);
+  color: var(--tk-zone-texte);
+}
+
+.ticket__regle {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin: 0;
+  padding: .4em 1em .45em;
+  color: var(--tk-doux);
+  font-size: max(var(--tk-min), .8em);
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+.ticket__talon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: .1em;
+  justify-content: center;
+  height: var(--talon);
+  padding: 0 1.3em;
+  border-top: .12em dashed color-mix(in srgb, var(--tk-texte) 45%, transparent);
+}
+
+/* Petites capitales espacées : ce style n'existe que sur le ticket, parce que c'est
+   ainsi qu'un vrai ticket est imprimé. */
+.ticket__serie,
+.ticket__micro {
+  color: var(--tk-doux);
+  font-weight: 500;
+  font-size: max(var(--tk-min), .68em);
+  line-height: 1.2;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticket__micro.ajuste { text-align: left; }
+.ticket__micro .ajuste__texte { transform-origin: left center; }
+
+/* Le tampon « Payé ». */
+.ticket__tampon {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  z-index: 3;
+  padding: .1em .5em;
+  border: .16em solid var(--bougainvillier-fonce);
+  border-radius: .25em;
+  color: var(--bougainvillier-fonce);
+  font: 400 3em/1.1 var(--titre);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  opacity: .9;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  animation: tampon-pose 220ms var(--rebond) both;
+  pointer-events: none;
+}
+
+@keyframes tampon-pose {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(2.2); }
+  to { opacity: .9; transform: translate(-50%, -50%) rotate(-12deg) scale(1); }
+}
+
+/* Le canvas d'encre : seule la zone de grattage neutralise les gestes du navigateur. */
+.ticket__encre {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: .875em;
+  touch-action: none;
+  cursor: grab;
+}
+
+.ticket__encre:active { cursor: grabbing; }
+
+/* ---------------------------------------------------------------- Les cases */
+
+.case {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.case__fond {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .08em;
+  align-items: center;
+  justify-content: center;
+  padding: .2em .15em;
+  overflow: hidden;
+  border-radius: .5em;
+  background: var(--tk-case);
+  color: var(--tk-case-texte);
+  transition: transform var(--t-bascule) var(--sortie), box-shadow var(--t-bascule) var(--sortie);
+}
+
+.case--rond .case__fond,
+.case--rond .case__encre { border-radius: 50%; }
+
+.case--etoile .case__fond { padding: 2.1em 1.6em 1.5em; gap: 0; }
+.case--cloche .case__fond { padding: 1.9em 1.3em 1.5em; gap: 0; }
+
+/* Encre provisoire, en CSS : elle couvre la case tant que le canvas n'a pas peint
+   la sienne, et sur les miniatures. */
+.case__encre {
+  position: absolute;
+  inset: 0;
+  border-radius: .5em;
+  background: var(--tk-encre);
+  box-shadow: inset 0 0 0 .08em rgba(14, 47, 58, .18);
+}
+
+.ticket[data-encre="canvas"] .case__encre,
+.case--vue .case__encre {
+  display: none;
+}
+
+/* Le contenu révélé rebondit : échelle 1, puis 1,12, puis 1. */
+.case--vue .case__fond > * {
+  animation: rebond var(--t-rebond) var(--rebond);
+}
+
+.ticket--mini .case--vue .case__fond > * { animation: none; }
+
+/* Correspondance : la case se soulève et se cercle de mimosa. */
+.case--touche .case__fond {
+  box-shadow: inset 0 0 0 .22em var(--mimosa), 0 .3em .5em rgba(14, 47, 58, .35);
+  transform: translateY(-.14em) scale(1.03);
+}
+
+.ajuste {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ajuste__texte {
+  display: inline-block;
+  transform-origin: center;
+}
+
+.jeu__titre {
+  margin: 0;
+  font-weight: 500;
+  font-size: max(var(--tk-min), .8em);
+  line-height: 1.2;
+  opacity: .9;
+}
+
+.jeu__gros { font-weight: 700; font-size: max(var(--tk-min), 1.5em); }
+.jeu__moyen { font-weight: 700; font-size: max(var(--tk-min), 1.15em); }
+.jeu__petit { font-weight: 500; font-size: max(var(--tk-min), .85em); }
+
+.jeu__numero {
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.3em);
+  line-height: 1;
+}
+
+.jeu__numero--grand { font-size: max(var(--tk-min), 1.7em); }
+
+.jeu__symbole {
+  flex: none;
+  width: 2.5em;
+  height: 2.5em;
+}
+
+.jeu__symbole--grand {
+  width: 3.5em;
+  height: 3.5em;
+}
+
+/* Le trait qui relie trois cases, ou qui barre la ligne gagnante. */
+.jeu__trait {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Comme un coup de surligneur : le trait passe sur les montants sans les cacher. */
+.jeu__trait { mix-blend-mode: multiply; }
+
+.jeu__trait polyline,
+.jeu__trait line {
+  fill: none;
+  stroke: var(--mimosa);
+  stroke-width: .13;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trait-trace 320ms var(--sortie) forwards;
+}
+
+.jeu__trait--crayon { mix-blend-mode: normal; }
+
+.jeu__trait--crayon line {
+  stroke: var(--nuit);
+  stroke-width: .07;
+  opacity: .8;
+}
+
+@keyframes trait-trace {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---------------------------------------------------------------- trio */
+
+.jeu-trio {
+  display: flex;
+  justify-content: center;
+}
+
+.jeu-trio__grille {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 6.3em);
+  grid-auto-rows: 6.3em;
+  gap: .55em;
+}
+
+.jeu-trio .jeu__symbole {
+  width: 3.2em;
+  height: 3.2em;
+}
+
+/* ---------------------------------------------------------------- numeros */
+
+.jeu-numeros {
+  display: flex;
+  flex-direction: column;
+  gap: .32em;
+}
+
+.jeu-numeros__gagnants {
+  display: flex;
+  gap: .3em;
+  justify-content: center;
+}
+
+.jeu-numeros__gagnants .case {
+  width: 4.42em;
+  height: 4.42em;
+}
+
+.jeu-numeros__grille {
+  display: grid;
+  grid-auto-rows: 4.42em;
+  gap: .26em;
+}
+
+/* ---------------------------------------------------------------- morpion */
+
+.jeu-morpion {
+  display: flex;
+  flex-direction: column;
+  gap: .5em;
+  align-items: center;
+}
+
+.jeu-morpion__grille {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 5.3em);
+  grid-auto-rows: 5.3em;
+  gap: .4em;
+}
+
+.jeu-morpion__lot {
+  display: flex;
+  gap: .6em;
+  align-items: center;
+  width: 16.7em;
+}
+
+.jeu-morpion__lot .case {
+  flex: 1 1 auto;
+  height: 4.42em;
+}
+
+/* ---------------------------------------------------------------- duel */
+
+.jeu-duel {
+  display: flex;
+  flex-direction: column;
+  gap: .4em;
+}
+
+.jeu-duel__manche {
+  display: flex;
+  gap: .4em;
+}
+
+.jeu-duel__rencontre {
+  flex: 1.8 1 0;
+  height: 4.6em;
+}
+
+.jeu-duel__montant {
+  flex: 1 1 0;
+  height: 4.6em;
+}
+
+.jeu-duel__rencontre .case__fond {
+  flex-direction: row;
+  gap: .3em;
+  padding: .2em .4em;
+}
+
+.jeu-duel__camp {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.jeu-duel__nom {
+  font-weight: 500;
+  font-size: max(var(--tk-min), .78em);
+  opacity: .8;
+}
+
+.jeu-duel__score {
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.6em);
+}
+
+.jeu-duel--course .jeu-duel__score { font-size: max(var(--tk-min), 1.12em); }
+
+.jeu-duel__camp--gagne .jeu-duel__score { color: var(--persienne-fonce); }
+
+/* Entre les deux camps : le ballon, le drapeau à damier ou le pique. */
+.jeu-duel__contre {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  opacity: .85;
+}
+
+.jeu-duel__contre svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------- etoile */
+
+.jeu-etoile {
+  display: flex;
+  flex-direction: column;
+  gap: .45em;
+  align-items: center;
+}
+
+.jeu-etoile__signe {
+  display: flex;
+  gap: .5em;
+  align-items: center;
+  margin: 0;
+  font-size: max(var(--tk-min), .9em);
+}
+
+.jeu-etoile__choisi {
+  flex: none;
+  width: 2.2em;
+  height: 2.2em;
+}
+
+.jeu-etoile__grille {
+  display: grid;
+  grid-template-columns: repeat(3, 7.2em);
+  grid-auto-rows: 7.6em;
+  gap: .4em;
+}
+
+.jeu-etoile .jeu__symbole {
+  width: 2.3em;
+  height: 2.3em;
+}
+
+/* ---------------------------------------------------------------- lignes */
+
+.jeu-lignes {
+  display: flex;
+  flex-direction: column;
+  gap: .3em;
+}
+
+.jeu-lignes__tirage {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 4.42em;
+  gap: .3em;
+}
+
+.jeu-lignes__rangees {
+  display: flex;
+  flex-direction: column;
+  gap: .24em;
+  margin-top: .15em;
+}
+
+.jeu-lignes__rangee {
+  display: flex;
+  gap: .4em;
+  align-items: center;
+  height: 2.62em;
+  padding: 0 .5em;
+  border-radius: .4em;
+  background: color-mix(in srgb, var(--tk-case) 72%, transparent);
+  color: var(--tk-case-texte);
+  transition: background-color var(--t-bascule) linear, box-shadow var(--t-bascule) linear;
+}
+
+/* Rangée complète : son montant s'illumine. */
+.jeu-lignes__rangee--complete {
+  background: var(--mimosa);
+  box-shadow: 0 0 0 .14em var(--mimosa-fonce);
+}
+
+.jeu-lignes__elements {
+  display: flex;
+  flex: none;
+  gap: .28em;
+}
+
+.jeu-lignes__voilier {
+  flex: none;
+  width: 1.9em;
+  height: 1.9em;
+}
+
+.jeu-lignes__montant {
+  flex: 1 1 0;
+  min-width: 0;
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1em);
+  text-align: right;
+}
+
+.jeu-lignes__montant .ajuste__texte { transform-origin: right center; }
+
+.jeu-carte {
+  position: relative;
+  display: inline-flex;
+  gap: .08em;
+  align-items: center;
+  justify-content: center;
+  width: 2.7em;
+  height: 2.15em;
+  border-radius: .3em;
+  background: #fff;
+  color: var(--nuit);
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1em);
+  line-height: 1;
+  box-shadow: inset 0 0 0 .07em rgba(14, 47, 58, .28);
+}
+
+.jeu-carte--rouge { color: var(--cerise); }
+
+.jeu-carte__enseigne {
+  flex: none;
+  width: .85em;
+  height: .85em;
+}
+
+.jeu-carte__figure { display: none; }
+
+.jeu-lignes__tirage .jeu-carte {
+  width: 100%;
+  height: 100%;
+  background: none;
+  font-size: max(var(--tk-min), 1.45em);
+  box-shadow: none;
+}
+
+.jeu-lignes__tirage .jeu-carte__figure {
+  display: block;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.jeu-bouee {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15em;
+  height: 2.15em;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--nuit);
+  font-weight: 700;
+  font-size: max(var(--tk-min), .95em);
+  line-height: 1;
+  box-shadow: inset 0 0 0 .2em var(--cerise);
+}
+
+.jeu-lignes__tirage .jeu-bouee { font-size: max(var(--tk-min), 1.4em); }
+
+/* Chaque élément tiré qui figure sur une rangée y est tamponné (180 ms). */
+.jeu-element--tamponne {
+  background: var(--mimosa);
+  animation: element-tampon 180ms var(--rebond);
+}
+
+.jeu-lignes__rangee--complete .jeu-element--tamponne { background: #fff; }
+
+@keyframes element-tampon {
+  from { transform: scale(1.5); }
+  to { transform: scale(1); }
+}
+
+/* ---------------------------------------------------------------- multi */
+
+.jeu-multi {
+  display: flex;
+  flex-direction: column;
+  gap: .3em;
+  height: 100%;
+}
+
+.jeu-multi__pastilles {
+  display: flex;
+  flex: none;
+  gap: .2em;
+  align-items: center;
+}
+
+/* Cible tactile de 48 px, pastille visible plus petite. */
+.jeu-multi__pastille {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: max(48px, 3em);
+  height: max(48px, 3em);
+  color: var(--tk-zone-texte);
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1em);
+}
+
+.ticket--mini .jeu-multi__pastille {
+  width: 3em;
+  height: 3em;
+}
+
+.jeu-multi__pastille > span:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2em;
+  height: 2em;
+  border: .12em solid currentColor;
+  border-radius: 50%;
+}
+
+.jeu-multi__pastille--finie > span:first-child { background: color-mix(in srgb, currentColor 22%, transparent); }
+
+.jeu-multi__pastille--active > span:first-child {
+  border-color: var(--mimosa);
+  background: var(--mimosa);
+  color: var(--nuit);
+}
+
+.jeu-multi__pastille:disabled { opacity: .45; }
+
+.jeu-multi__nom {
+  margin-left: auto;
+  padding-right: .3em;
+  font-weight: 500;
+  font-size: max(var(--tk-min), .85em);
+}
+
+.jeu-multi__volet {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  animation: fondu 200ms linear;
+}
+
+.jeu-multi .jeu-trio__grille {
+  grid-template-columns: repeat(3, 6.6em);
+  grid-auto-rows: 6.6em;
+}
+
+.jeu-multi .jeu-numeros { gap: .6em; }
+.jeu-multi .jeu-numeros__grille { grid-auto-rows: 5.4em; gap: .4em; }
+.jeu-multi .jeu-numeros__gagnants .case { width: 5.4em; height: 5.4em; }
+.jeu-multi .jeu-duel { gap: .7em; }
+.jeu-multi .jeu-duel__rencontre,
+.jeu-multi .jeu-duel__montant { height: 5.6em; }

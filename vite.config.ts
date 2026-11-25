@@ -38,6 +38,9 @@ export default defineConfig({
     target: "es2022",
     cssMinify: true,
     assetsInlineLimit: 0,
+    // Le budget du brief porte sur le poids compressé : 300 Ko de JavaScript au plus
+    // (section 8.7), soit environ 900 Ko avant compression. On en est à 172 Ko compressés.
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         entryFileNames: "assets/[name]-[hash].js",

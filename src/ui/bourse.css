@@ -1,0 +1,60 @@
+/* La bourse : pilule à liseré laiton. Le compteur de Standing : étoile bougainvillier. */
+
+.bourse {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px 0 5px;
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: linear-gradient(#0A242D, #0A242D) padding-box, var(--laiton) border-box;
+  color: var(--mimosa);
+  /* 20 px dès 400 px de large ; un peu moins sur les écrans étroits, où un gros solde doit tenir. */
+  font: 700 clamp(16px, 5vw, 20px)/24px var(--texte);
+  white-space: nowrap;
+}
+
+/* Une case par chiffre, large comme le plus large des chiffres de Jost (le 4). */
+.case-chiffre {
+  display: inline-block;
+  width: .7em;
+  text-align: center;
+}
+
+.bourse__piece {
+  flex: none;
+  --icone-fond: #8F6A1F;
+}
+
+/* Un achat refusé faute d'argent : la bourse clignote en cerise clair. */
+.bourse--refus { animation: bourse-refus 700ms linear; }
+
+@keyframes bourse-refus {
+  0%, 40%, 80% { color: var(--cerise-clair); transform: translateX(0); }
+  10%, 50% { transform: translateX(-3px); }
+  20%, 60% { color: var(--mimosa); transform: translateX(3px); }
+  100% { color: var(--mimosa); transform: translateX(0); }
+}
+
+.standing {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+  height: 40px;
+  color: var(--bougainvillier-clair);
+  font: 700 clamp(16px, 5vw, 20px)/24px var(--texte);
+  white-space: nowrap;
+}
+
+.standing__etoile {
+  flex: none;
+  color: var(--bougainvillier);
+}
+
+.standing--gagne .standing__etoile { animation: rebond 500ms var(--rebond); }
+
+.sur-papier .standing,
+.papier .standing { color: var(--bougainvillier-fonce); }
