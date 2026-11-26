@@ -492,18 +492,22 @@
 .calme .poker-carte--glissee .carte__pivot { animation: none; }
 
 /* Sous la main : le tapis, la combinaison, la mise. */
+/* Le tapis à gauche, la mise à droite, à leur largeur ; au milieu, la combinaison prend ce
+   qui reste (et s'abrège en dernier recours, quand les sommes sont à rallonge). */
 .poker-moi__infos {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: space-between;
   min-height: 38px;
 }
 
+.poker-moi__infos > span:empty { flex: 0 0 0; }
+
 .poker-moi__chiffre {
   display: flex;
+  flex: none;
   flex-direction: column;
-  min-width: 0;
   font: 700 16px/20px var(--texte);
 }
 
@@ -539,10 +543,14 @@
 }
 
 .poker-moi__combi {
+  flex: 0 1 auto;
+  min-width: 0;
   padding: 5px 12px;
+  overflow: hidden;
   border-radius: 99px;
   background: var(--lagune);
   font: 700 14px/18px var(--texte);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -863,7 +871,8 @@
 }
 
 .poker-sortie .t-titre { text-wrap: balance; }
-.poker-sortie p { color: var(--ecume); }
+/* Les phrases du panneau seulement : la bulle de l'hôte garde son encre sur l'ivoire. */
+.poker-sortie > p { color: var(--ecume); }
 
 /* La cagnotte d'un hôte ruiné : un carton ivoire, la somme en grand. */
 .poker-sortie__cagnotte {
@@ -876,8 +885,8 @@
   box-shadow: 0 4px 0 var(--mimosa-fonce);
 }
 
-.poker-sortie .poker-sortie__cagnotte,
-.poker-sortie .poker-sortie__cagnotte strong { color: var(--nuit); }
+.poker-sortie > .poker-sortie__cagnotte,
+.poker-sortie > .poker-sortie__cagnotte strong { color: var(--nuit); }
 
 .poker-sortie__cagnotte span {
   color: var(--encre-douce);
@@ -900,9 +909,14 @@
     height: 40px;
   }
 
-  .poker-voix { min-height: 40px; }
-  .poker-moi { gap: 5px; }
+  .poker-voix {
+    min-height: 36px;
+    font: 500 14px/18px var(--texte);
+  }
+
+  .poker-moi { gap: 4px; }
   .poker-moi__infos { min-height: 24px; }
+  .poker-siege__nom { margin-top: 2px; }
 
   .poker-moi__nom {
     position: absolute;
@@ -916,4 +930,26 @@
   .poker-actions { gap: 6px; }
   .poker-actions .bouton { min-height: 48px; }
   .poker-mise { min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------- Écrans étroits */
+
+/* Sur un écran étroit (320 px), « Miser » ou « Relancer à » passe au-dessus de ses trois
+   mises : chacune garde la largeur d'une somme à rallonge, jamais coupée. */
+@media (max-width: 359px) {
+  .poker-mises {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .poker-mises__titre {
+    flex-basis: 100%;
+    max-width: none;
+    font: 500 12px/14px var(--texte);
+  }
+
+  .poker-moi__combi {
+    padding: 4px 10px;
+    font-size: 13px;
+  }
 }

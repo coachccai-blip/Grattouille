@@ -119,6 +119,9 @@ function receive(code: string, res: PokerPollResponse, fresh = false): void {
   }
   if (res.left) patch.left = res.left;
   set(patch);
+  // Parti sans que la bourse suive : le tapis a été rendu par une autre requête (un autre
+  // onglet, un autre joueur). Le hall dit où en sont la bourse et les défis relevés.
+  if (res.left && !res.state && before.left === null) void loadLobby();
 }
 
 let watching: string | null = null;
