@@ -47,7 +47,7 @@ describe("BlobsStorage", () => {
     expect(await s.getPlayer(id)).toBeNull();
     expect(await s.createPlayer(record(id, "un"))).toBe(true);
     expect(await s.createPlayer(record(id, "un"))).toBe(false); // onlyIfNew
-    expect((await s.getPlayer(id))?.balance).toBe(4);
+    expect((await s.getPlayer(id))?.balance).toBe(0);
     await s.deletePlayer(id);
     expect(await s.getPlayer(id)).toBeNull();
     await s.deletePlayer(id); // sans erreur
@@ -60,7 +60,7 @@ describe("BlobsStorage", () => {
     // Laisse passer une milliseconde : l'etag du serveur local dérive de la date de modification.
     const pause = () => new Promise((r) => setTimeout(r, 15));
     await pause();
-    expect(await s.mutatePlayer(id, (p) => { p.balance += 10; return commit(p.balance); })).toBe(14);
+    expect(await s.mutatePlayer(id, (p) => { p.balance += 14; return commit(p.balance); })).toBe(14);
     expect((await s.getPlayer(id))?.balance).toBe(14);
 
     // Quelqu'un écrit entre la lecture et l'écriture : la mutation est rejouée sur la valeur fraîche.
@@ -181,10 +181,12 @@ describe("BlobsStorage", () => {
     expect(created.status).toBe(201);
     const auth = `${created.body.playerId}.${created.body.code}`;
     expect((await call("POST", "/api/players", { pseudo: "belle lurette", species: "chat" })).body.error.code).toBe("PSEUDO_TAKEN");
-    const buy = await call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, auth);
-    expect(buy.body.tickets[0].gain).toBe(5);
-    const shop = await call("POST", "/api/shop/buy", { itemId: "noeud-pap", equip: true, ack: [buy.body.tickets[0].id] }, auth);
-    expect(shop.body.state).toMatchObject({ balance: 3, standing: 2, fortune: 8, owned: ["noeud-pap"] });
+    // On débarque sans un sou : le premier ticket se ramasse par terre, et rapporte 5 €.
+    expect(created.body.state.balance).toBe(0);
+    const found = await call("POST", "/api/tickets/found", {}, auth);
+    expect(found.body.tickets[0]).toMatchObject({ type: "tirelire", gain: 5, house: true });
+    const shop = await call("POST", "/api/shop/buy", { itemId: "noeud-pap", equip: true, ack: [found.body.tickets[0].id] }, auth);
+    expect(shop.body.state).toMatchObject({ balance: 0, standing: 2, fortune: 5, owned: ["noeud-pap"] });
     const session = await call("POST", "/api/session", { pseudo: "Belle Lurette", code: created.body.code });
     expect(session.body.playerId).toBe(created.body.playerId);
     const board = await call("GET", "/api/leaderboard");

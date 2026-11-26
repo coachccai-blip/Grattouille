@@ -10,16 +10,32 @@ import { PLACES } from "../../shared/places";
 import { SPECIES } from "../../shared/rules";
 import { TICKETS } from "../../shared/tickets";
 import { Avatar, WardrobeThumb } from "./Avatar";
+import { GARDE_ROBE as WARDROBE } from "./garde-robe";
 import type { Art, ArtProps } from "./kit";
-import { PLACE_ART } from "./places";
-import { PNJ } from "./pnj";
-import { RESIDENCES } from "./residences";
+import { PLACE_ART as PLACE_ART_1 } from "./places";
+import { PLACE_ART_2 } from "./places-2";
+import { PNJ as PNJ_1 } from "./pnj";
+import { PNJ_2 } from "./pnj-2";
+import { RESIDENCES as RESIDENCES_1 } from "./residences";
+import { RESIDENCES_2 } from "./residences-2";
 import { SYMBOLS } from "./symbols";
+import { SYMBOLS_2 } from "./symbols-2";
+import { SYMBOLS_3 } from "./symbols-3";
 import { SYMBOLS_JEUX } from "./symbols-jeux";
-import { TICKET_VIGNETTES } from "./ticket-art";
-import { TREASURES } from "./treasures";
-import { VEHICLES } from "./vehicles";
-import { WARDROBE } from "./wardrobe";
+import { TICKET_VIGNETTES as TICKET_VIGNETTES_1 } from "./ticket-art";
+import { TICKET_VIGNETTES_2 } from "./ticket-art-2";
+import { TREASURES as TREASURES_1 } from "./treasures";
+import { TREASURES_2 } from "./treasures-2";
+import { VEHICLES as VEHICLES_1 } from "./vehicles";
+import { VEHICLES_2 } from "./vehicles-2";
+
+// Chaque famille a deux fichiers : les illustrations du brief, puis celles des nouveautés.
+const PLACE_ART: Record<string, Art> = { ...PLACE_ART_1, ...PLACE_ART_2 };
+const PNJ: Record<string, Art> = { ...PNJ_1, ...PNJ_2 };
+const RESIDENCES: Record<string, Art> = { ...RESIDENCES_1, ...RESIDENCES_2 };
+const TICKET_VIGNETTES: Record<string, Art> = { ...TICKET_VIGNETTES_1, ...TICKET_VIGNETTES_2 };
+const TREASURES: Record<string, Art> = { ...TREASURES_1, ...TREASURES_2 };
+const VEHICLES: Record<string, Art> = { ...VEHICLES_1, ...VEHICLES_2 };
 
 /** Un composant SVG, ou l'URL d'une image. */
 export type Illustration = Art | string;
@@ -30,7 +46,10 @@ export type Illustration = Art | string;
  */
 const OVERRIDES: Record<string, Illustration> = {};
 
-export const PNJ_IDS = ["piou", "gaspard", "ondine", "hector", "baron", "auguste", "sidonie", "enzo", "colette", "archibald"] as const;
+export const PNJ_IDS = [
+  "piou", "gaspard", "ondine", "hector", "baron", "auguste", "balthazar", "taupin", "selene",
+  "sidonie", "enzo", "colette", "archibald",
+] as const;
 
 function build(): Record<string, Illustration> {
   const map: Record<string, Illustration> = {};
@@ -59,7 +78,7 @@ function build(): Record<string, Illustration> {
     const art = TICKET_VIGNETTES[t.id];
     if (art) map[`ticket:${t.id}`] = art;
   }
-  for (const [key, art] of Object.entries({ ...SYMBOLS, ...SYMBOLS_JEUX })) map[`symbole:${key}`] = art;
+  for (const [key, art] of Object.entries({ ...SYMBOLS, ...SYMBOLS_JEUX, ...SYMBOLS_2, ...SYMBOLS_3 })) map[`symbole:${key}`] = art;
   return { ...map, ...OVERRIDES };
 }
 
@@ -79,6 +98,16 @@ export function expectedIds(): string[] {
     "morpion:truffe", "morpion:gland", "morpion:moustache", "morpion:monocle",
     "carte:pique", "carte:coeur", "carte:carreau", "carte:trefle", "carte:valet", "carte:dame", "carte:roi",
     "regate:voilier", "regate:bouee", "foot:ballon", "course:drapeau",
+    // Les nouveautés.
+    ...["soleil", "lune", "etoile", "roue", "couronne", "phare", "ancre", "sirene"].map((s) => `arcane:${s}`),
+    ...["sardine", "crevette", "crabe", "daurade", "raie", "thon", "espadon", "requin", "baleine", "kraken"].map((s) => `peche:${s}`),
+    "morpion:planete", "morpion:asteroide", "coef:maree", "coef:interets",
+    ...[
+      "citron", "orange", "fraise", "cerise", "ananas", "coco", "menthe", "olive", "glacon", "cafe",
+      "sirop", "bulles", "sucre", "ombrelle",
+    ].map((s) => `cocktail:${s}`),
+    "roulette:rouge", "roulette:noir", "fanal:babord", "fanal:tribord", "astre:soleil", "astre:lune",
+    "pion:crabe", "pion:montgolfiere", "pion:ascenseur",
   ];
   return [
     ...SPECIES.map((s) => `species:${s}`),

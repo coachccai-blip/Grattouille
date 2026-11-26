@@ -1,4 +1,4 @@
-// Habillage des quinze tickets (BRIEF.md, section 7.10) : papier ivoire teinté de
+// Habillage des trente tickets (BRIEF.md, section 7.10, et les quinze suivants) : papier ivoire teinté de
 // la couleur du ticket, bandeau, zone de jeu, et teinte de l'encre à gratter.
 
 import type { CellShape, InkKind } from "../scratch/ink";
@@ -97,6 +97,86 @@ export const THEMES: Record<string, TicketTheme> = {
     ...BASE, papier: "#14181A", texte: "#F3D58A", doux: "#C9B27A", bandeau: "or", bandeauTexte: "#14181A",
     zone: "#22282B", zoneTexte: "#F3D58A", accent: "#F2C94C", encre: "or", forme: "rect", ratio: "9:16",
   },
+
+  // --- Les quinze tickets ajoutés après le brief.
+  // Saute-Crabe : le sable, l'eau claire, le rouge du crabe.
+  "saute-crabe": {
+    ...BASE, papier: "#F7F0DC", bandeau: "#D9482F", bandeauTexte: "#FFFFFF",
+    zone: "#BFE4E0", zoneTexte: "#0E2F3A", accent: "#D9482F", encre: "sable", forme: "rect",
+  },
+  // Grande Marée : le bleu du large et l'écume.
+  "grande-maree": {
+    ...BASE, papier: "#EEF6F8", bandeau: "#0F5E78", bandeauTexte: "#FFFFFF",
+    zone: "#BFE3EA", zoneTexte: "#0E2F3A", accent: "#0F5E78", encre: "nacre-blanche", forme: "rect",
+  },
+  // La Grille du Jour : une page de journal, encre noire, un filet rouge.
+  "grille-du-jour": {
+    ...BASE, papier: "#F3EFE4", bandeau: "#1D2326", bandeauTexte: "#FFFFFF",
+    zone: "#FBF8EF", zoneTexte: "#1D2326", caseFond: "#FFFFFF", accent: "#B8262F", encre: "plomb", forme: "rond",
+  },
+  // Le Rouge et le Noir : le tapis vert de la roulette.
+  "rouge-et-noir": {
+    ...BASE, papier: "#F4EFE6", bandeau: "#1D2326", bandeauTexte: "#F3D58A",
+    zone: "#1F6F57", zoneTexte: "#FFF7E6", accent: "#B8262F", encre: "or", forme: "rond",
+  },
+  // La Bonne Aventure : la tente de la voyante, aubergine et or.
+  "bonne-aventure": {
+    ...BASE, papier: "#F3ECF5", bandeau: "#3A1B4D", bandeauTexte: "#F3D58A",
+    zone: "#2B1638", zoneTexte: "#EAD9F2", accent: "#6B3F8A", encre: "nacre-lilas", forme: "rect",
+  },
+  // Le Pari de Sir Auguste : une vieille carte du monde.
+  "pari-auguste": {
+    ...BASE, papier: "#F3EFE2", bandeau: "#5A1730", bandeauTexte: "#F3D58A",
+    zone: "#EADFC2", zoneTexte: "#3B2A1A", accent: "#7A1F35", encre: "bronze", forme: "rect",
+  },
+  // Cocktails du Commodore : le bar du pont supérieur, la nuit.
+  cocktails: {
+    ...BASE, papier: "#FDF1E7", bandeau: "#D9457A", bandeauTexte: "#FFFFFF",
+    zone: "#17505C", zoneTexte: "#FFF7E6", accent: "#D9457A", encre: "nacre-rose", forme: "rect",
+  },
+  // Bâbord, Tribord : la mer de nuit et ses deux fanaux.
+  "babord-tribord": {
+    ...BASE, papier: "#EEF2F4", bandeau: "#12324F", bandeauTexte: "#FFFFFF",
+    zone: "#0E2F3A", zoneTexte: "#E6F2F0", caseFond: "#14323F", caseTexte: "#E6F2F0",
+    accent: "#C8323C", encre: "chrome", forme: "rond",
+  },
+  // Pêche au Gros : le grand bleu.
+  "peche-au-gros": {
+    ...BASE, papier: "#EAF4F7", bandeau: "#1F4E79", bandeauTexte: "#FFFFFF",
+    zone: "#2C7DA0", zoneTexte: "#FFFFFF", accent: "#1F4E79", encre: "argent", forme: "rect",
+  },
+  // Sésame : l'acier de la chambre forte.
+  sesame: {
+    ...BASE, papier: "#F2EFE8", bandeau: "#33424B", bandeauTexte: "#F3D58A",
+    zone: "#3B4A52", zoneTexte: "#FFF7E6", accent: "#8F6A1F", encre: "chrome", forme: "rond",
+  },
+  // Compte Numéroté : le vert des banques privées, les plaques de laiton.
+  "compte-numerote": {
+    ...BASE, papier: "#F1F4F1", bandeau: "#1F4A3B", bandeauTexte: "#F3D58A",
+    zone: "#DCE6DD", zoneTexte: "#0E2F3A", accent: "#1F4A3B", encre: "or", forme: "rect",
+  },
+  // Intérêts Composés : le cuir vert du bureau et l'or.
+  "interets-composes": {
+    ...BASE, papier: "#F7F3E6", bandeau: "#14181A", bandeauTexte: "#F3D58A",
+    zone: "#173F35", zoneTexte: "#F3E6BE", accent: "#8F6A1F", encre: "or", forme: "rect",
+  },
+  // Éclipse Totale : le violet de l'espace.
+  "eclipse-totale": {
+    ...BASE, papier: "#EFEAF6", bandeau: "#1B1440", bandeauTexte: "#F7C948",
+    zone: "#0F0C29", zoneTexte: "#D9D0F2", caseFond: "#1E1A4A", caseTexte: "#EDE8FF",
+    accent: "#5B4B8A", encre: "nacre-lilas", forme: "rond",
+  },
+  // L'Alignement des Planètes : bleu nuit.
+  alignement: {
+    ...BASE, papier: "#EEF1F8", bandeau: "#14213D", bandeauTexte: "#FFFFFF",
+    zone: "#14213D", zoneTexte: "#E6ECFF", caseFond: "#1F2F57", caseTexte: "#E6ECFF",
+    accent: "#3D5A9A", encre: "nacre-irisee", forme: "rect",
+  },
+  // Le Gratte-Ciel : la nuit au sommet, chrome et or.
+  "gratte-ciel": {
+    ...BASE, papier: "#0F1730", texte: "#E6ECFF", doux: "#9FB0D9", bandeau: "or", bandeauTexte: "#0F1730",
+    zone: "#1A2547", zoneTexte: "#E6ECFF", accent: "#F2C94C", encre: "chrome", forme: "rect", ratio: "9:16",
+  },
 };
 
 const FALLBACK = THEMES.tirelire!;
@@ -120,6 +200,18 @@ export const SYMBOL_NAMES: Record<string, string> = {
   "pie:aigue-marine": "Aigue-marine", "pie:saphir": "Saphir", "pie:emeraude": "Émeraude", "pie:rubis": "Rubis",
   "pie:diamant": "Diamant", "pie:etoile-de-diamants": "Étoile de diamants",
   "morpion:truffe": "Truffe", "morpion:gland": "Gland", "morpion:moustache": "Moustache", "morpion:monocle": "Monocle",
+  "morpion:planete": "Planète", "morpion:asteroide": "Astéroïde",
+  "arcane:soleil": "Le Soleil", "arcane:lune": "La Lune", "arcane:etoile": "L'Étoile", "arcane:roue": "La Roue",
+  "arcane:couronne": "La Couronne", "arcane:phare": "Le Phare", "arcane:ancre": "L'Ancre", "arcane:sirene": "La Sirène",
+  "peche:sardine": "Sardine", "peche:crevette": "Crevette", "peche:crabe": "Crabe", "peche:daurade": "Daurade",
+  "peche:raie": "Raie", "peche:thon": "Thon", "peche:espadon": "Espadon", "peche:requin": "Requin",
+  "peche:baleine": "Baleine", "peche:kraken": "Kraken",
+  "cocktail:citron": "Citron", "cocktail:orange": "Orange", "cocktail:fraise": "Fraise", "cocktail:cerise": "Cerise",
+  "cocktail:ananas": "Ananas", "cocktail:coco": "Noix de coco", "cocktail:menthe": "Menthe", "cocktail:olive": "Olive",
+  "cocktail:glacon": "Glaçon", "cocktail:cafe": "Café", "cocktail:sirop": "Sirop", "cocktail:bulles": "Bulles",
+  "cocktail:sucre": "Sucre", "cocktail:ombrelle": "Ombrelle",
+  "roulette:rouge": "Rouge", "roulette:noir": "Noir", "fanal:babord": "Bâbord", "fanal:tribord": "Tribord",
+  "astre:soleil": "Le Soleil", "astre:lune": "La Lune",
 };
 
 /** La famille de symboles d'un ticket : « constellations » donne la clé « constellation ». */

@@ -1,4 +1,4 @@
-// Les cinq lieux de la Promenade (BRIEF.md, section 4.2).
+// Les cinq premiers lieux de la Promenade (BRIEF.md, section 4.2). Les trois suivants : places-2.tsx.
 //
 // Façade du lieu, vue de face. viewBox 0 0 400 200. Le ciel reste transparent :
 // l'écran peint derrière le dégradé du lieu (matin au port, minuit au Cercle).

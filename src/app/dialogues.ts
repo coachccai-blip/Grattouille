@@ -1,7 +1,10 @@
 // Répliques des personnages (BRIEF.md, section 4.8 et annexe B).
 //
-// Les personnages changent de registre à mesure que le Standing monte : familier
-// sous 60 ★, poli de 60 à 249, déférent de 250 à 999, obséquieux à partir de 1 000.
+// Les personnages changent de registre à mesure que les portes s'ouvrent : familier
+// jusqu'au Casino (130 ★), poli jusqu'au Salon Privé (400 ★), déférent jusqu'au Cercle
+// (1 400 ★), obséquieux ensuite, et « cosmique » à partir de la Banque (15 000 ★),
+// quand la fortune du joueur dépasse l'entendement. Un personnage qui n'a pas de
+// réplique dans un registre prend celle du registre le plus proche.
 // La première réplique de chaque liste est celle du brief, quand il en donne une.
 // `{pseudo}` est remplacé par le pseudo du joueur. Une réplique qui commence par
 // « ~ » est un geste, pas une parole : elle s'affiche sans guillemets.
@@ -10,7 +13,7 @@
 import { registerOf, type Register } from "../../shared/rules";
 
 export type Speaker =
-  | "piou" | "gaspard" | "ondine" | "hector" | "baron" | "auguste"
+  | "piou" | "gaspard" | "ondine" | "hector" | "baron" | "auguste" | "balthazar" | "taupin" | "selene"
   | "sidonie" | "enzo" | "colette" | "archibald";
 
 export type Situation = "accueil" | "vendu" | "perdu" | "gagne" | "gros" | "jackpot";
@@ -22,6 +25,9 @@ const NAMES: Record<Speaker, string> = {
   hector: "Hector",
   baron: "Le Baron",
   auguste: "Sir Auguste",
+  balthazar: "Le Commodore",
+  taupin: "Maître Taupin",
+  selene: "Dame Séléné",
   sidonie: "Mlle Sidonie",
   enzo: "Enzo",
   colette: "Mme Colette",
@@ -40,7 +46,7 @@ const GASPARD: Script = {
     familier: [
       "Approche, mon grand, c'est ici que ça se passe !",
       "Te revoilà ! J'ai du tout frais, du tout chaud.",
-      "Trois tickets, trois façons d'avoir de la chance. Choisis !",
+      "Quatre tickets, quatre façons d'avoir de la chance. Choisis !",
     ],
     poli: [
       "Bonjour, {pseudo}. Que puis-je vous proposer ?",
@@ -56,6 +62,11 @@ const GASPARD: Script = {
       "Votre Excellence au kiosque ! Je fais dérouler le tapis.",
       "Que Votre Excellence me pardonne la poussière sur le comptoir.",
       "Le port tout entier retient son souffle, Excellence.",
+    ],
+    cosmique: [
+      "Votre Immensité ! Au kiosque ! Je m'assois, la tête me tourne.",
+      "On vous voit depuis la Lune, Votre Immensité. Et vous revenez chez moi.",
+      "Je ne sais plus compter vos zéros, Votre Immensité. Je compte sur mes pattes. Il m'en manque.",
     ],
   },
   vendu: {
@@ -78,6 +89,10 @@ const GASPARD: Script = {
       "Que Votre Excellence daigne effleurer ce modeste ticket.",
       "Il n'est pas digne de Votre Excellence, mais il fera de son mieux.",
       "Je l'ai fait repasser ce matin, Excellence.",
+    ],
+    cosmique: [
+      "Un ticket à un euro, Votre Immensité. Vous êtes sûre ? Sûr ? Je ne sais plus rien.",
+      "Je l'encadrerais bien, Votre Immensité, mais vous allez le gratter.",
     ],
   },
   perdu: {
@@ -265,12 +280,171 @@ const AUGUSTE: Script = {
   },
 };
 
+// Le Commodore Balthazar, pélican : il commande le yacht « Démesure » et en est très content.
+const BALTHAZAR: Script = {
+  accueil: {
+    obsequieux: [
+      "Bienvenue à bord, Excellence. Le yacht est plus long que la rade : nous avons fait agrandir la mer.",
+      "Excellence sur le pont ! Qu'on sorte la passerelle en or. Non, l'autre. La grande.",
+      "Deux heures du matin, Excellence. L'heure où les fortunes prennent le large.",
+    ],
+    cosmique: [
+      "Votre Immensité à bord ! Le yacht s'enfonce d'un centimètre. C'est le poids des milliards.",
+      "Nous mouillons au large de vos intérêts, Votre Immensité.",
+      "La mer est à Votre Immensité. Je ne fais que la tenir propre.",
+    ],
+  },
+  vendu: {
+    obsequieux: [
+      "Un ticket pour Son Excellence, servi sur le pont supérieur.",
+      "Je l'ai gardé dans mon bec, Excellence. Il est sec. Presque.",
+      "Larguez les amarres, Excellence, et grattez.",
+    ],
+    cosmique: [
+      "Pour Votre Immensité. Je l'ai fait bénir par l'amiral. C'est moi.",
+      "Qu'on mette en panne ! Votre Immensité gratte.",
+    ],
+  },
+  perdu: {
+    obsequieux: [
+      "Un coup de roulis, Excellence. Ce ticket n'avait pas le pied marin.",
+      "Par-dessus bord, celui-là. Les mouettes n'en voudront pas.",
+      "~ Le Commodore jette le ticket à la mer et salue.",
+    ],
+    cosmique: ["Je fais draguer le fond pour retrouver votre chance, Votre Immensité.", "~ Le Commodore fait mettre le ticket aux fers."],
+  },
+  gagne: {
+    obsequieux: [
+      "Bon vent, Excellence. Très bon vent.",
+      "À la bonne heure ! Qu'on hisse le petit pavois.",
+      "~ Le Commodore claque du bec, enchanté.",
+    ],
+    cosmique: ["La marée monte dans vos poches, Votre Immensité.", "~ Le Commodore fait tirer une salve. Petite. Il est tard."],
+  },
+  gros: {
+    obsequieux: [
+      "Mille sabords dorés, Excellence ! Qu'on hisse le grand pavois !",
+      "~ Le Commodore applaudit des deux ailes. Sa casquette s'envole.",
+      "Une prise pareille ! Je la fais empailler, Excellence. Le ticket, pas vous.",
+    ],
+    cosmique: ["Qu'on fasse donner la corne de brume ! Tant pis pour les voisins. Il n'y en a pas.", "~ Le Commodore applaudit. Le yacht tangue."],
+  },
+  jackpot: {
+    obsequieux: [
+      "Le jackpot, Excellence ! Je rebaptise le navire. Il s'appellera « Encore ».",
+      "~ Le Commodore avale sa casquette, puis la recrache, très digne.",
+    ],
+    cosmique: ["Le jackpot ! Votre Immensité, la mer déborde. C'est vous.", "~ Le Commodore tire tous les feux d'artifice du bord. Même les fusées de détresse."],
+  },
+};
+
+// Maître Taupin, taupe : banquier privé, très myope, très méticuleux. Il parle bas.
+const TAUPIN: Script = {
+  accueil: {
+    obsequieux: [
+      "Votre Excellence ? Je ne vous vois pas, mais je vous reconnais au bruit de vos milliards.",
+      "Chut. Ici, l'argent dort. Le vôtre ronfle, Excellence.",
+      "Entrez, Excellence. Essuyez vos lingots sur le paillasson.",
+    ],
+    cosmique: [
+      "Votre Immensité. J'ai fait creuser un étage de plus. Vos chiffres ne tenaient plus debout.",
+      "Je ne compte plus votre fortune, Votre Immensité. Je la pèse.",
+      "Parlez bas, Votre Immensité. Les coffres sont jaloux.",
+    ],
+  },
+  vendu: {
+    obsequieux: [
+      "Un ticket, tiré de la chambre forte. Signez ici. Et là. Et ici.",
+      "Je vous le remets contre reçu, Excellence. En trois exemplaires.",
+      "Il est numéroté, Excellence. Tout l'est, ici. Même moi.",
+    ],
+    cosmique: ["Je vous le confie, Votre Immensité. J'ai mis mes lunettes des grands jours.", "~ Maître Taupin tamponne le ticket, puis tamponne le tampon."],
+  },
+  perdu: {
+    obsequieux: [
+      "Un écart d'écriture, Excellence. Je le passe en pertes. Et profits. Surtout profits.",
+      "Je n'ai rien vu, Excellence. C'est mon métier.",
+      "~ Maître Taupin range le ticket dans un tiroir marqué « Jamais ».",
+    ],
+    cosmique: ["Une goutte hors de l'océan, Votre Immensité. Je l'éponge.", "~ Maître Taupin cherche la perte à la loupe. Il ne la trouve pas."],
+  },
+  gagne: {
+    obsequieux: [
+      "Crédité, Excellence. À la virgule près.",
+      "Les intérêts de la chance, Excellence. Ils courent vite.",
+      "~ Maître Taupin fait claquer son boulier, satisfait.",
+    ],
+    cosmique: ["Je rajoute une ligne, Votre Immensité. Le registre fait le tour du pâté de maisons.", "~ Maître Taupin note le gain. Sa plume fume."],
+  },
+  gros: {
+    obsequieux: [
+      "Sapristi. Pardon. Je voulais dire : félicitations, Excellence.",
+      "Il me faut un coffre plus grand, Excellence. Et un siège.",
+      "~ Maître Taupin applaudit du bout des griffes, à peine audible.",
+    ],
+    cosmique: ["Je fais commander des zéros, Votre Immensité. Nous sommes en rupture.", "~ Maître Taupin ôte ses lunettes pour mieux ne pas y croire."],
+  },
+  jackpot: {
+    obsequieux: [
+      "Le jackpot. Excellence, la banque saute. Je vais m'allonger dans le coffre.",
+      "~ Maître Taupin s'évanouit, sans faire de bruit, par politesse.",
+    ],
+    cosmique: ["Le jackpot ! Votre Immensité, je ferme la banque. Elle est à vous de toute façon.", "~ Maître Taupin compte jusqu'à l'infini. Il s'arrête à midi."],
+  },
+};
+
+// Dame Séléné, lièvre de la Lune : sereine, un peu ailleurs. Rien ne l'étonne, sauf la Terre.
+const SELENE: Script = {
+  accueil: {
+    cosmique: [
+      "Bonsoir. Ou bonjour. Ici, on ne sait jamais, Votre Immensité.",
+      "Vous voilà sur la Lune. Regardez : d'ici, Grattouille tient derrière une patte.",
+      "On vous attendait, Votre Immensité. Depuis quatre milliards d'années, à peu près.",
+    ],
+  },
+  vendu: {
+    cosmique: [
+      "Un ticket, Votre Immensité. Ne le lâchez pas : ici, il s'envole.",
+      "Grattez doucement. La poussière de Lune ne retombe jamais.",
+      "Il pèse six fois moins lourd qu'en bas. Ses lots, non.",
+    ],
+  },
+  perdu: {
+    cosmique: [
+      "Perdu. Vu d'ici, c'est tout petit, vous savez.",
+      "Ce ticket est parti en orbite. Il repassera dans quatre-vingts ans.",
+      "~ Dame Séléné souffle sur le ticket. Il s'éloigne lentement vers Saturne.",
+    ],
+  },
+  gagne: {
+    cosmique: [
+      "Gagné. La Lune vous sourit. C'est son seul talent.",
+      "Les étoiles s'alignent, Votre Immensité. Je leur avais demandé.",
+      "~ Dame Séléné incline les oreilles, satisfaite.",
+    ],
+  },
+  gros: {
+    cosmique: [
+      "Oh. Même la Terre s'est retournée pour voir.",
+      "Un gain pareil, Votre Immensité : j'ouvre une étoile de plus.",
+      "~ Dame Séléné applaudit. On n'entend rien : il n'y a pas d'air.",
+    ],
+  },
+  jackpot: {
+    cosmique: [
+      "Le jackpot. Votre Immensité, il n'y a plus rien de plus grand que vous. J'ai regardé.",
+      "~ Dame Séléné décroche le croissant de Lune et vous le tend.",
+    ],
+  },
+};
+
 const SIDONIE: Script = {
   accueil: {
     familier: ["Tenez-vous droit. On va voir ce qu'on peut faire.", "Hum. Il y a du travail.", "Ne touchez à rien. Regardez."],
     poli: ["Ah, {pseudo}. Vous avez fait des efforts.", "Entrez. Je vous ai gardé deux ou trois choses.", "On progresse, {pseudo}. Lentement."],
     deferent: ["{pseudo}. Enfin quelqu'un qui sait porter le vêtement.", "Mes plus belles pièces vous attendaient.", "Entrez. Aujourd'hui, je ne critiquerai presque rien."],
     obsequieux: ["Votre Excellence. Je n'ai aucune remarque. C'est troublant.", "La Maison Sidonie est à vos mesures, Excellence.", "Que pourrais-je encore vous apprendre ?"],
+    cosmique: ["Votre Immensité. J'habille désormais les astres. Tenez-vous droit quand même.", "Une auréole ? Sur mesure, naturellement.", "Je n'ai plus de tissu assez cher. J'en fais venir de plus loin."],
   },
   vendu: {
     familier: ["Ça vous va. Presque.", "Ce n'est pas mal. Pour un début.", "Portez-le droit. Plus droit."],
@@ -286,6 +460,7 @@ const ENZO: Script = {
     poli: ["Vrrr. Bonjour. On fait vite ?", "Ah, {pseudo}. Pile à l'heure. Presque.", "Les clés sont là. Enfin, vrrr, bientôt."],
     deferent: ["{pseudo} ! J'ai du lourd. Écoutez. Vraoum.", "Zou, par ici. Du beau, du rapide.", "Chut. Elle dort. Elle ronronne."],
     obsequieux: ["Excellence ! J'ai tout lustré. Deux fois. Vroum.", "Par ici, Excellence. Doucement. Non, vite.", "Le garage entier vous attendait. Moteurs chauds."],
+    cosmique: ["Votre Immensité ! Ça ne roule plus, ça décolle. Fiouuu.", "J'ai une comète au fond du garage. Elle mord un peu.", "Trois, deux, un. Pardon. L'habitude."],
   },
   vendu: {
     familier: ["Vroum. Signe là.", "Tchac. Vendu. Suivant.", "Clés. Casque. Zou."],
@@ -301,6 +476,7 @@ const COLETTE: Script = {
     poli: ["{pseudo} ! Quel plaisir. J'ai du ravissant pour vous.", "Asseyez-vous. Ce fauteuil est ravissant, n'est-ce pas ?", "J'ai pensé à vous ce matin. C'était ravissant."],
     deferent: ["Très chère clientèle ! Tout est ravissant aujourd'hui.", "Pour {pseudo}, je sors le catalogue ravissant.", "J'ai des vues, {pseudo}. Des vues ravissantes."],
     obsequieux: ["Excellence ! Vous êtes ravissante. Vous êtes ravissant. Tout l'est.", "Le plus ravissant de Grattouille est à vendre, Excellence.", "Rien n'est trop ravissant pour Votre Excellence."],
+    cosmique: ["Votre Immensité ! J'ai du ravissant avec vue sur la Terre.", "L'espace, c'est ravissant. Et si calme. Pas un voisin.", "Un cratère exposé plein sud. Ravissant. Enfin, plein Soleil."],
   },
   vendu: {
     familier: ["C'est petit, mais c'est ravissant.", "Vous y serez ravissamment bien.", "Un nid ravissant. Signez ici."],
@@ -316,6 +492,7 @@ const ARCHIBALD: Script = {
     poli: ["Cher amateur ! La séance peut commencer.", "{pseudo}, prenez place. Le catalogue est savant.", "Hou. J'ai là quelques lots dignes d'intérêt."],
     deferent: ["Cher collectionneur ! La salle se lève pour {pseudo}.", "Des pièces de premier ordre, {pseudo}. Provenance irréprochable.", "Hou. La séance n'attendait que vous."],
     obsequieux: ["Votre Excellence ! Le marteau en tremble d'émotion.", "Les musées nous envient déjà, Excellence.", "Hou. Je n'adjuge plus qu'à Votre Excellence."],
+    cosmique: ["Votre Immensité ! J'ai fait décrocher une étoile. Elle est dans la réserve.", "Hou. Les musées ont fermé. Tout est chez vous.", "Mise à prix : indécente. Comme d'habitude, Votre Immensité."],
   },
   vendu: {
     familier: ["Une fois, deux fois, adjugé !", "Adjugé ! Emballez, c'est pesé.", "Adjugé ! Le marteau a parlé."],
@@ -331,13 +508,16 @@ const SCRIPTS: Partial<Record<Speaker, Script>> = {
   hector: HECTOR,
   baron: BARON,
   auguste: AUGUSTE,
+  balthazar: BALTHAZAR,
+  taupin: TAUPIN,
+  selene: SELENE,
   sidonie: SIDONIE,
   enzo: ENZO,
   colette: COLETTE,
   archibald: ARCHIBALD,
 };
 
-const ORDER: Register[] = ["familier", "poli", "deferent", "obsequieux"];
+const ORDER: Register[] = ["familier", "poli", "deferent", "obsequieux", "cosmique"];
 
 export interface Line {
   speaker: Speaker;
@@ -401,15 +581,17 @@ export function patronLine(situation: Situation, seed = 0): Line | null {
 
 // Piou ne change jamais de ton.
 export const PIOU = {
-  accueil: "Vous voilà à Grattouille-les-Bains avec 4 € en poche. Ça suffit pour commencer !",
+  accueil: "Vous voilà à Grattouille-les-Bains, sans un sou en poche. Ça tombe bien : regardez par terre !",
+  premierTrouve: "Un ticket ! Quelqu'un l'a laissé tomber. Ramassez-le vite, avant les mouettes !",
   kiosque: "Suivez-moi, suivez-moi ! Le Kiosque de Gaspard est juste là, sur le port.",
   enAttente: (n: number) =>
     n === 1 ? "Je vous ai gardé 1 ticket au chaud." : `Je vous ai gardé ${n} tickets au chaud.`,
   pileVide: "Plus rien à gratter ! Je garde la place au chaud quand même.",
-  maison: "La maison ne laisse personne repartir les poches vides.",
+  parTerre: "Plus un sou ? Regardez par terre ! À Grattouille, il traîne toujours un ticket pour qui n'a plus rien.",
+  chance: "Tiens, un ticket par terre ! C'est votre jour de chance.",
   code: "Notez ce code. Sans lui, votre fortune reste sur ce téléphone.",
-  noeudPap: (euros: string) =>
-    `${euros} en poche ! Filez chez Mlle Sidonie : un nœud papillon à 5 €, et vous voilà quelqu'un.`,
+  ficelle: (euros: string) =>
+    `${euros} en poche ! Filez chez Mlle Sidonie : une ficelle à 1 €, et vous voilà presque quelqu'un.`,
   standing: (stars: number, place: string) =>
     stars === 1
       ? `Le Standing ouvre les portes. Encore 1 ★ pour ${place}.`
@@ -422,6 +604,6 @@ export const FIN = {
   titre: "Le Kiosque est à toi",
   gaspard: "Voilà les clés, Patron. Je les ai fait dorer. Je reste au comptoir, si vous voulez bien de moi.",
   texte:
-    "Tu es arrivé à Grattouille-les-Bains avec 4 € en poche. Tu repars avec le kiosque où tout a commencé. La Promenade est à toi, du port jusqu'à la corniche.",
+    "Tu es arrivé à Grattouille-les-Bains sans un sou en poche. Tu repars avec le kiosque où tout a commencé. La Promenade est à toi, du port jusqu'à la Lune.",
   suite: "Le jeu continue sans limite : il reste une fortune à faire grossir, et un classement à tenir.",
 } as const;

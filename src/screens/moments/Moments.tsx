@@ -16,14 +16,19 @@ import { haptic } from "../../fx/haptics";
 import { Fx } from "../../fx/particles";
 import { Bouton } from "../../ui/Bouton";
 import { Bulle, BulleLibre } from "../../ui/Commun";
+import { usePickUp } from "../../ui/Trouve";
 import "./moments.css";
 
-/** Piou accueille un nouveau compte et l'emmène au Kiosque (section 5.4). */
+/**
+ * Piou accueille un nouveau compte (section 5.4). On débarque sans un sou : le premier
+ * ticket se ramasse par terre, et Piou emmène ensuite au Kiosque.
+ */
 export function Accueil() {
-  const go = () => {
+  const { busy, pickUp } = usePickUp((ticket) => {
     closeWelcome();
-    nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }]);
-  };
+    // Le ticket se gratte devant le Kiosque : c'est là qu'on se retrouve ensuite, 5 € en poche.
+    nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }, { name: "grattage", tickets: [ticket] }]);
+  });
   return (
     <div className="moment moment--accueil" role="dialog" aria-modal="true" aria-label="Bienvenue à Grattouille-les-Bains">
       <div className="moment__decor" style={{ backgroundImage: skyOf("kiosque") }} aria-hidden="true">
@@ -31,8 +36,8 @@ export function Accueil() {
       </div>
       <div className="moment__corps">
         <BulleLibre pnj="piou" nom="Piou">{PIOU.accueil}</BulleLibre>
-        <BulleLibre pnj="piou" nom="Piou">{PIOU.kiosque}</BulleLibre>
-        <Bouton bloc onClick={go}>Suivre Piou au Kiosque</Bouton>
+        <BulleLibre pnj="piou" nom="Piou">{PIOU.premierTrouve}</BulleLibre>
+        <Bouton bloc attente={busy} onClick={pickUp}>Ramasser le ticket</Bouton>
         <Bouton variante="texte" onClick={closeWelcome}>Faire un tour d'abord</Bouton>
       </div>
     </div>

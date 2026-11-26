@@ -1,6 +1,7 @@
-// La Promenade (BRIEF.md, sections 4.1 et 5.3) : les cinq lieux empilés, le Kiosque
-// en bas, ouverte sur le meilleur lieu débloqué. Les lieux fermés sont visibles,
-// grisés, avec leur plaque.
+// La Promenade (BRIEF.md, sections 4.1 et 5.3) : les huit lieux empilés, le Kiosque
+// en bas et la Lune tout en haut, ouverte sur le meilleur lieu débloqué. Les lieux
+// fermés sont visibles, grisés, avec leur plaque. C'est aussi là qu'on trouve, de
+// temps en temps, un ticket par terre.
 
 import { useEffect, useRef } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
@@ -16,6 +17,7 @@ import { Icon } from "../../art/icons";
 import { cx } from "../../ticket/parts";
 import { Bourse } from "../../ui/Bourse";
 import { Entete, Phrase } from "../../ui/Commun";
+import { TicketParTerre } from "../../ui/Trouve";
 import "./promenade.css";
 
 export function Promenade() {
@@ -42,7 +44,7 @@ export function Promenade() {
     <main className="ecran ecran--onglets promenade">
       <Entete titre="La Promenade" droite={<Bourse />} />
       <ol className="promenade__rue" reversed>
-        {/* Du haut de la corniche jusqu'au port : le Kiosque est en bas. */}
+        {/* De la Lune jusqu'au port : le Kiosque est en bas. */}
         {[...PLACES].reverse().map((place) => {
           const open = standing >= place.standing;
           const tickets = ticketsOfPlace(place.id);
@@ -77,6 +79,7 @@ export function Promenade() {
           );
         })}
       </ol>
+      <TicketParTerre />
     </main>
   );
 }

@@ -16,13 +16,16 @@ import { palette } from "../../engines/common";
 import { Ticket } from "../../ticket/Ticket";
 import "./planche.css";
 
-/** Quatre garde-robes, de l'arrivée au port jusqu'au Cercle. */
+/** Huit garde-robes, de l'arrivée au port jusqu'à la Lune. */
 const TENUES: { nom: string; look: AvatarLook }[] = [
   { nom: "à l'arrivée", look: {} },
+  { nom: "en gueux", look: { chapeau: "chapeau-journal", lunettes: "lunettes-carton", tenue: "sac-a-patates", accessoire: "ficelle" } },
   { nom: "au Grand Café", look: { chapeau: "beret", lunettes: "lunettes-rondes", tenue: "mariniere", accessoire: "noeud-pap" } },
   { nom: "au Casino", look: { chapeau: "melon", lunettes: "monocle", tenue: "trois-pieces", accessoire: "gousset" } },
   { nom: "au Salon", look: { chapeau: "haut-de-forme", lunettes: "lorgnon", tenue: "smoking", accessoire: "perles" } },
   { nom: "au Cercle", look: { chapeau: "couronne", lunettes: "monocle-saphir", tenue: "cape-imperiale", accessoire: "sautoir" } },
+  { nom: "sur le Yacht", look: { chapeau: "casquette-capitaine", lunettes: "lunettes-aviateur", tenue: "habit-amiral", accessoire: "grand-cordon" } },
+  { nom: "sur la Lune", look: { chapeau: "anneaux-saturne", lunettes: "lunettes-etoiles", tenue: "cape-aurore", accessoire: "collier-planetes" } },
 ];
 
 const GROUPES: { titre: string; prefixe: string; fond?: string; large?: boolean }[] = [
@@ -35,6 +38,14 @@ const GROUPES: { titre: string; prefixe: string; fond?: string; large?: boolean 
   { titre: "Jeux", prefixe: "symbole:morpion:", fond: "#FFF7E6" },
   { titre: "Cartes", prefixe: "symbole:carte:", fond: "#FFF7E6" },
   { titre: "Régate, football, course", prefixe: "symbole:regate:", fond: "#FFF7E6" },
+  { titre: "Arcanes (La Bonne Aventure)", prefixe: "symbole:arcane:", fond: "#FFF7E6" },
+  { titre: "Pêche au Gros", prefixe: "symbole:peche:", fond: "#FFF7E6" },
+  { titre: "Cocktails du Commodore", prefixe: "symbole:cocktail:", fond: "#FFF7E6" },
+  { titre: "Le Rouge et le Noir", prefixe: "symbole:roulette:", fond: "#FFF7E6" },
+  { titre: "Bâbord, Tribord", prefixe: "symbole:fanal:", fond: "#12303B" },
+  { titre: "Éclipse Totale", prefixe: "symbole:astre:", fond: "#1B1440" },
+  { titre: "Coefficients", prefixe: "symbole:coef:", fond: "#FFF7E6" },
+  { titre: "Pions", prefixe: "symbole:pion:", fond: "#CFEAE6" },
 ];
 
 function Tuile({ id, fond, large }: { id: string; fond?: string; large?: boolean }) {
@@ -63,7 +74,7 @@ export default function Planche() {
         {missing.length > 0 && ` Manque : ${missing.join(", ")}.`}
       </p>
 
-      <h2>Avatars : huit espèces, cinq garde-robes</h2>
+      <h2>Avatars : huit espèces, huit garde-robes</h2>
       <div className="planche__avatars">
         {SPECIES.map((s) =>
           TENUES.map((t) => (
@@ -79,7 +90,7 @@ export default function Planche() {
       <div className="planche__grille planche__grille--petit">
         {SPECIES.map((s) => (
           <figure className="tuile" key={s}>
-            <div className="tuile__dessin"><Avatar species={s} look={TENUES[2]!.look} crop="tete" /></div>
+            <div className="tuile__dessin"><Avatar species={s} look={TENUES[3]!.look} crop="tete" /></div>
             <figcaption>{s}</figcaption>
           </figure>
         ))}
@@ -141,12 +152,12 @@ export default function Planche() {
         </section>
       ))}
 
-      <h2>Les quinze tickets, neufs</h2>
+      <h2>Les trente tickets, neufs</h2>
       <div className="planche__tickets">
         {TICKETS.map((t) => <Ticket key={t.id} def={t} width={200} mini />)}
       </div>
 
-      <h2>Les quinze tickets, grattés (un gain moyen, puis un perdant)</h2>
+      <h2>Les trente tickets, grattés (un gain moyen, puis un perdant)</h2>
       <div className="planche__tickets">
         {TICKETS.flatMap((t) =>
           [palette(t)[4]!, 0].map((gain) => {

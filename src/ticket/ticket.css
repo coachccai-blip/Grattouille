@@ -370,7 +370,8 @@
 .jeu__trait--crayon { mix-blend-mode: normal; }
 
 .jeu__trait--crayon line {
-  stroke: var(--nuit);
+  /* Sombre sur des cases ivoire, clair sur des cases de nuit. */
+  stroke: var(--tk-case-texte);
   stroke-width: .07;
   opacity: .8;
 }
@@ -769,3 +770,459 @@
 .jeu-multi .jeu-duel { gap: .7em; }
 .jeu-multi .jeu-duel__rencontre,
 .jeu-multi .jeu-duel__montant { height: 5.6em; }
+
+/* ================================================================ Les quatre moteurs ajoutés */
+
+/* ---------------------------------------------------------------- parcours */
+
+.jeu-parcours {
+  --pas: 3.5em;
+  --ecart: .25em;
+  --ecart-y: .5em;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .55em;
+}
+
+.jeu-parcours__plateau { position: static; }
+
+/* Le chemin serpente du bas vers le haut : la case 1 en bas à gauche, la 18 en haut à droite. */
+.jeu-parcours__chemin {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: var(--pas);
+  gap: var(--ecart-y) var(--ecart);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jeu-parcours__case {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-radius: .4em;
+  transition: background-color var(--t-bascule) linear, box-shadow var(--t-bascule) linear;
+}
+
+/* Une case qui paie : un carton ivoire, son montant sur deux lignes. */
+.jeu-parcours__case--lot {
+  background: var(--tk-case);
+  color: var(--tk-case-texte);
+  box-shadow: inset 0 0 0 .08em color-mix(in srgb, var(--tk-accent) 55%, transparent);
+}
+
+/* Une case vide : juste son numéro, en creux. */
+.jeu-parcours__case--vide,
+.jeu-parcours__case--elan {
+  background: color-mix(in srgb, var(--tk-zone-texte) 9%, transparent);
+  box-shadow: inset 0 0 0 .08em color-mix(in srgb, var(--tk-zone-texte) 22%, transparent);
+}
+
+.jeu-parcours__numero {
+  font-weight: 500;
+  font-size: max(var(--tk-min), .95em);
+  line-height: 1;
+  opacity: .55;
+}
+
+.jeu-parcours__case--lot .jeu-parcours__numero { display: none; }
+
+.jeu-parcours__lot {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 .1em;
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.02em);
+  line-height: 1.02;
+}
+
+.jeu-parcours__lot .ajuste { line-height: 1.05; }
+
+/* Au bout d'une rangée, une petite flèche : le chemin monte à la rangée du dessus. */
+.jeu-parcours__case--virage::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: .9em;
+  height: var(--ecart-y);
+  background: color-mix(in srgb, var(--tk-zone-texte) 60%, transparent);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  transform: translateX(-50%);
+}
+
+/* L'arrivée : la case se cercle ; si elle paie, elle passe au mimosa. */
+.jeu-parcours__case--arrivee { box-shadow: inset 0 0 0 .2em var(--tk-accent); }
+
+.jeu-parcours__case--gagne {
+  background: var(--mimosa);
+  color: var(--nuit);
+  box-shadow: inset 0 0 0 .2em var(--mimosa-fonce), 0 .25em .5em rgba(14, 47, 58, .35);
+}
+
+/* Le pion glisse de case en case. Au départ, il attend à gauche des dés. */
+.jeu-parcours__pion {
+  position: absolute;
+  top: calc(var(--row) * (var(--pas) + var(--ecart-y)));
+  left: calc(var(--col) * (100% + var(--ecart)) / 6);
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: calc((100% - 5 * var(--ecart)) / 6);
+  height: var(--pas);
+  transition: top 320ms var(--sortie), left 320ms var(--sortie);
+  pointer-events: none;
+}
+
+/* Le pion se pose sur le coin de sa case, à cheval sur le bord : le montant reste lisible. */
+.jeu-parcours__pion svg {
+  width: 2.1em;
+  height: 2.1em;
+  margin: 0 -.7em -.75em 0;
+}
+
+.jeu-parcours__pion--depart {
+  top: calc(3 * (var(--pas) + var(--ecart-y)) + .05em + 1.9em);
+  left: .35em;
+  width: 3em;
+  height: 3em;
+  align-items: center;
+  justify-content: center;
+}
+
+.jeu-parcours__pion--depart svg { width: 2.8em; height: 2.8em; margin: 0; }
+
+.jeu-parcours__pion--gagne svg { animation: rebond var(--t-rebond) var(--rebond) 320ms both; }
+
+.calme .jeu-parcours__pion { transition: none; }
+
+.jeu-parcours__des {
+  display: grid;
+  grid-template-columns: 3.7em repeat(3, 1fr);
+  gap: .5em;
+  height: 5.6em;
+}
+
+.jeu-parcours__depart {
+  display: flex;
+  flex-direction: column;
+  gap: .15em;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* Le total des dés déjà grattés, une fois le pion parti. */
+.jeu-parcours__total {
+  font-weight: 700;
+  font-size: max(var(--tk-min), 2.1em);
+  line-height: 1.3;
+}
+
+.jeu-de {
+  flex: none;
+  width: 3.9em;
+  height: 3.9em;
+}
+
+.jeu-de__face { fill: #FFFDF6; stroke: rgba(14, 47, 58, .3); stroke-width: 1; }
+.jeu-de__ombre { fill: rgba(14, 47, 58, .1); }
+.jeu-de__point { fill: var(--nuit); }
+
+/* Le Pari de Sir Auguste : une vieille carte, des cases comme des timbres. */
+.jeu-parcours--monde .jeu-parcours__case--lot { border-radius: .15em; }
+
+/* ---------------------------------------------------------------- coef */
+
+.jeu-coef {
+  display: flex;
+  flex-direction: column;
+  gap: .6em;
+}
+
+.jeu-coef__grille {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 5em;
+  gap: .5em;
+}
+
+.jeu-coef__bas {
+  display: flex;
+  gap: .6em;
+  align-items: center;
+}
+
+.jeu-coef__nom {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: .25em;
+  min-width: 0;
+}
+
+.jeu-coef__calcul {
+  font-weight: 500;
+  font-size: max(var(--tk-min), .95em);
+  text-align: left;
+  opacity: .6;
+}
+
+.jeu-coef__calcul .ajuste__texte { transform-origin: left center; }
+
+.jeu-coef__calcul--vu {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.jeu-coef__k {
+  flex: none;
+  width: 9.6em;
+  height: 5.4em;
+}
+
+.jeu-coef__fois {
+  display: flex;
+  gap: .25em;
+  align-items: center;
+  font-weight: 700;
+  font-size: max(var(--tk-min), 2.2em);
+  line-height: 1;
+}
+
+.jeu-coef__embleme {
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+}
+
+/* ---------------------------------------------------------------- mots */
+
+.jeu-mots {
+  display: flex;
+  flex-direction: column;
+  gap: .4em;
+}
+
+.jeu-mots__haut {
+  display: flex;
+  gap: .45em;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.jeu-mots__grille {
+  display: grid;
+  flex: none;
+  grid-template-rows: repeat(var(--rows), 1.55em);
+  grid-template-columns: repeat(var(--cols), 1.55em);
+  align-self: center;
+}
+
+/* Une lettre de la grille : pâle tant qu'elle n'est pas sortie, encrée ensuite. */
+.jeu-mots__case {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  color: rgba(14, 47, 58, .26);
+  font-weight: 700;
+  font-size: max(var(--tk-min), 1.12em);
+  line-height: 1;
+  box-shadow: inset 0 0 0 .05em rgba(14, 47, 58, .4);
+  transition: background-color var(--t-bascule) linear, color var(--t-bascule) linear;
+}
+
+.jeu-mots__case--vue {
+  background: #FFF1BF;
+  color: var(--nuit);
+}
+
+/* Un mot complet : ses cases passent au mimosa. */
+.jeu-mots__case--mot { background: var(--mimosa); }
+
+.jeu-mots__bareme {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 8.4em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jeu-mots__palier {
+  display: flex;
+  flex: 1 1 0;
+  gap: .25em;
+  align-items: center;
+  min-height: 0;
+  padding: 0 .2em;
+  border-radius: .3em;
+  font-weight: 500;
+  font-size: max(var(--tk-min), .95em);
+  line-height: 1;
+}
+
+.jeu-mots__n {
+  flex: none;
+  width: 1.5em;
+  font-weight: 700;
+  text-align: center;
+  opacity: .7;
+}
+
+.jeu-mots__palier .montant { text-align: right; }
+.jeu-mots__palier .ajuste__texte { transform-origin: right center; }
+
+.jeu-mots__palier--atteint {
+  background: var(--mimosa);
+  color: var(--nuit);
+  font-weight: 700;
+}
+
+.jeu-mots__palier--atteint .jeu-mots__n { opacity: 1; }
+
+.jeu-mots__lettres {
+  display: grid;
+  grid-template-columns: repeat(5, 4.42em);
+  grid-auto-rows: 4.42em;
+  gap: .2em;
+  justify-content: center;
+}
+
+.jeu-mots__lettre {
+  font: 400 max(var(--tk-min), 2.3em)/1 var(--titre);
+}
+
+/* Une lettre qui ne figure dans aucun mot. */
+.jeu-mots__lettre--morte { opacity: .32; }
+
+/* ---------------------------------------------------------------- camps */
+
+.jeu-camps {
+  display: flex;
+  gap: .6em;
+  align-items: center;
+  justify-content: center;
+}
+
+.jeu-camps__grille {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(3, 5.2em);
+  grid-auto-rows: 5.2em;
+  gap: .4em;
+}
+
+.jeu-camps .jeu__symbole--grand {
+  width: 3.7em;
+  height: 3.7em;
+}
+
+.jeu-camps__cote {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: .45em;
+  align-items: center;
+  min-width: 0;
+}
+
+.jeu-camps__camp {
+  display: flex;
+  flex-direction: column;
+  gap: .1em;
+  align-items: center;
+  margin: 0;
+  font-size: max(var(--tk-min), .9em);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.jeu-camps__choisi {
+  width: 2.7em;
+  height: 2.7em;
+}
+
+.jeu-camps__score {
+  display: flex;
+  gap: .3em;
+  align-items: baseline;
+  margin: 0;
+  font-weight: 500;
+  font-size: max(var(--tk-min), 1.5em);
+  line-height: 1;
+}
+
+.jeu-camps__score strong { font-size: 1.35em; }
+.jeu-camps__gagne { color: var(--mimosa); }
+
+.jeu-camps__lot {
+  display: flex;
+  flex-direction: column;
+  gap: .2em;
+  align-items: stretch;
+  width: 100%;
+  text-align: center;
+}
+
+.jeu-camps__lot .case { height: 4.42em; }
+
+/* ---------------------------------------------------------------- habillages */
+
+/* Cocktails du Commodore : un ingrédient sur son sous-verre. */
+.jeu-ingredient {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15em;
+  height: 2.15em;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 .07em rgba(14, 47, 58, .2);
+}
+
+.jeu-ingredient svg {
+  width: 1.75em;
+  height: 1.75em;
+}
+
+.jeu-lignes__tirage .jeu-ingredient {
+  width: 3.5em;
+  height: 3.5em;
+  background: transparent;
+  box-shadow: none;
+}
+
+.jeu-lignes__tirage .jeu-ingredient svg {
+  width: 3.2em;
+  height: 3.2em;
+}
+
+/* Compte Numéroté : chaque numéro est gravé sur une plaque de laiton. */
+.jeu-numeros--comptes .jeu__numero {
+  padding: .12em .5em .16em;
+  border-radius: .25em;
+  background: var(--laiton);
+  color: var(--nuit);
+  box-shadow: inset 0 0 0 .06em rgba(14, 47, 58, .35);
+}
+
+/* Le Gratte-Ciel : les cases restent à 44 px au moins sur un ticket étroit. */
+.jeu-multi .jeu-parcours { --pas: 3.9em; --ecart-y: .6em; gap: .9em; }
+.jeu-multi .jeu-parcours__des { height: 6.4em; }
+.jeu-multi .jeu-coef { gap: 1em; }
+.jeu-multi .jeu-coef__grille { grid-auto-rows: 6em; gap: .6em; }
+.jeu-multi .jeu-coef__k { height: 6em; }
+.jeu-multi .jeu-morpion { gap: .8em; }
+.jeu-multi .jeu-morpion__grille { grid-template-columns: repeat(3, 5.9em); grid-auto-rows: 5.9em; }
+.jeu-multi .jeu-morpion__lot { width: 18.5em; }
+.jeu-multi .jeu-morpion__lot .case { height: 5.2em; }

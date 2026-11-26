@@ -25,7 +25,9 @@ function twoDecimals(hundredths: number): string {
  * Montant en euros entiers.
  * - Moins de 1 million : séparateur de milliers, « 9 500 € ».
  * - De 1 million à moins de 1 milliard : « 1,25 M€ ».
- * - 1 milliard et plus : « 1,25 Md€ », puis « 1 250 Md€ » au-delà de 999 Md€.
+ * - De 1 milliard à moins de 1 000 milliards : « 1,25 Md€ ».
+ * - 1 000 milliards et plus : « 1,25 Bn€ ». Un billion, c'est mille milliards ;
+ *   au-delà de 999 Bn€, plus de décimales : « 1 250 Bn€ ».
  * Les décimales sont arrondies au plus proche, comme dans le brief
  * (20 029 535 € s'écrit « 20,03 M€ »).
  */
@@ -37,10 +39,13 @@ export function formatEuros(n: number): string {
   // En centièmes de million. À 1 000,00 M€ on passe aux milliards.
   const millions = Math.round(v / 10_000);
   if (millions < 100_000) return `${twoDecimals(millions)}${NBSP}M€`;
-  // En centièmes de milliard. Au-delà de 999 Md€, plus de décimales.
+  // En centièmes de milliard. À 1 000,00 Md€ on passe aux billions.
   const milliards = Math.round(v / 10_000_000);
   if (milliards < 100_000) return `${twoDecimals(milliards)}${NBSP}Md€`;
-  return `${formatInt(Math.round(v / 1_000_000_000))}${NBSP}Md€`;
+  // En centièmes de billion. Au-delà de 999 Bn€, plus de décimales.
+  const billions = Math.round(v / 10_000_000_000);
+  if (billions < 100_000) return `${twoDecimals(billions)}${NBSP}Bn€`;
+  return `${formatInt(Math.round(v / 1_000_000_000_000))}${NBSP}Bn€`;
 }
 
 /** Pourcentage français à une décimale : 0.615 donne « 61,5 % ». */

@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 import { TICKETS, ticketById } from "../shared/tickets";
-import { buildLayout, cellIds, evaluate, matches } from "../src/engines";
+import { buildLayout, cellIds, evaluate, matches, needsPick, pickOptions, ruleOf } from "../src/engines";
+import { CAMP_CELLS, MAJORITY, countOf } from "../src/engines/camps";
+import { COEFS, tripleOf } from "../src/engines/coef";
+import { completeWords, gridOf } from "../src/engines/mots";
+import { ALPHABET, GRILLES, LETTRES_MORTES } from "../src/engines/mots-grilles";
+import { boardOf, totalOf } from "../src/engines/parcours";
 import { decoy, mulberry32, palette, splitGain } from "../src/engines/common";
 import { roundWon } from "../src/engines/duel";
 import { DRAW_SIZE, LINE_COUNT } from "../src/engines/lignes";
@@ -20,7 +25,8 @@ describe("invariant : evaluate(buildLayout(def, gain, seed)) === gain", () => {
   for (const def of TICKETS) {
     it(`${def.name} : chaque gain possible, 0 compris, sur ${SEEDS} graines`, () => {
       const gains = [0, ...palette(def)];
-      const picks = def.engine === "etoile" ? optStrings(def.options, "signs") : [undefined];
+      // Les tickets à choix (un signe, un camp) sont essayés avec chacun de leurs choix.
+      const picks = needsPick(def) ? pickOptions(def) : [undefined];
       expect(picks.length).toBeGreaterThan(0);
       for (const pick of picks) {
         for (const gain of gains) {
@@ -299,7 +305,7 @@ describe("lignes", () => {
           expect(layout.lines.length).toBe(LINE_COUNT);
           const items = layout.lines.flatMap((l) => l.items);
           expect(new Set(items).size).toBe(12);
-          const [lo, hi] = layout.skin === "cartes" ? [0, 31] : [1, 40];
+          const [lo, hi] = layout.skin === "cartes" ? [0, 31] : layout.skin === "cocktails" ? [0, 13] : [1, 40];
           expect([...items, ...layout.draw].every((e) => e >= lo && e <= hi)).toBe(true);
           for (let l = 1; l < layout.lines.length; l++) {
             expect(layout.lines[l]!.amount).toBeGreaterThanOrEqual(layout.lines[l - 1]!.amount);
@@ -320,7 +326,7 @@ describe("multi", () => {
     for (const gain of [0, ...palette(def)]) {
       for (let i = 0; i < 200; i++) {
         const layout = buildLayout(def, gain, seedAt(i));
-        if (layout.engine !== "multi") throw new Error("moteur inattendu");
+        if (layout.engine !== "multi" || layout.kind !== "classique") throw new Error("moteur inattendu");
         const [a, b, c] = layout.panels;
         expect(a.cells.length).toBe(9);
         expect(b.winning.length).toBe(2);
@@ -332,6 +338,261 @@ describe("multi", () => {
         expect(c.rounds.filter((r) => roundWon("cartes", r.you, r.them)).length).toBeLessThanOrEqual(1);
         expect(cellIds(layout).length).toBe(9 + 8 + 6);
       }
+    }
+  });
+});
+
+describe("multi, Le Gratte-Ciel", () => {
+  it("trois volets : parcours, coef, morpion, un seul lot par volet", () => {
+    const def = ticketById("gratte-ciel")!;
+    for (const gain of [0, ...palette(def)]) {
+      for (let i = 0; i < 200; i++) {
+        const layout = buildLayout(def, gain, seedAt(i));
+        if (layout.engine !== "multi" || layout.kind !== "ciel") throw new Error("moteur inattendu");
+        const [a, b, c] = layout.panels;
+        expect(a.dice.length).toBe(3);
+        expect(b.cells.length).toBe(6);
+        expect(c.grid.length).toBe(9);
+        expect(cellIds(layout).length).toBe(3 + 7 + 10);
+      }
+    }
+  });
+});
+
+describe("parcours", () => {
+  const tickets = TICKETS.filter((t) => t.engine === "parcours");
+
+  it("trois dés de 1 à 6, et le pion s'arrête sur la case de leur total", () => {
+    expect(tickets.length).toBe(2);
+    for (const def of tickets) {
+      for (const gain of [0, ...palette(def)]) {
+        for (let i = 0; i < 200; i++) {
+          const layout = buildLayout(def, gain, seedAt(i));
+          if (layout.engine !== "parcours") throw new Error("moteur inattendu");
+          expect(layout.dice.length).toBe(3);
+          for (const d of layout.dice) expect(d >= 1 && d <= 6).toBe(true);
+          expect(layout.squares[totalOf(layout.dice) - 1]).toBe(gain);
+        }
+      }
+    }
+  });
+
+  it("le plateau porte chaque lot du ticket, des cases vides, et le gros lot sur le triple six", () => {
+    for (const def of TICKETS) {
+      const pal = palette(def);
+      const board = boardOf(pal, def.temperament);
+      expect(board.length).toBe(18);
+      expect(board[0]).toBe(0);
+      expect(board[1]).toBe(0);
+      for (const amount of pal) expect(board).toContain(amount);
+      expect(board.slice(2).filter((a) => a === 0).length).toBeGreaterThanOrEqual(3);
+      expect(board[17]).toBe(pal[pal.length - 1]);
+    }
+  });
+
+  it("les cases vides sont les totaux que trois dés donnent le plus souvent", () => {
+    for (const def of tickets) {
+      const board = boardOf(palette(def), def.temperament);
+      // 10 et 11 sont les totaux les plus fréquents : jamais de lot dessus.
+      expect(board[9]).toBe(0);
+      expect(board[10]).toBe(0);
+    }
+  });
+});
+
+describe("coef", () => {
+  const tickets = TICKETS.filter((t) => t.engine === "coef");
+
+  it("six montants et un coefficient de la liste", () => {
+    expect(tickets.length).toBe(2);
+    for (const def of tickets) {
+      for (const gain of [0, ...palette(def)]) {
+        for (let i = 0; i < 200; i++) {
+          const layout = buildLayout(def, gain, seedAt(i));
+          if (layout.engine !== "coef") throw new Error("moteur inattendu");
+          expect(layout.cells.length).toBe(6);
+          expect((COEFS as readonly number[]).includes(layout.coef)).toBe(true);
+          for (const a of layout.cells) expect(Number.isInteger(a) && a > 0).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("perdant : aucun montant trois fois ; gagnant : un seul montant trois fois, et pas quatre", () => {
+    for (const def of tickets) {
+      for (let i = 0; i < 400; i++) {
+        const lost = buildLayout(def, 0, seedAt(i));
+        if (lost.engine !== "coef") throw new Error("moteur inattendu");
+        expect(tripleOf(lost)).toBe(0);
+        for (const gain of palette(def)) {
+          const won = buildLayout(def, gain, seedAt(i));
+          if (won.engine !== "coef") throw new Error("moteur inattendu");
+          const base = tripleOf(won);
+          expect(base * won.coef).toBe(gain);
+          expect(won.cells.filter((a) => a === base).length).toBe(3);
+        }
+      }
+    }
+  });
+
+  it("le coefficient d'un gagnant n'est pas toujours 1 : la multiplication se voit", () => {
+    const def = ticketById("grande-maree")!;
+    const gain = palette(def)[4]!; // 10 fois la mise
+    const coefs = new Set<number>();
+    for (let i = 0; i < 300; i++) {
+      const layout = buildLayout(def, gain, seedAt(i));
+      if (layout.engine === "coef") coefs.add(layout.coef);
+    }
+    expect(coefs.size).toBeGreaterThan(2);
+  });
+});
+
+describe("camps", () => {
+  const tickets = TICKETS.filter((t) => t.engine === "camps");
+
+  it("neuf cases, deux camps : celui du joueur l'emporte si et seulement si le ticket gagne", () => {
+    expect(tickets.length).toBe(3);
+    for (const def of tickets) {
+      for (const pick of pickOptions(def)) {
+        for (const gain of [0, ...palette(def)]) {
+          for (let i = 0; i < 100; i++) {
+            const layout = buildLayout(def, gain, seedAt(i), pick);
+            if (layout.engine !== "camps") throw new Error("moteur inattendu");
+            expect(layout.cells.length).toBe(CAMP_CELLS);
+            expect(layout.pick).toBe(pick);
+            for (const c of layout.cells) expect(layout.camps.includes(c)).toBe(true);
+            expect(countOf(layout, pick) >= MAJORITY).toBe(gain > 0);
+            if (gain > 0) expect(layout.lot).toBe(gain);
+          }
+        }
+      }
+    }
+  });
+
+  it("un camp inconnu retombe sur le premier camp du ticket", () => {
+    const def = ticketById("rouge-et-noir")!;
+    const layout = buildLayout(def, 0, 7, "vert");
+    if (layout.engine !== "camps") throw new Error("moteur inattendu");
+    expect(layout.pick).toBe("rouge");
+  });
+
+  it("le score suit la loi de neuf tirages à pile ou face : le 5 à 4 est le plus fréquent", () => {
+    const def = ticketById("rouge-et-noir")!;
+    const gain = palette(def)[0]!;
+    const counts = new Map<number, number>();
+    for (let i = 0; i < 2000; i++) {
+      const layout = buildLayout(def, gain, seedAt(i), "rouge");
+      if (layout.engine !== "camps") continue;
+      const n = countOf(layout, "rouge");
+      counts.set(n, (counts.get(n) ?? 0) + 1);
+    }
+    expect(counts.get(5)! > counts.get(6)!).toBe(true);
+    expect(counts.get(6)! > counts.get(7)!).toBe(true);
+    expect((counts.get(5) ?? 0) / 2000).toBeGreaterThan(0.42);
+  });
+});
+
+describe("mots", () => {
+  const tickets = TICKETS.filter((t) => t.engine === "mots");
+
+  it("les grilles : 10 mots, écrits avec les 10 lettres, dans 9 colonnes sur 8 rangées, sans mot parasite", () => {
+    expect(ALPHABET.length).toBe(10);
+    for (const ch of LETTRES_MORTES) expect(ALPHABET.includes(ch)).toBe(false);
+    for (const [lexique, grilles] of Object.entries(GRILLES)) {
+      expect(grilles.length).toBeGreaterThanOrEqual(8);
+      for (const grille of grilles) {
+        expect(grille.length).toBe(10);
+        expect(new Set(grille.map(([text]) => text)).size).toBe(10);
+        const cells = new Map<string, string>();
+        let rows = 0;
+        let cols = 0;
+        for (const [text, row, col, dir] of grille) {
+          expect(text.length).toBeGreaterThanOrEqual(3);
+          for (let i = 0; i < text.length; i++) {
+            expect(ALPHABET.includes(text[i]!)).toBe(true);
+            const r = row + (dir === 1 ? i : 0);
+            const c = col + (dir === 0 ? i : 0);
+            const key = `${r}:${c}`;
+            // Deux mots qui se croisent partagent la même lettre.
+            if (cells.has(key) && cells.get(key) !== text[i]) throw new Error(`${lexique} : croisement faux en ${key}`);
+            cells.set(key, text[i]!);
+            rows = Math.max(rows, r + 1);
+            cols = Math.max(cols, c + 1);
+          }
+        }
+        expect(rows).toBeLessThanOrEqual(8);
+        expect(cols).toBeLessThanOrEqual(9);
+        // Toute suite de deux lettres ou plus, en ligne ou en colonne, est un mot de la grille.
+        const runs: string[] = [];
+        for (let r = 0; r < rows; r++) {
+          let run = "";
+          for (let c = 0; c <= cols; c++) {
+            const ch = cells.get(`${r}:${c}`) ?? "";
+            if (ch) run += ch;
+            else {
+              if (run.length >= 2) runs.push(run);
+              run = "";
+            }
+          }
+        }
+        for (let c = 0; c < cols; c++) {
+          let run = "";
+          for (let r = 0; r <= rows; r++) {
+            const ch = cells.get(`${r}:${c}`) ?? "";
+            if (ch) run += ch;
+            else {
+              if (run.length >= 2) runs.push(run);
+              run = "";
+            }
+          }
+        }
+        expect(runs.sort()).toEqual(grille.map(([text]) => text).sort());
+      }
+    }
+  });
+
+  it("dix lettres toutes différentes, et autant de mots complets que le rang du lot", () => {
+    expect(tickets.length).toBe(2);
+    for (const def of tickets) {
+      const pal = palette(def);
+      const grids = new Set<number>();
+      for (let k = 0; k <= pal.length; k++) {
+        const gain = k === 0 ? 0 : pal[k - 1]!;
+        for (let i = 0; i < 300; i++) {
+          const layout = buildLayout(def, gain, seedAt(i));
+          if (layout.engine !== "mots") throw new Error("moteur inattendu");
+          grids.add(layout.grid);
+          expect(layout.letters.length).toBe(10);
+          expect(new Set(layout.letters).size).toBe(10);
+          expect(completeWords(layout, layout.letters).length).toBe(k);
+          expect(gridOf(layout).length).toBe(10);
+        }
+      }
+      // Toutes les grilles du lexique servent.
+      expect(grids.size).toBe(GRILLES[String(def.options.lexique)]!.length);
+    }
+  });
+
+  it("un ticket perdant découvre quand même des lettres de la grille", () => {
+    const def = ticketById("grille-du-jour")!;
+    let useful = 0;
+    const runs = 300;
+    for (let i = 0; i < runs; i++) {
+      const layout = buildLayout(def, 0, seedAt(i));
+      if (layout.engine !== "mots") throw new Error("moteur inattendu");
+      useful += layout.letters.filter((l) => ALPHABET.includes(l)).length;
+    }
+    // Sept lettres utiles sur dix au moins, en moyenne.
+    expect(useful / runs).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe("règles", () => {
+  it("chaque ticket a sa règle en une phrase", () => {
+    for (const def of TICKETS) {
+      const rule = ruleOf(def);
+      expect(rule.length).toBeGreaterThan(20);
+      expect(rule.endsWith(".")).toBe(true);
     }
   });
 });

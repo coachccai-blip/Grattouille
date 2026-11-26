@@ -1,18 +1,17 @@
-// Le comptoir d'un lieu (BRIEF.md, sections 5.5, 6.6 et 12.2) : l'hôte, les trois
-// tickets en carrousel, tempérament, prix. On y achète à l'unité, par carnet de 5
-// ou de 10, et la maison y offre un ticket à qui n'a plus de quoi jouer.
+// Le comptoir d'un lieu (BRIEF.md, sections 5.5, 6.6 et 12.2) : l'hôte, les tickets
+// du lieu en carrousel (de trois à cinq), tempérament, prix. On y achète à l'unité,
+// par carnet de 5 ou de 10. Qui n'a plus de quoi jouer y trouve un ticket par terre.
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { maxGain } from "../../../shared/economy";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
-import { houseTicketDef } from "../../../shared/rules";
 import { ticketsOfPlace } from "../../../shared/tickets";
 import type { PlaceId } from "../../../shared/types";
 import { PIOU, type Speaker } from "../../app/dialogues";
 import { atLeast, lineFor, placeBackground } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { askHouseTicket, buyTickets, canAskHouse, toScratch, useGame } from "../../app/store";
+import { buyTickets, displayBalance, pickUpTicket, toScratch, useFound, useGame } from "../../app/store";
 import { playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { Ticket } from "../../ticket/Ticket";
@@ -44,7 +43,8 @@ function useMiniWidth(): number {
 export function Comptoir({ place }: { place: PlaceId }) {
   const player = useGame((s) => s.player);
   const waiting = useGame((s) => toScratch(s).length);
-  const house = useGame(canAskHouse);
+  const balance = useGame(displayBalance);
+  const found = useFound();
   const def = placeById(place);
   const tickets = ticketsOfPlace(place);
   // À l'arrivée : le ticket choisi la dernière fois, sinon le moins cher. Jamais de pression.
@@ -56,7 +56,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
       return value;
     });
   };
-  const [busy, setBusy] = useState<number | "maison" | null>(null);
+  const [busy, setBusy] = useState<number | "trouve" | null>(null);
   const [seed] = useState(() => Math.floor(Math.random() * 1000));
   const width = useMiniWidth();
   const swipe = useRef<{ x: number; id: number } | null>(null);
@@ -64,8 +64,9 @@ export function Comptoir({ place }: { place: PlaceId }) {
   if (!player) return null;
   const ticket = tickets[selected]!;
   const open = player.standing >= def.standing;
-  // La maison offre le ticket le moins cher du meilleur lieu débloqué : ici, si c'est ce lieu.
-  const houseHere = house && houseTicketDef(player.standing).place === place;
+  // Sans le sou, un ticket traîne par terre : le comptoir le propose dès que le ticket
+  // présenté est hors de portée, quel que soit le lieu.
+  const foundHere = found === "fauche" && balance < ticket.price;
   const line = lineFor(player, def.host as Speaker, "accueil", seed);
 
   const buy = async (qty: number) => {
@@ -83,16 +84,16 @@ export function Comptoir({ place }: { place: PlaceId }) {
     setBusy(null);
   };
 
-  const askHouse = async () => {
+  const pickUp = async () => {
     if (busy !== null) return;
-    setBusy("maison");
+    setBusy("trouve");
     const t0 = performance.now();
-    const offered = await askHouseTicket();
-    if (offered) {
+    const ticket = await pickUpTicket();
+    if (ticket) {
       await atLeast(t0, 500);
       playTicketBought();
       haptic.buy();
-      nav.push({ name: "grattage", tickets: [offered] });
+      nav.push({ name: "grattage", tickets: [ticket] });
     }
     setBusy(null);
   };
@@ -123,9 +124,10 @@ export function Comptoir({ place }: { place: PlaceId }) {
         onPointerUp={onUp}
         onPointerCancel={() => { swipe.current = null; }}
         role="group"
-        aria-label="Les trois tickets du lieu"
+        aria-label="Les tickets du lieu"
       >
-        <div className="carrousel__piste" style={{ transform: `translateX(${(1 - selected) * (width * 0.86 + 12)}px)` }}>
+        {/* La piste est centrée : on la décale pour amener le ticket choisi au milieu. */}
+        <div className="carrousel__piste" style={{ transform: `translateX(${((tickets.length - 1) / 2 - selected) * (width * 0.86 + 12)}px)` }}>
           {tickets.map((t, i) => (
             <button
               key={t.id}
@@ -140,6 +142,9 @@ export function Comptoir({ place }: { place: PlaceId }) {
             </button>
           ))}
         </div>
+        <div className="carrousel__points" aria-hidden="true">
+          {tickets.map((t, i) => <span key={t.id} className={cx("carrousel__point", i === selected && "carrousel__point--choisi")} />)}
+        </div>
       </div>
 
       {/* Le comptoir lui-même : tout ce qui se touche est ici, à portée de pouce. */}
@@ -150,11 +155,11 @@ export function Comptoir({ place }: { place: PlaceId }) {
         </div>
         {!open ? (
           <p className="note">Ce lieu est encore fermé.</p>
-        ) : houseHere ? (
+        ) : foundHere ? (
           <>
-            <BulleLibre pnj="piou" nom="Piou" className="comptoir__piou">{PIOU.maison}</BulleLibre>
-            <Bouton bloc attente={busy === "maison"} disabled={busy !== null} onClick={() => void askHouse()}>
-              Ticket offert par la maison
+            <BulleLibre pnj="piou" nom="Piou" className="comptoir__piou">{PIOU.parTerre}</BulleLibre>
+            <Bouton bloc attente={busy === "trouve"} disabled={busy !== null} onClick={() => void pickUp()}>
+              Ramasser le ticket par terre
             </Bouton>
           </>
         ) : (

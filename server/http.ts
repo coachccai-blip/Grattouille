@@ -119,7 +119,7 @@ export async function writePlayer<T>(
         p.updatedAt = now;
         out.entry = planPublish(p, now);
       }
-      out.state = toState(p);
+      out.state = toState(p, now);
       return mutation;
     });
   } catch (error) {

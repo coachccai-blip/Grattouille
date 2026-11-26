@@ -1,6 +1,11 @@
 // Simulation d'équilibrage (BRIEF.md, section 6.7).
-// Rejoue des parties complètes avec les chiffres de shared/ et reproduit le tableau
-// de la section 5.7. Toute retouche d'un prix, d'un poids ou d'un seuil passe par ici.
+// Rejoue des parties complètes avec les chiffres de shared/ et les compare au rythme
+// attendu. Toute retouche d'un prix, d'un poids ou d'un seuil passe par ici.
+//
+// Le brief visait 750 tickets pour finir (section 5.7). Le jeu a depuis été étendu
+// à huit lieux et 110 biens : la partie dure à peu près deux fois plus longtemps,
+// environ 1 500 tickets pour un joueur ordinaire. Le tableau de référence ci-dessous
+// est celui de cette version étendue (voir DECISIONS.md).
 //
 //   npm run simulate            6 000 parties par style
 //   npm run simulate -- 20000   20 000 parties par style
@@ -30,21 +35,29 @@ export const STYLES: readonly Style[] = [
   { id: "tapis", label: "Tapis : tout le solde", bet: 1, buy: 0.6 },
 ];
 
-export const STEPS = ["Grand Café", "Casino", "Salon Privé", "Cercle", "Tout acheter, Kiosque compris"] as const;
+/** Les étapes : le premier ticket acheté dans chaque lieu après le Kiosque, puis la fin. */
+export const STEPS: readonly string[] = [...PLACES.slice(1).map((p) => p.short.replace(/^(le|la) /, "")), "Tout acheter, Kiosque compris"];
+const LAST = STEPS.length - 1;
 
-/** Médianes attendues, section 5.7. */
+/** Médianes de référence : nombre de tickets grattés avant chaque étape. */
 export const EXPECTED: Record<string, readonly number[]> = {
-  prudent: [108, 228, 440, 732, 1023],
-  standard: [66, 166, 321, 543, 753],
-  joueur: [42, 130, 255, 429, 598],
-  flambeur: [21, 98, 210, 365, 531],
-  tapis: [15, 79, 186, 339, 507],
+  prudent: [119, 282, 496, 795, 1072, 1411, 1736, 1900],
+  standard: [81, 222, 388, 617, 831, 1092, 1351, 1515],
+  joueur: [58, 185, 327, 516, 692, 911, 1130, 1296],
+  flambeur: [42, 159, 304, 480, 644, 837, 1034, 1212],
+  tapis: [27, 126, 272, 442, 602, 791, 994, 1173],
 };
 
 export const TOLERANCE = 0.15;
 
+/**
+ * Le coup de chance : un ticket par terre toutes les 8 minutes au plus, soit, au
+ * rythme d'un ticket toutes les 24 secondes, un tous les 20 tickets.
+ */
+export const LUCKY_EVERY = 20;
+
 const SHOPPING = [...CATALOG].sort((a, b) => a.price - b.price);
-const THRESHOLDS = PLACES.slice(1).map((p) => p.standing); // 10, 60, 250, 1000
+const THRESHOLDS = PLACES.slice(1).map((p) => p.standing);
 const TICKETS_BY_PRICE = [...TICKETS].sort((a, b) => a.price - b.price);
 const PLACE_INDEX = new Map(PLACES.map((p, i) => [p.id, i]));
 const HOUSE_TICKETS = PLACES.map((p) => cheapestTicket(p.id));
@@ -61,29 +74,33 @@ export interface Game {
   big: number;
   huge: number;
   jackpots: number;
+  /** Tickets trouvés par terre parce que le joueur n'avait plus de quoi jouer. */
   houseTickets: number;
+  /** Tickets trouvés par terre par chance. */
+  luckyTickets: number;
 }
 
 /**
- * Une partie complète, du premier ticket au rachat du Kiosque.
+ * Une partie complète, du premier ticket ramassé au rachat du Kiosque.
  *
- * Le brief décrit le modèle de joueur mais laisse deux points ouverts, tranchés ici
- * en retrouvant son tableau 5.7 (voir DECISIONS.md) :
+ * Le modèle de joueur est celui du brief, avec deux précisions (voir DECISIONS.md) :
  * - l'étape d'un lieu est le premier ticket que le joueur y achète, pas le moment
  *   où son Standing l'ouvre : un joueur prudent ouvre le Grand Café bien avant d'y miser ;
  * - le Kiosque, qui clôt la partie, est racheté dès que le solde atteint son prix,
  *   sans attendre que ce prix tienne dans la part d'achats.
+ * On débarque sans un sou : le premier ticket se ramasse par terre.
  */
-export function playGame(style: Style, rng: () => number, maxTickets = 200_000): Game {
+export function playGame(style: Style, rng: () => number, maxTickets = 400_000): Game {
   let balance = START_BALANCE;
   let standing = 0;
   let owned = 0;           // les biens sont achetés du moins cher au plus cher
   let tickets = 0;
   let placeIndex = 0;      // le meilleur lieu débloqué
   let played = 0;          // le meilleur lieu où le joueur a déjà acheté un ticket
-  const steps = [0, 0, 0, 0, 0];
-  const unlocks = [0, 0, 0, 0];
-  const game: Game = { steps, unlocks, big: 0, huge: 0, jackpots: 0, houseTickets: 0 };
+  let lastFound = 0;       // le numéro du dernier ticket trouvé par terre
+  const steps = new Array<number>(STEPS.length).fill(0);
+  const unlocks = new Array<number>(THRESHOLDS.length).fill(0);
+  const game: Game = { steps, unlocks, big: 0, huge: 0, jackpots: 0, houseTickets: 0, luckyTickets: 0 };
 
   while (tickets < maxTickets) {
     // 1. Acheter le bien le moins cher non possédé tant que son prix tient dans la part d'achats.
@@ -99,17 +116,22 @@ export function playGame(style: Style, rng: () => number, maxTickets = 200_000):
     }
     // La collection est complète : le Kiosque est à vendre.
     if (owned === SHOPPING.length && balance >= KIOSK.price) {
-      steps[4] = tickets;
-      for (let k = played; k < 4; k++) steps[k] = tickets;
+      steps[LAST] = tickets;
+      for (let k = played; k < LAST; k++) steps[k] = tickets;
       return game;
     }
 
-    // 2. Demander le ticket de la maison si la condition de 5.5 est remplie.
+    // 2. Ramasser le ticket qui traîne par terre : parce qu'on n'a plus de quoi jouer
+    //    (section 5.5), ou parce que la chance en a laissé un.
     const house = HOUSE_TICKETS[placeIndex]!;
-    if (balance < house.price) {
-      balance += house.price * HOUSE_MULTIPLIER;
+    const broke = balance < house.price;
+    if (broke || tickets - lastFound >= LUCKY_EVERY) {
+      // Le tout premier ticket d'un compte rapporte 5 fois son prix.
+      balance += house.price * (tickets === 0 ? FIRST_TICKET_MULTIPLIER : HOUSE_MULTIPLIER);
+      lastFound = tickets;
       tickets++;
-      game.houseTickets++;
+      if (broke) game.houseTickets++;
+      else game.luckyTickets++;
       continue;
     }
 
@@ -118,21 +140,19 @@ export function playGame(style: Style, rng: () => number, maxTickets = 200_000):
     let chosen = TICKETS_BY_PRICE[0]!;
     const cap = balance * style.bet;
     for (const t of TICKETS_BY_PRICE) {
-      if (PLACE_INDEX.get(t.place)! > placeIndex) break;
+      if (PLACE_INDEX.get(t.place)! > placeIndex) continue;
       if (t.price <= cap) chosen = t;
     }
     const where = PLACE_INDEX.get(chosen.place)!;
     for (; played < where; played++) steps[played] = tickets;
-    const m = tickets === 0
-      ? FIRST_TICKET_MULTIPLIER
-      : drawMultiplier(chosen.temperament, Math.floor(rng() * WEIGHT_TOTAL));
+    const m = drawMultiplier(chosen.temperament, Math.floor(rng() * WEIGHT_TOTAL));
     balance += chosen.price * (m - 1);
     tickets++;
     if (m >= 25) game.big++;
     if (m >= 100) game.huge++;
     if (m >= 500) game.jackpots++;
   }
-  for (let k = played; k < 5; k++) steps[k] = tickets;
+  for (let k = played; k < STEPS.length; k++) steps[k] = tickets;
   return game;
 }
 
@@ -147,7 +167,7 @@ export interface StyleReport {
   style: Style;
   games: number;
   medians: number[];
-  /** Médianes de l'ouverture des quatre lieux par le Standing. */
+  /** Médianes de l'ouverture des lieux par le Standing. */
   unlockMedians: number[];
   /** Écart relatif à la médiane attendue, pour chaque étape. */
   gaps: number[];
@@ -157,19 +177,22 @@ export interface StyleReport {
   avgHuge: number;
   jackpotShare: number;
   avgHouse: number;
+  avgLucky: number;
+  /** Aucune partie n'est restée en plan avant la fin. */
+  finished: boolean;
   ok: boolean;
 }
 
-export function simulate(games = 6_000, seed = 20261125): StyleReport[] {
+export function simulate(games = 6_000, seed = 20261126): StyleReport[] {
   return STYLES.map((style, s) => {
     const rng = mulberry32((seed + s * 7919) >>> 0);
     const runs: Game[] = [];
     for (let g = 0; g < games; g++) runs.push(playGame(style, rng));
     const medians = STEPS.map((_, i) => Math.round(quantile(runs.map((r) => r.steps[i]!).sort((a, b) => a - b), 0.5)));
-    const unlockMedians = [0, 1, 2, 3].map((i) => Math.round(quantile(runs.map((r) => r.unlocks[i]!).sort((a, b) => a - b), 0.5)));
+    const unlockMedians = THRESHOLDS.map((_, i) => Math.round(quantile(runs.map((r) => r.unlocks[i]!).sort((a, b) => a - b), 0.5)));
     const expected = EXPECTED[style.id]!;
-    const gaps = medians.map((m, i) => (m - expected[i]!) / expected[i]!);
-    const finals = runs.map((r) => r.steps[4]!).sort((a, b) => a - b);
+    const gaps = medians.map((m, i) => (expected[i]! > 0 ? (m - expected[i]!) / expected[i]! : 0));
+    const finals = runs.map((r) => r.steps[LAST]!).sort((a, b) => a - b);
     const mean = (f: (g: Game) => number) => runs.reduce((sum, r) => sum + f(r), 0) / runs.length;
     return {
       style, games, medians, unlockMedians, gaps,
@@ -179,16 +202,18 @@ export function simulate(games = 6_000, seed = 20261125): StyleReport[] {
       avgHuge: mean((r) => r.huge),
       jackpotShare: mean((r) => (r.jackpots > 0 ? 1 : 0)),
       avgHouse: mean((r) => r.houseTickets),
+      avgLucky: mean((r) => r.luckyTickets),
+      finished: finals[finals.length - 1]! < 400_000,
       ok: gaps.every((g) => Math.abs(g) <= TOLERANCE),
     };
   });
 }
 
-const plain = (s: string) => s.replace(/[  ]/g, " ");
+const plain = (s: string) => s.replace(/[\u00A0\u202F]/g, " ");
 
 export function renderReport(reports: readonly StyleReport[]): string {
   const lines: string[] = [];
-  lines.push(`Nombre médian de tickets grattés avant chaque étape (${formatInt(reports[0]!.games)} parties par style)`.replace(/ /g, " "));
+  lines.push(plain(`Nombre médian de tickets grattés avant chaque étape (${formatInt(reports[0]!.games)} parties par style)`));
   lines.push("");
   lines.push(`| Style de jeu | ${STEPS.join(" | ")} |`);
   lines.push(`|---|${STEPS.map(() => "---").join("|")}|`);
@@ -196,7 +221,7 @@ export function renderReport(reports: readonly StyleReport[]): string {
     lines.push(`| ${r.style.label} | ${r.medians.map((m) => plain(formatInt(m))).join(" | ")} |`);
   }
   lines.push("");
-  lines.push("Écart aux médianes de la section 5.7 (tolérance : 15 %)");
+  lines.push("Écart aux médianes de référence (tolérance : 15 %)");
   lines.push("");
   for (const r of reports) {
     const gaps = r.gaps.map((g) => `${g >= 0 ? "+" : ""}${(g * 100).toFixed(1)} %`).join("  ");
@@ -211,11 +236,14 @@ export function renderReport(reports: readonly StyleReport[]): string {
   const std = reports.find((r) => r.style.id === "standard");
   if (std) {
     lines.push("");
-    lines.push(`Style standard : 80 % des parties finissent entre ${plain(formatInt(std.p10))} et ${plain(formatInt(std.p90))} tickets (brief : 561 et 978).`);
-    lines.push(`Gains d'au moins 25 fois la mise : ${std.avgBig.toFixed(1)} par partie (brief : 15). Au moins 100 fois : ${std.avgHuge.toFixed(1)} (brief : 3,7).`);
-    lines.push(`Parties avec au moins un jackpot : ${(std.jackpotShare * 100).toFixed(0)} % (brief : deux sur trois).`);
-    lines.push(`Tickets offerts par la maison : ${std.avgHouse.toFixed(1)} par partie.`);
+    lines.push(`Style standard : 80 % des parties finissent entre ${plain(formatInt(std.p10))} et ${plain(formatInt(std.p90))} tickets.`);
+    lines.push(`À 24 secondes par ticket, la partie médiane dure ${(std.medians[LAST]! * 24 / 3600).toFixed(1)} heures.`);
+    lines.push(`Gains d'au moins 25 fois la mise : ${std.avgBig.toFixed(1)} par partie. Au moins 100 fois : ${std.avgHuge.toFixed(1)}.`);
+    lines.push(`Parties avec au moins un jackpot : ${(std.jackpotShare * 100).toFixed(0)} %.`);
+    lines.push(`Tickets trouvés par terre : ${std.avgHouse.toFixed(1)} par partie faute de quoi jouer, ${std.avgLucky.toFixed(1)} par chance.`);
   }
+  lines.push("");
+  lines.push(reports.every((r) => r.finished) ? "Aucune partie n'est restée bloquée : toutes vont au bout." : "ATTENTION : au moins une partie n'est pas allée au bout.");
   return lines.join("\n");
 }
 
@@ -228,7 +256,7 @@ if (invoked) {
   console.log(renderReport(reports));
   console.log(`\n${((Date.now() - started) / 1000).toFixed(1)} s`);
   if (!reports.every((r) => r.ok)) {
-    console.error("\nAu moins une médiane sort de la tolérance : il y a un écart entre shared/ et le brief.");
+    console.error("\nAu moins une médiane sort de la tolérance : shared/ ne donne plus le rythme de référence.");
     process.exit(1);
   }
 }

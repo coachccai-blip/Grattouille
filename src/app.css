@@ -78,3 +78,6 @@
 
 .sur-papier .note,
 .papier .note { color: var(--encre-douce); }
+
+/* Les écrans du jeu, sous les grands moments : une boîte sans corps, pour les rendre inertes d'un coup. */
+.jeu__fond { display: contents; }

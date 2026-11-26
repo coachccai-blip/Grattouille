@@ -12,7 +12,7 @@ const NBSP = " ";
 const FINE = " ";
 
 /** Rien à faire dans la plupart des textes : ce test les écarte d'un coup. */
-const NEEDED = / [;:!?»€%★Mh]|« |M(?:me|lle|\.) /;
+const NEEDED = / [;:!?»€%★MBh]|« |M(?:me|lle|\.) /;
 
 export function typo(text: string): string {
   if (!NEEDED.test(text)) return text;
@@ -22,8 +22,8 @@ export function typo(text: string): string {
     .replace(/« /g, `«${NBSP}`)
     // Deux-points de ponctuation seulement : suivis d'une espace ou en fin de texte.
     .replace(/ :(?=\s|$)/g, `${NBSP}:`)
-    // « 4 € », « 1 Md€ », « 70 % », « 12 ★ », « 8 h ».
-    .replace(/(\d) (?=€|M€|Md€|%|★|h(?![a-zà-ÿ]))/g, `$1${NBSP}`)
+    // « 4 € », « 1 Md€ », « 1 Bn€ », « 70 % », « 12 ★ », « 8 h ».
+    .replace(/(\d) (?=€|M€|Md€|Bn€|%|★|h(?![a-zà-ÿ]))/g, `$1${NBSP}`)
     // « Mme Colette », « Mlle Sidonie », « M. Enzo ».
     .replace(/(^|[^\p{L}])(Mme|Mlle|M\.) (?=\p{Lu})/gu, `$1$2${NBSP}`);
 }

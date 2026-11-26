@@ -1,4 +1,4 @@
-// Motifs des cinq lieux (BRIEF.md, section 4.2) : rayures de store, cannage,
+// Motifs des cinq premiers lieux (BRIEF.md, section 4.2) : rayures de store, cannage,
 // guirlande d'ampoules, capitons en losange, éventails Art déco.
 //
 // Chaque motif est une tuile SVG répétée en fond d'écran, par-dessus le dégradé du
@@ -7,6 +7,7 @@
 // L'écran en fait une image de fond : `url("data:image/svg+xml,…")`.
 
 import { C } from "./kit";
+import { MOTIFS_2 } from "./motifs-2";
 
 export interface Motif {
   /** Code SVG de la tuile. */
@@ -45,7 +46,7 @@ function eventail(cx: number, cy: number): string {
 const RANGS: [number, number][] = [[0, 0], [48, 0], [24, 12], [0, 24], [48, 24], [24, 36], [0, 48], [48, 48]];
 
 /** Identifiants attendus : kiosque, cafe, casino, salon, cercle. */
-export const MOTIFS: Record<string, Motif> = {
+const MOTIFS_1: Record<string, Motif> = {
   // Rayures de store, mimosa et blanc.
   kiosque: tuile(
     64,
@@ -89,6 +90,9 @@ export const MOTIFS: Record<string, Motif> = {
     `<path fill="none" stroke="${C.mimosa}" stroke-opacity=".2" stroke-width="1.1" d="${RANGS.map(([x, y]) => eventail(x, y)).join("")}"/>`,
   ),
 };
+
+/** Les huit motifs : ceux des cinq premiers lieux et ceux d'après minuit. */
+export const MOTIFS: Record<string, Motif> = { ...MOTIFS_1, ...MOTIFS_2 };
 
 /** L'image de fond CSS d'un motif. */
 export function motifBackground(id: string): string | undefined {

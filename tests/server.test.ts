@@ -56,10 +56,20 @@ function makeWorld() {
     return { status: res.status, body: (await res.json()) as T, headers: res.headers };
   }
 
-  async function signup(pseudo: string, species = "renard"): Promise<Account> {
+  /**
+   * Crée un compte. Un vrai compte débarque sans un sou ; la plupart des tests ont
+   * besoin d'un peu de monnaie pour acheter, d'où `purse`, glissé dans la poche du
+   * joueur derrière le dos du serveur. `purse: 0` laisse le compte tel qu'il naît.
+   */
+  async function signup(pseudo: string, species = "renard", purse = 4): Promise<Account> {
     const r = await call("POST", "/api/players", { pseudo, species });
     if (r.status !== 201) throw new Error(`création refusée : ${JSON.stringify(r.body)}`);
-    return { playerId: r.body.playerId, code: r.body.code, auth: `${r.body.playerId}.${r.body.code}`, state: r.body.state };
+    const account: Account = { playerId: r.body.playerId, code: r.body.code, auth: `${r.body.playerId}.${r.body.code}`, state: r.body.state };
+    if (purse > 0) {
+      storage.poke(account.playerId, (p) => { p.balance = purse; });
+      account.state = (await call("GET", "/api/me", undefined, account.auth)).body.state;
+    }
+    return account;
   }
 
   return {
@@ -84,7 +94,7 @@ describe("santé", () => {
 });
 
 describe("création de compte", () => {
-  it("un pseudo et une espèce : identifiant, code de récupération et 4 € en poche", async () => {
+  it("un pseudo et une espèce : identifiant, code de récupération, et pas un sou en poche", async () => {
     const w = makeWorld();
     const r = await w.call("POST", "/api/players", { pseudo: "Marcel", species: "renard" });
     expect(r.status).toBe(201);
@@ -93,8 +103,8 @@ describe("création de compte", () => {
     expect([...r.body.code].every((ch: string) => CODE_ALPHABET.includes(ch))).toBe(true);
     const state: PlayerState = r.body.state;
     expect(state).toMatchObject({
-      id: r.body.playerId, pseudo: "Marcel", species: "renard", balance: 4, pending: [], owned: [],
-      kiosk: false, standing: 0, fortune: 4,
+      id: r.body.playerId, pseudo: "Marcel", species: "renard", balance: 0, pending: [], owned: [],
+      kiosk: false, standing: 0, fortune: 0, luckyIn: 0,
       look: { chapeau: null, lunettes: null, tenue: null, accessoire: null, vehicule: null, residence: null },
       stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0 },
     });
@@ -108,7 +118,8 @@ describe("création de compte", () => {
     expect(JSON.stringify(record)).not.toContain(a.code);
     const me = await w.call("GET", "/api/me", undefined, a.auth);
     expect(Object.keys(me.body.state).sort()).toEqual([
-      "balance", "createdAt", "fortune", "id", "kiosk", "look", "owned", "pending", "pseudo", "species", "standing", "stats",
+      "balance", "createdAt", "fortune", "id", "kiosk", "look", "luckyIn", "owned", "pending", "pseudo", "species",
+      "standing", "stats",
     ]);
     expect(JSON.stringify(me.body)).not.toContain(record.codeHash);
   });
@@ -296,11 +307,16 @@ describe("achat de tickets", () => {
     w.storage.poke(a.playerId, (p) => { p.balance = 1000; });
     const r = await w.call("POST", "/api/tickets/buy", { type: "lucarne", qty: 1 }, a.auth);
     expect([r.status, r.body.error.code]).toEqual([403, "PLACE_LOCKED"]);
-    // Dix étoiles ouvrent le Grand Café.
+    // Dix étoiles ne suffisent plus : il en faut vingt pour le Grand Café.
     w.storage.poke(a.playerId, (p) => { p.owned = ["noeud-pap", "beret", "lunettes-rondes", "mariniere"]; });
+    const short = await w.call("POST", "/api/tickets/buy", { type: "lucarne", qty: 1 }, a.auth);
+    expect([short.status, short.body.error.code]).toEqual([403, "PLACE_LOCKED"]);
+    // Les douze biens les moins chers font 22 ★.
+    const cheapest = [...CATALOG].sort((x, y) => x.price - y.price).slice(0, 12).map((i) => i.id);
+    w.storage.poke(a.playerId, (p) => { p.owned = cheapest; });
     const ok = await w.call("POST", "/api/tickets/buy", { type: "lucarne", qty: 1 }, a.auth);
     expect(ok.status).toBe(200);
-    expect(ok.body.state.standing).toBe(10);
+    expect(ok.body.state.standing).toBe(22);
     w.advance(1000);
     const casino = await w.call("POST", "/api/tickets/buy", { type: "vingt-et-un", qty: 1 }, a.auth);
     expect(casino.body.error.code).toBe("PLACE_LOCKED");
@@ -349,10 +365,10 @@ describe("achat de tickets", () => {
     expect((await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, a.auth)).status).toBe(200);
   });
 
-  it("DAILY_LIMIT : plus de 3 000 tickets achetés dans la journée", async () => {
+  it("DAILY_LIMIT : plus de 6 000 tickets achetés dans la journée", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel");
-    w.storage.poke(a.playerId, (p) => { p.balance = 100_000; p.day = "2026-11-25"; p.dayTickets = 2_995; });
+    w.storage.poke(a.playerId, (p) => { p.balance = 100_000; p.day = "2026-11-25"; p.dayTickets = 5_995; });
     const five = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 5 }, a.auth);
     expect(five.status).toBe(200);
     w.advance(1000);
@@ -456,51 +472,122 @@ describe("déclaration et versement", () => {
   });
 });
 
-describe("ticket de la maison", () => {
-  it("HOUSE_NOT_ELIGIBLE tant qu'on peut encore s'offrir le ticket le moins cher", async () => {
+describe("ticket trouvé par terre", () => {
+  it("le premier ticket d'un compte se ramasse par terre, et rapporte 5 fois son prix", async () => {
     const w = makeWorld();
-    const a = await w.signup("Marcel");
-    const r = await w.call("POST", "/api/tickets/house", {}, a.auth);
-    expect([r.status, r.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
-  });
-
-  it("offert, toujours gagnant : 3 fois le prix, un toutes les 20 secondes", async () => {
-    const w = makeWorld();
-    const a = await w.signup("Marcel");
-    w.storage.poke(a.playerId, (p) => { p.balance = 0; });
-    const r = await w.call("POST", "/api/tickets/house", undefined, a.auth);
+    const a = await w.signup("Marcel", "renard", 0);
+    expect(a.state).toMatchObject({ balance: 0, luckyIn: 0 });
+    // Sans un sou, impossible d'acheter : il faut regarder par terre.
+    const buy = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, a.auth);
+    expect([buy.status, buy.body.error.code]).toEqual([409, "INSUFFICIENT_FUNDS"]);
+    const r = await w.call("POST", "/api/tickets/found", {}, a.auth);
     expect(r.status).toBe(200);
     const t: PendingTicket = r.body.tickets[0];
-    expect(t).toMatchObject({ type: "tirelire", gain: 3, house: true });
-    expect(r.body.state).toMatchObject({ balance: 0, fortune: 3 });
+    expect(t).toMatchObject({ type: "tirelire", gain: 5, house: true });
+    expect(r.body.state).toMatchObject({ balance: 0, fortune: 5 });
     expect(r.body.state.stats).toMatchObject({ tickets: 1, wagered: 0 });
-    // Un ticket en attente : pas de second ticket offert.
-    expect((await w.call("POST", "/api/tickets/house", {}, a.auth)).body.error.code).toBe("HOUSE_NOT_ELIGIBLE");
-    // Déclaré, il rapporte 3 € : de quoi rejouer, donc pas de ticket offert.
-    const paid = await w.call("POST", "/api/tickets/house", { ack: [t.id] }, a.auth);
-    expect(paid.body.error.code).toBe("HOUSE_NOT_ELIGIBLE");
+    const paid = await w.call("POST", "/api/tickets/ack", { ack: [t.id] }, a.auth);
+    expect(paid.body.state).toMatchObject({ balance: 5, fortune: 5 });
+    expect(paid.body.state.stats).toMatchObject({ tickets: 1, winners: 1, won: 5 });
+  });
+
+  it("fauché : toujours gagnant, 3 fois le prix, un toutes les 20 secondes", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", "renard", 0);
+    const first = await w.call("POST", "/api/tickets/found", undefined, a.auth);
+    const t: PendingTicket = first.body.tickets[0];
+    // Un ticket en attente, et rien d'autre : on gratte d'abord.
+    expect((await w.call("POST", "/api/tickets/found", {}, a.auth)).body.error.code).toBe("HOUSE_NOT_ELIGIBLE");
+    // Déclaré, il rapporte de quoi rejouer : plus rien par terre.
+    const again = await w.call("POST", "/api/tickets/found", { ack: [t.id] }, a.auth);
+    expect([again.status, again.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
     await w.call("POST", "/api/tickets/ack", { ack: [t.id] }, a.auth);
-    expect(w.storage.peek(a.playerId)!.balance).toBe(3);
+    expect(w.storage.peek(a.playerId)!.balance).toBe(5);
     // De nouveau à sec, moins de 20 secondes plus tard : il faut attendre.
     w.storage.poke(a.playerId, (p) => { p.balance = 0; });
     w.advance(19_999);
-    const early = await w.call("POST", "/api/tickets/house", {}, a.auth);
+    const early = await w.call("POST", "/api/tickets/found", {}, a.auth);
     expect([early.status, early.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
+    expect(early.body.error.message).toMatch(/par terre/);
     w.advance(1);
-    expect((await w.call("POST", "/api/tickets/house", {}, a.auth)).status).toBe(200);
+    const second = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect(second.status).toBe(200);
+    // Ce n'est plus le premier ticket du compte : 3 fois le prix.
+    expect(second.body.tickets[0]).toMatchObject({ type: "tirelire", gain: 3, house: true });
+    expect(second.body.state.stats).toMatchObject({ tickets: 2, wagered: 0 });
   });
 
-  it("on ne redescend jamais d'un lieu : le ticket offert est celui du meilleur lieu débloqué", async () => {
+  it("on n'est jamais bloqué : à sec, sans rien à gratter, il y a toujours un ticket après 20 secondes", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", "renard", 0);
+    let balance = 0;
+    for (let round = 0; round < 6; round++) {
+      const r = await w.call("POST", "/api/tickets/found", {}, a.auth);
+      expect(r.status).toBe(200);
+      const paid = await w.call("POST", "/api/tickets/ack", { ack: [r.body.tickets[0].id] }, a.auth);
+      expect(paid.body.state.balance).toBeGreaterThan(balance);
+      // Le joueur perd tout, encore une fois.
+      w.storage.poke(a.playerId, (p) => { p.balance = 0; });
+      balance = 0;
+      w.advance(20_000);
+    }
+  });
+
+  it("le coup de chance : un ticket par terre toutes les 8 minutes, même sans être fauché", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel");
+    w.storage.poke(a.playerId, (p) => { p.balance = 1_000; p.stats.tickets = 12; });
+    // Le compte n'a jamais rien trouvé : un ticket l'attend.
+    const first = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect(first.status).toBe(200);
+    expect(first.body.tickets[0]).toMatchObject({ type: "tirelire", gain: 3, house: true });
+    expect(first.body.state).toMatchObject({ balance: 1_000, luckyIn: 480_000 });
+    // Le suivant se fait attendre.
+    const soon = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect([soon.status, soon.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
+    w.advance(60_000);
+    expect((await w.call("GET", "/api/me", undefined, a.auth)).body.state.luckyIn).toBe(420_000);
+    w.advance(419_999);
+    expect((await w.call("POST", "/api/tickets/found", {}, a.auth)).status).toBe(409);
+    w.advance(1);
+    // Le premier n'est pas gratté : peu importe, la pile a de la place.
+    const second = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect(second.status).toBe(200);
+    expect(second.body.state.pending).toHaveLength(2);
+    expect(second.body.state.luckyIn).toBe(480_000);
+  });
+
+  it("le coup de chance attend que la pile ait de la place", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel");
+    w.storage.poke(a.playerId, (p) => { p.balance = 1_000; });
+    await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
+    w.advance(1_000);
+    await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
+    const full = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect([full.status, full.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
+  });
+
+  it("on ne redescend jamais d'un lieu : le ticket trouvé est celui du meilleur lieu débloqué", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel");
     w.storage.poke(a.playerId, (p) => {
       p.balance = 99;
+      p.stats.tickets = 40;
       p.owned = CATALOG.filter((i) => i.price <= 2_500).map((i) => i.id);
     });
+    const r = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect(r.status).toBe(200);
+    expect(r.body.state.standing).toBeGreaterThanOrEqual(130);
+    expect(r.body.tickets[0]).toMatchObject({ type: "vingt-et-un", gain: 300, house: true });
+  });
+
+  it("l'ancien nom de la route répond toujours", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", "renard", 0);
     const r = await w.call("POST", "/api/tickets/house", {}, a.auth);
     expect(r.status).toBe(200);
-    expect(r.body.state.standing).toBeGreaterThanOrEqual(60);
-    expect(r.body.tickets[0]).toMatchObject({ type: "vingt-et-un", gain: 300, house: true });
+    expect(r.body.tickets[0]).toMatchObject({ house: true });
   });
 });
 
@@ -532,7 +619,7 @@ describe("boutiques", () => {
     const w = makeWorld();
     const a = await w.signup("Marcel");
     w.storage.poke(a.playerId, (p) => { p.balance = 10; });
-    expect((await w.call("POST", "/api/shop/buy", { itemId: "sceptre" }, a.auth)).body.error.code).toBe("BAD_REQUEST");
+    expect((await w.call("POST", "/api/shop/buy", { itemId: "licorne" }, a.auth)).body.error.code).toBe("BAD_REQUEST");
     expect((await w.call("POST", "/api/shop/buy", {}, a.auth)).body.error.code).toBe("BAD_REQUEST");
     expect((await w.call("POST", "/api/shop/buy", { itemId: "beret", equip: "oui" }, a.auth)).body.error.code).toBe("BAD_REQUEST");
     await w.call("POST", "/api/shop/buy", { itemId: "noeud-pap" }, a.auth);
@@ -543,23 +630,24 @@ describe("boutiques", () => {
     expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 5, owned: ["noeud-pap"] });
   });
 
-  it("KIOSK_LOCKED tant que la collection est incomplète, puis le Kiosque : +914 ★", async () => {
+  it("KIOSK_LOCKED tant que la collection est incomplète, puis le Kiosque : 250 Bn€ et 80 000 ★ en tout", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel");
     const all = CATALOG.map((i) => i.id);
-    w.storage.poke(a.playerId, (p) => { p.balance = 2_000_000_000; p.owned = all.slice(0, 51); });
+    const kiosk = 250_000_000_000_000;
+    w.storage.poke(a.playerId, (p) => { p.balance = 2 * kiosk; p.owned = all.slice(0, all.length - 1); });
     const locked = await w.call("POST", "/api/shop/buy", { itemId: "kiosque" }, a.auth);
     expect([locked.status, locked.body.error.code]).toEqual([403, "KIOSK_LOCKED"]);
     w.storage.poke(a.playerId, (p) => { p.owned = all; });
     const poor = w.storage.peek(a.playerId)!;
     expect(poor.kiosk).toBe(false);
-    w.storage.poke(a.playerId, (p) => { p.balance = 999_999_999; });
+    w.storage.poke(a.playerId, (p) => { p.balance = kiosk - 1; });
     expect((await w.call("POST", "/api/shop/buy", { itemId: "kiosque" }, a.auth)).body.error.code).toBe("INSUFFICIENT_FUNDS");
-    w.storage.poke(a.playerId, (p) => { p.balance = 1_000_000_007; });
+    w.storage.poke(a.playerId, (p) => { p.balance = kiosk + 7; });
     const ok = await w.call("POST", "/api/shop/buy", { itemId: "kiosque" }, a.auth);
     expect(ok.status).toBe(200);
-    expect(ok.body.state).toMatchObject({ kiosk: true, standing: 5_000, balance: 7, fortune: 3_545_029_535 + 7 });
-    expect(ok.body.state.owned).toHaveLength(52);
+    expect(ok.body.state).toMatchObject({ kiosk: true, standing: 80_000, balance: 7, fortune: 417_930_679_468_784 + 7 });
+    expect(ok.body.state.owned).toHaveLength(110);
     const again = await w.call("POST", "/api/shop/buy", { itemId: "kiosque" }, a.auth);
     expect(again.body.error.code).toBe("ALREADY_OWNED");
   });
@@ -685,7 +773,7 @@ describe("classement", () => {
     const a = await w.signup("Marcel", "ours");
     const b = await board(w);
     expect(b.entries).toEqual([{
-      id: a.playerId, pseudo: "Marcel", species: "ours", fortune: 4, standing: 0, kiosk: false, at: T0,
+      id: a.playerId, pseudo: "Marcel", species: "ours", fortune: 0, standing: 0, kiosk: false, at: T0,
       look: { chapeau: null, lunettes: null, tenue: null, accessoire: null },
     }]);
     expect(b.updatedAt).toBe(T0);
@@ -697,7 +785,7 @@ describe("classement", () => {
     w.advance(5_000);
     const buy = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, a.auth);
     expect(buy.body.state.fortune).toBe(8);
-    expect((await board(w)).entries[0]!.fortune).toBe(4); // trop tôt
+    expect((await board(w)).entries[0]!.fortune).toBe(0); // trop tôt
     w.advance(30_000);
     // Une déclaration ne change pas la fortune, mais la fortune publiée a 30 secondes de retard.
     await w.call("POST", "/api/tickets/ack", { ack: [buy.body.tickets[0].id] }, a.auth);
@@ -725,7 +813,7 @@ describe("classement", () => {
     await w.call("POST", "/api/look", { species: "chat" }, mimi.auth);
     const b = await board(w);
     expect(b.entries.map((e) => e.pseudo)).toEqual(["Mimi", "Lulu", "Zoe"]);
-    expect(b.entries.map((e) => e.fortune)).toEqual([500, 4, 4]);
+    expect(b.entries.map((e) => e.fortune)).toEqual([500, 0, 0]);
     expect(lulu.playerId).not.toBe(zoe.playerId);
   });
 
@@ -780,7 +868,7 @@ describe("classement", () => {
     };
     const buy = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, a.auth);
     expect(buy.status).toBe(200);
-    expect((await board(w)).entries[0]!.fortune).toBe(4);
+    expect((await board(w)).entries[0]!.fortune).toBe(0);
     expect(w.storage.peek(a.playerId)!.boardSig).toBe("");
     blocked = false;
     w.advance(31_000);

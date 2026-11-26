@@ -2,7 +2,7 @@
 // (BRIEF.md, sections 15.3 et 15.4).
 
 import { JACKPOT_MULTIPLIER } from "../shared/economy";
-import { emptyLook, fortuneOf, standingOf, START_BALANCE } from "../shared/rules";
+import { LUCKY_FIND_MS, emptyLook, fortuneOf, standingOf, START_BALANCE } from "../shared/rules";
 import { ticketById } from "../shared/tickets";
 import type { BoardEntry, Look, PendingTicket, PlayerState, PlayerStats } from "../shared/types";
 
@@ -68,7 +68,7 @@ export function newPlayer(p: {
 }
 
 /** Ce que le client reçoit. Standing et fortune sont recalculés à chaque fois. */
-export function toState(r: PlayerRecord): PlayerState {
+export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState {
   return {
     id: r.id,
     pseudo: r.pseudo,
@@ -82,6 +82,7 @@ export function toState(r: PlayerRecord): PlayerState {
     fortune: fortuneOf(r),
     stats: r.stats,
     createdAt: r.createdAt,
+    luckyIn: Math.max(0, LUCKY_FIND_MS - (now - r.lastHouseAt)),
   };
 }
 

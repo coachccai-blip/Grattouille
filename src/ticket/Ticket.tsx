@@ -32,7 +32,7 @@ interface TicketProps {
   /** Miniature : décorative, sans texte ajusté ni taille minimale. */
   mini?: boolean;
   etat?: TicketEtat;
-  /** Ticket offert par la maison. */
+  /** Ticket trouvé par terre : toujours gagnant. */
   house?: boolean;
   /** Volet affiché du ticket multiple. */
   panel?: number;
@@ -111,7 +111,7 @@ export function Ticket({
           <div className="ticket__promesse">
             <span className="ticket__jusqua">
               Jusqu'à {formatEuros(maxGain(def))}
-              {house && <span className="ticket__offert">Offert, toujours gagnant</span>}
+              {house && <span className="ticket__offert">Trouvé par terre, toujours gagnant</span>}
             </span>
             <span className="ticket__vignette">
               <Illustration id={`ticket:${def.id}`} />

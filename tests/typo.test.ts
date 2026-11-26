@@ -38,6 +38,7 @@ describe("typo", () => {
   it("un nombre ne quitte pas son unité", () => {
     expect(typo("avec 4 € en poche")).toBe(`avec 4${NBSP}€ en poche`);
     expect(typo("1 Md€.")).toBe(`1${NBSP}Md€.`);
+    expect(typo("1 Bn€, un billion")).toBe(`1${NBSP}Bn€, un billion`);
     expect(typo("2 M€ de plus")).toBe(`2${NBSP}M€ de plus`);
     expect(typo("autour de 70 % des mises")).toBe(`autour de 70${NBSP}% des mises`);
     expect(typo("Encore 1 ★ pour le Casino")).toBe(`Encore 1${NBSP}★ pour le Casino`);

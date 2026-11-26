@@ -20,7 +20,7 @@
   gap: 12px;
 }
 
-.planche__avatars { grid-template-columns: repeat(5, minmax(96px, 150px)); }
+.planche__avatars { grid-template-columns: repeat(8, minmax(96px, 150px)); }
 .planche__grille--petit { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 .planche__grille--moyen { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .planche__grille--large { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }

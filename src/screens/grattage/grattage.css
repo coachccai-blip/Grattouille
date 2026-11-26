@@ -22,6 +22,25 @@
   overflow: hidden;
 }
 
+/*
+ * Pendant le choix du signe ou du camp, la scène peut défiler : sur un écran très court
+ * (ou un texte agrandi), rien n'est coupé, ni le titre ni le bouton. Les marges
+ * automatiques centrent le choix quand il tient, et le calent en haut sinon.
+ */
+.grattage__scene--choix {
+  justify-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.grattage__scene--choix > .roue { margin-block: auto; }
+
+/* Écran court : on resserre, pour que le choix tienne sans défiler dès 320 × 568. */
+@media (max-height: 600px) {
+  .grattage__scene--choix { padding-top: 10px; }
+  .grattage__scene--choix > .roue { gap: var(--e2); }
+}
+
 /* Le distributeur : une fente bordée de laiton, d'où sort le ticket. */
 .distributeur {
   position: absolute;
@@ -420,3 +439,65 @@
 }
 
 .roue__centre svg { width: 52%; height: auto; }
+
+/* Le choix du camp : deux cartes face à face. */
+.camps {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e4);
+  width: 100%;
+}
+
+.camps__camp {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  align-items: center;
+  justify-content: center;
+  min-height: 168px;
+  padding: var(--e4) var(--e3);
+  border: 3px solid transparent;
+  border-radius: 20px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 700 18px/24px var(--texte);
+  transition: box-shadow var(--t-bascule) var(--sortie), border-color var(--t-bascule) var(--sortie), transform var(--t-appui) linear;
+}
+
+.camps__camp:active { transform: scale(.97); }
+
+.camps__camp svg {
+  width: min(28vw, 112px);
+  height: auto;
+}
+
+.roue--nuit .camps__camp {
+  background: #16284A;
+  color: var(--ecume);
+}
+
+.camps__camp--choisi {
+  border-color: var(--mimosa);
+  box-shadow: 0 0 0 4px var(--mimosa);
+}
+
+/* « ou », posé entre les deux cartes. */
+.camps__contre {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--e4) / -2 - 3px);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--nuit);
+  color: var(--ecume);
+  font: 500 14px/1 var(--texte);
+  transform: translate(50%, -50%);
+  box-shadow: 0 0 0 2px var(--laiton-plein, #C99A3A);
+}

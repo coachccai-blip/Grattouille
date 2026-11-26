@@ -34,12 +34,12 @@ export function AGratter() {
                 type="button"
                 className="pile__ticket"
                 onClick={() => nav.push({ name: "grattage", tickets: [...pile.slice(i), ...pile.slice(0, i)] })}
-                aria-label={`Gratter ${def.name}, ${t.house ? "offert par la maison" : formatEuros(def.price)}`}
+                aria-label={`Gratter ${def.name}, ${t.house ? "trouvé par terre" : formatEuros(def.price)}`}
               >
                 <span className="pile__vignette" aria-hidden="true"><Illustration id={`ticket:${def.id}`} /></span>
                 <span className="pile__nom">
                   {def.name}
-                  {t.house && <small>Offert, toujours gagnant</small>}
+                  {t.house && <small>Trouvé par terre, toujours gagnant</small>}
                 </span>
                 <span className="pile__prix">{formatEuros(def.price)}</span>
               </button>

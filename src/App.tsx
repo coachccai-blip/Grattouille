@@ -69,11 +69,15 @@ function Jeu() {
   const sandbox = useGame((s) => s.sandbox);
   const { base, baseIndex, sheets } = resolveScreens(stack, index);
   const tabs = WITH_TABS.has(base.name);
+  const moment = ending || Boolean(opening) || welcome;
   return (
     <>
-      <ScreenView key={screenKey(base, baseIndex)} screen={base} />
-      {tabs && <Onglets actif={tabOf(base)} />}
-      {sheets.map((sheet, i) => <ScreenView key={screenKey(sheet, baseIndex + 1 + i)} screen={sheet} />)}
+      {/* Derrière un grand moment (accueil, ouverture d'un lieu, générique), l'écran ne répond plus. */}
+      <div className="jeu__fond" inert={moment}>
+        <ScreenView key={screenKey(base, baseIndex)} screen={base} />
+        {tabs && <Onglets actif={tabOf(base)} />}
+        {sheets.map((sheet, i) => <ScreenView key={screenKey(sheet, baseIndex + 1 + i)} screen={sheet} />)}
+      </div>
       {ending ? <Fin /> : opening ? <Ouverture key={opening} place={opening} /> : welcome ? <Accueil /> : null}
       <Message onglets={tabs && sheets.length === 0} />
       {sandbox && <p className="bac-a-sable">Bac à sable : rien n'est enregistré.</p>}

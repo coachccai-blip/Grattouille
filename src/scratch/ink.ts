@@ -4,7 +4,8 @@
 
 export type InkKind =
   | "argent" | "nacre-lilas" | "cuivre" | "craie" | "or" | "chrome"
-  | "nacre-irisee" | "or-champagne" | "nacre-blanche";
+  | "nacre-irisee" | "or-champagne" | "nacre-blanche"
+  | "sable" | "plomb" | "bronze" | "nacre-rose";
 
 export type CellShape = "rect" | "rond" | "etoile" | "cloche";
 
@@ -27,6 +28,11 @@ export const INKS: Record<InkKind, InkSpec> = {
   "nacre-irisee": { stops: ["#F2DFEC", "#E0F2EE", "#E2DCF5", "#FBEFDF"], chip: "#D8D0E6", dark: "#7C7396" },
   "or-champagne": { stops: ["#E8D5A0", "#FFF6DC", "#CFB675", "#F1E3B8"], chip: "#D6C086", dark: "#857032" },
   "nacre-blanche": { stops: ["#E9EDF1", "#FFFFFF", "#D6DEE6", "#F5F1EA"], chip: "#D5DCE4", dark: "#77838F" },
+  // Les encres des tickets ajoutés après le brief.
+  sable: { stops: ["#E6D3A8", "#FBF1D6", "#CDB37C", "#EFE0BC"], chip: "#D8C18F", dark: "#8A7340" },
+  plomb: { stops: ["#B9BDC2", "#E6E8EA", "#9AA0A7", "#CDD1D5"], chip: "#A7ADB4", dark: "#4A5158" },
+  bronze: { stops: ["#C99A5B", "#EBCB98", "#A5733A", "#D2A56B"], chip: "#B98445", dark: "#6B4A20" },
+  "nacre-rose": { stops: ["#F6D0CF", "#FFF1EC", "#E7ABB0", "#F9DED8"], chip: "#EBB8B9", dark: "#9A5A62" },
 };
 
 /** Le contour d'une case, dans le rectangle (x, y, w, h). */

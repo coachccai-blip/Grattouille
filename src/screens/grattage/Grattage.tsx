@@ -1,7 +1,8 @@
 // L'écran de grattage (BRIEF.md, section 8), en plein écran, sans onglets.
 //
-// Vie d'un ticket à l'écran : choix du signe (moteur `etoile`), sortie du
-// distributeur, grattage, résultat et sa fête, puis la suite (racheter, suivant).
+// Vie d'un ticket à l'écran : choix du signe ou du camp (moteurs `etoile` et
+// `camps`), sortie du distributeur, grattage, résultat et sa fête, puis la suite
+// (racheter, suivant).
 // Tout le grattage se passe sur l'appareil, sans réseau. Quand le résultat
 // s'affiche, le ticket est noté comme gratté ; il sera déclaré au serveur avec la
 // requête suivante, ou en quittant l'écran.
@@ -17,8 +18,7 @@ import { atLeast, lineFor, nextFrame, pluriel } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { buyTickets, displayBalance, flushAck, isCalm, markRevealed, rememberSign, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
-import { buildLayout, cellIds, matches, needsPick } from "../../engines";
-import { resolvePick } from "../../engines/etoile";
+import { buildLayout, cellIds, matches, needsPick, resolvePick } from "../../engines";
 import { PANEL_COUNT, panelCellIds } from "../../engines/multi";
 import { playMatch, playStamp, playTicketBought, playTier, scratchEnd } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
@@ -168,7 +168,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     if (rafaleRef.current && big) setRafale(false);
     const duration = quick ? 420 : calm ? Math.min(TIER_DURATION[tier], 900) : TIER_DURATION[tier];
     setPhase("resultat");
-    setAnnounce(house && ticket.gain > 0 ? `${resultText(tier, ticket.gain)}. Offert par la maison.` : resultText(tier, ticket.gain));
+    setAnnounce(house && ticket.gain > 0 ? `${resultText(tier, ticket.gain)}. Trouvé par terre.` : resultText(tier, ticket.gain));
     setTotals((t) => ({ count: t.count + 1, winners: t.winners + (ticket.gain > 0 ? 1 : 0), gain: t.gain + ticket.gain }));
     // Le ticket rejoint `grattouille.revealed` : la bourse compte jusqu'à sa nouvelle valeur.
     markRevealed(ticket.id, quick ? 300 : TIER_DURATION[tier]);
@@ -338,7 +338,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
       <Entete titre={carnet ? `Ticket ${index + 1} sur ${queue.length}` : def.name} titreDiscret={!carnet} retour droite={<Bourse />} />
       <p className="invisible" role="status" aria-live="polite">{announce}</p>
 
-      <div className="grattage__scene" ref={scene}>
+      <div className={cx("grattage__scene", phase === "choix" && "grattage__scene--choix")} ref={scene}>
         <span className="distributeur" aria-hidden="true" />
 
         {phase === "choix" && (
@@ -410,7 +410,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
         {gone && phase === "apres" && (
           <div className="bilan">
             <p className={cx("bilan__titre", ticket.gain > 0 && "bilan__titre--gain")}>{resultText(tier, ticket.gain)}</p>
-            {house && <p className="bilan__mention">Offert par la maison</p>}
+            {house && <p className="bilan__mention">Trouvé par terre</p>}
             {carnet && last && (
               <p className="bilan__carnet">
                 Carnet de {totals.count} : {totals.winners} {pluriel(totals.winners, "gagnant")}, {formatEuros(totals.gain)}

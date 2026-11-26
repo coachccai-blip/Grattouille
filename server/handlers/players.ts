@@ -38,7 +38,7 @@ export async function createPlayer(req: Request, deps: Deps): Promise<Response> 
     if (deps.defer) deps.defer(task);
     else await task;
   }
-  return json({ playerId: id, code, state: toState(record) }, 201);
+  return json({ playerId: id, code, state: toState(record, now) }, 201);
 }
 
 /** POST /api/session { pseudo, code } → { playerId, state } : changer d'appareil. */
@@ -53,13 +53,13 @@ export async function openSession(req: Request, deps: Deps): Promise<Response> {
   const record = playerId ? await deps.storage.getPlayer(playerId) : null;
   // Même réponse que le pseudo existe ou non, et comparaison en temps constant.
   if (!safeEqual(record?.codeHash ?? "", hash) || !record) fail("UNAUTHORIZED");
-  return json({ playerId: record.id, state: toState(record) });
+  return json({ playerId: record.id, state: toState(record, deps.now()) });
 }
 
 /** GET /api/me → { state } */
 export async function getMe(req: Request, deps: Deps): Promise<Response> {
   const record = await readPlayer(req, deps);
-  return json({ state: toState(record) });
+  return json({ state: toState(record, deps.now()) });
 }
 
 /**

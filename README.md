@@ -3,8 +3,14 @@
 Un jeu de tickets à gratter où la chance sourit au joueur. Jeu de fiction : aucun argent
 réel, rien à acheter, rien à retirer. Réservé aux adultes.
 
-Tout le cahier des charges est dans [`BRIEF.md`](BRIEF.md). Les choix que le brief
-laissait ouverts sont consignés dans [`DECISIONS.md`](DECISIONS.md).
+On débarque sans un sou, on ramasse un ticket par terre, et une dizaine d'heures plus
+tard on rachète le kiosque : 30 tickets, 8 lieux du port jusqu'à la Lune, 110 biens à
+s'offrir. On ne reste jamais bloqué : qui n'a plus rien trouve toujours un ticket par
+terre.
+
+Le cahier des charges d'origine est dans [`BRIEF.md`](BRIEF.md). Les choix que le brief
+laissait ouverts, et l'extension qui a doublé le jeu (section 0), sont consignés dans
+[`DECISIONS.md`](DECISIONS.md).
 
 ## Mettre en ligne sur Netlify
 
@@ -58,7 +64,7 @@ npm run dev        # http://localhost:5173, avec une API en mémoire
 | `npm run build` | Vérifie les types puis construit `dist/`. |
 | `npm run serve` | Sert `dist/` et l'API en mémoire sur http://localhost:4173, comme en ligne. |
 | `npm test` | Les tests : économie, moteurs de tickets, règles, serveur, stockage Blobs, simulation, typographie. |
-| `npm run simulate` | Simule des parties complètes et compare au tableau de la section 5.7 du brief. |
+| `npm run simulate` | Simule des parties complètes, compare au tableau de référence (`DECISIONS.md`, section 0) et vérifie qu'aucune ne reste bloquée. |
 | `npm run zip` | Fabrique `livraison/grattouille-netlify.zip`, l'archive à déposer sur Netlify. |
 
 Avec la CLI de Netlify, `netlify dev` lance en plus la vraie fonction et un store Blobs
@@ -68,7 +74,9 @@ local, isolé de la production.
 
 - `?bac-a-sable` : le jeu complet sans serveur. Rien n'est enregistré, tout disparaît au
   rechargement. Pour une démonstration : `?bac-a-sable&solde=5000000&biens=30`, ou
-  `?bac-a-sable&palier=jackpot` pour voir une fête de jackpot.
+  `?bac-a-sable&palier=jackpot` pour voir une fête de jackpot. Pour tout voir d'un coup,
+  les huit lieux ouverts et le Kiosque à portée :
+  `?bac-a-sable&solde=600000000000000&biens=110`.
 - `?planche` : la planche de contrôle des illustrations et des tickets.
 
 ## Organisation
@@ -78,9 +86,9 @@ shared/              les chiffres du jeu : économie, tickets, lieux, catalogue,
 server/              la logique du serveur (comptes, tickets, boutiques, classement)
 netlify/functions/   api.mts, le point d'entrée unique de /api/*
 src/app/             magasin d'état, client d'API, navigation, bac à sable
-src/engines/         les 7 moteurs de tickets
+src/engines/         les 11 moteurs de tickets
 src/scratch/         le grattage sur canvas
-src/ticket/          le ticket et ses 15 habillages
+src/ticket/          le ticket et ses 30 habillages
 src/art/             toutes les illustrations, en SVG
 src/fx/              particules, son synthétisé, vibrations
 src/screens/         un dossier par écran
@@ -90,7 +98,8 @@ scripts/             simulation, serveur local, fabrication de l'archive
 tests/
 ```
 
-Les chiffres des sections 5 et 6 du brief vivent dans `shared/` et nulle part ailleurs.
+Les chiffres du jeu (prix, lots, seuils, catalogue) vivent dans `shared/` et nulle part
+ailleurs.
 Toute retouche d'un prix, d'un poids ou d'un seuil passe par `npm run simulate` et
 `npm test` avant d'être validée.
 
@@ -98,4 +107,5 @@ Toute retouche d'un prix, d'un poids ou d'un seuil passe par `npm run simulate` 
 
 La liste de la section 16.7 du brief, et ce qui n'a pas pu être vérifié hors ligne
 (`DECISIONS.md`, section 8) : la fonction en production, un vrai téléphone, l'installation
-sur l'écran d'accueil, Safari et Firefox, les noms des tickets.
+sur l'écran d'accueil, Safari et Firefox, les noms des tickets, la durée réelle d'une
+partie.

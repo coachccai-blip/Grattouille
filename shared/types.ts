@@ -1,8 +1,10 @@
 // Types partagés entre le client et la fonction (BRIEF.md, sections 7.1, 10 et 15.3).
 
-export type PlaceId = "kiosque" | "cafe" | "casino" | "salon" | "cercle";
+export type PlaceId = "kiosque" | "cafe" | "casino" | "salon" | "cercle" | "yacht" | "banque" | "lune";
 export type Temperament = "pepere" | "joueur" | "casse-cou";
-export type EngineId = "trio" | "numeros" | "morpion" | "duel" | "etoile" | "lignes" | "multi";
+export type EngineId =
+  | "trio" | "numeros" | "morpion" | "duel" | "etoile" | "lignes" | "multi"
+  | "parcours" | "coef" | "mots" | "camps";
 export type Slot = "chapeau" | "lunettes" | "tenue" | "accessoire" | "vehicule" | "residence" | "tresor";
 export type LookSlot = Exclude<Slot, "tresor">;
 export type ShopId = "sidonie" | "enzo" | "colette" | "archibald";
@@ -39,7 +41,7 @@ export interface PendingTicket {
   type: string;   // id du ticket, par exemple "lucarne"
   gain: number;   // euros, 0 si perdant
   seed: number;   // entier 32 bits non signé
-  house?: true;   // offert par la maison
+  house?: true;   // trouvé par terre : toujours gagnant
   at: number;     // date d'achat en millisecondes
 }
 
@@ -61,6 +63,8 @@ export interface PlayerState {      // ce que le client reçoit
   fortune: number;                  // balance + gains en attente + prix des biens
   stats: PlayerStats;
   createdAt: number;
+  /** Millisecondes avant le prochain coup de chance (un ticket par terre) ; 0 s'il traîne déjà. */
+  luckyIn: number;
 }
 
 export interface BoardEntry {

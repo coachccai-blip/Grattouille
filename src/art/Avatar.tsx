@@ -7,7 +7,7 @@ import { itemById } from "../../shared/catalog";
 import type { Slot } from "../../shared/types";
 import { BUSTE, C, COU, Svg, shade, type ArtProps } from "./kit";
 import { speciesArt } from "./species";
-import { WARDROBE } from "./wardrobe";
+import { GARDE_ROBE } from "./garde-robe";
 
 export type AvatarLook = Partial<Record<"chapeau" | "lunettes" | "tenue" | "accessoire", string | null>>;
 
@@ -20,7 +20,7 @@ interface AvatarProps extends ArtProps {
 
 function Layer({ id }: { id: string | null | undefined }) {
   if (!id) return null;
-  const art = WARDROBE[id];
+  const art = GARDE_ROBE[id];
   return art ? <art.Layer /> : null;
 }
 
@@ -75,7 +75,7 @@ export const THUMB_BY_SLOT: Partial<Record<Slot, string>> = {
 
 /** Un article de garde-robe seul, pour l'étiquette de boutique. */
 export function WardrobeThumb({ id, className, title }: ArtProps & { id: string }) {
-  const art = WARDROBE[id];
+  const art = GARDE_ROBE[id];
   const slot = itemById(id)?.slot;
   const viewBox = art?.thumb ?? (slot ? THUMB_BY_SLOT[slot] : undefined) ?? "0 0 400 480";
   return (

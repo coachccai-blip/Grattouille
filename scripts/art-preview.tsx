@@ -2,7 +2,7 @@
 // page statique et en prend une capture PNG avec le Chromium déjà installé.
 //
 //   npx tsx scripts/art-preview.tsx avatars <sortie.png>
-//   npx tsx scripts/art-preview.tsx wardrobe <sortie.png> [espèce]
+//   npx tsx scripts/art-preview.tsx wardrobe <sortie.png> [espèce] [articles,séparés,par,des,virgules]
 //   npx tsx scripts/art-preview.tsx map <module> <export> <sortie.png> [largeur] [fond] [préfixe]
 //
 // Exemple : npx tsx scripts/art-preview.tsx map src/art/vehicles.tsx VEHICLES /tmp/v.png 240 "#BEE7F5"
@@ -43,7 +43,9 @@ async function main() {
     out = rest[0] ?? "";
     const species = rest[1] ?? "renard";
     const { Avatar, WardrobeThumb } = await import("../src/art/Avatar");
-    for (const item of CATALOG.filter((i) => i.shop === "sidonie")) {
+    // Troisième argument facultatif : la liste des articles à montrer, séparés par des virgules.
+    const only = rest[2] ? new Set(rest[2].split(",")) : null;
+    for (const item of CATALOG.filter((i) => i.shop === "sidonie" && (!only || only.has(i.id)))) {
       tiles.push({ label: `${item.id} (${item.slot})`, node: <Avatar species={species} look={{ [item.slot]: item.id }} /> });
       tiles.push({ label: `${item.id} vignette`, node: <div style={{ background: "#FFF7E6" }}><WardrobeThumb id={item.id} /></div> });
     }

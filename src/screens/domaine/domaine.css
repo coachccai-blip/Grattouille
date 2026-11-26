@@ -246,3 +246,80 @@
 }
 
 .dressing .especes__grille { margin-top: 0; }
+
+/* Le rang : de « Gueux » à « Crésus », puis « Patron » sur une plaque de laiton. */
+.domaine__rang {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 10px;
+  border-radius: 99px;
+  background: rgba(230, 242, 240, .14);
+  color: var(--ecume);
+  font: 500 14px/20px var(--texte);
+  vertical-align: 1px;
+}
+
+.domaine__rang--patron {
+  background: var(--laiton);
+  color: var(--nuit);
+  font-weight: 700;
+}
+
+/*
+ * Un ticket traîne par terre, entre le véhicule et l'avatar. Il brille doucement : on le
+ * ramasse d'un toucher. La pastille « à pied » se range à gauche pour lui laisser la place.
+ */
+.domaine__scene--trouve .domaine__vehicule { text-align: left; }
+
+.domaine__trouve {
+  position: absolute;
+  bottom: 1%;
+  left: 24%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  animation: trouve-arrive 420ms var(--rebond) both;
+}
+
+.domaine__trouve:active { transform: scale(.92); }
+
+.domaine__trouve-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--mimosa);
+  color: var(--nuit);
+  box-shadow: 0 3px 0 var(--mimosa-fonce), 0 6px 10px rgba(14, 47, 58, .45);
+  transform: rotate(-16deg);
+}
+
+/* L'éclat : une étoile à quatre branches qui respire. */
+.domaine__trouve-eclat {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: trouve-brille 1600ms ease-in-out infinite;
+}
+
+@keyframes trouve-arrive {
+  from { opacity: 0; transform: translateY(-18px) rotate(20deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes trouve-brille {
+  0%, 100% { opacity: .35; transform: scale(.6) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.1) rotate(20deg); }
+}
+
+.calme .domaine__trouve,
+.calme .domaine__trouve-eclat { animation: none; }

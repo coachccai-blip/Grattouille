@@ -1,0 +1,74 @@
+/* Le ticket trouvé par terre : une pastille ivoire posée au-dessus des onglets. */
+
+.par-terre {
+  position: fixed;
+  bottom: calc(var(--bas) + var(--onglets) + 14px);
+  left: 50%;
+  z-index: 29;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: calc(min(100vw, var(--colonne)) - 2 * var(--e4));
+  min-height: 60px;
+  padding: 8px 16px 8px 12px;
+  border-radius: 16px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  text-align: left;
+  box-shadow: 0 4px 0 var(--mimosa-fonce), 0 10px 22px rgba(0, 0, 0, .4);
+  transform: translateX(-50%);
+  animation: par-terre-arrive 420ms var(--rebond) both;
+}
+
+.par-terre:active { transform: translateX(-50%) scale(.98); }
+
+/* La hauteur de la pastille et de ses marges, réservée au bas de l'écran qui défile. */
+.par-terre__reserve { flex: none; height: 84px; }
+
+.par-terre__ticket {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--mimosa);
+  box-shadow: 0 2px 0 var(--mimosa-fonce);
+  transform: rotate(-12deg);
+}
+
+.par-terre__texte {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  font: 400 14px/18px var(--texte);
+}
+
+.par-terre__texte strong { font: 700 16px/20px var(--texte); }
+
+/* « Ramasse-le. » ne se coupe pas au trait d'union. */
+.par-terre__geste { white-space: nowrap; }
+
+.par-terre__eclat {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--mimosa-fonce);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: par-terre-brille 1600ms ease-in-out infinite;
+}
+
+@keyframes par-terre-arrive {
+  from { opacity: 0; transform: translate(-50%, 24px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+@keyframes par-terre-brille {
+  0%, 100% { opacity: .4; transform: scale(.7); }
+  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+
+.calme .par-terre,
+.calme .par-terre__eclat { animation: none; }

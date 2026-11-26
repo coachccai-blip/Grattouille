@@ -212,3 +212,30 @@
   padding: var(--e3) 0 calc(var(--bas) + var(--e2));
   background: linear-gradient(to bottom, transparent, var(--nuit) 18px);
 }
+
+/* Les points sous le carrousel : un par ticket, le ticket choisi s'allonge. */
+.carrousel {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.carrousel__points {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+}
+
+.carrousel__point {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: currentColor;
+  opacity: .35;
+  transition: width var(--t-bascule) var(--sortie), opacity var(--t-bascule) linear;
+}
+
+.carrousel__point--choisi {
+  width: 18px;
+  opacity: .9;
+}

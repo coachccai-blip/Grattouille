@@ -39,7 +39,7 @@ export function Fete({ tier, gain, house, reaction, skippable, onSkip }: FetePro
       <p className={cx("fete fete--bandeau", tier === "joli" && "fete--joli")}>
         {TITRES[tier] && <span className="fete__mot">{TITRES[tier]}</span>}
         <span className="fete__montant">{formatEuros(gain)}</span>
-        {house && <span className="fete__mention">Offert par la maison</span>}
+        {house && <span className="fete__mention">Trouvé par terre</span>}
       </p>
     );
   }

@@ -36,10 +36,10 @@ const MESSAGES: Record<ServerErrorCode, string> = {
   INSUFFICIENT_FUNDS: "Il te manque de l'argent pour cet achat.",
   PENDING_FULL: "Gratte d'abord tes tickets en attente.",
   ALREADY_OWNED: "Tu possèdes déjà ce bien.",
-  HOUSE_NOT_ELIGIBLE: "La maison n'offre un ticket qu'aux poches vides, un toutes les 20 secondes.",
+  HOUSE_NOT_ELIGIBLE: "Rien ne traîne par terre pour l'instant.",
   CONFLICT: "Deux demandes sont arrivées en même temps. Réessaie dans un instant.",
   TOO_FAST: "Gaspard n'a que deux pattes. Réessaie dans un instant.",
-  DAILY_LIMIT: "3 000 tickets aujourd'hui : le guichet rouvre demain.",
+  DAILY_LIMIT: "6 000 tickets aujourd'hui : le guichet rouvre demain.",
   SERVER_ERROR: "Le kiosque ne répond pas. Réessaie dans un instant.",
 };
 

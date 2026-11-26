@@ -8,11 +8,14 @@
 // - Affichage optimiste seulement là où un retour en arrière est simple : porter un
 //   article, changer de résidence. Jamais pour un achat.
 
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { KIOSK, itemById } from "../../shared/catalog";
 import { formatEuros } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
-import { HOUSE_COOLDOWN_MS, MAX_PENDING, houseEligible, isPlaceOpen, newlyOpened, normalizeCode } from "../../shared/rules";
+import {
+  HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, houseEligible, isPlaceOpen, newlyOpened, normalizeCode,
+} from "../../shared/rules";
 import { TICKETS, ticketById } from "../../shared/tickets";
 import type { LookSlot, PendingTicket, PlaceId, PlayerState } from "../../shared/types";
 import { resumeAudio, setSoundEnabled, suspendAudio } from "../fx/audio";
@@ -56,8 +59,11 @@ interface GameState {
   countMs: number;
   /** Incrémenté à chaque achat refusé faute d'argent : la bourse clignote. */
   purseFlash: number;
-  /** Date du dernier ticket offert reçu sur cet appareil. */
-  lastHouseAt: number;
+  /**
+   * Date, sur cet appareil, à partir de laquelle la chance laisse traîner un ticket.
+   * Calculée à chaque réponse du serveur (`luckyIn`) : l'horloge de l'appareil ne compte pas.
+   */
+  luckyAt: number;
 }
 
 export const useGame = create<GameState>(() => ({
@@ -76,7 +82,7 @@ export const useGame = create<GameState>(() => ({
   welcome: false,
   countMs: 800,
   purseFlash: 0,
-  lastHouseAt: 0,
+  luckyAt: 0,
 }));
 
 const get = useGame.getState;
@@ -107,14 +113,56 @@ export function isCalm(s: Pick<GameState, "settings" | "systemCalm">): boolean {
   return s.settings.calme || s.systemCalm;
 }
 
-/** Vrai si la maison peut offrir un ticket, vu de l'appareil. */
-export function canAskHouse(s: Pick<GameState, "player" | "revealed">): boolean {
+type FoundView = Pick<GameState, "player" | "revealed" | "luckyAt">;
+
+/**
+ * Qui n'a plus de quoi jouer n'attend pas la chance : son ticket traîne par terre
+ * 20 secondes après le précédent, soit bien avant le rendez-vous de la chance.
+ */
+const BROKE_LEAD_MS = LUCKY_FIND_MS - HOUSE_COOLDOWN_MS;
+
+/** Vrai si le joueur n'a plus de quoi jouer, vu de l'appareil. */
+export function isBroke(s: Pick<GameState, "player" | "revealed">): boolean {
   if (!s.player) return false;
   return houseEligible({
     balance: displayBalance(s),
     pendingCount: toScratch(s).length,
     standing: s.player.standing,
   });
+}
+
+/**
+ * Le ticket qui traîne par terre, vu de l'appareil : `fauche` quand le joueur n'a plus
+ * de quoi jouer, `chance` quand la chance en a laissé un, `null` s'il n'y a rien.
+ * Le serveur a le dernier mot.
+ */
+export function foundKind(s: FoundView, now: number): "fauche" | "chance" | null {
+  if (!s.player) return null;
+  if (isBroke(s)) return now >= s.luckyAt - BROKE_LEAD_MS ? "fauche" : null;
+  return now >= s.luckyAt && toScratch(s).length < MAX_PENDING ? "chance" : null;
+}
+
+/** L'heure à laquelle un ticket apparaîtra par terre, ou 0 s'il est déjà là (ou si rien ne l'annonce). */
+function nextFoundAt(s: FoundView, now: number): number {
+  if (!s.player || foundKind(s, now)) return 0;
+  if (isBroke(s)) return s.luckyAt - BROKE_LEAD_MS;
+  return toScratch(s).length < MAX_PENDING ? s.luckyAt : 0;
+}
+
+/**
+ * Le ticket par terre, pour un écran : se met à jour tout seul quand le ticket
+ * apparaît, sans compte à rebours affiché.
+ */
+export function useFound(): "fauche" | "chance" | null {
+  const [, tick] = useState(0);
+  const kind = useGame((s) => foundKind(s, Date.now()));
+  const wakeAt = useGame((s) => nextFoundAt(s, Date.now()));
+  useEffect(() => {
+    if (!wakeAt) return;
+    const t = window.setTimeout(() => tick((n) => n + 1), Math.max(250, wakeAt - Date.now() + 60));
+    return () => window.clearTimeout(t);
+  }, [wakeAt]);
+  return kind;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +210,7 @@ function applyState(state: PlayerState): void {
   const pending = new Set(state.pending.map((t) => t.id));
   const revealed = get().revealed.filter((id) => pending.has(id));
   if (!get().sandbox) saveRevealed(revealed);
-  set({ player: state, revealed });
+  set({ player: state, revealed, luckyAt: Date.now() + (state.luckyIn ?? 0) });
 }
 
 /** Les tickets grattés à déclarer avec la prochaine requête. */
@@ -312,7 +360,10 @@ function enter(auth: Auth, state: PlayerState, welcome: boolean): void {
     saveAuth(auth);
     saveRevealed([]);
   }
-  set({ auth, player: state, revealed: [], phase: "jeu", welcome, openings: [], ending: false });
+  set({
+    auth, player: state, revealed: [], phase: "jeu", welcome, openings: [], ending: false,
+    luckyAt: Date.now() + (state.luckyIn ?? 0),
+  });
 }
 
 export async function signup(pseudo: string, species: string): Promise<void> {
@@ -390,7 +441,9 @@ export function ticketBlocker(type: string, qty: number): string | null {
       .sort((a, b) => b.price - a.price)[0];
     if (qty > 1 && balance >= def.price) return `Il te manque ${missing} pour ce carnet. À l'unité, ça passe.`;
     if (within) return `Il te manque ${missing}. ${within.name} est à ${formatEuros(within.price)}.`;
-    return `Il te manque ${missing}.`;
+    // Plus rien à portée : on ne reste pas bloqué pour autant.
+    if (toScratch(s).length > 0) return `Il te manque ${missing}. Gratte d'abord tes tickets en attente.`;
+    return `Il te manque ${missing}. Regarde par terre : un ticket ne va pas tarder.`;
   }
   return null;
 }
@@ -448,26 +501,27 @@ export async function buyTickets(type: string, qty: number): Promise<PendingTick
   }
 }
 
-/** Demande le ticket offert par la maison. */
-export async function askHouseTicket(): Promise<PendingTicket | null> {
+/** Ramasse le ticket qui traîne par terre. Rend le ticket, ou `null` s'il n'y avait rien. */
+export async function pickUpTicket(): Promise<PendingTicket | null> {
   const s = get();
   if (!s.online) {
-    toast("Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.", "erreur");
+    toast("Hors connexion. Tu peux gratter tes tickets en attente, pas en ramasser.", "erreur");
     return null;
   }
-  if (Date.now() - s.lastHouseAt < HOUSE_COOLDOWN_MS) {
-    toast("La maison prépare ton ticket. Réessaie dans un instant.");
+  if (!foundKind(s, Date.now())) {
+    toast("Rien par terre pour l'instant. Regarde encore dans un instant.");
     return null;
   }
   try {
-    const r = await api.houseTicket(requireAuth(), ackList());
+    const r = await api.foundTicket(requireAuth(), ackList());
     applyState(r.state);
-    set({ lastHouseAt: Date.now() });
     return r.tickets[0] ?? null;
   } catch (error) {
     await recover(error);
     if (error instanceof ApiFailure && error.code === "HOUSE_NOT_ELIGIBLE") {
-      toast(canAskHouse(get()) ? "La maison prépare ton ticket. Réessaie dans un instant." : "Tu as de quoi jouer : la maison garde son ticket.");
+      // Le serveur n'a rien vu par terre : on se recale sur son horloge.
+      await refresh().catch(() => undefined);
+      toast("Rien par terre pour l'instant. Regarde encore dans un instant.");
     } else {
       toast(failureText(error), "erreur");
     }

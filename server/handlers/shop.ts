@@ -20,7 +20,7 @@ export async function buyItem(req: Request, deps: Deps): Promise<Response> {
   const { state } = await writePlayer(req, deps, ack, (p) => {
     if (isKiosk) {
       if (p.kiosk) fail("ALREADY_OWNED");
-      // Le Kiosque exige les 52 biens.
+      // Le Kiosque exige tous les biens du catalogue.
       if (!collectionComplete(p.owned)) fail("KIOSK_LOCKED");
     } else if (p.owned.includes(item.id)) {
       fail("ALREADY_OWNED");

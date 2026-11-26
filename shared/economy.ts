@@ -20,7 +20,7 @@ export const TEMPERAMENT_LABELS: Record<Temperament, string> = {
 
 /** Multiplicateur du premier ticket d'un compte (section 5.4). */
 export const FIRST_TICKET_MULTIPLIER = 5;
-/** Multiplicateur du ticket offert par la maison (section 5.5). */
+/** Multiplicateur du ticket trouvé par terre (section 5.5 du brief : le coup de pouce de la maison). */
 export const HOUSE_MULTIPLIER = 3;
 /** Un jackpot est un gain d'au moins 500 fois le prix. */
 export const JACKPOT_MULTIPLIER = 500;

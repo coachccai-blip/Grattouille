@@ -7,11 +7,15 @@ import { PLACES } from "./places";
 import { cheapestTicket } from "./tickets";
 import type { Look, LookSlot, PendingTicket, PlaceDef, PlaceId, TicketDef } from "./types";
 
-export const START_BALANCE = 4;
+/** On débarque sans un sou : le premier ticket se ramasse par terre. */
+export const START_BALANCE = 0;
 export const MAX_PENDING = 20;
+/** Fauché, on trouve un ticket par terre : un toutes les 20 secondes au plus. */
 export const HOUSE_COOLDOWN_MS = 20_000;
+/** Et de temps en temps, un coup de chance : un ticket par terre même sans être fauché. */
+export const LUCKY_FIND_MS = 8 * 60_000;
 export const BUY_COOLDOWN_MS = 1_000;
-export const DAILY_TICKET_LIMIT = 3_000;
+export const DAILY_TICKET_LIMIT = 6_000;
 export const BOARD_SIZE = 200;
 export const BOARD_SHOWN = 100;
 export const BOARD_PUBLISH_INTERVAL_MS = 30_000;
@@ -100,9 +104,13 @@ export function newlyOpened(before: number, after: number): PlaceDef[] {
 }
 
 // ---------------------------------------------------------------------------
-// Le coup de pouce de la maison (section 5.5)
+// Le ticket trouvé par terre (section 5.5 du brief : « le coup de pouce de la maison »)
+//
+// On ne redescend jamais d'un lieu et on ne reste jamais bloqué. Qui n'a plus de quoi
+// jouer trouve un ticket par terre, toujours gagnant. Et de temps en temps, la chance
+// en laisse traîner un pour tout le monde.
 
-/** Le ticket offert : un exemplaire du ticket le moins cher du meilleur lieu débloqué. */
+/** Le ticket trouvé : un exemplaire du ticket le moins cher du meilleur lieu débloqué. */
 export function houseTicketDef(standing: number): TicketDef {
   return cheapestTicket(bestPlace(standing).id);
 }
@@ -118,6 +126,19 @@ export function houseGain(standing: number): number {
  */
 export function houseEligible(p: { balance: number; pendingCount: number; standing: number }): boolean {
   return p.pendingCount === 0 && p.balance < houseTicketDef(p.standing).price;
+}
+
+/**
+ * Pourquoi un ticket traîne par terre, ou `null` s'il n'y en a pas.
+ * `since` : le temps écoulé depuis le dernier ticket trouvé, en millisecondes.
+ * - `fauche` : plus de quoi jouer, et le dernier ticket trouvé date de 20 secondes au moins ;
+ * - `chance` : le dernier ticket trouvé date de 8 minutes au moins, et la pile a de la place.
+ */
+export function foundReason(p: {
+  balance: number; pendingCount: number; standing: number; since: number;
+}): "fauche" | "chance" | null {
+  if (houseEligible(p)) return p.since >= HOUSE_COOLDOWN_MS ? "fauche" : null;
+  return p.since >= LUCKY_FIND_MS && p.pendingCount < MAX_PENDING ? "chance" : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,13 +170,32 @@ export const TIER_DURATION: Record<Tier, number> = {
 // ---------------------------------------------------------------------------
 // Registre des personnages selon le Standing (section 4.8)
 
-export type Register = "familier" | "poli" | "deferent" | "obsequieux";
+export type Register = "familier" | "poli" | "deferent" | "obsequieux" | "cosmique";
 
+/**
+ * Le ton des personnages suit les portes qui s'ouvrent : familier jusqu'au Casino,
+ * poli jusqu'au Salon Privé, déférent jusqu'au Cercle, obséquieux ensuite, et
+ * franchement dépassé par les événements à partir de la Banque.
+ */
 export function registerOf(standing: number): Register {
-  if (standing < 60) return "familier";
-  if (standing < 250) return "poli";
-  if (standing < 1000) return "deferent";
-  return "obsequieux";
+  if (standing < 130) return "familier";
+  if (standing < 400) return "poli";
+  if (standing < 1_400) return "deferent";
+  if (standing < 15_000) return "obsequieux";
+  return "cosmique";
+}
+
+// ---------------------------------------------------------------------------
+// Le rang : de gueux à Crésus
+
+const RANKS: Record<PlaceId, string> = {
+  kiosque: "Gueux", cafe: "Habitué", casino: "Flambeur", salon: "Notable",
+  cercle: "Rentier", yacht: "Nabab", banque: "Magnat", lune: "Crésus",
+};
+
+/** Le rang affiché sous le pseudo : celui du meilleur lieu débloqué, puis « Patron ». */
+export function rankOf(standing: number, kiosk: boolean): string {
+  return kiosk ? "Patron" : RANKS[bestPlace(standing).id];
 }
 
 // ---------------------------------------------------------------------------

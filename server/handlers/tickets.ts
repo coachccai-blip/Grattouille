@@ -1,9 +1,9 @@
-// Tickets : achat, ticket de la maison, déclaration (BRIEF.md, sections 5.5, 6.5, 15.4 et 15.6).
+// Tickets : achat, ticket trouvé par terre, déclaration (BRIEF.md, sections 5.5, 6.5, 15.4 et 15.6).
 
 import { FIRST_TICKET_MULTIPLIER, HOUSE_MULTIPLIER, drawGain } from "../../shared/economy";
 import {
-  BUY_COOLDOWN_MS, DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, MAX_PENDING,
-  dayOf, houseEligible, houseTicketDef, isPlaceOpen, standingOf,
+  BUY_COOLDOWN_MS, DAILY_TICKET_LIMIT, MAX_PENDING,
+  dayOf, foundReason, houseEligible, houseTicketDef, isPlaceOpen, standingOf,
 } from "../../shared/rules";
 import { ticketById } from "../../shared/tickets";
 import type { PendingTicket } from "../../shared/types";
@@ -34,7 +34,7 @@ export async function buyTickets(req: Request, deps: Deps): Promise<Response> {
     // Le gain est décidé ici, au moment de l'achat. Il sera versé à la déclaration.
     const tickets: PendingTicket[] = [];
     for (let i = 0; i < qty; i++) {
-      // Le premier ticket acheté par un compte gagne toujours 5 fois son prix.
+      // Le premier ticket d'un compte gagne toujours 5 fois son prix.
       const first = p.stats.tickets === 0 && i === 0;
       const gain = first ? def.price * FIRST_TICKET_MULTIPLIER : drawGain(def, deps.random32);
       tickets.push({ id: newTicketId(deps.random32), type: def.id, gain, seed: deps.random32() >>> 0, at: now });
@@ -52,25 +52,31 @@ export async function buyTickets(req: Request, deps: Deps): Promise<Response> {
 }
 
 /**
- * POST /api/tickets/house { ack? } → { tickets, state }
- * Le coup de pouce de la maison : un exemplaire du ticket le moins cher du meilleur
- * lieu débloqué, toujours gagnant, qui rapporte 3 fois son prix.
+ * POST /api/tickets/found { ack? } → { tickets, state }
+ * Le ticket trouvé par terre : un exemplaire du ticket le moins cher du meilleur lieu
+ * débloqué, toujours gagnant, qui rapporte 3 fois son prix. Il traîne là pour qui n'a
+ * plus de quoi jouer (un toutes les 20 secondes au plus) et, de temps en temps, pour
+ * tout le monde (un toutes les 8 minutes au plus). Le tout premier ticket d'un compte
+ * se ramasse ainsi, et rapporte 5 fois son prix.
  */
-export async function houseTicket(req: Request, deps: Deps): Promise<Response> {
+export async function foundTicket(req: Request, deps: Deps): Promise<Response> {
   const body = await readBody(req);
   const ack = readAck(body);
   const { result, state } = await writePlayer(req, deps, ack, (p, now) => {
     const standing = standingOf(p.owned, p.kiosk);
-    // Conditions vérifiées après `ack` : aucun ticket en attente, solde trop court.
-    if (!houseEligible({ balance: p.balance, pendingCount: p.pending.length, standing })) {
-      fail("HOUSE_NOT_ELIGIBLE");
-    }
-    if (now - p.lastHouseAt < HOUSE_COOLDOWN_MS) {
-      fail("HOUSE_NOT_ELIGIBLE", "La maison prépare ton ticket. Réessaie dans un instant.");
+    // Conditions vérifiées après `ack` : la pile et le solde sont à jour.
+    const reason = foundReason({
+      balance: p.balance, pendingCount: p.pending.length, standing, since: now - p.lastHouseAt,
+    });
+    if (!reason) {
+      const broke = houseEligible({ balance: p.balance, pendingCount: p.pending.length, standing });
+      fail("HOUSE_NOT_ELIGIBLE", broke ? "Rien par terre pour l'instant. Regarde encore dans un instant." : undefined);
     }
     const def = houseTicketDef(standing);
+    const first = p.stats.tickets === 0;
     const ticket: PendingTicket = {
-      id: newTicketId(deps.random32), type: def.id, gain: def.price * HOUSE_MULTIPLIER,
+      id: newTicketId(deps.random32), type: def.id,
+      gain: def.price * (first ? FIRST_TICKET_MULTIPLIER : HOUSE_MULTIPLIER),
       seed: deps.random32() >>> 0, house: true, at: now,
     };
     p.pending.push(ticket);

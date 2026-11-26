@@ -134,8 +134,9 @@ export const api = {
   buyTickets: (auth: Auth, type: string, qty: number, ack: string[]) =>
     call<TicketsResponse>({ method: "POST", path: "/api/tickets/buy", auth, body: { type, qty, ack } }),
 
-  houseTicket: (auth: Auth, ack: string[]) =>
-    call<TicketsResponse>({ method: "POST", path: "/api/tickets/house", auth, body: { ack } }),
+  /** Ramasse le ticket qui traîne par terre. */
+  foundTicket: (auth: Auth, ack: string[]) =>
+    call<TicketsResponse>({ method: "POST", path: "/api/tickets/found", auth, body: { ack } }),
 
   ack: (auth: Auth, ack: string[]) =>
     call<StateResponse>({ method: "POST", path: "/api/tickets/ack", auth, body: { ack } }),

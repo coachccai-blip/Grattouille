@@ -1,4 +1,4 @@
-// Vignettes des quinze tickets (BRIEF.md, section 7.10).
+// Vignettes des quinze premiers tickets (BRIEF.md, section 7.10). Les quinze suivantes : ticket-art-2.tsx.
 //
 // La vignette est le petit dessin imprimé sur le ticket, à côté de sa promesse :
 // la mascotte ou le décor qui lui donne sa tête. viewBox 0 0 100 60, fond

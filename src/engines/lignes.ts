@@ -3,7 +3,13 @@
 import type { TicketDef } from "../../shared/types";
 import { decoy, mulberry32, optString, palette, range, shuffle, splitGain, type Match, type Rng } from "./common";
 
-export type LignesSkin = "cartes" | "nombres";
+export type LignesSkin = "cartes" | "nombres" | "cocktails";
+
+/** Les 14 ingrédients des Cocktails du Commodore : l'élément `e` est COCKTAIL_INGREDIENTS[e]. */
+export const COCKTAIL_INGREDIENTS = [
+  "citron", "orange", "fraise", "cerise", "ananas", "coco", "menthe",
+  "olive", "glacon", "cafe", "sirop", "bulles", "sucre", "ombrelle",
+] as const;
 
 export interface LignesLayout {
   engine: "lignes";
@@ -11,7 +17,7 @@ export interface LignesLayout {
   /**
    * Le tirage : 8 éléments à gratter.
    * `cartes` : 0 à 31, jeu de 32 cartes (rang = e % 8 pour 7, 8, 9, 10, valet, dame, roi, as ;
-   * couleur = e ÷ 8). `nombres` : 1 à 40.
+   * couleur = e ÷ 8). `nombres` : 1 à 40. `cocktails` : 0 à 13, un ingrédient.
    */
   draw: number[];
   /** 4 rangées de 3 éléments, visibles dès le départ avec leur montant, triées par montant croissant. */
@@ -23,7 +29,9 @@ export const LINE_COUNT = 4;
 export const LINE_SIZE = 3;
 
 function universe(skin: LignesSkin): number[] {
-  return skin === "cartes" ? range(32) : range(40, 1);
+  if (skin === "cartes") return range(32);
+  if (skin === "cocktails") return range(COCKTAIL_INGREDIENTS.length);
+  return range(40, 1);
 }
 
 export function buildLignes(

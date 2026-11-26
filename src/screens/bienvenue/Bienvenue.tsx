@@ -27,7 +27,7 @@ export function Bienvenue() {
         <h1 className="bienvenue__logo">Grattouille</h1>
         <p className="bienvenue__lieu">Grattouille-les-Bains</p>
         <p className="bienvenue__accroche">
-          Tu débarques au port avec 4 € en poche. Ici, la chance est scandaleusement de ton côté.
+          Tu débarques au port sans un sou en poche. Ici, la chance est scandaleusement de ton côté.
         </p>
       </div>
       <div className="bienvenue__actions">

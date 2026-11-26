@@ -129,6 +129,14 @@ export function Reglages() {
           gagne en vrais euros, et les gains ne se convertissent en rien. Chaque ticket affiche son tableau de lots et ses
           chances réelles.
         </p>
+        <p className="note">
+          On débarque sans un sou, et on n'est jamais bloqué : qui n'a plus de quoi jouer trouve un ticket par terre,
+          toujours gagnant. De temps en temps, la chance en laisse traîner un pour tout le monde.
+        </p>
+        <p className="note">
+          Les grands nombres : 1 M€, un million d'euros ; 1 Md€, un milliard ; 1 Bn€, un billion, c'est-à-dire mille
+          milliards. Oui, ça existe. Non, personne n'en a jamais vu.
+        </p>
         <h3 className="reglages__sous-titre">Dans la vraie vie</h3>
         <p>
           Dans la vraie vie, c'est l'inverse. Un vrai ticket à gratter reverse en moyenne autour de 70 % des mises, et
@@ -146,7 +154,7 @@ export function Reglages() {
           publicité. Sur ce téléphone, le jeu ne garde que ton identifiant, ton code, tes réglages et la liste des tickets
           grattés en attente d'envoi.
         </p>
-        <p className="note">Grattouille, version 1.0.</p>
+        <p className="note">Grattouille, version 1.1.</p>
       </section>
 
       {!sandbox && (

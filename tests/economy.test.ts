@@ -136,17 +136,47 @@ describe("tirage", () => {
   });
 });
 
-describe("les quinze tickets", () => {
-  it("quinze tickets, trois par lieu, un de chaque tempérament du moins cher au plus cher", () => {
-    expect(TICKETS.length).toBe(15);
-    expect(new Set(TICKETS.map((t) => t.id)).size).toBe(15);
+describe("les trente tickets", () => {
+  /** Les quinze tickets du brief, dans l'ordre du tableau 6.4. */
+  const BRIEF = [
+    "tirelire", "signe-du-homard", "tic-tac-truffe", "lucarne", "reussite", "bas-de-laine", "vingt-et-un",
+    "bandit-manchot", "mille-pattes", "pie-voleuse", "caviar-champagne", "grand-prix", "regate",
+    "moustache-dor", "grand-grattouille",
+  ];
+
+  it("trente tickets, de trois à cinq par lieu, les trois tempéraments dans chaque lieu", () => {
+    expect(TICKETS.length).toBe(30);
+    expect(new Set(TICKETS.map((t) => t.id)).size).toBe(30);
+    expect(new Set(TICKETS.map((t) => t.name)).size).toBe(30);
+    expect(PLACES.map((p) => ticketsOfPlace(p.id).length)).toEqual([4, 5, 4, 4, 4, 3, 3, 3]);
     for (const place of PLACES) {
       const list = ticketsOfPlace(place.id);
-      expect(list.map((t) => t.temperament)).toEqual(["pepere", "joueur", "casse-cou"]);
+      expect(new Set(list.map((t) => t.temperament)).size).toBe(3);
+      // Le moins cher est un pépère, le plus cher un casse-cou : c'est lui que l'on trouve par terre.
+      expect(list[0]!.temperament).toBe("pepere");
+      expect(list[list.length - 1]!.temperament).toBe("casse-cou");
     }
   });
 
-  it("prix et gains maximaux du tableau 6.4", () => {
+  it("les prix montent de lieu en lieu, sans trou ni chevauchement", () => {
+    let previous = 0;
+    for (const place of PLACES) {
+      const prices = ticketsOfPlace(place.id).map((t) => t.price);
+      expect(new Set(prices).size).toBe(prices.length);
+      expect(prices[0]!).toBeGreaterThan(previous);
+      // D'un lieu au suivant, le premier ticket ne coûte jamais plus de 50 fois le dernier.
+      if (previous > 0) expect(prices[0]! / previous).toBeLessThanOrEqual(50);
+      previous = prices[prices.length - 1]!;
+    }
+  });
+
+  it("le plus gros lot du jeu reste un entier exact", () => {
+    const top = Math.max(...TICKETS.map((t) => maxGain(t)));
+    expect(top).toBe(5_000_000_000_000_000);
+    expect(Number.isSafeInteger(top)).toBe(true);
+  });
+
+  it("les quinze tickets du brief : prix et gains maximaux du tableau 6.4", () => {
     const expected: [string, number, number][] = [
       ["tirelire", 1, 500],
       ["signe-du-homard", 2, 2_000],
@@ -164,13 +194,39 @@ describe("les quinze tickets", () => {
       ["moustache-dor", 5_000_000, 5_000_000_000],
       ["grand-grattouille", 25_000_000, 125_000_000_000],
     ];
-    expect(TICKETS.map((t) => [t.id, t.price, maxGain(t)])).toEqual(expected);
-  });
-
-  it("moteurs du tableau 6.4", () => {
-    expect(TICKETS.map((t) => t.engine)).toEqual([
+    const brief = BRIEF.map((id) => TICKETS.find((t) => t.id === id)!);
+    expect(brief.map((t) => [t.id, t.price, maxGain(t)])).toEqual(expected);
+    expect(brief.map((t) => t.engine)).toEqual([
       "trio", "etoile", "morpion", "duel", "lignes", "numeros", "duel", "trio",
       "numeros", "trio", "etoile", "duel", "lignes", "morpion", "multi",
+    ]);
+  });
+
+  it("les quinze suivants : prix, gains maximaux et moteurs", () => {
+    const expected: [string, string, number, number][] = [
+      ["saute-crabe", "parcours", 3, 1_500],
+      ["grande-maree", "coef", 15, 15_000],
+      ["grille-du-jour", "mots", 30, 15_000],
+      ["rouge-et-noir", "camps", 1_000, 5_000_000],
+      ["bonne-aventure", "etoile", 25_000, 25_000_000],
+      ["pari-auguste", "parcours", 2_000_000, 2_000_000_000],
+      ["cocktails", "lignes", 100_000_000, 50_000_000_000],
+      ["babord-tribord", "camps", 500_000_000, 500_000_000_000],
+      ["peche-au-gros", "trio", 2_000_000_000, 10_000_000_000_000],
+      ["sesame", "mots", 5_000_000_000, 2_500_000_000_000],
+      ["compte-numerote", "numeros", 20_000_000_000, 20_000_000_000_000],
+      ["interets-composes", "coef", 100_000_000_000, 500_000_000_000_000],
+      ["eclipse-totale", "camps", 250_000_000_000, 125_000_000_000_000],
+      ["alignement", "morpion", 500_000_000_000, 500_000_000_000_000],
+      ["gratte-ciel", "multi", 1_000_000_000_000, 5_000_000_000_000_000],
+    ];
+    const added = TICKETS.filter((t) => !BRIEF.includes(t.id));
+    expect(added.map((t) => [t.id, t.engine, t.price, maxGain(t)])).toEqual(expected);
+  });
+
+  it("onze moteurs, tous utilisés", () => {
+    expect([...new Set(TICKETS.map((t) => t.engine))].sort()).toEqual([
+      "camps", "coef", "duel", "etoile", "lignes", "morpion", "mots", "multi", "numeros", "parcours", "trio",
     ]);
   });
 });

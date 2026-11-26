@@ -1,21 +1,24 @@
 // Le Domaine (BRIEF.md, section 9.4) : l'écran d'accueil montre ce que le joueur est
 // devenu. Du fond vers l'avant : ciel du meilleur lieu débloqué, résidence choisie,
-// véhicule à gauche, avatar au centre, trésors sur une console à droite.
+// véhicule à gauche, avatar au centre, trésors sur une console à droite. Et parfois,
+// par terre, un ticket que quelqu'un a laissé tomber.
 
-import { CATALOG, COLLECTION_SIZE, itemById } from "../../../shared/catalog";
+import { CATALOG, COLLECTION_SIZE, KIOSK, itemById } from "../../../shared/catalog";
 import { formatEuros, formatInt } from "../../../shared/format";
-import { bestPlace, nextPlace } from "../../../shared/rules";
+import { bestPlace, nextPlace, rankOf } from "../../../shared/rules";
 import type { PlayerState } from "../../../shared/types";
 import { PIOU } from "../../app/dialogues";
 import { capitalize, pluriel, skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { canAskHouse, displayBalance, patchSettings, toScratch, useGame } from "../../app/store";
+import { displayBalance, patchSettings, toScratch, useFound, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
 import { Bouton } from "../../ui/Bouton";
+import { cx } from "../../ticket/parts";
 import { Bourse, Standing } from "../../ui/Bourse";
 import { Barre, BulleLibre, Entete, Phrase } from "../../ui/Commun";
+import { usePickUp } from "../../ui/Trouve";
 import "./domaine.css";
 
 /** Les trois trésors les plus chers, pour la console. */
@@ -51,7 +54,7 @@ function Objectif({ player }: { player: PlayerState }) {
     return (
       <button type="button" className="objectif objectif--kiosque" onClick={() => nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "colette" }])}>
         <span className="objectif__titre">Le Kiosque est à vendre</span>
-        <span className="objectif__compte">Mme Colette vous attend à l'agence. 1 Md€.</span>
+        <span className="objectif__compte">Mme Colette vous attend à l'agence. {formatEuros(KIOSK.price)}.</span>
       </button>
     );
   }
@@ -64,14 +67,23 @@ function Objectif({ player }: { player: PlayerState }) {
 }
 
 /** Un seul conseil à la fois : Piou guide le début de partie, sans jamais bloquer. */
-function Conseil({ player }: { player: PlayerState }) {
+function Conseil({ player, found, busy, pickUp }: {
+  player: PlayerState; found: "fauche" | "chance" | null; busy: boolean; pickUp: () => void;
+}) {
   const balance = useGame(displayBalance);
-  const house = useGame(canAskHouse);
   const codeNote = useGame((s) => s.settings.codeNote);
   const sandbox = useGame((s) => s.sandbox);
-  const best = bestPlace(player.standing);
 
-  if (player.stats.tickets === 0) {
+  // Un ticket traîne par terre : c'est la première chose à dire.
+  if (found) {
+    return (
+      <BulleLibre pnj="piou" nom="Piou" className="conseil">
+        {player.stats.tickets === 0 ? PIOU.premierTrouve : found === "fauche" ? PIOU.parTerre : PIOU.chance}
+        <Bouton variante="texte" attente={busy} onClick={pickUp}>Ramasser le ticket</Bouton>
+      </BulleLibre>
+    );
+  }
+  if (player.stats.tickets <= 1 && player.owned.length === 0 && balance < 3) {
     return (
       <BulleLibre pnj="piou" nom="Piou" className="conseil">
         {PIOU.kiosque}
@@ -79,20 +91,10 @@ function Conseil({ player }: { player: PlayerState }) {
       </BulleLibre>
     );
   }
-  if (house) {
+  if (player.owned.length === 0 && balance >= 3) {
     return (
       <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {PIOU.maison}
-        <Bouton variante="texte" onClick={() => nav.reset([{ name: "promenade" }, { name: "comptoir", place: best.id }])}>
-          Aller chercher mon ticket offert
-        </Bouton>
-      </BulleLibre>
-    );
-  }
-  if (player.owned.length === 0 && balance >= 5) {
-    return (
-      <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {PIOU.noeudPap(formatEuros(balance))}
+        {PIOU.ficelle(formatEuros(balance))}
         <Bouton variante="texte" onClick={() => nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "sidonie" }])}>Aller chez Sidonie</Bouton>
       </BulleLibre>
     );
@@ -115,6 +117,8 @@ function Conseil({ player }: { player: PlayerState }) {
 export function Domaine() {
   const player = useGame((s) => s.player);
   const waiting = useGame((s) => toScratch(s).length);
+  const found = useFound();
+  const { busy, pickUp } = usePickUp();
   if (!player) return null;
   const best = bestPlace(player.standing);
   const residence = player.look.residence;
@@ -136,7 +140,7 @@ export function Domaine() {
         droite={<><Bourse /><Standing /></>}
       />
 
-      <div className="domaine__scene" style={{ backgroundImage: skyOf(best.id) }}>
+      <div className={cx("domaine__scene", found && "domaine__scene--trouve")} style={{ backgroundImage: skyOf(best.id) }}>
         <button
           type="button"
           className="domaine__residence"
@@ -166,14 +170,24 @@ export function Domaine() {
         <button type="button" className="domaine__avatar" onClick={() => nav.push({ name: "dressing" })} aria-label="Ouvrir le dressing">
           <Avatar species={player.species} look={player.look} />
         </button>
+        {/* Le ticket qui traîne par terre : il brille doucement, on le ramasse d'un toucher. */}
+        {found && (
+          <button type="button" className="domaine__trouve" onClick={pickUp} disabled={busy} aria-label="Un ticket traîne par terre. Le ramasser">
+            <span className="domaine__trouve-ticket" aria-hidden="true"><Icon name="jouer" plein size={30} /></span>
+            <span className="domaine__trouve-eclat" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="domaine__identite">
-        <h2 className="t-titre">{player.kiosk ? `${player.pseudo}, Patron` : player.pseudo}</h2>
-        <p className="domaine__fortune">Fortune : <strong className="chiffres">{formatEuros(player.fortune)}</strong></p>
+        <h2 className="t-titre">{player.pseudo}</h2>
+        <p className="domaine__fortune">
+          <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron")}>{rankOf(player.standing, player.kiosk)}</span>
+          Fortune : <strong className="chiffres">{formatEuros(player.fortune)}</strong>
+        </p>
       </div>
 
-      <Conseil player={player} />
+      <Conseil player={player} found={found} busy={busy} pickUp={pickUp} />
       <Objectif player={player} />
 
       {waiting > 0 && (
