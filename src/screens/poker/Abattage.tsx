@@ -70,16 +70,19 @@ function useCardFit(rows: number): { width: number; step: number } {
 }
 
 interface Verdict {
-  /** Les accusateurs, dans l'ordre où ils sont nommés. */
+  /** Les accusateurs, dans l'ordre où ils sont nommés : le joueur en dernier (« Colette et toi »). */
   from: number[];
-  /** Ce qu'on lit une fois le verdict tombé : une ligne pour un tricheur, une par accusateur pour un innocent. */
+  /**
+   * Ce qu'on lit une fois le verdict tombé : une ligne pour un tricheur ; pour un innocent,
+   * une seule phrase si ses accusateurs paient tous la même somme, sinon une par accusateur.
+   */
   lines: string[];
   guilty: boolean;
 }
 
 /** Ce qui se dit au-dessus de la main d'un accusé, une fois le verdict tombé. */
 function verdictOf(result: HandResult, seat: number, you: number | null, nom: (seat: number) => string): Verdict | null {
-  const against = result.accusations.filter((a) => a.to === seat);
+  const against = result.accusations.filter((a) => a.to === seat).sort((a, b) => Number(a.from === you) - Number(b.from === you));
   if (against.length === 0) return null;
   const from = against.map((a) => a.from);
   const unmasked = result.unmasked.find((u) => u.seat === seat);
@@ -89,6 +92,15 @@ function verdictOf(result: HandResult, seat: number, you: number | null, nom: (s
       guilty: true,
       lines: [t("Triche ! {fausse} à la place de {vraie}.", { fausse: cardShort(unmasked.to), vraie: cardShort(unmasked.from) })],
     };
+  }
+  // Plusieurs accusateurs, la même somme : une seule phrase les nomme tous.
+  const paid = against[0]!.paid;
+  if (against.length > 1 && paid > 0 && against.every((a) => a.paid === paid)) {
+    const vars = { noms: nameList(from.map(nom)), montant: formatEuros(paid) };
+    const line = seat === you ? t("Franc jeu : {noms} te paient {montant} chacun.", vars)
+      : from.includes(you ?? -1) ? t("Franc jeu : {noms} lui payez {montant} chacun.", vars)
+        : t("Franc jeu : {noms} lui paient {montant} chacun.", vars);
+    return { from, guilty: false, lines: [line] };
   }
   const lines = against.map((a) => {
     const montant = formatEuros(a.paid);
@@ -200,17 +212,16 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
 
           const content = (
             <>
-              {/* Le cri, puis le verdict : la place est gardée dès le début du dénouement, rien ne saute. */}
+              {/* Le cri, puis le verdict, l'un à la place de l'autre : la place du plus long des deux
+                  est gardée dès le début du dénouement, rien ne saute. */}
               {verdict && (
-                <span className={cx("poker-rangee__verdict", judged && (guilty ? "poker-rangee__verdict--triche" : "poker-rangee__verdict--franc"), !cried && "poker-rangee__verdict--attend")}>
-                  {judged
-                    ? verdict.lines.map((line) => <span key={line}>{line}</span>)
-                    : (
-                      <>
-                        <span>{t("{noms} : « Tricheur ! »", { noms: capitalize(nameList(verdict.from.map(nom))) })}</span>
-                        {verdict.lines.slice(1).map((line) => <span key={line} aria-hidden="true">&nbsp;</span>)}
-                      </>
-                    )}
+                <span className="poker-rangee__verdict">
+                  <span className={cx("poker-rangee__cri", cried && !judged && "poker-rangee__dit")}>
+                    {t("{noms} : « Tricheur ! »", { noms: capitalize(nameList(verdict.from.map(nom))) })}
+                  </span>
+                  <span className={cx("poker-rangee__sentence", verdict.guilty ? "poker-rangee__sentence--triche" : "poker-rangee__sentence--franc", judged && "poker-rangee__dit")}>
+                    {verdict.lines.map((line) => <span key={line}>{line}</span>)}
+                  </span>
                 </span>
               )}
               {chosen && <span className="poker-rangee__verdict poker-rangee__verdict--secret">{t("Tu l'accuses. Verdict dans un instant.")}</span>}

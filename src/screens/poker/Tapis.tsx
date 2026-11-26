@@ -70,6 +70,11 @@ function Siege({ place, view, label }: SiegeProps) {
   const turn = view.turn === seat.seat;
   const state = stateText(seat, view);
   const live = seat.inHand && !seat.folded;
+  // Se coucher, pousser son tapis : l'état écrit sous le nom dit déjà le geste. Rien n'est
+  // dit deux fois : le nom reste, et c'est l'état qui s'anime.
+  const echo = label !== undefined
+    && state === (label.kind === "couche" ? t("couché") : label.allIn && label.kind !== "parole" ? t("à tapis") : undefined);
+  const gesture = label !== undefined && !echo ? label : null;
   return (
     <div
       className={cx(
@@ -85,10 +90,16 @@ function Siege({ place, view, label }: SiegeProps) {
         {seat.done && <span className="poker-siege__pret"><Icon name="coche" size={14} /></span>}
       </span>
       {/* Le geste qui vient de tomber prend un instant la place du nom ; l'état (couché, absent) celle du tapis. */}
-      <span className={cx("poker-siege__nom", label && "poker-siege__nom--geste")} aria-hidden="true" key={label ? label.id : "nom"}>
-        {label ? labelText(label) : name}
+      <span className={cx("poker-siege__nom", gesture && "poker-siege__nom--geste")} aria-hidden="true" key={gesture ? gesture.id : "nom"}>
+        {gesture ? labelText(gesture) : name}
       </span>
-      <span className="poker-siege__tapis chiffres" aria-hidden="true">{state ?? formatEuros(seat.stack)}</span>
+      <span
+        className={cx("poker-siege__tapis chiffres", echo && "poker-siege__tapis--geste")}
+        aria-hidden="true"
+        key={echo && label ? label.id : "tapis"}
+      >
+        {state ?? formatEuros(seat.stack)}
+      </span>
       <span className="poker-siege__mise chiffres" aria-hidden="true">
         {seat.bet > 0 && <><Jeton />{formatEuros(seat.bet)}</>}
       </span>

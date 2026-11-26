@@ -90,7 +90,12 @@ export function Promenade() {
             lu = t("{lieu}, fermé : ouvre à {n} étoiles", { lieu, n });
           }
           return (
-            <li key={place.id} style={{ "--rang": Math.abs(PLACES.indexOf(place) - PLACES.indexOf(best)) } as CSSProperties}>
+            <li
+              key={place.id}
+              // Le lieu sur lequel la rue s'ouvre se fond sur place : la page se cale sur lui.
+              className={place.id === best.id ? "cascade__ancre" : undefined}
+              style={{ "--rang": Math.abs(PLACES.indexOf(place) - PLACES.indexOf(best)) } as CSSProperties}
+            >
               <button
                 ref={place.id === best.id ? bestRef : undefined}
                 type="button"

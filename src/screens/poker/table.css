@@ -242,7 +242,8 @@
   from { opacity: 0; transform: scale(.7); }
 }
 
-.calme .poker-siege__nom--geste { animation: fondu 200ms linear backwards; }
+.calme .poker-siege__nom--geste,
+.calme .poker-siege__tapis--geste { animation: fondu 200ms linear backwards; }
 
 .poker-siege__tapis {
   max-width: 100%;
@@ -252,6 +253,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* « couché », « à tapis » : l'état dit le geste qui vient de tomber, c'est lui qui se pose. */
+.poker-siege__tapis--geste { animation: poker-geste 240ms var(--rebond) backwards; }
+.poker-siege--efface .poker-siege__tapis--geste { color: var(--ecume); }
 
 /* Sa mise dans le tour : la ligne garde sa place, vide ou non, pour que rien ne saute. */
 .poker-siege__mise {
@@ -661,6 +666,7 @@
 
 /* Le tapis, vu de près : une rangée par main montrée. S'il y en a trop pour l'écran, il défile. */
 .poker-abattage {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -686,10 +692,12 @@
   font: 700 15px/22px var(--texte);
 }
 
-/* D'où partent les jetons quand le pot est ramassé : le haut du tapis. */
+/* D'où partent les jetons quand le pot est ramassé : le haut du tapis. Hors du flux : il
+   ne prend la place de rien. */
 .poker-abattage__ancre {
-  flex: none;
-  align-self: center;
+  position: absolute;
+  top: 0;
+  left: calc(50% - 8px);
   width: 16px;
   height: 0;
 }
@@ -730,30 +738,40 @@
   text-align: left;
 }
 
-/* Au-dessus de la main d'un accusé : le cri, puis le verdict. La place est gardée dès le
-   début du dénouement. */
+/* Au-dessus de la main d'un accusé : le cri, puis le verdict, l'un à la place de l'autre.
+   Les deux occupent la même case : la place du plus long est gardée dès le début du
+   dénouement, et rien ne saute quand le verdict tombe. */
 .poker-rangee__verdict {
-  display: flex;
+  display: grid;
   grid-column: 1 / -1;
-  flex-direction: column;
   color: var(--bougainvillier-clair);
   font: 700 13px/18px var(--texte);
-  animation: poker-cri 260ms var(--rebond) backwards;
 }
 
-.poker-rangee__verdict--triche { color: var(--cerise-clair); }
-.poker-rangee__verdict--franc { color: var(--persienne-clair); }
-
-.poker-rangee__verdict--attend {
+.poker-rangee__cri,
+.poker-rangee__sentence {
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 1;
   visibility: hidden;
-  animation: none;
+}
+
+.poker-rangee__sentence--triche { color: var(--cerise-clair); }
+.poker-rangee__sentence--franc { color: var(--persienne-clair); }
+
+/* Ce qui se dit maintenant. */
+.poker-rangee__dit,
+.poker-rangee__verdict--secret {
+  visibility: visible;
+  animation: poker-cri 260ms var(--rebond) backwards;
 }
 
 @keyframes poker-cri {
   from { opacity: 0; transform: scale(.8); }
 }
 
-.calme .poker-rangee__verdict { animation: fondu 200ms linear backwards; }
+.calme .poker-rangee__dit,
+.calme .poker-rangee__verdict--secret { animation: fondu 200ms linear backwards; }
 
 .poker-rangee__tete { position: relative; }
 
@@ -930,6 +948,22 @@
   .poker-actions { gap: 6px; }
   .poker-actions .bouton { min-height: 48px; }
   .poker-mise { min-height: 44px; }
+
+  /* À l'abattage, les rangées se serrent : quatre mains et leurs verdicts tiennent sans défiler. */
+  .poker-abattage {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .poker-abattage__mains { gap: 4px; }
+  .poker-rangee__verdict { line-height: 16px; }
+
+  .poker-rangee__zone {
+    min-height: 52px;
+    padding: 1px 8px;
+  }
+
+  .poker-rangee__cartes { padding: 1px 3px 1px 0; }
 }
 
 /* ---------------------------------------------------------------- Écrans étroits */
