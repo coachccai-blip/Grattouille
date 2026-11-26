@@ -22,6 +22,7 @@ import { resumeAudio, setSoundEnabled, suspendAudio } from "../fx/audio";
 import { setHapticsEnabled } from "../fx/haptics";
 import { ApiFailure, api, enableSandbox, wantsSandbox, type FailureCode } from "./api";
 import { hostName } from "./dialogues";
+import { setLang } from "../i18n";
 import {
   DEFAULT_SETTINGS, clearAll, clearSession, loadAuth, loadRevealed, loadSettings, saveAuth, saveRevealed, saveSettings,
   type Auth, type Settings,
@@ -297,6 +298,7 @@ let booted = false;
 export async function boot(): Promise<void> {
   const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   const settings = loadSettings();
+  setLang(settings.langue);
   setSoundEnabled(settings.son);
   setHapticsEnabled(settings.vibrations);
   set({ settings, online: navigator.onLine !== false, systemCalm: media?.matches ?? false });
@@ -384,7 +386,8 @@ export async function deleteAccount(): Promise<void> {
   await api.deleteMe(auth);
   // L'appareil vide son stockage.
   if (!get().sandbox) clearAll();
-  const settings = { ...DEFAULT_SETTINGS };
+  // Les réglages repartent de zéro, sauf la langue : on ne change pas de langue en cours de phrase.
+  const settings = { ...DEFAULT_SETTINGS, langue: get().settings.langue };
   setSoundEnabled(settings.son);
   setHapticsEnabled(settings.vibrations);
   set({ auth: null, player: null, revealed: [], phase: "bienvenue", settings, openings: [], ending: false, welcome: false });
@@ -394,6 +397,8 @@ export async function deleteAccount(): Promise<void> {
 export function patchSettings(change: Partial<Settings>): void {
   const settings = { ...get().settings, ...change };
   saveSettings(settings);
+  // La langue d'abord : l'écran se redessine tout entier dès que le réglage change (main.tsx).
+  setLang(settings.langue);
   setSoundEnabled(settings.son);
   setHapticsEnabled(settings.vibrations);
   set({ settings });

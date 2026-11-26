@@ -90,7 +90,6 @@ function Amorce() {
     <div className="amorce" role="status" aria-label="Chargement de Grattouille">
       <span aria-hidden="true">Grattouille</span>
       <span className="amorce__piece" aria-hidden="true" />
-      <span className="amorce__mention">Jeu de fiction. Aucun argent réel.</span>
     </div>
   );
 }

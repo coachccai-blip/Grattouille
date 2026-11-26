@@ -1,7 +1,9 @@
 // Stockage local (BRIEF.md, section 11) : trois clés, rien d'autre.
 //   grattouille.auth      identifiant et code de récupération
-//   grattouille.settings  son, vibrations, animations réduites, signe préféré
+//   grattouille.settings  son, vibrations, animations réduites, langue, signe préféré
 //   grattouille.revealed  tickets grattés pas encore déclarés au serveur
+
+import { isLang, type Lang } from "../i18n";
 
 const KEY_AUTH = "grattouille.auth";
 const KEY_SETTINGS = "grattouille.settings";
@@ -17,6 +19,8 @@ export interface Settings {
   vibrations: boolean;
   /** Réglage « Animations réduites ». La préférence du système s'y ajoute. */
   calme: boolean;
+  /** La langue du jeu : français par défaut, anglais au choix. */
+  langue: Lang;
   /** Signe préféré, par ticket : proposé par défaut la fois suivante. */
   signes: Record<string, string>;
   /** L'invitation à noter le code de récupération a déjà été vue. */
@@ -27,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   son: true,
   vibrations: true,
   calme: false,
+  langue: "fr",
   signes: {},
   codeNote: false,
 };
@@ -71,6 +76,7 @@ export function loadSettings(): Settings {
     son: typeof s.son === "boolean" ? s.son : DEFAULT_SETTINGS.son,
     vibrations: typeof s.vibrations === "boolean" ? s.vibrations : DEFAULT_SETTINGS.vibrations,
     calme: typeof s.calme === "boolean" ? s.calme : DEFAULT_SETTINGS.calme,
+    langue: isLang(s.langue) ? s.langue : DEFAULT_SETTINGS.langue,
     signes: s.signes && typeof s.signes === "object" ? { ...s.signes } : {},
     codeNote: s.codeNote === true,
   };

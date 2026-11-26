@@ -2,7 +2,7 @@
   "name": "grattouille",
   "private": true,
   "version": "1.1.0",
-  "description": "Grattouille — jeu de fiction de tickets à gratter. Aucun argent réel.",
+  "description": "Grattouille — un jeu de tickets à gratter où la chance est de ton côté.",
   "type": "module",
   "engines": {
     "node": ">=22.12"
