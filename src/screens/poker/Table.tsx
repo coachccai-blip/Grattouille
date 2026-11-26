@@ -12,11 +12,12 @@ import { placeById } from "../../../shared/places";
 import type { TableView } from "../../../shared/poker/types";
 import type { Line } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
-import { nav } from "../../app/nav";
+import { nav, useNav } from "../../app/nav";
 import { play, usePoker, useTableOffline, watchTable, type Left } from "../../app/poker";
 import { isCalm, toast, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
 import { playPot } from "../../fx/audio";
+import { haptic } from "../../fx/haptics";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
@@ -24,19 +25,23 @@ import { Bourse, Compteur } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Abattage } from "./Abattage";
-import { betChoices, netOf, phaseTotal, type BetChoice, type OutcomeLine } from "./calcul";
+import { betChoices, doubles, netOf, phaseTotal, type BetChoice, type OutcomeLine } from "./calcul";
 import { useDenouement, type Denouement } from "./denouement";
 import { useTableEvents } from "./evenements";
-import { BarreTemps, Tete } from "./parts";
+import { BarreTemps, Jeton, Tete } from "./parts";
 import { hostLine, tableLine } from "./repliques";
 import { Tapis } from "./Tapis";
 import { categoryName, identityOf, nameInSentence, nameList, tableTitle, type Identity } from "./textes";
 import "./poker.css";
 import "./table.css";
 
-/** Retour au hall, quelle que soit la feuille ouverte par-dessus la table. */
+/**
+ * Retour au hall : l'écran d'avant la table. Une feuille ouverte par-dessus (celle qui
+ * demande confirmation avant de partir) se referme d'abord toute seule ; on ne revient en
+ * arrière que lorsque la table est redevenue l'écran affiché, un pas à la fois.
+ */
 function toHall(): void {
-  nav.reset([{ name: "promenade" }, { name: "poker" }]);
+  if (nav.current().name === "poker-table") nav.back();
 }
 
 /** Qui est assis où : on s'en souvient après un départ, pour nommer encore celui dont on lit la main. */
@@ -48,7 +53,8 @@ function useRoster(view: TableView): (seat: number) => Identity | null {
 
 /** La largeur d'une carte de la main du joueur : cinq cartes tiennent côte à côte. */
 function useHandWidth(): number {
-  const measure = () => Math.max(48, Math.min(84, Math.floor((Math.min(window.innerWidth, 480) - 24 - 4 * 6) / 5)));
+  // Sur un écran court, la main cède un peu de hauteur au tapis.
+  const measure = () => Math.max(48, Math.min(window.innerHeight < 620 ? 50 : 84, Math.floor((Math.min(window.innerWidth, 480) - 24 - 4 * 6) / 5)));
   const [width, setWidth] = useState(measure);
   useEffect(() => {
     const onResize = () => setWidth(measure());
@@ -118,10 +124,12 @@ interface VoixProps {
   refus: string | null;
   /** Ce qu'un personnage dit, quand le joueur n'a rien à décider. */
   replique: Line | null;
+  /** La phrase parle d'une carte en double : la petite carte teintée la précède. */
+  double?: boolean;
   children: ReactNode;
 }
 
-function Voix({ refus, replique, children }: VoixProps) {
+function Voix({ refus, replique, double = false, children }: VoixProps) {
   if (refus) return <p className="poker-voix poker-voix--refus" role="alert">{refus}</p>;
   if (replique) {
     return (
@@ -134,7 +142,19 @@ function Voix({ refus, replique, children }: VoixProps) {
       </div>
     );
   }
-  return <p className="poker-voix" role="status">{children}</p>;
+  return (
+    <p className="poker-voix" role="status">
+      <span>
+        {double && <span className="poker-voix__double" aria-hidden="true" />}
+        {children}
+      </span>
+    </p>
+  );
+}
+
+/** Vrai si une même carte est montrée par deux joueurs à l'abattage : l'un des deux l'a glissée. */
+function hasDouble(view: TableView): boolean {
+  return view.phase === "abattage" && doubles(view.seats.map((seat) => seat?.cards ?? [])).size > 0;
 }
 
 /** Ce qu'il y a à faire maintenant, en une phrase. */
@@ -156,11 +176,19 @@ function promptOf(view: TableView, who: (seat: number) => Identity | null): stri
       return speaker ? t("{nom} réfléchit…", { nom: capitalize(nameInSentence(speaker)) }) : t("Les enchères continuent…");
     }
     case "abattage":
-      if (o.accuse.length > 0) return t("Qui a triché ? Touche une main pour l'accuser.");
+      if (o.accuse.length > 0) {
+        return hasDouble(view)
+          ? t("Carte en double : quelqu'un a triché. Touche une main pour l'accuser.")
+          : t("Qui a triché ? Touche une main pour l'accuser.");
+      }
       if (hand && !hand.folded && hand.spoke) return hand.accuse === null ? t("Rien à dire. Verdict dans un instant.") : t("Accusation lancée. Verdict dans un instant.");
       return t("Les joueurs se jaugent…");
-    case "attente":
+    case "attente": {
+      // Le tapis ne couvre plus la blinde : la table repartira sans lui, à moins de recaver.
+      const me = view.you === null ? null : view.seats[view.you] ?? null;
+      if (me && o.rebuy && me.stack + me.reserve < view.blind) return t("Ton tapis ne couvre plus la blinde : recave pour jouer la suite.");
       return view.deadline !== null ? t("La main suivante arrive…") : t("On attend un joueur pour repartir.");
+    }
     default:
       return "";
   }
@@ -227,19 +255,23 @@ function Infos({ view }: { view: TableView }) {
   const state = hand?.folded ? t("couché") : me.allIn ? t("à tapis") : hand ? categoryName(hand.category) : null;
   return (
     <div className="poker-moi__infos">
+      {/* Comme autour du tapis : le tapis en mimosa, la mise à côté de son jeton. Sur un petit écran, ces deux signes suffisent. */}
       <span className="poker-moi__chiffre">
-        <span className="poker-moi__nom">
-          {t("Ton tapis")}
+        <span className="poker-moi__nom">{t("Ton tapis")}</span>
+        <span className="poker-moi__valeur">
           {view.dealer === view.you && <span className="poker-siege__donneur poker-siege__donneur--moi" title={t("donneur")}>{t("D")}</span>}
+          <strong className="chiffres">{formatEuros(me.stack)}</strong>
         </span>
-        <strong className="chiffres">{formatEuros(me.stack)}</strong>
       </span>
       {/* Chaque chose garde sa colonne, qu'elle soit là ou non : le tapis à gauche, la mise à droite. */}
       {state ? <span className={cx("poker-moi__combi", hand?.folded && "poker-moi__combi--efface")}>{state}</span> : <span />}
       {hand ? (
         <span className="poker-moi__chiffre poker-moi__chiffre--droite">
           <span className="poker-moi__nom">{t("Ta mise")}</span>
-          <strong className="chiffres">{formatEuros(me.committed)}</strong>
+          <span className="poker-moi__valeur poker-moi__valeur--mise">
+            <Jeton />
+            <strong className="chiffres">{formatEuros(me.committed)}</strong>
+          </span>
         </span>
       ) : <span />}
     </div>
@@ -301,10 +333,10 @@ function Actions({ view }: { view: TableView }) {
   const me = view.seats[view.you as number]!;
   const off = busy !== null;
   const recave = () => nav.push({ name: "poker-feuille", feuille: "recave" });
-  // Le tapis ne couvre plus la blinde : sans recave, la main suivante part sans le joueur.
-  const dry = me.stack + me.reserve < view.blind;
-  // Recaver se propose quand le tapis passe sous dix blindes (ou la moitié de la cave minimale) : avant, rien ne presse.
-  const low = o.rebuy !== null && me.stack + me.reserve < Math.max(view.blind * 10, Math.floor(view.minBuyIn / 2));
+  // Entre deux mains, on peut recaver (jusqu'à la cave maximale). Quand le tapis ne couvre plus
+  // la blinde, c'est même le geste attendu : sans recave, la main suivante part sans le joueur.
+  const canRebuy = o.rebuy !== null;
+  const dry = canRebuy && me.stack + me.reserve < view.blind;
 
   if (o.back) {
     return (
@@ -338,7 +370,7 @@ function Actions({ view }: { view: TableView }) {
     const over = view.kind === "defi" && (me.stack + me.reserve <= 0 || (rival !== null && rival.stack <= 0));
     const next = (
       <Bouton
-        variante={dry && low ? "secondaire" : "principal"}
+        variante={dry ? "secondaire" : "principal"}
         data-geste="suite"
         attente={busy === "suite"}
         disabled={off || !o.next}
@@ -349,15 +381,16 @@ function Actions({ view }: { view: TableView }) {
     );
     return (
       <div className="poker-actions">
-        <div className={cx("poker-actions__rang", !low && "poker-actions__rang--seul")}>
-          {low && !dry && <Bouton variante="secondaire" data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+        {/* Le geste attendu prend la place ; l'autre se range à côté, à sa largeur. */}
+        <div className={cx("poker-actions__rang", !canRebuy ? "poker-actions__rang--seul" : dry ? "poker-actions__rang--recave" : "poker-actions__rang--suite")}>
+          {canRebuy && !dry && <Bouton variante="secondaire" data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
           {next}
-          {low && dry && <Bouton data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+          {dry && <Bouton data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
         </div>
       </div>
     );
   }
-  if (low && (dry || view.phase === "attente")) {
+  if (canRebuy && (dry || view.phase === "attente")) {
     return (
       <div className="poker-actions">
         <Bouton variante={dry ? "principal" : "secondaire"} bloc data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>
@@ -473,6 +506,10 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   }, [walkover, result, who, say, view.blind]);
 
   const myMove = view.options.back || view.options.cheat || view.turn === you || view.options.accuse.length > 0;
+  // C'est au joueur de se décider : le téléphone le lui dit d'une courte vibration.
+  useEffect(() => {
+    if (myMove) haptic.reveal();
+  }, [myMove, view.step]);
   const walkLine = walkover && result ? potLine({ kind: "seul", seat: result.pots[0]?.winners[0]?.seat ?? -1, amount: result.pots[0]?.amount ?? 0 }, you, nom) : null;
 
   return (
@@ -498,7 +535,7 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
           </>
         ) : (
           <>
-            <Voix refus={notice?.text ?? null} replique={myMove ? null : replique?.line ?? null}>
+            <Voix refus={notice?.text ?? null} replique={myMove ? null : replique?.line ?? null} double={view.options.accuse.length > 0 && hasDouble(view)}>
               {walkover ? [bilanOf(result ? netOf(result, you) : null), walkLine].filter(Boolean).join(" ") : promptOf(view, who)}
             </Voix>
             {!board && view.hand && <MaMain view={view} dealt={events.dealt === view.handNo && !calm} />}
@@ -610,7 +647,7 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
 
   const line = host && won ? hostLine(host, bonus > 0 ? "ruine" : "ruine-encore", formatEuros(bonus))
     : host && lost ? hostLine(host, "vainqueur") : null;
-  const titre = won ? t("Défi relevé !") : lost ? t("Le défi reste à relever") : t("La table est derrière toi");
+  const titre = won ? t("Défi relevé !") : lost ? t("Le défi reste à relever") : t("Fin de la partie");
   const texte = reason && RAISONS[reason] ? t(RAISONS[reason]!)
     : lost ? t("Tu le retentes quand tu veux.")
       : won || reason === "quitte" ? null
@@ -646,13 +683,17 @@ export function Table({ code }: { code: string }) {
 
   useEffect(() => watchTable(code), [code]);
 
-  // Parti de soi-même : retour au hall, en disant ce qu'on remporte.
+  // Parti de soi-même : retour au hall, en disant ce qu'on remporte. La feuille de départ
+  // se referme d'abord ; la table ne recule qu'une fois redevenue l'écran affiché.
   const quit = left !== null && left.reason === "quitte";
+  const onTop = useNav((s) => s.stack[s.index]?.name === "poker-table");
+  const leaving = useRef(false);
   useEffect(() => {
-    if (!left || left.reason !== "quitte") return;
+    if (!left || left.reason !== "quitte" || !onTop || leaving.current) return;
+    leaving.current = true;
     toast(t("Tu quittes la table avec {montant}.", { montant: formatEuros(left.payout) }));
     toHall();
-  }, [left]);
+  }, [left, onTop]);
 
   if (quit) return <main className="ecran poker-table" aria-busy="true" />;
   if (left || gone || (view && (view.phase === "fermee" || view.you === null))) return <Sortie view={view} left={left} gone={gone} />;

@@ -48,7 +48,9 @@ function shortOf(amount: number, balance: number): string | null {
 }
 
 /** Le nom de la table où le joueur est assis : le lieu d'une table de la maison, l'hôte d'un défi, ou son code. */
-function seatTitle(seat: NonNullable<PokerLobbyResponse["seat"]>): string {
+function seatTitle(seat: NonNullable<PokerLobbyResponse["seat"]> | null): string {
+  // Le hall n'a pas encore répondu : on sait seulement, par l'état du joueur, qu'il est assis quelque part.
+  if (!seat) return t("Ta table");
   if (seat.kind === "maison" && seat.place) return capitalize(placeShort(seat.place));
   if (seat.kind === "defi" && seat.place) return t("Défi : {hote}", { hote: hostName(placeById(seat.place).host) });
   return t("Table {code}", { code: seat.code });
@@ -132,17 +134,19 @@ export function Hall() {
   const entries = lobby ? entriesOf(lobby) : [];
   const open = entries.filter((e) => e.house.open).reverse();
   const closed = entries.filter((e) => !e.house.open);
+  // Assis quelque part : le hall le dit ; avant sa réponse, l'état du joueur le sait déjà.
+  const seatedCode = useGame((s) => s.player?.poker?.code ?? null);
   const seat = lobby?.seat ?? null;
+  const tableCode = seat?.code ?? seatedCode;
   // La moins chère des caves ouvertes : ce qu'il faut pour s'asseoir quelque part.
   const cheapest = open.length > 0 ? Math.min(...open.map((e) => e.house.minBuyIn)) : 0;
-  const broke = lobby !== null && seat === null && open.length > 0 && balance < cheapest;
+  const broke = lobby !== null && tableCode === null && open.length > 0 && balance < cheapest;
   const offline = !sandbox && !online;
 
-  const piou = seat ? piouHall("assis") : broke ? piouHall("fauche", formatEuros(cheapest)) : piouHall("accueil");
+  const piou = tableCode ? piouHall("assis") : broke ? piouHall("fauche", formatEuros(cheapest)) : piouHall("accueil");
 
   const back = () => {
-    if (!seat) return;
-    nav.push({ name: "poker-table", code: seat.code });
+    if (tableCode) nav.push({ name: "poker-table", code: tableCode });
   };
 
   return (
@@ -171,9 +175,9 @@ export function Hall() {
           <Bouton onClick={() => void loadLobby()} attente={busy}>{t("Réessayer")}</Bouton>
         </div>
       )}
-      {!lobby && !error && <p className="poker-hall__vide" role="status">{t("Le hall ouvre ses portes…")}</p>}
+      {!lobby && !error && !tableCode && <p className="poker-hall__vide" role="status">{t("Le hall ouvre ses portes…")}</p>}
 
-      {lobby && seat && (
+      {tableCode && (
         <section className="poker-place papier" aria-label={t("Ta table")}>
           <div className="poker-place__texte">
             <strong>{seatTitle(seat)}</strong>
@@ -183,7 +187,7 @@ export function Hall() {
         </section>
       )}
 
-      {lobby && !seat && (
+      {lobby && !tableCode && (
         <>
           <section className="rubrique" aria-labelledby="poker-hall-lieux">
             <h2 id="poker-hall-lieux" className="rubrique__titre">{t("Les maîtres des lieux")}</h2>

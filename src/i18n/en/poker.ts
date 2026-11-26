@@ -177,6 +177,7 @@ export const EN_POKER: Record<string, string> = {
   "Accusation lancée. Verdict dans un instant.": "Accusation made. Verdict in a moment.",
   "Les joueurs se jaugent…": "The players are sizing each other up…",
   "La main suivante arrive…": "Next hand coming up…",
+  "Ton tapis ne couvre plus la blinde : recave pour jouer la suite.": "Your stack no longer covers the blind: top up to play on.",
   "On attend un joueur pour repartir.": "Waiting for a player to carry on.",
   "Ton tapis": "Your stack",
   "Ta mise": "Your stake",
@@ -211,7 +212,7 @@ export const EN_POKER: Record<string, string> = {
 
   // --- L'abattage et les accusations
   "L'abattage": "The showdown",
-  "Une carte en double : l'un des deux a triché.": "A card shown twice: one of the two cheated.",
+  "Carte en double : quelqu'un a triché. Touche une main pour l'accuser.": "A card shown twice: somebody cheated. Tap a hand to accuse.",
   "Tu l'accuses. Verdict dans un instant.": "You're accusing them. Verdict in a moment.",
   "Accuser {nom} ?": "Accuse {nom}?",
   "Si {nom} a triché, sa main ne compte plus ; sinon, tu lui paies {montant}.":
@@ -267,7 +268,7 @@ export const EN_POKER: Record<string, string> = {
   "Match nul : plus personne n'a de quoi continuer.": "A draw: nobody has anything left to carry on.",
   "Défi relevé !": "Challenge won!",
   "Le défi reste à relever": "The challenge still stands",
-  "La table est derrière toi": "The table is behind you",
+  "Fin de la partie": "End of the game",
   "Sa cagnotte": "The kitty",
   "Tu le retentes quand tu veux.": "Try again whenever you like.",
   "Cette table a fermé.": "This table has closed.",

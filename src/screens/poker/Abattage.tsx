@@ -5,7 +5,7 @@
 // d'un tricheur, ou ce que chaque accusateur paie à l'innocent) ; à côté de chaque nom,
 // le bilan de la main.
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEuros } from "../../../shared/format";
 import type { Card } from "../../../shared/poker/cards";
 import type { HandCategory } from "../../../shared/poker/hands";
@@ -152,9 +152,26 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
     // Une fois par abattage : un joueur qui part en cours de route ne fait rien rejouer.
   }, [flip, view.handNo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // S'il y a trop de mains pour l'écran, le tapis défile : la rangée dont c'est le moment vient en vue.
+  const board = useRef<HTMLElement>(null);
+  const beat = outcome?.beat ?? 0;
+  useEffect(() => {
+    const el = board.current;
+    if (!el || !outcome || beat === 0 || el.scrollHeight <= el.clientHeight + 1) return;
+    const current = outcome.beats[Math.min(beat, outcome.beats.length) - 1];
+    const seat = current && current.kind !== "pots" ? current.seat : [...winnersOf(outcome.result)][0];
+    const row = seat === undefined ? null : el.querySelector(`[data-rangee="${seat}"]`);
+    if (!row) return;
+    const box = el.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    const delta = r.bottom > box.bottom - 6 ? r.bottom - box.bottom + 8 : r.top < box.top + 6 ? r.top - box.top - 8 : 0;
+    if (delta !== 0) el.scrollTo({ top: el.scrollTop + delta, behavior: calm ? "auto" : "smooth" });
+    // Un battement à la fois : c'est lui qui déclenche.
+  }, [beat]); // eslint-disable-line react-hooks/exhaustive-deps
+
   let rank = 0;
   return (
-    <section className="poker-abattage" aria-label={t("L'abattage")}>
+    <section ref={board} className="poker-abattage" aria-label={t("L'abattage")}>
       {/* Au dénouement, le sort du pot se lit sous la table : ici, il ne reste que l'endroit d'où partent les jetons. */}
       {result ? <span className="poker-abattage__ancre" data-pot aria-hidden="true" /> : (
         <p className="poker-abattage__pot">
@@ -251,12 +268,6 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
           );
         })}
       </ul>
-      {twice.size > 0 && showdown && (
-        <p className="poker-abattage__indice">
-          <span className="poker-abattage__pastille" aria-hidden="true" />
-          {t("Une carte en double : l'un des deux a triché.")}
-        </p>
-      )}
     </section>
   );
 }
