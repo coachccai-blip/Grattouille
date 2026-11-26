@@ -28,7 +28,7 @@ import {
   MISSES_BEFORE_ABSENT, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS, minBuyIn,
 } from "./rules";
 import {
-  canDeal, chipsOnTable, dealableSeats, isFunded, isLive, playerInHand, seatIndexOf, seatIndexOfSession,
+  blindAt, canDeal, chipsOnTable, dealableSeats, isFunded, isLive, playerInHand, seatIndexOf, seatIndexOfSession,
   seatsAfter,
 } from "./state";
 import type {
@@ -304,11 +304,12 @@ function nextHand(d: TableState, t: number, rng: Random32): void {
   }
   for (const index of leaving) removeSeat(d, index, t, cause(d.seats[index]!));
   if (d.kind === "defi" && d.handNo > 0) {
-    // Un défi dure jusqu'à ce que l'un des deux n'ait plus de quoi payer la blinde.
+    // Un défi dure jusqu'à ce que l'un des deux n'ait plus rien. La blinde qui monte y
+    // mène vite : qui ne peut plus la payer pose ce qui lui reste, et joue sa main à tapis.
     const human = d.seats.find((s) => s !== null && s.bot === null)!;
     const host = d.seats.find((s) => s !== null && s.bot !== null);
-    const humanOut = human.stack + human.reserve < d.blind;
-    const hostOut = !host || host.stack < d.blind;
+    const humanOut = human.stack + human.reserve <= 0;
+    const hostOut = !host || host.stack <= 0;
     if (humanOut || hostOut) {
       const outcome: LeaveReason = humanOut && hostOut ? "defi-nul" : hostOut ? "defi-gagne" : "defi-perdu";
       closeTable(d, t, "defi", () => outcome);
@@ -354,11 +355,13 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
   const deck = shuffledDeck(rng);
   d.dealer = dealer;
   d.handNo += 1;
+  const blind = blindAt(d, d.handNo);
   const h: HandState = {
     players: order.map((seat, k) => ({
       seat, cards: deck.slice(5 * k, 5 * k + 5), swap: null, chosen: false, committed: 0, bet: 0,
       folded: false, allIn: false, spoke: false, accuse: null, actAt: null, gone: false,
     })),
+    blind,
     // Le pot resté de la main précédente attend là.
     pot: d.carry,
     bet: 0,
@@ -373,11 +376,14 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
   d.step += 1;
   for (const p of h.players) {
     const seat = d.seats[p.seat]!;
-    seat.stack -= d.blind;
-    p.committed = d.blind;
+    // Dans un défi, qui n'a plus de quoi payer la blinde pose ce qui lui reste. Ailleurs,
+    // seuls ceux qui peuvent la payer sont servis.
+    const posted = Math.min(blind, seat.stack);
+    seat.stack -= posted;
+    p.committed = posted;
     p.allIn = seat.stack === 0;
-    h.pot += d.blind;
-    note(d, "blinde", p.seat, d.blind, p.allIn ? { allIn: true } : {});
+    h.pot += posted;
+    note(d, "blinde", p.seat, posted, p.allIn ? { allIn: true } : {});
   }
   note(d, "donne", dealer);
   for (const p of h.players) {
@@ -414,7 +420,7 @@ function optionsOf(d: TableState, p: HandPlayer): BetOptions {
   const h = handOf(d);
   const rivals = h.players.filter((q) => q !== p && !q.folded && !q.allIn).length;
   return betOptions({
-    pot: h.pot, bet: h.bet, raises: h.raises, blind: d.blind, mine: p.bet, stack: d.seats[p.seat]!.stack, rivals,
+    pot: h.pot, bet: h.bet, raises: h.raises, blind: h.blind, mine: p.bet, stack: d.seats[p.seat]!.stack, rivals,
   });
 }
 
@@ -542,7 +548,8 @@ function endBetting(d: TableState, t: number, rng: Random32): void {
     const seat = d.seats[top.seat]!;
     seat.stack += excess;
     top.committed -= excess;
-    top.bet -= excess;
+    // Dans un défi, ce qui revient peut être une part de la blinde : l'autre n'a pas pu la payer.
+    top.bet = Math.max(0, top.bet - excess);
     top.allIn = false;
     h.pot -= excess;
     h.bet = Math.max(...h.players.map((p) => p.bet));

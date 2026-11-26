@@ -19,9 +19,24 @@ export type Screen =
   // Feuilles : posées par-dessus l'écran du dessous.
   | { name: "fiche-ticket"; ticket: string }
   | { name: "fiche-article"; item: string }
-  | { name: "choix-domaine"; slot: "residence" | "vehicule" };
+  | { name: "choix-domaine"; slot: "residence" | "vehicule" }
+  // Le Poker Tricheur : le hall, une table (par son code), et leurs feuilles.
+  | { name: "poker" }
+  | { name: "poker-table"; code: string }
+  | ({ name: "poker-feuille" } & PokerSheet);
 
-const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine"]);
+/**
+ * Les feuilles du Poker Tricheur : les règles, créer une table, rejoindre avec un code,
+ * s'asseoir à la table d'un lieu, relever le défi de son hôte, remplacer une carte (sa
+ * place dans la main), accuser un joueur (son siège), quitter la table, recaver.
+ */
+export type PokerSheet =
+  | { feuille: "regles" | "creer" | "rejoindre" | "quitter" | "recave" }
+  | { feuille: "maison" | "defi"; place: PlaceId }
+  | { feuille: "triche"; index: number }
+  | { feuille: "accuser"; seat: number };
+
+const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille"]);
 const TABS = new Set<string>(["domaine", "promenade", "boutiques", "classement"]);
 
 export function isSheet(screen: Screen): boolean {
@@ -170,6 +185,8 @@ export function screenKey(screen: Screen, index: number): string {
     case "fiche-ticket": return `${index}:fiche-ticket:${screen.ticket}`;
     case "fiche-article": return `${index}:fiche-article:${screen.item}`;
     case "choix-domaine": return `${index}:choix:${screen.slot}`;
+    case "poker-table": return `${index}:poker-table:${screen.code}`;
+    case "poker-feuille": return `${index}:poker-feuille:${screen.feuille}`;
     default: return `${index}:${screen.name}`;
   }
 }

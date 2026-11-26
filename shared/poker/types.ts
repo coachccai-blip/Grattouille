@@ -150,9 +150,9 @@ export type LeaveReason =
   | "reserve"      // sa cave n'est jamais arrivée : le siège réservé a été libéré
   | "inactive"     // la table a fermé après 30 minutes sans activité
   | "banque"       // la table a fermé : trop d'argent sur le tapis pour compter juste
-  | "defi-gagne"   // défi : l'hôte est ruiné
-  | "defi-perdu"   // défi : le joueur est ruiné
-  | "defi-nul";    // défi : plus personne ne peut payer la blinde
+  | "defi-gagne"   // défi : l'hôte n'a plus rien
+  | "defi-perdu"   // défi : le joueur n'a plus rien
+  | "defi-nul";    // défi : plus personne n'a rien (tous deux démasqués, tout est resté au pot)
 
 /** Pourquoi une table est fermée. `vide` : plus aucun joueur humain. */
 export type CloseReason = "vide" | "inactive" | "defi" | "banque";
@@ -232,6 +232,8 @@ export interface HandPlayer {
 export interface HandState {
   /** Les joueurs servis, dans l'ordre de parole : le voisin du donneur d'abord. */
   players: HandPlayer[];
+  /** La blinde de cette main. Celle de la table, sauf dans un défi, où elle monte au fil des mains. */
+  blind: number;
   /** Tout l'argent au milieu : les mises de la main, plus le pot resté de la main précédente. */
   pot: number;
   /** La mise à égaler dans le tour d'enchères. */
@@ -265,6 +267,7 @@ export interface TableState {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
+  /** La blinde de la table. Dans un défi : la blinde de base, celle des premières mains. */
   blind: number;
   minBuyIn: number;
   maxBuyIn: number;
@@ -336,7 +339,10 @@ export interface SeatView {
   allIn: boolean;
   /** Sa mise dans le tour d'enchères. */
   bet: number;
-  /** Tout ce qu'il a versé au pot dans cette main, blinde comprise. */
+  /**
+   * Tout ce qu'il a versé au pot dans cette main, blinde comprise. Dans un défi, un joueur
+   * qui n'a plus de quoi payer la blinde pose ce qui lui reste : il est à tapis d'entrée.
+   */
   committed: number;
   /**
    * Il a fait son choix dans le temps en cours : pendant la triche ou l'abattage, il a
@@ -408,7 +414,20 @@ export interface TableView {
   code: string;
   kind: TableKind;
   place: PlaceId | null;
+  /**
+   * La blinde en vigueur : celle de la main en cours, ou de la prochaine entre deux mains.
+   * À une table, elle ne change jamais. Dans un défi, elle part de la blinde de base du
+   * lieu et double toutes les trois mains (voir `rise`) ; c'est aussi la mise et la
+   * relance minimales du tour d'enchères.
+   */
   blind: number;
+  /**
+   * Défi : la prochaine hausse de la blinde. `hand` : le numéro de la main où elle monte
+   * (à comparer à `handNo`) ; `blind` : ce qu'elle vaudra. `null` hors défi, ou quand elle
+   * a dépassé tout l'argent en jeu et ne montera plus.
+   */
+  rise: { hand: number; blind: number } | null;
+  /** Les caves. Dans un défi, toutes deux valent 30 blindes de base, quelle que soit la blinde en vigueur. */
   minBuyIn: number;
   maxBuyIn: number;
   difficulty: Difficulty;
@@ -505,10 +524,11 @@ export interface LobbyChallenge {
   place: PlaceId;
   open: boolean;
   host: string;
+  /** La blinde de base du lieu : celle des premières mains du duel. Elle double ensuite toutes les trois mains. */
   blind: number;
-  /** La cave du défi : 30 blindes. */
+  /** La cave du défi : 30 blindes de base. */
   buyIn: number;
-  /** La cagnotte de l'hôte : 100 blindes, versées la première fois qu'il est ruiné. */
+  /** La cagnotte de l'hôte : 100 blindes de base, versées la première fois qu'il est ruiné. */
   bonus: number;
   difficulty: Difficulty;
   /** Le défi a déjà été relevé : la cagnotte est versée. On peut le rejouer, sans cagnotte. */

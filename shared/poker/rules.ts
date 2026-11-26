@@ -122,10 +122,30 @@ export function pickPersonas(count: number, rng: Random32, first?: string): stri
 
 /** Une table de la maison : le joueur, l'hôte du lieu et deux autres personnages. */
 export const HOUSE_SEATS = 4;
-/** Un défi : un tête-à-tête, 30 blindes chacun. */
+/** Un défi : un tête-à-tête, 30 blindes de base chacun. */
 export const CHALLENGE_BLINDS = 30;
-/** La cagnotte de l'hôte : 100 blindes de son lieu, versées une seule fois. */
+/** La cagnotte de l'hôte : 100 blindes de base de son lieu, versées une seule fois. */
 export const CHALLENGE_BONUS_BLINDS = 100;
+/**
+ * Un défi est un duel court. La blinde y double toutes les `CHALLENGE_LEVEL_HANDS` mains :
+ * la blinde de base du lieu aux premières mains, puis 2, 4, 8 fois… Les caves, elles, ne
+ * bougent pas : au bout de quelques paliers, tout l'argent part au milieu à chaque main.
+ */
+export const CHALLENGE_LEVEL_HANDS = 3;
+
+/**
+ * La blinde d'un défi à la main `handNo` (la première porte le numéro 1). Elle cesse de
+ * monter dès qu'elle dépasse tout l'argent en jeu (les deux caves) : au-delà, rien ne changerait.
+ */
+export function challengeBlind(base: number, handNo: number): number {
+  const lengths = ((globalThis as any).process?.env?.SCHED ?? "3").split(",").map(Number);
+  let level = 0; let left = Math.max(1, handNo) - 1;
+  for (;;) { const len = lengths[Math.min(level, lengths.length - 1)]; if (left < len) break; left -= len; level++; if (level > 40) break; }
+  const everything = base * CHALLENGE_BLINDS * 2;
+  let blind = base;
+  for (let i = 0; i < level && blind < everything; i++) blind *= 2;
+  return blind;
+}
 
 /** Facile au Kiosque et au Grand Café, normal au Casino et au Salon, difficile à partir du Cercle. */
 export function difficultyOf(place: PlaceId): Difficulty {
@@ -159,10 +179,11 @@ export function houseOf(place: PlaceId): HouseDef {
 export interface ChallengeDef {
   place: PlaceId;
   host: string;
+  /** La blinde de base : celle des premières mains. Elle monte ensuite (`challengeBlind`). */
   blind: number;
-  /** La cave du défi : 30 blindes, ni plus ni moins, pour le joueur comme pour l'hôte. */
+  /** La cave du défi : 30 blindes de base, ni plus ni moins, pour le joueur comme pour l'hôte. */
   buyIn: number;
-  /** Ce que l'hôte verse la première fois qu'il est ruiné. */
+  /** Ce que l'hôte verse la première fois qu'il est ruiné : 100 blindes de base. */
   bonus: number;
   difficulty: Difficulty;
 }

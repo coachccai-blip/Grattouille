@@ -29,6 +29,12 @@ import "./app.css";
 // La planche de contrôle n'est chargée que sur demande (?planche).
 const Planche = lazy(() => import("./screens/planche/Planche"));
 
+// Le Poker Tricheur a son propre morceau : il n'est chargé qu'en poussant sa porte.
+const Poker = lazy(() => import("./screens/poker"));
+
+/** Au lancement, qui est assis à une table de poker y revient : une fois, pas à chaque changement de langue. */
+let pokerRepris = false;
+
 function ScreenView({ screen }: { screen: Screen }) {
   switch (screen.name) {
     case "domaine": return <Domaine />;
@@ -44,6 +50,12 @@ function ScreenView({ screen }: { screen: Screen }) {
     case "fiche-ticket": return <FicheTicket ticket={screen.ticket} />;
     case "fiche-article": return <FicheArticle item={screen.item} />;
     case "choix-domaine": return <ChoixDomaine slot={screen.slot} />;
+    // Le temps que le morceau du poker arrive : un écran vide à sa place, ou pas encore de feuille.
+    case "poker":
+    case "poker-table":
+      return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Poker screen={screen} /></Suspense>;
+    case "poker-feuille":
+      return <Suspense fallback={null}><Poker screen={screen} /></Suspense>;
   }
 }
 
@@ -71,6 +83,15 @@ function Jeu() {
     document.documentElement.classList.toggle("bac-a-sable", sandbox);
     return () => document.documentElement.classList.remove("bac-a-sable");
   }, [sandbox]);
+
+  // Revenu dans le jeu alors qu'on est assis à une table de poker (l'état du joueur le
+  // dit) : on retrouve sa place, avec le hall et la Promenade derrière soi.
+  useEffect(() => {
+    if (pokerRepris) return;
+    pokerRepris = true;
+    const code = useGame.getState().player?.poker?.code;
+    if (code) nav.reset([{ name: "promenade" }, { name: "poker" }, { name: "poker-table", code }]);
+  }, []);
 
   return (
     <>

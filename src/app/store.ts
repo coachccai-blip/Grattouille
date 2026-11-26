@@ -228,6 +228,15 @@ const FAILURES: Record<FailureCode, string> = {
   HOUSE_NOT_ELIGIBLE: "Rien ne traîne par terre pour l'instant.",
   TOO_FAST: "{hote} n'a que deux pattes. Réessaie dans un instant.",
   DAILY_LIMIT: "{n} tickets aujourd'hui : le guichet rouvre demain.",
+  // Le Poker Tricheur (traduits dans src/i18n/en/poker.ts).
+  TABLE_NOT_FOUND: "Cette table n'existe pas, ou elle a fermé. Vérifie le code.",
+  TABLE_FULL: "Cette table est complète. Attends qu'un siège se libère.",
+  ALREADY_SEATED: "Tu as déjà une place à une table. Quitte-la avant d'en rejoindre une autre.",
+  NOT_SEATED: "Tu n'as plus de place à cette table.",
+  BUYIN_UNAFFORDABLE: "Ta bourse ne suffit pas pour cette cave.",
+  NOT_YOUR_TURN: "Ce n'est pas ton tour. Attends que la parole te revienne.",
+  ACTION_IMPOSSIBLE: "Ce geste n'est plus possible : la table a déjà tourné.",
+  BLIND_TOO_HIGH: "Cette blinde est trop haute pour ta bourse : il en faut quarante pour créer la table.",
 };
 
 /** Les précisions que le serveur donne parfois à la place du message de son code : connues, donc traduites. */
@@ -696,3 +705,9 @@ export function bestOpenPlace(standing: number): PlaceId {
   for (const p of PLACES) if (standing >= p.standing) best = p.id;
   return best;
 }
+
+// ---------------------------------------------------------------------------
+// Pour le Poker Tricheur (src/app/poker.ts), qui parle au même serveur avec le même
+// compte : se caler sur un état rendu par le serveur (il dit aussi à quelle table le
+// joueur est assis, `player.poker`), déclarer les tickets grattés, réagir à un échec.
+export { ackList, applyState, recover, requireAuth };

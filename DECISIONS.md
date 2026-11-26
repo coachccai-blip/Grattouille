@@ -117,6 +117,61 @@ comptait 753). 80 % des parties finissent entre 1 181 et 1 878 tickets. Par part
 n'est restée bloquée. Ce tableau remplace celui de la section 5.7 comme référence de la
 simulation.
 
+## 0 bis. Suite du 26 novembre : récit, épure, anglais
+
+Trois demandes du propriétaire du jeu, qui priment sur le brief là où elles le contredisent.
+
+**Plus de mention « Jeu de fiction, aucun gain réel ».** Elle disparaît des tickets, de
+l'écran de chargement, de l'écran de bienvenue, des réglages, de la page et du manifeste
+(le brief la demandait à plusieurs endroits). Il reste, dans Réglages → À propos, un
+paragraphe sobre « Dans la vraie vie » (les vraies chances d'un ticket, le numéro d'aide) :
+c'est le seul endroit, et il se retire en une ligne si on n'en veut plus.
+
+**Aucun texte sur un autre.**
+- Le tampon « PAYÉ » ne se pose plus sur les cases : il est dans le talon du ticket, à
+  droite du numéro de série.
+- L'écran de grattage a trois étages : l'en-tête, le ticket, et un plateau sous le ticket
+  qui porte les boutons puis le résultat. Les très gros gains ont leur fête en plein écran,
+  sur fond opaque.
+- Le composant qui resserre un montant trop long mesurait au pixel entier et ne se
+  remesurait jamais : c'était la cause des montants rognés. Il mesure au dixième de pixel
+  et se remesure. Un montant ne passe sur deux lignes que si son unité est un mot (M€,
+  Md€, Bn€).
+- Le bandeau du bac à sable a sa propre ligne en haut de l'écran.
+- Une information n'est dite qu'une fois par écran : « Trouvé par terre » ne figure que
+  sur le ticket, « jusqu'à X » que sur la miniature, l'hôte ne réagit qu'une fois.
+- Une sonde automatique (`scratchpad`, hors dépôt) parcourt 124 écrans par langue et
+  mesure chaque ligne de texte : aucun recouvrement en français ni en anglais à 360 × 640.
+
+**Deux langues, le français par défaut.**
+- `src/i18n/` : `t("Phrase française")` rend la phrase dans la langue courante ; la clé est
+  la phrase française elle-même, les traductions sont dans `src/i18n/en/` (un dictionnaire
+  par zone du jeu). Une phrase sans traduction reste en français et se signale
+  (`i18nMisses()`), ce que les tests et la recette contrôlent.
+- Les noms tirés des données (30 tickets, 110 biens, lieux, boutiques, espèces, rangs,
+  tempéraments) passent par `src/i18n/noms.ts`. Les titres anglais des tickets sont
+  originaux eux aussi (« Leapcrab », « Rainy-Day Sock », « One-Flippered Bandit »).
+- Les répliques ont leurs deux versions côte à côte dans `src/app/dialogues.ts` : une
+  adaptation, pas un mot à mot.
+- Les montants s'écrivent à l'anglaise en anglais : « €1,500 », « €1.25M », « €1.25B »
+  (milliard), « €1.25T » (billion). Le serveur, lui, n'écrit qu'en français : en anglais le
+  client choisit le texte d'une erreur d'après son code.
+- Les mots croisés ont leurs grilles anglaises (20 grilles, mêmes dix lettres). Le gain
+  d'un ticket ne dépend jamais de la langue : seule l'image change.
+- Les espaces insécables du français ne sont posées qu'en français.
+- La langue se choisit dans les réglages et sur l'écran de bienvenue ; elle est gardée
+  dans `grattouille.settings`. Changer de langue remonte tout l'écran d'un coup (la racine
+  porte la langue en clé) : aucun composant n'a d'abonnement à gérer.
+
+**Le récit.** Une seule journée en huit chapitres, du matin sur le port au lever de Terre
+sur la Lune : chaque lieu qui ouvre a son carton de chapitre et son hôte qui se présente.
+Un fil rouge court du premier ticket au générique (« qui sème les tickets ? ») : chaque
+personnage a sa théorie, glissée dans une réplique d'accueil sur sept. Au rachat du
+Kiosque, Gaspard avoue : c'est la tradition, le patron laisse tomber un ticket pour qui
+débarque sans rien. Le joueur, devenu Patron, en laisse tomber un à son tour ; l'épilogue
+montre l'inconnu qui débarque le lendemain. Piou donne une consigne à la fois, de la
+première minute à l'après-fin. Le bouton d'inscription devient « Débarquer ».
+
 ## 1. Déploiement (jalon 0)
 
 **Voie retenue : la voie B d'abord (déposer le projet entier sur Netlify), la voie A

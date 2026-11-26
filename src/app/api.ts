@@ -9,13 +9,16 @@ import type {
   ApiErrorBody, CreatePlayerResponse, ErrorCode, HealthResponse, LeaderboardResponse, Look, OkResponse,
   SessionResponse, StateResponse, TicketsResponse,
 } from "../../shared/types";
+import type {
+  ActBody, CreateTableBody, JoinTableBody, PokerErrorCode, PokerLobbyResponse, PokerPollResponse, PokerTableResponse,
+} from "../../shared/poker/types";
 import type { Auth } from "./persist";
 
 /**
- * Les codes du serveur, plus trois situations propres au client :
+ * Les codes du serveur (ceux du poker compris), plus trois situations propres au client :
  * NETWORK (pas de réponse), SERVER_ERROR (panne), NO_SERVER (l'API n'est pas déployée).
  */
-export type FailureCode = ErrorCode | "SERVER_ERROR" | "NETWORK" | "NO_SERVER";
+export type FailureCode = ErrorCode | PokerErrorCode | "SERVER_ERROR" | "NETWORK" | "NO_SERVER";
 
 export class ApiFailure extends Error {
   readonly code: FailureCode;
@@ -155,4 +158,26 @@ export const api = {
   deleteMe: (auth: Auth) => call<OkResponse>({ method: "DELETE", path: "/api/me", auth }),
 
   leaderboard: () => call<LeaderboardResponse>({ method: "GET", path: "/api/leaderboard" }),
+
+  // Le Poker Tricheur (POKER.md, section 4).
+
+  /** Le hall : les tables de la maison, les défis, les blindes permises, la table où l'on est assis. */
+  pokerLobby: (auth: Auth) => call<PokerLobbyResponse>({ method: "GET", path: "/api/poker", auth }),
+
+  /** Créer une table, ouvrir une table de la maison ou lancer un défi : le joueur s'y assoit. */
+  pokerCreate: (auth: Auth, body: CreateTableBody) =>
+    call<PokerTableResponse>({ method: "POST", path: "/api/poker/tables", auth, body }),
+
+  pokerJoin: (auth: Auth, body: JoinTableBody) =>
+    call<PokerTableResponse>({ method: "POST", path: "/api/poker/join", auth, body }),
+
+  /** La vue du joueur. `version` : celle de la dernière vue reçue ; si rien n'a changé, `{ unchanged: true }`. */
+  pokerTable: (auth: Auth, code: string, version?: number) =>
+    call<PokerPollResponse>({
+      method: "GET",
+      path: `/api/poker/table?code=${encodeURIComponent(code)}${version === undefined ? "" : `&v=${version}`}`,
+      auth,
+    }),
+
+  pokerAct: (auth: Auth, body: ActBody) => call<PokerTableResponse>({ method: "POST", path: "/api/poker/act", auth, body }),
 };

@@ -6,7 +6,7 @@
 
 import { betOptions } from "./betting";
 import { evaluate } from "./hands";
-import { canDeal, isFunded, playerInHand, rebuyRange, seatIndexOf } from "./state";
+import { canDeal, currentBlind, isFunded, nextRise, playerInHand, rebuyRange, seatIndexOf } from "./state";
 import type { HandResult, Options, OwnHand, SeatView, TableState, TableView } from "./types";
 
 function noOptions(): Options {
@@ -76,7 +76,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
       if (t.phase === "encheres" && h.turn === you) {
         const rivals = h.players.filter((p) => p !== me && !p.folded && !p.allIn).length;
         const bets = betOptions({
-          pot: h.pot, bet: h.bet, raises: h.raises, blind: t.blind, mine: me.bet, stack: seat.stack, rivals,
+          pot: h.pot, bet: h.bet, raises: h.raises, blind: h.blind, mine: me.bet, stack: seat.stack, rivals,
         });
         options.check = bets.check;
         options.call = bets.call;
@@ -104,7 +104,8 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     code: t.code,
     kind: t.kind,
     place: t.place,
-    blind: t.blind,
+    blind: currentBlind(t),
+    rise: nextRise(t),
     minBuyIn: t.minBuyIn,
     maxBuyIn: t.maxBuyIn,
     difficulty: t.difficulty,
