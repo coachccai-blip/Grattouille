@@ -1,7 +1,7 @@
 // Lire l'état d'une table : qui est assis où, qui est dans le coup, qui peut jouer la
 // main suivante. Rien ici ne modifie l'état.
 
-import { CHALLENGE_LEVEL_HANDS, challengeBlind } from "./rules";
+import { challengeBlind, challengeRise } from "./rules";
 import type { HandPlayer, Range, SeatState, TableState } from "./types";
 
 /** Le siège d'un joueur humain, ou -1. */
@@ -40,7 +40,7 @@ export function seatsAfter(t: TableState, from: number, seats: readonly number[]
 
 /**
  * La blinde de la main `handNo`. À une table, c'est toujours la même. Dans un défi, elle
- * part de la blinde de base (`t.blind`) et double toutes les trois mains.
+ * part de la blinde de base (`t.blind`) et double de palier en palier.
  */
 export function blindAt(t: TableState, handNo: number): number {
   return t.kind === "defi" ? challengeBlind(t.blind, handNo) : t.blind;
@@ -57,10 +57,8 @@ export function currentBlind(t: TableState): number {
  */
 export function nextRise(t: TableState): { hand: number; blind: number } | null {
   if (t.kind !== "defi") return null;
-  const hand = t.hand ? t.handNo : t.handNo + 1;
-  const next = (Math.floor((hand - 1) / CHALLENGE_LEVEL_HANDS) + 1) * CHALLENGE_LEVEL_HANDS + 1;
-  const blind = blindAt(t, next);
-  return blind > blindAt(t, hand) ? { hand: next, blind } : null;
+  // La main de référence : celle qui se joue, ou celle qui va se jouer.
+  return challengeRise(t.blind, t.hand ? t.handNo : t.handNo + 1);
 }
 
 /**

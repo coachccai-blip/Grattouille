@@ -127,24 +127,49 @@ export const CHALLENGE_BLINDS = 30;
 /** La cagnotte de l'hôte : 100 blindes de base de son lieu, versées une seule fois. */
 export const CHALLENGE_BONUS_BLINDS = 100;
 /**
- * Un défi est un duel court. La blinde y double toutes les `CHALLENGE_LEVEL_HANDS` mains :
- * la blinde de base du lieu aux premières mains, puis 2, 4, 8 fois… Les caves, elles, ne
- * bougent pas : au bout de quelques paliers, tout l'argent part au milieu à chaque main.
+ * Un défi est un duel court : une quinzaine de mains. La blinde y double de palier en
+ * palier, alors que les caves ne bougent pas. Les trois premiers paliers durent quatre
+ * mains (la blinde de base, puis 2 fois, puis 4 fois), les suivants deux mains seulement
+ * (8, 16, 32, 64 fois) : passé la douzième main, tout l'argent part vite au milieu.
+ * Le dernier nombre de la liste vaut pour tous les paliers suivants.
  */
-export const CHALLENGE_LEVEL_HANDS = 3;
+export const CHALLENGE_LEVEL_HANDS: readonly number[] = [4, 4, 4, 2];
+
+/** Le palier de la main `handNo` (la première porte le numéro 1) : 0, puis 1, 2… */
+function challengeLevel(handNo: number): number {
+  let level = 0;
+  let left = Math.max(1, Math.floor(handNo)) - 1;
+  for (;;) {
+    const hands = CHALLENGE_LEVEL_HANDS[Math.min(level, CHALLENGE_LEVEL_HANDS.length - 1)]!;
+    // Garde-fou : la blinde cesse de monter après quelques paliers, inutile de compter sans fin.
+    if (left < hands || level >= 60) return level;
+    left -= hands;
+    level += 1;
+  }
+}
 
 /**
- * La blinde d'un défi à la main `handNo` (la première porte le numéro 1). Elle cesse de
- * monter dès qu'elle dépasse tout l'argent en jeu (les deux caves) : au-delà, rien ne changerait.
+ * La blinde d'un défi à la main `handNo`. Elle cesse de monter dès qu'elle dépasse tout
+ * l'argent en jeu (les deux caves) : au-delà, rien ne changerait.
  */
 export function challengeBlind(base: number, handNo: number): number {
-  const lengths = ((globalThis as any).process?.env?.SCHED ?? "3").split(",").map(Number);
-  let level = 0; let left = Math.max(1, handNo) - 1;
-  for (;;) { const len = lengths[Math.min(level, lengths.length - 1)]; if (left < len) break; left -= len; level++; if (level > 40) break; }
   const everything = base * CHALLENGE_BLINDS * 2;
   let blind = base;
-  for (let i = 0; i < level && blind < everything; i++) blind *= 2;
+  for (let level = challengeLevel(handNo); level > 0 && blind < everything; level--) blind *= 2;
   return blind;
+}
+
+/**
+ * La main à laquelle la blinde d'un défi montera, après la main `handNo`, et ce qu'elle
+ * vaudra alors. `null` quand elle ne montera plus.
+ */
+export function challengeRise(base: number, handNo: number): { hand: number; blind: number } | null {
+  const now = challengeBlind(base, handNo);
+  if (now >= base * CHALLENGE_BLINDS * 2) return null;
+  // Tant qu'elle n'a pas dépassé tout l'argent en jeu, elle double au palier suivant.
+  let hand = Math.max(1, Math.floor(handNo)) + 1;
+  while (challengeBlind(base, hand) === now) hand += 1;
+  return { hand, blind: challengeBlind(base, hand) };
 }
 
 /** Facile au Kiosque et au Grand Café, normal au Casino et au Salon, difficile à partir du Cercle. */

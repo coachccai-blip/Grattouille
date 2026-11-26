@@ -440,6 +440,12 @@ describe("créer une table", () => {
     expect(r.body.view!.seats.map((s) => [s!.bot, s!.stack])).toEqual([[null, 29], ["gaspard", 29]]);
     expect(r.body.view!.options.rebuy).toBeNull();
     expect(r.body.state!.balance).toBe(70);
+    // La blinde du duel monte : la vue dit à quelle main, et combien. Ailleurs, elle ne bouge pas.
+    expect(r.body.view!.rise).toEqual({ hand: 5, blind: 2 });
+    const b = await w.signup("Lulu", 5_000);
+    expect((await w.poker.create(b, { maison: "kiosque" })).body.view).toMatchObject({ blind: 1, rise: null });
+    const c = await w.signup("Zoé", 5_000);
+    expect((await w.poker.create(c, { ...PRIVATE, bots: 1 })).body.view).toMatchObject({ blind: 10, rise: null });
   });
 
   it("comme partout, les tickets grattés déclarés avec la requête comptent dans la bourse", async () => {
@@ -1055,6 +1061,67 @@ describe("les défis de la campagne", () => {
     expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 99, poker: null });
     expect(w.storage.peek(a.playerId)!.pokerWins ?? []).toEqual([]);
     expect(w.storage.tableCodes()).toEqual([]);
+  });
+
+  it("un défi de bout en bout par l'API : la blinde double au fil des mains, et le duel finit vite, un tapis à zéro", async () => {
+    const lengths: number[] = [];
+    for (const pseudo of ["Marcel", "Lulu", "Zoé", "Dédé", "Elsa", "Fred"]) {
+      const w = makeWorld();
+      // Un joueur sans malice : franc jeu, parole ou suivre, rien à dire. Chaque monde a son hasard.
+      const a = await w.signup(pseudo, 1_000, CAFE_GOODS);
+      for (let i = pseudo.length * 7; i > 0; i--) w.deps.random32();
+      const code = (await w.poker.create(a, { defi: "cafe" })).body.view!.code;
+      expect(w.balance(a)).toBe(700);
+      const blinds = new Map<number, number>();
+      let last: PokerTableResponse | null = null;
+      let hands = 0;
+      for (let i = 0; i < 2_000 && !last?.left; i++) {
+        w.advance(1_000);
+        const r = await w.poker.poll(a, code);
+        expect(r.status).toBe(200);
+        const view = r.body.view!;
+        hands = Math.max(hands, view.handNo);
+        if (view.phase === "triche") {
+          // La blinde de la main en cours, et l'annonce de la prochaine hausse.
+          blinds.set(view.handNo, view.blind);
+          if (view.rise) {
+            expect(view.rise.hand).toBeGreaterThan(view.handNo);
+            expect(view.rise.blind).toBe(2 * view.blind);
+          } else expect(view.blind).toBe(640);
+          // Personne ne pose plus que la blinde, ni plus que ce qu'il a.
+          for (const seat of view.seats) expect(seat!.committed).toBeLessThanOrEqual(view.blind);
+        }
+        if (r.body.left) { last = r.body; break; }
+        const o = view.options;
+        let acted: Reply<PokerTableResponse> | null = null;
+        if (o.cheat) acted = await w.poker.act(a, code, { type: "franc-jeu" }, view.step);
+        else if (o.fold) acted = await w.poker.act(a, code, o.check ? { type: "parole" } : { type: "suivre" }, view.step);
+        else if (o.accuse.length > 0) acted = await w.poker.act(a, code, { type: "rien" }, view.step);
+        else if (o.next) acted = await w.poker.act(a, code, { type: "suite" }, view.step);
+        if (acted?.body.left) last = acted.body;
+      }
+      // Le duel s'est fini à la table : l'un des deux n'a plus rien, la table a fermé et rendu le tapis.
+      expect(last).not.toBeNull();
+      expect(last!.view).toMatchObject({ phase: "fermee", closed: "defi" });
+      expect(["defi-gagne", "defi-perdu"]).toContain(last!.left!.reason);
+      const won = last!.left!.reason === "defi-gagne";
+      // 30 blindes de base de cave, 100 de cagnotte : la blinde qui monte n'y change rien.
+      expect(last!.left).toEqual({ reason: won ? "defi-gagne" : "defi-perdu", payout: won ? 600 : 0, bonus: won ? 1_000 : 0 });
+      expect(w.balance(a)).toBe(won ? 700 + 600 + 1_000 : 700);
+      expect(w.storage.tableCodes()).toEqual([]);
+      // Les paliers : la blinde de base (10 € au Grand Café) quatre mains, puis 20, 40, puis deux mains par palier.
+      for (const [hand, blind] of blinds) {
+        const expected = [10, 10, 10, 10, 20, 20, 20, 20, 40, 40, 40, 40, 80, 80, 160, 160, 320, 320][hand - 1] ?? 640;
+        expect([hand, blind]).toEqual([hand, expected]);
+      }
+      expect(blinds.size).toBe(hands);
+      lengths.push(hands);
+    }
+    // Une quinzaine de mains.
+    lengths.sort((x, y) => x - y);
+    expect(lengths[0]!).toBeGreaterThanOrEqual(5);
+    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(30);
+    expect(lengths[Math.floor(lengths.length / 2)]!).toBeGreaterThanOrEqual(10);
   });
 
   it("dans un défi, personne ne recave", async () => {

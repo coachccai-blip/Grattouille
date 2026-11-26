@@ -417,8 +417,8 @@ export interface TableView {
   /**
    * La blinde en vigueur : celle de la main en cours, ou de la prochaine entre deux mains.
    * À une table, elle ne change jamais. Dans un défi, elle part de la blinde de base du
-   * lieu et double toutes les trois mains (voir `rise`) ; c'est aussi la mise et la
-   * relance minimales du tour d'enchères.
+   * lieu et double de palier en palier (voir `rise`) ; c'est aussi la mise et la relance
+   * minimales du tour d'enchères.
    */
   blind: number;
   /**
@@ -524,7 +524,7 @@ export interface LobbyChallenge {
   place: PlaceId;
   open: boolean;
   host: string;
-  /** La blinde de base du lieu : celle des premières mains du duel. Elle double ensuite toutes les trois mains. */
+  /** La blinde de base du lieu : celle des quatre premières mains du duel. Elle double ensuite de palier en palier. */
   blind: number;
   /** La cave du défi : 30 blindes de base. */
   buyIn: number;

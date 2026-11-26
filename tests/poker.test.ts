@@ -5,13 +5,13 @@
 import { describe, expect, it } from "vitest";
 import { PLACES } from "../shared/places";
 import {
-  ACCUSE_MS, BLIND_LADDER, BOT_MAX_MS, BOT_MIN_MS, BOT_PERSONAS, CATEGORIES, CHEAT_MS, DECK, IDLE_TABLE_MS,
-  MAX_BLIND, MAX_TABLE_CHIPS, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS,
-  PokerError, act, advance, allowedBlinds, betOptions, botAccuse, botBet, botCheat, canDeal, cancel, cardRank,
-  cardSuit, challengeOf, chipsOnTable, compareHands, createTable, deposit, difficultyOf, evaluate, handStrength,
-  houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt, normalizeTableCode, pickPersonas,
-  placeBlind, playerInHand, possibleSwaps, rebuyRange, seatIndexOf, settled, shuffledDeck, sidePots, sit,
-  splitPot, viewFor, viewOfSeat,
+  ACCUSE_MS, BLIND_LADDER, BOT_MAX_MS, BOT_MIN_MS, BOT_PERSONAS, CATEGORIES, CHALLENGE_LEVEL_HANDS, CHEAT_MS, DECK,
+  IDLE_TABLE_MS, MAX_BLIND, MAX_TABLE_CHIPS, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS,
+  PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
+  cardRank, cardSuit, challengeBlind, challengeOf, challengeRise, chipsOnTable, compareHands, createTable, deposit,
+  difficultyOf, evaluate, handStrength, houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt,
+  normalizeTableCode, pickPersonas, placeBlind, playerInHand, possibleSwaps, rebuyRange, seatIndexOf, settled,
+  shuffledDeck, sidePots, sit, splitPot, viewFor, viewOfSeat,
   type Card, type Difficulty, type GameAction, type HandCategory, type Random32, type TableSpec, type TableState,
   type TableView,
 } from "../shared/poker";
@@ -2062,9 +2062,11 @@ describe("ce que voit un joueur", () => {
     const view = viewFor(t, "p_a", T0 + 500);
     expect(Object.keys(view).sort()).toEqual([
       "bet", "blind", "closed", "code", "deadline", "dealer", "difficulty", "hand", "handNo", "kind", "log", "maxBuyIn",
-      "minBuyIn", "now", "options", "owner", "phase", "place", "pot", "result", "seats", "started", "step", "turn",
-      "version", "you",
+      "minBuyIn", "now", "options", "owner", "phase", "place", "pot", "result", "rise", "seats", "started", "step",
+      "turn", "version", "you",
     ]);
+    // Hors d'un défi, la blinde ne bouge pas.
+    expect([view.blind, view.rise]).toEqual([10, null]);
     expect(Object.keys(view.seats[1]!).sort()).toEqual([
       "absent", "allIn", "bet", "bot", "cards", "category", "committed", "done", "folded", "funded", "inHand", "look",
       "pseudo", "reserve", "seat", "species", "stack",
@@ -2611,6 +2613,246 @@ describe("tables de la maison et défis", () => {
     expect(viewFor(t, "p_a", T0).options).toMatchObject({ start: false, rebuy: null, cheat: true });
   });
 
+  it("dans un défi, la blinde double de palier en palier : quatre mains, quatre, quatre, puis deux par deux", () => {
+    expect([...CHALLENGE_LEVEL_HANDS]).toEqual([4, 4, 4, 2]);
+    expect(Array.from({ length: 22 }, (_, i) => challengeBlind(1, i + 1))).toEqual([
+      1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64, 64, 64,
+    ]);
+    // Elle cesse de monter quand elle dépasse tout l'argent en jeu (deux caves de 30 blindes).
+    for (const hand of [19, 25, 100, 1_000_000]) expect(challengeBlind(1, hand)).toBe(64);
+    expect([challengeBlind(1, 0), challengeBlind(1, -3)]).toEqual([1, 1]);
+    // À la Lune comme au Kiosque, et toujours en euros entiers.
+    const lune = challengeOf("lune").blind;
+    expect(Array.from({ length: 19 }, (_, i) => challengeBlind(lune, i + 1) / lune)).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 8, 8, 16, 16, 32, 32, 64]);
+    expect(Number.isSafeInteger(challengeBlind(lune, 99))).toBe(true);
+    // La prochaine hausse : à quelle main, et combien.
+    expect([1, 4, 5, 8, 9, 12, 13, 14, 15, 17, 18].map((hand) => challengeRise(1, hand))).toEqual([
+      { hand: 5, blind: 2 }, { hand: 5, blind: 2 }, { hand: 9, blind: 4 }, { hand: 9, blind: 4 },
+      { hand: 13, blind: 8 }, { hand: 13, blind: 8 }, { hand: 15, blind: 16 }, { hand: 15, blind: 16 },
+      { hand: 17, blind: 32 }, { hand: 19, blind: 64 }, { hand: 19, blind: 64 },
+    ]);
+    for (const hand of [19, 20, 500]) expect(challengeRise(1, hand)).toBeNull();
+    // La cave et la cagnotte se comptent toujours en blindes de base.
+    expect(challengeOf("kiosque")).toMatchObject({ blind: 1, buyIn: 30, bonus: 100 });
+    // Ailleurs que dans un défi, la blinde d'une table ne bouge jamais.
+    const table = dealt({ stacks: [500, 500], blind: 5 });
+    expect([1, 5, 13, 40].map((hand) => blindAt(table, hand))).toEqual([5, 5, 5, 5]);
+    expect([viewFor(table, "p_a", T0).blind, viewFor(table, "p_a", T0).rise, table.hand!.blind]).toEqual([5, null, 5]);
+  });
+
+  /**
+   * Un défi arrêté entre deux mains (cas d'école) : `played` mains ont été jouées, il reste
+   * `mine` au joueur, `host` à l'hôte, et `carry` sur la table. La main suivante part à T0.
+   */
+  function challengeAt(rng: Random32, played: number, mine: number, host: number, carry = 0): TableState {
+    const s = copy(challenge(rng));
+    s.hand = null;
+    s.phase = "denouement";
+    s.nextAt = T0;
+    s.handNo = played;
+    s.carry = carry;
+    s.seats[0]!.stack = mine;
+    s.seats[1]!.stack = host;
+    // Ce que les deux tapis et le pot resté là ont de plus que la cave du joueur vient de l'hôte.
+    s.audit.bank = mine + host + carry - 30;
+    audited(s);
+    return s;
+  }
+
+  /** Les robots ont choisi et ne diront rien : on fait passer leurs étapes à la main. */
+  function hostSilent(t: TableState): TableState {
+    const s = copy(t);
+    for (const p of s.hand!.players) {
+      if (s.seats[p.seat]!.bot === null) continue;
+      p.chosen = true;
+      p.spoke = s.phase === "abattage";
+      p.actAt = null;
+    }
+    return s;
+  }
+
+  it("la vue d'un défi donne la blinde en vigueur et la main où elle montera", () => {
+    const rng = rngOf(77);
+    // Première main : la blinde de base ; elle doublera à la cinquième.
+    const first = viewFor(challenge(rng), "p_a", T0);
+    expect([first.handNo, first.blind, first.rise, first.minBuyIn, first.maxBuyIn]).toEqual([1, 1, { hand: 5, blind: 2 }, 30, 30]);
+    // Entre la quatrième et la cinquième main, la vue annonce déjà la blinde de la main qui vient.
+    const between = challengeAt(rng, 4, 30, 30);
+    expect([viewFor(between, "p_a", T0).blind, viewFor(between, "p_a", T0).rise]).toEqual([2, { hand: 9, blind: 4 }]);
+    let t = advance(between, T0, rng);
+    expect([t.handNo, t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([5, 2, 4, [28, 28]]);
+    expect(t.log.filter((e) => e.hand === 5 && e.kind === "blinde").map((e) => e.amount)).toEqual([2, 2]);
+    expect(t.blind).toBe(1);
+    let view = viewFor(t, "p_a", T0);
+    expect([view.blind, view.rise, view.seats.map((s) => s!.committed)]).toEqual([2, { hand: 9, blind: 4 }, [2, 2]]);
+    // La mise et la relance minimales suivent la blinde en vigueur.
+    t = act(hostSilent(t), "p_a", { type: "franc-jeu" }, T0, rng);
+    expect([t.phase, t.hand!.turn]).toEqual(["encheres", 0]);
+    expect(viewFor(t, "p_a", T0).options).toMatchObject({ check: true, bet: { min: 2, max: 4 } });
+    expect(refusal(() => act(t, "p_a", { type: "miser", amount: 1 }, T0, rng))).toBe("ACTION_IMPOSSIBLE");
+    // Plus loin : 8 à la treizième main, 16 à la quinzième ; à la dix-neuvième, elle ne monte plus.
+    view = viewFor(advance(challengeAt(rng, 12, 30, 30), T0, rng), "p_a", T0);
+    expect([view.handNo, view.blind, view.rise, view.pot]).toEqual([13, 8, { hand: 15, blind: 16 }, 16]);
+    view = viewFor(advance(challengeAt(rng, 18, 30, 30), T0, rng), "p_a", T0);
+    expect([view.handNo, view.blind, view.rise]).toEqual([19, 64, null]);
+    // La blinde dépasse les deux tapis : chacun pose tout ce qu'il a.
+    expect([view.pot, view.seats.map((s) => [s!.stack, s!.committed, s!.allIn])]).toEqual([60, [[0, 30, true], [0, 30, true]]]);
+  });
+
+  it("qui n'a plus de quoi payer la blinde pose ce qui lui reste et joue sa main à tapis", () => {
+    const rng = rngOf(78);
+    // Treizième main, blinde de 8 : il reste 5 au joueur, 55 à l'hôte.
+    let t = advance(challengeAt(rng, 12, 5, 55), T0, rng);
+    expect([t.handNo, t.phase, t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([13, "triche", 8, 13, [0, 47]]);
+    expect(t.log.filter((e) => e.hand === 13 && e.kind === "blinde").map((e) => [e.seat, e.amount, e.allIn ?? false]).sort()).toEqual([[0, 5, true], [1, 8, false]]);
+    expect(viewFor(t, "p_a", T0).seats.map((s) => [s!.committed, s!.allIn])).toEqual([[5, true], [8, false]]);
+    expect(viewFor(t, "p_a", T0).options.cheat).toBe(true);
+    audited(t);
+    // Pas d'enchères : un seul des deux a encore des jetons. Ce que l'hôte a posé de trop lui revient.
+    t = withHands(hostSilent(t), { 0: "As Ad 7c 5h 2d", 1: "Kc Kd 9s 4h 3c" });
+    t = act(t, "p_a", { type: "franc-jeu" }, T0, rng);
+    expect([t.phase, t.hand!.pot, stacksOf(t)]).toEqual(["abattage", 10, [0, 50]]);
+    expect(t.hand!.players.map((p) => [p.seat, p.committed, p.bet, p.allIn]).sort()).toEqual([[0, 5, 0, true], [1, 5, 0, false]]);
+    expect(t.log.find((e) => e.hand === 13 && e.kind === "rendu")).toMatchObject({ seat: 1, amount: 3 });
+    expect(t.log.some((e) => e.hand === 13 && ["parole", "mise", "suit", "relance", "couche"].includes(e.kind))).toBe(false);
+    audited(t);
+    // Il gagne : son tapis double, et le duel continue.
+    const won = act(hostSilent(t), "p_a", { type: "rien" }, T0, rng);
+    expect([won.phase, stacksOf(won)]).toEqual(["denouement", [10, 50]]);
+    expect(won.result).toMatchObject({ pots: [{ amount: 10, winners: [{ seat: 0, amount: 10 }] }], net: expect.arrayContaining([{ seat: 0, amount: 5 }, { seat: 1, amount: -5 }]) });
+    const next = advance(won, T0 + RESULT_MS, rng);
+    expect([next.phase, next.handNo, next.hand!.blind, stacksOf(next)]).toEqual(["triche", 14, 8, [2, 42]]);
+    audited(next);
+    // Il perd : cette fois il n'a plus rien, le défi est fini.
+    const losing = withHands(hostSilent(advance(challengeAt(rng, 12, 5, 55), T0, rng)), { 0: "Kc Kd 9s 4h 3c", 1: "As Ad 7c 5h 2d" });
+    let lost = act(losing, "p_a", { type: "franc-jeu" }, T0, rng);
+    lost = act(hostSilent(lost), "p_a", { type: "rien" }, T0, rng);
+    expect(stacksOf(lost)).toEqual([0, 60]);
+    lost = advance(lost, T0 + RESULT_MS, rng);
+    expect([lost.phase, lost.closed]).toEqual(["fermee", "defi"]);
+    expect(lost.ended).toMatchObject([{ payout: 0, reason: "defi-perdu" }]);
+    audited(lost);
+  });
+
+  it("l'hôte aussi pose ce qui lui reste, et l'accusateur à tapis ne risque rien", () => {
+    const rng = rngOf(79);
+    // Quinzième main, blinde de 16 : il reste 6 à l'hôte.
+    let t = advance(challengeAt(rng, 14, 54, 6), T0, rng);
+    expect([t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([16, 22, [38, 0]]);
+    t = withHands(hostSilent(t), { 0: "Kc Kd 9s 4h 3c", 1: "As Ad 7c 5h 2d" });
+    t = act(t, "p_a", { type: "franc-jeu" }, T0, rng);
+    // Dix reviennent au joueur : l'hôte n'a pu en suivre que six.
+    expect([t.phase, t.hand!.pot, stacksOf(t)]).toEqual(["abattage", 12, [48, 0]]);
+    // L'hôte, à tapis, accuse à tort : il n'a plus rien pour payer.
+    const s = hostSilent(t);
+    s.hand!.players.find((p) => p.seat === 1)!.accuse = 0;
+    const done = act(s, "p_a", { type: "rien" }, T0, rng);
+    expect(done.result!.accusations).toEqual([{ from: 1, to: 0, right: false, paid: 0 }]);
+    expect(stacksOf(done)).toEqual([48, 12]);
+    audited(done);
+  });
+
+  it("les deux à court devant une blinde énorme : tout part au milieu, le pot resté là compris", () => {
+    const rng = rngOf(80);
+    // Dix-neuvième main, blinde de 64. Il reste 3 et 5 ; 52 attendent sur la table depuis la main d'avant.
+    let t = advance(challengeAt(rng, 18, 3, 5, 52), T0, rng);
+    expect([t.hand!.blind, t.hand!.pot, t.carry, stacksOf(t)]).toEqual([64, 60, 0, [0, 0]]);
+    t = withHands(hostSilent(t), { 0: "As Ad 7c 5h 2d", 1: "Kc Kd 9s 4h 3c" });
+    t = act(t, "p_a", { type: "franc-jeu" }, T0, rng);
+    // Deux de trop chez l'hôte lui reviennent ; le joueur prétend au reste.
+    expect([t.phase, t.hand!.pot, stacksOf(t)]).toEqual(["abattage", 58, [0, 2]]);
+    t = act(hostSilent(t), "p_a", { type: "rien" }, T0, rng);
+    expect(stacksOf(t)).toEqual([58, 2]);
+    // L'hôte a encore deux euros : le duel n'est pas fini, il les posera à la main suivante.
+    t = advance(t, T0 + RESULT_MS, rng);
+    expect([t.phase, t.handNo, stacksOf(t), t.hand!.pot]).toEqual(["triche", 20, [0, 0], 60]);
+    t = withHands(hostSilent(t), { 0: "As Ad 7c 5h 2d", 1: "Kc Kd 9s 4h 3c" });
+    t = act(t, "p_a", { type: "franc-jeu" }, T0 + RESULT_MS, rng);
+    expect([t.hand!.pot, stacksOf(t)]).toEqual([4, [56, 0]]);
+    t = act(hostSilent(t), "p_a", { type: "rien" }, T0 + RESULT_MS, rng);
+    t = advance(t, T0 + 2 * RESULT_MS, rng);
+    expect([t.phase, t.closed]).toEqual(["fermee", "defi"]);
+    expect(t.ended).toMatchObject([{ payout: 60, reason: "defi-gagne" }]);
+    audited(t);
+  });
+
+  it("un euro suffit pour rester dans le duel ; à une table ordinaire, il faut toujours la blinde entière", () => {
+    const rng = rngOf(81);
+    // Cinquième main, blinde de 2 : le joueur n'a qu'un euro. Il n'est pas éliminé d'office.
+    const t = advance(challengeAt(rng, 4, 1, 59), T0, rng);
+    expect([t.phase, t.handNo, stacksOf(t)]).toEqual(["triche", 5, [0, 57]]);
+    expect(playerInHand(t, 0)).toMatchObject({ committed: 1, allIn: true });
+    // Sans rien du tout, en revanche, le défi est fini.
+    const over = advance(challengeAt(rng, 4, 0, 60), T0, rng);
+    expect([over.phase, over.closed, over.ended[0]!.reason]).toEqual(["fermee", "defi", "defi-perdu"]);
+    // À une table d'un joueur, rien n'a changé : qui n'a pas la blinde n'est pas servi.
+    const table = dealt({ stacks: [1000, 9, 1000] });
+    expect(playerInHand(table, 1)).toBeNull();
+    expect(table.hand!.players.map((p) => p.committed)).toEqual([10, 10]);
+  });
+
+  it("un défi finit toujours à la table, avec un tapis à zéro, en une quinzaine de mains", () => {
+    type Style = "passif" | "craintif" | "pousse";
+    const lengths: number[] = [];
+    const outcomes = new Map<string, number>();
+    for (const difficulty of ["facile", "normal", "difficile"] as Difficulty[]) {
+      for (const style of ["passif", "craintif", "pousse"] as Style[]) {
+        for (let seed = 1; seed <= 25; seed++) {
+          const rng = rngOf(9_000 + seed);
+          const def = challengeOf("cafe");
+          let t = createTable({ code: "ABCDE", kind: "defi", place: "cafe", blind: def.blind, maxBuyIn: def.buyIn, seats: 2, bots: [def.host], difficulty }, T0);
+          t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Ada", species: "chat", look: null }, T0, rng);
+          t = deposit(t, "s_0", 1, def.buyIn, T0, rng);
+          // Le dernier état de la table avant sa fermeture.
+          let before = t;
+          const move = (next: TableState) => {
+            t = next;
+            if (t.phase === "fermee") return;
+            before = t;
+            // L'argent : deux caves, ni plus ni moins, et l'hôte n'en crée pas en cours de route.
+            expect(chipsOnTable(t)).toBe(2 * def.buyIn);
+            expect(t.audit).toEqual({ in: def.buyIn, out: 0, bank: def.buyIn });
+          };
+          // `move` change la table derrière le dos du compilateur : on relit sa phase par une fonction.
+          const closed = (): boolean => t.phase === "fermee";
+          for (let now = T0; now < T0 + 3_600_000 && !closed(); now += 1_000) {
+            move(advance(t, now, rng));
+            if (closed()) break;
+            const o = viewFor(t, "p_a", now).options;
+            // Trois joueurs sans malice : l'un suit tout, l'autre se couche à la moindre mise, le dernier mise le pot.
+            if (o.cheat) move(act(t, "p_a", { type: "franc-jeu" }, now, rng));
+            else if (o.fold && style === "pousse" && o.bet) move(act(t, "p_a", { type: "miser", amount: o.bet.max }, now, rng));
+            else if (o.fold && o.check) move(act(t, "p_a", { type: "parole" }, now, rng));
+            else if (o.fold) move(act(t, "p_a", style === "craintif" ? { type: "coucher" } : { type: "suivre" }, now, rng));
+            else if (o.accuse.length > 0) move(act(t, "p_a", { type: "rien" }, now, rng));
+            else if (o.next) move(act(t, "p_a", { type: "suite" }, now, rng));
+          }
+          expect([difficulty, style, seed, t.phase, t.closed]).toEqual([difficulty, style, seed, "fermee", "defi"]);
+          audited(t);
+          // Le duel s'est fini à la table : juste avant la fermeture, l'un des deux tapis était à zéro.
+          const stacks = before.seats.map((s) => s!.stack);
+          expect(Math.min(...stacks)).toBe(0);
+          expect(stacks[0]! + stacks[1]! + before.carry).toBe(2 * def.buyIn);
+          const { reason, payout } = t.ended[0]!;
+          outcomes.set(reason, (outcomes.get(reason) ?? 0) + 1);
+          if (before.carry === 0) expect(payout).toBe(reason === "defi-gagne" ? 2 * def.buyIn : 0);
+          lengths.push(t.handNo);
+        }
+      }
+    }
+    lengths.sort((a, b) => a - b);
+    const at = (share: number) => lengths[Math.floor(share * (lengths.length - 1))]!;
+    // Une quinzaine de mains, et presque jamais plus de vingt-cinq. Il n'y a pas de maximum
+    // absolu : tant que le plus petit tapis gagne ses tapis, le duel continue.
+    expect(at(0.5)).toBeGreaterThanOrEqual(12);
+    expect(at(0.5)).toBeLessThanOrEqual(18);
+    expect(at(0.9)).toBeLessThanOrEqual(21);
+    expect(lengths.filter((n) => n > 25).length / lengths.length).toBeLessThan(0.03);
+    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(60);
+    expect(outcomes.get("defi-gagne")).toBeGreaterThan(10);
+    expect(outcomes.get("defi-perdu")).toBeGreaterThan(50);
+  });
+
   /** Joue une main du défi où les deux tapis partent au milieu, avec les mains qu'on choisit. */
   function showdownAllIn(rng: Random32, mine: string, host: string, cheat = false, accuse = false): TableState {
     let t = challenge(rng);
@@ -2662,7 +2904,7 @@ describe("tables de la maison et défis", () => {
     expect(chipsOnTable(t)).toBe(0);
   });
 
-  it("tous deux démasqués à tapis : plus personne ne peut payer la blinde, le pot resté là est partagé", () => {
+  it("tous deux démasqués à tapis : plus personne n'a rien, le pot resté là est partagé", () => {
     const rng = rngOf(75);
     let t = showdownAllIn(rng, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d", true, true);
     expect([t.carry, stacksOf(t)]).toEqual([60, [0, 0]]);
@@ -2673,7 +2915,7 @@ describe("tables de la maison et défis", () => {
     expect(t.audit).toEqual({ in: 30, out: 30, bank: 0 });
   });
 
-  it("un défi se joue jusqu'au bout : l'un des deux finit sans de quoi payer la blinde", () => {
+  it("un défi se joue jusqu'au bout : le tricheur le gagne souvent, le joueur honnête qui mise à l'aveugle rarement", () => {
     const outcomes = new Map<string, number>();
     for (let seed = 1; seed <= 60; seed++) {
       const rng = rngOf(8_000 + seed);
@@ -2704,9 +2946,10 @@ describe("tables de la maison et défis", () => {
       expect(t.ended).toHaveLength(1);
       const { reason, payout } = t.ended[0]!;
       outcomes.set(reason, (outcomes.get(reason) ?? 0) + 1);
-      // Le vaincu n'a plus de quoi payer la blinde : le vainqueur a tout, à un euro près.
+      // Le vaincu n'a plus rien : le vainqueur a tout.
       if (reason === "defi-gagne") expect(payout).toBe(60);
       if (reason === "defi-perdu") expect(payout).toBe(0);
+      expect(t.handNo).toBeLessThanOrEqual(60);
       expect(["defi-gagne", "defi-perdu", "defi-nul"]).toContain(reason);
     }
     // Contre un hôte facile, qui accuse rarement, le tricheur gagne presque toujours ;
