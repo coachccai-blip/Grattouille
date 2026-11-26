@@ -60,7 +60,6 @@ export const EN_JEU: Record<string, string> = {
   // --- Comptoir
   "Les tickets du lieu": "Tickets sold here",
   "{ticket}, {prix}, jusqu'à {max}": "{ticket}, {prix}, up to {max}",
-  "jusqu'à {max}": "up to {max}",
   "règles et lots": "rules and prizes",
   "Ce lieu est encore fermé.": "This place is still closed.",
   "Acheter {prix}": "Buy {prix}",
@@ -89,10 +88,10 @@ export const EN_JEU: Record<string, string> = {
   "À gratter": "To scratch",
   "Gratter {ticket}, {prix}": "Scratch {ticket}, {prix}",
   "Gratter {ticket}, trouvé par terre": "Scratch {ticket}, found on the ground",
-  "Trouvé par terre, toujours gagnant": "Found on the ground, always a winner",
+  "Trouvé par terre": "Found on the ground",
   "Gratter le suivant": "Scratch the next one",
   "Gratter": "Scratch",
-  "Tout gratter en rafale": "Auto-scratch the lot",
+  "Tout gratter en rafale": "Auto-scratch them all",
   "Aller jouer": "Go and play",
 
   // --- Grattage : le choix, le geste, la rafale

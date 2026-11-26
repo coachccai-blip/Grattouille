@@ -8,6 +8,22 @@ import type { BoardEntry, Look, PendingTicket, PlayerState, PlayerStats } from "
 
 export const SCHEMA_VERSION = 1;
 
+/**
+ * La séance de poker en cours : ce que le joueur a sorti de sa bourse pour une table
+ * (POKER.md, section 4). Tant qu'elle figure ici, cet argent n'est pas dans `balance` :
+ * il est sur la table, ou en route. Elle disparaît quand la table a rendu le tapis.
+ */
+export interface PokerSession {
+  /** Le code de la table. */
+  code: string;
+  /** L'identifiant de la séance : un nouveau chaque fois que le joueur s'assoit. */
+  sid: string;
+  /** Le numéro du dernier dépôt : 1 pour la cave, puis un de plus par recave. */
+  seq: number;
+  /** Tout ce qui a quitté la bourse pour cette séance. */
+  paid: number;
+}
+
 export interface PlayerRecord {
   /** Version du schéma. */
   v: number;
@@ -21,6 +37,10 @@ export interface PlayerRecord {
   kiosk: boolean;
   stats: PlayerStats;
   createdAt: number;
+  /** Absent d'un compte qui n'a jamais joué au poker. */
+  poker?: PokerSession | null;
+  /** Les lieux dont le défi est relevé : la cagnotte d'un hôte ne se verse qu'une fois. */
+  pokerWins?: string[];
 
   // Les champs suivants ne sont jamais envoyés au client.
   pseudoKey: string;
@@ -67,9 +87,22 @@ export function newPlayer(p: {
   };
 }
 
+/** Addition bornée : un solde reste un entier exact. */
+export function safeAdd(a: number, b: number): number {
+  return Math.min(Number.MAX_SAFE_INTEGER, a + b);
+}
+
+/**
+ * La fortune d'un joueur. L'argent posé sur une table de poker compte pour ce qu'il a
+ * coûté : s'asseoir ne change pas la fortune, c'est en quittant la table qu'elle bouge.
+ */
+export function fortune(r: PlayerRecord): number {
+  return safeAdd(fortuneOf(r), r.poker?.paid ?? 0);
+}
+
 /** Ce que le client reçoit. Standing et fortune sont recalculés à chaque fois. */
 export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState {
-  return {
+  const state: PlayerState = {
     id: r.id,
     pseudo: r.pseudo,
     species: r.species,
@@ -79,16 +112,14 @@ export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState 
     look: r.look,
     kiosk: r.kiosk,
     standing: standingOf(r.owned, r.kiosk),
-    fortune: fortuneOf(r),
+    fortune: fortune(r),
     stats: r.stats,
     createdAt: r.createdAt,
     luckyIn: Math.max(0, LUCKY_FIND_MS - (now - r.lastHouseAt)),
   };
-}
-
-/** Addition bornée : un solde reste un entier exact. */
-export function safeAdd(a: number, b: number): number {
-  return Math.min(Number.MAX_SAFE_INTEGER, a + b);
+  // La table où il est assis, pour y revenir après un rechargement.
+  if (r.poker) state.poker = { code: r.poker.code };
+  return state;
 }
 
 /**
@@ -130,7 +161,7 @@ export function boardEntryOf(r: PlayerRecord, now: number): BoardEntry {
       tenue: r.look.tenue,
       accessoire: r.look.accessoire,
     },
-    fortune: fortuneOf(r),
+    fortune: fortune(r),
     standing: standingOf(r.owned, r.kiosk),
     kiosk: r.kiosk,
     at: now,
@@ -141,7 +172,7 @@ export function boardEntryOf(r: PlayerRecord, now: number): BoardEntry {
 export function boardSignature(r: PlayerRecord): string {
   const l = r.look;
   return [
-    fortuneOf(r), standingOf(r.owned, r.kiosk), r.species,
+    fortune(r), standingOf(r.owned, r.kiosk), r.species,
     l.chapeau ?? "", l.lunettes ?? "", l.tenue ?? "", l.accessoire ?? "",
     r.kiosk ? 1 : 0, r.pseudo,
   ].join("|");

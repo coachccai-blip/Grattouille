@@ -10,6 +10,7 @@
 // L'écran a trois étages : l'en-tête, la scène où se tient le ticket, et le plateau.
 // Le plateau garde la même hauteur d'un temps à l'autre et porte, tour à tour, les
 // boutons, puis le résultat : le ticket ne bouge pas, et rien ne se pose jamais sur lui.
+// Quand le ticket est parti, le résultat s'affiche à sa place, au milieu de la scène.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { formatEuros } from "../../../shared/format";
@@ -147,10 +148,6 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   panelRef.current = panel;
   const rafaleRef = useRef(rafale);
   rafaleRef.current = rafale;
-  // Le bloc du résultat pendant la fête, et l'endroit où il se trouvait quand elle s'est
-  // terminée : après, le même bloc repart de là.
-  const feteBlock = useRef<HTMLParagraphElement>(null);
-  const anchor = useRef<DOMRect | null>(null);
 
   const reserve = useReserve(scene, phase !== "choix");
   const width = useTicketWidth(def, reserve);
@@ -186,7 +183,6 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     const asks = needsPick(d);
     finished.current = false;
     seenMatches.current = 0;
-    anchor.current = null;
     setEncourage(false);
     setQueue(q);
     setIndex(i);
@@ -257,18 +253,12 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     resultMs.current = duration;
   }, [tier, calm, ticket]);
 
-  // --- La fête est finie : on note où se tenait le bloc du résultat, puis l'écran propose la suite.
-  const leaveFete = useCallback(() => {
-    anchor.current = feteBlock.current?.getBoundingClientRect() ?? null;
-    setPhase("apres");
-  }, []);
-
-  // --- La fête dure le temps de son palier.
+  // --- La fête dure le temps de son palier, puis l'écran propose la suite.
   useEffect(() => {
     if (phase !== "resultat") return;
-    const timer = window.setTimeout(leaveFete, resultMs.current);
+    const timer = window.setTimeout(() => setPhase("apres"), resultMs.current);
     return () => window.clearTimeout(timer);
-  }, [phase, leaveFete]);
+  }, [phase]);
 
   // --- Volet suivant du ticket multiple, puis fin du grattage.
   useEffect(() => {
@@ -362,7 +352,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   }, []);
 
   const skip = () => {
-    if (phase === "resultat" && skippable) leaveFete();
+    if (phase === "resultat" && skippable) setPhase("apres");
   };
 
   const rebuy = async () => {
@@ -489,9 +479,10 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
           </span>
         )}
 
-        {/* Le ticket s'en va : le résultat prend sa place au milieu de la scène, puis l'hôte réagit. */}
-        {phase === "apres" && !rafale && (
-          <div className={cx("bilan", !gone && "bilan--attend")}>
+        {/* Le ticket est parti : le résultat prend sa place au milieu de la scène, et l'hôte réagit.
+            Rien ne s'affiche ici tant que le ticket sort : aucun texte ne le croise. */}
+        {gone && phase === "apres" && !rafale && (
+          <div className="bilan">
             {carnet && last ? (
               // Dernier ticket : le compte des gagnants et le total, à la place du dernier résultat.
               <p className="resultat resultat--carnet">
@@ -499,7 +490,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
                 <span className="resultat__montant">{formatEuros(totals.gain)}</span>
               </p>
             ) : (
-              <Resultat tier={tier} gain={ticket.gain} depart={anchor} calm={calm} />
+              <Resultat tier={tier} gain={ticket.gain} />
             )}
             <Bulle line={reaction} />
           </div>
@@ -518,7 +509,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
               <span>{t("Touche l'écran pour mettre en pause")}</span>
             </button>
           ) : phase === "resultat" ? (
-            !plein && <Resultat tier={tier} gain={ticket.gain} blockRef={feteBlock} />
+            !plein && <Resultat tier={tier} gain={ticket.gain} />
           ) : phase === "apres" ? (
             last ? (
               <>
@@ -559,7 +550,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
       )}
 
       {/* Énorme et jackpot : la fête prend tout l'écran, sur un fond opaque. La bourse reste dessus, et compte. */}
-      {plein && <Fete tier={tier} gain={ticket.gain} blockRef={feteBlock} skippable={skippable} onSkip={skip} />}
+      {plein && <Fete tier={tier} gain={ticket.gain} skippable={skippable} onSkip={skip} />}
 
       {/* Le canvas d'effets, tout en haut : copeaux, pièces, confettis. */}
       <canvas ref={fxCanvas} className="grattage__fx" aria-hidden="true" />

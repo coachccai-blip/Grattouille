@@ -21,6 +21,12 @@
 
 .lieu:active { transform: translateY(2px); }
 
+/* « Ouverte sur le meilleur lieu » : il se centre dans ce qui reste visible, entre le haut
+   de l'écran et les onglets, ou le sol du ticket trouvé quand il y en a un. */
+.lieu { scroll-margin-block: calc(var(--haut) + var(--e2)) calc(var(--bas) + var(--onglets) + var(--e2)); }
+
+.promenade:has(.par-terre__sol) .lieu { scroll-margin-bottom: calc(var(--bas) + var(--onglets) + 118px); }
+
 .lieu__decor {
   display: block;
   aspect-ratio: 2 / 1;

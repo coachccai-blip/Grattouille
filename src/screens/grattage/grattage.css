@@ -253,8 +253,8 @@
 
 /* ---------------------------------------------------------------- Le résultat */
 
-/* Un mot, un montant. Le même bloc sur le plateau, au milieu de la scène et, en grand,
-   sur la fête en plein écran. */
+/* Un mot, un montant. Le même bloc sur le plateau pendant la fête, au milieu de la scène
+   une fois le ticket parti et, en grand, sur la fête en plein écran. */
 .resultat {
   display: flex;
   flex: none;
@@ -408,31 +408,18 @@
 
 /* ---------------------------------------------------------------- Après le résultat */
 
-/* Le ticket s'en va : le résultat prend le milieu de la scène, et l'hôte réagit dessous.
-   Le bloc est posé par-dessus la scène pour ne pas pousser le ticket pendant qu'il sort. */
+/* Le ticket est parti : le résultat prend sa place au milieu de la scène, et l'hôte réagit
+   dessous. */
 .bilan {
-  position: absolute;
-  inset: 18px var(--e4) 4px;
   display: flex;
   flex-direction: column;
   gap: var(--e4);
   align-items: center;
-  justify-content: center;
-}
-
-.bilan .bulle {
-  text-align: left;
+  width: 100%;
   animation: fondu 200ms linear both;
 }
 
-.bilan .resultat--carnet { animation: fondu 200ms linear both; }
-
-/* Tant que le ticket sort, la place de l'hôte est gardée, vide : le résultat ne sautera pas. */
-.bilan--attend .bulle,
-.bilan--attend .resultat--carnet {
-  visibility: hidden;
-  animation: none;
-}
+.bilan .bulle { text-align: left; }
 
 /* Écran court : on resserre, pour que le ticket garde sa taille et que le choix tienne
    sans défiler dès 320 × 568, bandeau du bac à sable compris. */
@@ -441,7 +428,6 @@
   .grattage__scene { padding-top: 14px; }
   .grattage__scene--choix { padding-top: 10px; }
   .grattage__scene--choix > .roue { gap: var(--e2); }
-  .bilan { top: 14px; }
 }
 
 /* ---------------------------------------------------------------- La roue des signes */

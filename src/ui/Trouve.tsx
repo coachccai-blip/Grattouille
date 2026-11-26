@@ -42,6 +42,7 @@ export function usePickUp(then?: (ticket: PendingTicket) => void): { busy: boole
 /**
  * Le ticket qui traîne au bas de l'écran, au-dessus des onglets. Rien s'il n'y en a pas.
  * Deux lignes, pas plus : ce qu'il y a, et quoi faire. Le pourquoi, c'est Piou qui le raconte.
+ * À poser en dernier dans un écran à onglets : la pastille reste en vue pendant que l'écran défile.
  */
 export function TicketParTerre() {
   const found = useFound();
@@ -50,9 +51,8 @@ export function TicketParTerre() {
   const { busy, pickUp } = usePickUp();
   if (!found) return null;
   return (
-    <>
-      {/* La place de la pastille, en bas du défilement : elle ne cache rien de l'écran. */}
-      <div className="par-terre__reserve" aria-hidden="true" />
+    // Le sol sur lequel la pastille est posée : ce qui défile passe dessous, jamais sous elle.
+    <div className="par-terre__sol">
       {!message && (
         <button type="button" className="par-terre" onClick={pickUp} disabled={busy}>
           <span className="par-terre__ticket" aria-hidden="true"><Icon name="jouer" plein size={24} /></span>
@@ -63,6 +63,6 @@ export function TicketParTerre() {
           <span className="par-terre__eclat" aria-hidden="true" />
         </button>
       )}
-    </>
+    </div>
   );
 }

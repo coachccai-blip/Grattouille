@@ -45,7 +45,8 @@ export function AGratter() {
                 <span className="pile__vignette" aria-hidden="true"><Illustration id={`ticket:${def.id}`} /></span>
                 <span className="pile__nom">
                   {name}
-                  {ticket.house && <small>{t("Trouvé par terre, toujours gagnant")}</small>}
+                  {/* Les mots mêmes qui sont imprimés sur le ticket. */}
+                  {ticket.house && <small>{t("Trouvé par terre")}</small>}
                 </span>
                 {/* Un ticket trouvé n'a rien coûté : pas de prix sur son talon. */}
                 {!ticket.house && <span className="pile__prix">{prix}</span>}

@@ -3,17 +3,19 @@
 // { type: "json" }) qui rend { data, etag, metadata } ou null, et setJSON(key, value,
 // { onlyIfMatch | onlyIfNew }) qui rend { modified, etag }.
 //
-// Trois stores de site, ouverts en cohérence forte. `{ctx}` vaut `prod` en production
-// et `test` partout ailleurs : les stores de site sont partagés entre tous les
-// déploiements, un aperçu ne doit jamais écrire dans les données des vrais joueurs.
+// Quatre stores de site (joueurs, pseudos, classement, tables de poker) et celui de
+// santé, ouverts en cohérence forte. `{ctx}` vaut `prod` en production et `test` partout
+// ailleurs : les stores de site sont partagés entre tous les déploiements, un aperçu ne
+// doit jamais écrire dans les données des vrais joueurs.
 
 import { getStore } from "@netlify/blobs";
+import type { TableState } from "../shared/poker/types";
 import type { Board } from "../shared/types";
 import { ApiError } from "./errors";
 import type { PlayerRecord } from "./player";
 import {
-  MUTATE_ATTEMPTS, ORPHAN_PSEUDO_MS, emptyBoard, jitter,
-  type Mutation, type PseudoClaim, type Storage,
+  MUTATE_ATTEMPTS, ORPHAN_PSEUDO_MS, TABLE_ATTEMPTS, emptyBoard, jitter,
+  type Mutation, type PseudoClaim, type Storage, type TableMutation,
 } from "./storage";
 
 const BOARD_KEY = "top";
@@ -51,7 +53,7 @@ export class BlobsStorage implements Storage {
     this.ctx = ctx;
   }
 
-  private store(kind: "players" | "pseudos" | "board" | "health"): Store {
+  private store(kind: "players" | "pseudos" | "board" | "tables" | "health"): Store {
     return getStore({ name: `gr-${kind}-${this.ctx}`, consistency: "strong" });
   }
 
@@ -130,6 +132,34 @@ export class BlobsStorage implements Storage {
       if (modified) return true;
     }
     return false;
+  }
+
+  async getTable(code: string): Promise<TableState | null> {
+    const data = await this.store("tables").get(code, { type: "json" });
+    return (data as TableState | null) ?? null;
+  }
+
+  async createTable(table: TableState): Promise<boolean> {
+    const { modified } = await this.store("tables").setJSON(table.code, table, { onlyIfNew: true });
+    return modified;
+  }
+
+  async mutateTable<T>(code: string, mutate: (table: TableState) => TableMutation<T>): Promise<T> {
+    const store = this.store("tables");
+    for (let attempt = 0; attempt < TABLE_ATTEMPTS; attempt++) {
+      if (attempt > 0) await jitter(attempt);
+      const found = await readVersioned(store, code);
+      if (!found) throw new ApiError("NOT_FOUND");
+      const { result, write } = mutate(found.data as TableState); // lève ApiError en cas de refus
+      if (!write) return result;
+      const { modified } = await store.setJSON(code, write, { onlyIfMatch: found.etag });
+      if (modified) return result;            // sinon quelqu'un a écrit entre-temps : on relit
+    }
+    throw new ApiError("CONFLICT");
+  }
+
+  async deleteTable(code: string): Promise<void> {
+    await this.store("tables").delete(code);
   }
 
   async health(): Promise<boolean> {

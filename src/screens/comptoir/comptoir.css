@@ -159,45 +159,31 @@
   color: var(--ecume);
 }
 
-/* Le ticket choisi, en clair, sur deux lignes : son nom et sa promesse, puis son
-   tempérament et le lien vers ses règles. */
+/* Le ticket choisi, en clair : son nom, son tempérament dessous, et le lien vers ses
+   règles à droite, sur la hauteur des deux lignes. */
 .comptoir__infos {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px var(--e3);
-  align-items: baseline;
-  padding: 2px 0 4px;
+  gap: 2px var(--e2);
+  align-items: center;
+  min-height: 48px;
 }
 
 .comptoir__nom {
+  align-self: end;
   font: 700 16px/20px var(--texte);
   text-wrap: balance;
 }
 
-.comptoir__max {
-  color: var(--mimosa);
-  font: 500 14px/20px var(--texte);
-  text-align: right;
-  white-space: nowrap;
+.comptoir__infos .jauge {
+  align-self: start;
+  color: var(--brume);
 }
 
-.comptoir__infos .jauge { color: var(--brume); }
-
-/* « règles et lots » : un lien sur sa ligne, avec une cible tactile de 44 px autour. */
 .comptoir__regles.bouton {
-  justify-self: end;
-  min-height: 0;
-  padding: 0;
-  overflow: visible;
-  font: 500 14px/20px var(--texte);
-}
-
-.comptoir__regles .bouton__texte { padding: 0; }
-
-.comptoir__regles::after {
-  content: "";
-  position: absolute;
-  inset: -14px -10px -10px;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  margin-right: -12px;
 }
 
 .comptoir__carnets {

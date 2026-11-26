@@ -16,16 +16,16 @@ import type { Grille } from "./mots-grilles";
 export const GRILLES_EN: Record<string, readonly Grille[]> = {
   // Le café, la plage, la table : La Grille du Jour.
   terrasse: [
-    [["TASTER", 3, 2, 0], ["APRON", 3, 3, 1], ["PAINT", 7, 0, 0], ["NAP", 5, 0, 1], ["SIRLOIN", 1, 7, 1], ["PASTRIES", 1, 0, 0], ["TOOT", 3, 5, 1], ["TAN", 0, 1, 1], ["TRIO", 5, 2, 0], ["IRIS", 0, 4, 1]],
-    [["ESPRESSO", 2, 0, 0], ["RIPPLE", 2, 3, 1], ["LISTEN", 0, 6, 1], ["SALT", 6, 1, 0], ["TRILL", 0, 2, 0], ["TRIP", 4, 0, 0], ["SIESTA", 0, 0, 1], ["TERN", 4, 5, 0], ["TIP", 0, 2, 1], ["INLET", 3, 8, 1]],
-    [["STROLL", 0, 2, 1], ["LANTERN", 5, 2, 0], ["ALE", 5, 3, 1], ["SNAPPER", 0, 6, 1], ["LOTION", 0, 4, 1], ["TILE", 7, 0, 0], ["EASEL", 0, 0, 0], ["TENOR", 3, 8, 1], ["REST", 4, 0, 1], ["RATTAN", 2, 2, 0]],
-    [["OTTER", 0, 4, 1], ["OPEN", 0, 4, 0], ["ROAST", 2, 0, 0], ["PARAPET", 1, 2, 1], ["PORPOISE", 0, 0, 1], ["SLEEP", 6, 0, 0], ["NOTE", 0, 7, 1], ["EASE", 3, 4, 0], ["SEAL", 3, 6, 1], ["EAT", 5, 5, 0]],
-    [["TORTE", 3, 6, 1], ["LENTIL", 3, 3, 0], ["TRELLIS", 0, 3, 1], ["NOON", 0, 5, 1], ["SITAR", 5, 2, 0], ["PIER", 1, 0, 0], ["PEEL", 7, 4, 0], ["LILT", 1, 8, 1], ["PENNE", 1, 0, 1], ["TONE", 0, 3, 0]],
-    [["PATRON", 1, 8, 1], ["APPETISER", 4, 0, 0], ["SONATA", 0, 4, 1], ["PAL", 4, 1, 1], ["PARSNIP", 0, 1, 0], ["SIREN", 2, 0, 0], ["PASTA", 2, 6, 1], ["SPA", 2, 0, 1], ["NAAN", 6, 5, 0], ["PEA", 2, 6, 0]],
-    [["SOPRANO", 0, 6, 1], ["SEA", 0, 6, 0], ["LOLLIPOP", 6, 0, 0], ["ARTIST", 0, 8, 1], ["PATIO", 1, 2, 0], ["ATOLL", 0, 4, 1], ["PAELLA", 4, 1, 0], ["EEL", 4, 3, 1], ["PITA", 1, 2, 1], ["POT", 2, 6, 0]],
-    [["STOOL", 0, 7, 1], ["PASTEL", 4, 2, 0], ["POTATOES", 0, 5, 1], ["SETTEE", 6, 0, 0], ["PINT", 2, 2, 0], ["SALSA", 3, 0, 1], ["TAPAS", 0, 3, 0], ["STIR", 7, 5, 0], ["OAR", 5, 8, 1], ["ALTO", 4, 3, 1]],
-    [["OPERA", 5, 0, 0], ["POOL", 3, 0, 1], ["PARASAIL", 0, 4, 1], ["ROLL", 7, 1, 0], ["STRAIT", 2, 2, 0], ["ENTREE", 0, 7, 1], ["ROSE", 0, 2, 1], ["SOLE", 4, 4, 0], ["REPOSE", 0, 2, 0], ["PIE", 3, 0, 0]],
-    [["PANINI", 0, 4, 1], ["RIPE", 3, 3, 0], ["PIANIST", 5, 0, 0], ["SPRAT", 0, 3, 0], ["NAP", 3, 0, 1], ["SEAT", 2, 6, 1], ["SIP", 5, 5, 1], ["TEASPOON", 7, 1, 0], ["TALE", 4, 2, 1], ["PORTION", 1, 8, 1]],
+    [["SESSION", 1, 0, 1], ["STARTER", 3, 0, 0], ["TASTE", 3, 4, 1], ["POTATOES", 0, 2, 1], ["PARAPET", 0, 2, 0], ["TRIO", 2, 6, 1], ["SLOOP", 5, 4, 0], ["EASEL", 7, 4, 0], ["TOOT", 0, 8, 1], ["PAL", 5, 8, 1]],
+    [["PRATTLE", 0, 5, 1], ["NOTE", 4, 3, 0], ["PINT", 0, 5, 0], ["ANTIPASTO", 2, 0, 0], ["ISLET", 6, 2, 0], ["LINEN", 0, 1, 1], ["OPEN", 2, 8, 1], ["ALTO", 0, 0, 0], ["NET", 0, 7, 1], ["ONION", 0, 3, 1]],
+    [["PALATE", 4, 3, 0], ["STOOL", 0, 5, 1], ["APPLE", 3, 3, 1], ["SEAT", 1, 2, 0], ["ROSE", 7, 0, 0], ["STRAINER", 0, 0, 1], ["LOITER", 0, 8, 1], ["ARIA", 3, 0, 0], ["LATTE", 6, 3, 0], ["SAIL", 0, 5, 0]],
+    [["PEARL", 2, 6, 1], ["ENTREE", 3, 2, 0], ["OPERA", 1, 2, 1], ["TORTILLA", 0, 4, 1], ["PITA", 7, 1, 0], ["STIR", 0, 3, 0], ["OAR", 4, 0, 0], ["LOTION", 0, 0, 1], ["TIP", 2, 0, 0], ["LOLL", 6, 4, 0]],
+    [["PASTEL", 2, 2, 0], ["SOLO", 0, 7, 1], ["ESPRESSO", 0, 1, 0], ["RESPITE", 0, 4, 1], ["SETTEE", 6, 3, 0], ["RAISIN", 4, 0, 0], ["PATIO", 3, 1, 1], ["PIER", 4, 8, 1], ["POT", 7, 0, 0], ["SIP", 0, 2, 1]],
+    [["APPETITE", 1, 0, 0], ["PARSNIP", 1, 2, 1], ["SERENE", 3, 0, 0], ["ANISE", 5, 1, 0], ["PIANIST", 7, 2, 0], ["ARTIST", 2, 8, 1], ["OAT", 4, 6, 0], ["TILE", 0, 5, 1], ["SEA", 5, 4, 1], ["SALSA", 0, 0, 1]],
+    [["REPOSE", 5, 0, 0], ["RIPPLE", 0, 5, 1], ["PEAR", 2, 0, 1], ["PEPPER", 2, 2, 0], ["LILT", 4, 5, 0], ["POOL", 4, 3, 1], ["LOLLIPOP", 7, 0, 0], ["PATRON", 0, 2, 0], ["ROLL", 2, 7, 1], ["ALE", 0, 3, 1]],
+    [["SIREN", 2, 2, 0], ["STRAIT", 2, 2, 1], ["RATTAN", 2, 4, 1], ["LANTERN", 5, 1, 0], ["TONE", 7, 2, 0], ["SIT", 3, 0, 0], ["PENNE", 3, 7, 1], ["ROAST", 0, 0, 1], ["PAN", 0, 6, 1], ["REST", 0, 0, 0]],
+    [["PLATE", 0, 4, 1], ["TRELLIS", 4, 2, 0], ["SLEEP", 3, 6, 1], ["POLENTA", 1, 2, 0], ["ATOLL", 3, 2, 1], ["PARASOL", 0, 8, 1], ["PEA", 3, 0, 0], ["PEEL", 6, 5, 0], ["REPRISE", 1, 0, 1], ["SALT", 6, 0, 0]],
+    [["TOASTER", 0, 4, 1], ["PLANTER", 2, 2, 0], ["LINER", 6, 0, 0], ["PETAL", 2, 0, 1], ["SIESTA", 0, 0, 0], ["TREAT", 4, 0, 0], ["TERN", 0, 8, 1], ["TRILL", 2, 6, 1], ["PIE", 2, 2, 1], ["EEL", 5, 4, 0]],
   ],
   // L'argent, les coffres, les rois : Sésame.
   tresor: [

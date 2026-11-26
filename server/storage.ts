@@ -3,6 +3,7 @@
 // La version Netlify Blobs est dans storage.blobs.ts, pour que le client puisse
 // importer ce fichier sans embarquer @netlify/blobs.
 
+import type { TableState } from "../shared/poker/types";
 import type { Board } from "../shared/types";
 import { ApiError } from "./errors";
 import type { PlayerRecord } from "./player";
@@ -17,6 +18,19 @@ export const commit = <T>(result: T): Mutation<T> => ({ result, write: true });
 export const unchanged = <T>(result: T): Mutation<T> => ({ result, write: false });
 
 export const MUTATE_ATTEMPTS = 3;
+
+/**
+ * Ce que rend une mutation de table : son résultat, et la table à écrire (`null` : rien
+ * à écrire). Le moteur du poker est pur : il rend un nouvel état au lieu de modifier
+ * celui qu'il reçoit.
+ */
+export interface TableMutation<T> {
+  result: T;
+  write: TableState | null;
+}
+
+/** Plusieurs joueurs écrivent la même table : on insiste un peu plus que pour un joueur. */
+export const TABLE_ATTEMPTS = 5;
 
 export interface Storage {
   getPlayer(id: string): Promise<PlayerRecord | null>;
@@ -46,6 +60,18 @@ export interface Storage {
    * ce n'est jamais une erreur pour le joueur.
    */
   mutateBoard(mutate: (board: Board) => boolean, attempts?: number): Promise<boolean>;
+  /** Une table de poker, par son code. */
+  getTable(code: string): Promise<TableState | null>;
+  /** Écrit une nouvelle table. Rend `false` si le code est déjà pris. */
+  createTable(table: TableState): Promise<boolean>;
+  /**
+   * Lit la table, applique `mutate`, écrit sous condition (etag) la table qu'il rend.
+   * Si quelqu'un a écrit entre-temps, on relit et on recommence : cinq essais, puis
+   * CONFLICT. `mutate` lève une ApiError pour refuser ; rien n'est alors écrit.
+   * Lève NOT_FOUND si la table n'existe pas.
+   */
+  mutateTable<T>(code: string, mutate: (table: TableState) => TableMutation<T>): Promise<T>;
+  deleteTable(code: string): Promise<void>;
   /** Écrit puis relit un blob dans le store de santé. */
   health(): Promise<boolean>;
 }
@@ -81,6 +107,7 @@ interface Entry {
 export class MemoryStorage implements Storage {
   private players = new Map<string, Entry>();
   private pseudos = new Map<string, Entry>();
+  private tables = new Map<string, Entry>();
   private board: Entry | null = null;
   private healthBlob: string | null = null;
   private counter = 0;
@@ -89,8 +116,10 @@ export class MemoryStorage implements Storage {
   beforePlayerWrite: ((id: string) => void) | null = null;
   /** Pour les tests : appelé juste avant chaque écriture conditionnelle du classement. */
   beforeBoardWrite: (() => void) | null = null;
+  /** Pour les tests : appelé juste avant chaque écriture conditionnelle d'une table. */
+  beforeTableWrite: ((code: string) => void) | null = null;
   /** Compteurs d'opérations, pour vérifier ce que coûte une requête. */
-  ops = { playerReads: 0, playerWrites: 0, boardReads: 0, boardWrites: 0 };
+  ops = { playerReads: 0, playerWrites: 0, boardReads: 0, boardWrites: 0, tableReads: 0, tableWrites: 0 };
 
   private tick(): Promise<void> {
     return Promise.resolve();
@@ -124,6 +153,25 @@ export class MemoryStorage implements Storage {
 
   playerCount(): number {
     return this.players.size;
+  }
+
+  /** Pour les tests : lecture directe d'une table. */
+  peekTable(code: string): TableState | null {
+    const entry = this.tables.get(code);
+    return entry ? (JSON.parse(entry.json) as TableState) : null;
+  }
+
+  /** Pour les tests : modifie une table sans passer par l'API. */
+  pokeTable(code: string, change: (table: TableState) => void): void {
+    const entry = this.tables.get(code);
+    if (!entry) throw new Error(`table inconnue : ${code}`);
+    const table = JSON.parse(entry.json) as TableState;
+    change(table);
+    this.put(this.tables, code, table);
+  }
+
+  tableCodes(): string[] {
+    return [...this.tables.keys()];
   }
 
   async getPlayer(id: string): Promise<PlayerRecord | null> {
@@ -215,6 +263,48 @@ export class MemoryStorage implements Storage {
       }
     }
     return false;
+  }
+
+  async getTable(code: string): Promise<TableState | null> {
+    await this.tick();
+    this.ops.tableReads++;
+    const entry = this.tables.get(code);
+    return entry ? (JSON.parse(entry.json) as TableState) : null;
+  }
+
+  async createTable(table: TableState): Promise<boolean> {
+    await this.tick();
+    if (this.tables.has(table.code)) return false;
+    this.ops.tableWrites++;
+    this.put(this.tables, table.code, table);
+    return true;
+  }
+
+  async mutateTable<T>(code: string, mutate: (table: TableState) => TableMutation<T>): Promise<T> {
+    for (let attempt = 0; attempt < TABLE_ATTEMPTS; attempt++) {
+      if (attempt > 0) await jitter(attempt);
+      await this.tick();
+      this.ops.tableReads++;
+      const found = this.tables.get(code);
+      if (!found) throw new ApiError("NOT_FOUND");
+      const { result, write } = mutate(JSON.parse(found.json) as TableState); // lève ApiError en cas de refus
+      if (!write) return result;
+      await this.tick();
+      this.beforeTableWrite?.(code);
+      const current = this.tables.get(code);
+      if (current && current.etag === found.etag) {
+        this.ops.tableWrites++;
+        this.put(this.tables, code, write);
+        return result;
+      }
+      // Quelqu'un a écrit entre-temps : on relit.
+    }
+    throw new ApiError("CONFLICT");
+  }
+
+  async deleteTable(code: string): Promise<void> {
+    await this.tick();
+    this.tables.delete(code);
   }
 
   async health(): Promise<boolean> {

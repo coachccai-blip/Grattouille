@@ -6,6 +6,7 @@ import { ApiError, fail } from "./errors";
 import { ackTickets, buyTickets, foundTicket } from "./handlers/tickets";
 import { ban, health, leaderboard } from "./handlers/misc";
 import { createPlayer, deleteMe, getMe, openSession } from "./handlers/players";
+import { createPokerTable, joinPokerTable, pokerAct, pokerLobby, pokerTable } from "./handlers/poker";
 import { buyItem, setLook } from "./handlers/shop";
 import { errorResponse, type Deps } from "./http";
 
@@ -25,6 +26,12 @@ const ROUTES: Record<string, Handler> = {
   "POST /api/shop/buy": buyItem,
   "POST /api/look": setLook,
   "GET /api/leaderboard": leaderboard,
+  // Le Poker Tricheur (POKER.md, section 4).
+  "GET /api/poker": pokerLobby,
+  "POST /api/poker/tables": createPokerTable,
+  "POST /api/poker/join": joinPokerTable,
+  "GET /api/poker/table": pokerTable,
+  "POST /api/poker/act": pokerAct,
   "POST /api/admin/ban": ban,
 };
 

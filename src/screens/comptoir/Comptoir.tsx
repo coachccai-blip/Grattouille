@@ -206,10 +206,10 @@ export function Comptoir({ place }: { place: PlaceId }) {
 
       {/* Le comptoir lui-même : tout ce qui se touche est ici, à portée de pouce. */}
       <div className="comptoir__zinc">
-        {/* Le ticket choisi, en clair : la miniature est trop petite pour qu'on y lise son nom. */}
+        {/* Le ticket choisi, en clair : son nom et son tempérament. Sa promesse (« jusqu'à… ») est
+            imprimée sur la miniature, juste au-dessus : le zinc ne la redit pas. */}
         <div className="comptoir__infos">
           <strong className="comptoir__nom">{ticketName(ticket.id)}</strong>
-          <span className="comptoir__max">{t("jusqu'à {max}", { max: formatEuros(maxGain(ticket)) })}</span>
           <Jauge temperament={ticket.temperament} court />
           <Bouton variante="texte" className="comptoir__regles" onClick={() => nav.push({ name: "fiche-ticket", ticket: ticket.id })}>
             {t("règles et lots")}

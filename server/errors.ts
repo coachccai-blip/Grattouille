@@ -1,10 +1,11 @@
 // Erreurs de l'API (BRIEF.md, section 15.5).
 // Une erreur a la forme { "error": { "code": "…", "message": "…" } }.
 
+import type { PokerErrorCode } from "../shared/poker/types";
 import type { ErrorCode } from "../shared/types";
 
-/** Les codes du brief, plus SERVER_ERROR pour une panne inattendue. */
-export type ServerErrorCode = ErrorCode | "SERVER_ERROR";
+/** Les codes du brief, ceux du poker, plus SERVER_ERROR pour une panne inattendue. */
+export type ServerErrorCode = ErrorCode | PokerErrorCode | "SERVER_ERROR";
 
 const STATUS: Record<ServerErrorCode, number> = {
   BAD_REQUEST: 400,
@@ -13,12 +14,20 @@ const STATUS: Record<ServerErrorCode, number> = {
   PLACE_LOCKED: 403,
   KIOSK_LOCKED: 403,
   NOT_FOUND: 404,
+  TABLE_NOT_FOUND: 404,
   PSEUDO_TAKEN: 409,
   INSUFFICIENT_FUNDS: 409,
   PENDING_FULL: 409,
   ALREADY_OWNED: 409,
   HOUSE_NOT_ELIGIBLE: 409,
   CONFLICT: 409,
+  TABLE_FULL: 409,
+  ALREADY_SEATED: 409,
+  NOT_SEATED: 409,
+  BUYIN_UNAFFORDABLE: 409,
+  NOT_YOUR_TURN: 409,
+  ACTION_IMPOSSIBLE: 409,
+  BLIND_TOO_HIGH: 409,
   TOO_FAST: 429,
   DAILY_LIMIT: 429,
   SERVER_ERROR: 500,
@@ -38,6 +47,15 @@ const MESSAGES: Record<ServerErrorCode, string> = {
   ALREADY_OWNED: "Tu possèdes déjà ce bien.",
   HOUSE_NOT_ELIGIBLE: "Rien ne traîne par terre pour l'instant.",
   CONFLICT: "Deux demandes sont arrivées en même temps. Réessaie dans un instant.",
+  // Le Poker Tricheur (POKER.md, section 4).
+  TABLE_NOT_FOUND: "Cette table n'existe pas, ou elle a fermé. Vérifie le code.",
+  TABLE_FULL: "Cette table est complète. Attends qu'un siège se libère.",
+  ALREADY_SEATED: "Tu es déjà assis à une table. Quitte-la avant d'en rejoindre une autre.",
+  NOT_SEATED: "Tu n'es plus assis à cette table.",
+  BUYIN_UNAFFORDABLE: "Ta bourse ne suffit pas pour cette cave.",
+  NOT_YOUR_TURN: "Ce n'est pas ton tour. Attends que la parole te revienne.",
+  ACTION_IMPOSSIBLE: "Ce geste n'est pas possible maintenant.",
+  BLIND_TOO_HIGH: "Cette blinde est trop haute pour ta bourse : elle ne peut pas dépasser son quarantième.",
   TOO_FAST: "Gaspard n'a que deux pattes. Réessaie dans un instant.",
   DAILY_LIMIT: "6 000 tickets aujourd'hui : le guichet rouvre demain.",
   SERVER_ERROR: "Le kiosque ne répond pas. Réessaie dans un instant.",

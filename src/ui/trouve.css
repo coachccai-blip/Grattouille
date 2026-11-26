@@ -1,14 +1,30 @@
-/* Le ticket trouvé par terre : une pastille ivoire posée au-dessus des onglets. */
+/* Le ticket trouvé par terre : une pastille ivoire, posée sur le sol de l'écran, juste
+   au-dessus des onglets.
 
-.par-terre {
-  position: fixed;
-  bottom: calc(var(--bas) + var(--onglets) + 14px);
-  left: 50%;
+   Le sol est une bande du fond de l'écran, collée au-dessus des onglets tant que la
+   Promenade défile (elle fait partie de la page : en bas de la rue, elle retrouve sa place
+   sous le dernier lieu). Ce qui défile s'efface en passant dessous : la pastille est
+   toujours en vue, et ne recouvre jamais ni un nom, ni un dessin. */
+.par-terre__sol {
+  position: sticky;
+  bottom: calc(var(--bas) + var(--onglets));
   z-index: 29;
   display: flex;
+  flex: none;
+  align-items: flex-start;
+  /* Pleine largeur, et jusqu'aux onglets : la bande reprend les marges de l'écran. */
+  margin: 0 calc(var(--e4) * -1) calc(var(--e5) * -1);
+  /* En haut, le fondu ; en bas, la place de la pastille « Jouer », qui dépasse des onglets. */
+  padding: var(--e5) var(--e4) 30px;
+  min-height: 118px;
+  background: linear-gradient(to bottom, transparent, var(--nuit) var(--e4));
+}
+
+.par-terre {
+  display: flex;
+  flex: 1 1 auto;
   gap: 12px;
   align-items: center;
-  width: calc(min(100vw, var(--colonne)) - 2 * var(--e4));
   min-height: 60px;
   padding: 8px 16px 8px 12px;
   border-radius: 16px;
@@ -16,14 +32,11 @@
   color: var(--nuit);
   text-align: left;
   box-shadow: 0 4px 0 var(--mimosa-fonce), 0 10px 22px rgba(0, 0, 0, .4);
-  transform: translateX(-50%);
-  animation: par-terre-arrive 420ms var(--rebond) both;
+  /* Sans effet une fois arrivée : l'appui peut alors enfoncer la pastille. */
+  animation: par-terre-arrive 420ms var(--rebond) backwards;
 }
 
-.par-terre:active { transform: translateX(-50%) scale(.98); }
-
-/* La hauteur de la pastille et de ses marges, réservée au bas de l'écran qui défile. */
-.par-terre__reserve { flex: none; height: 84px; }
+.par-terre:active { transform: scale(.98); }
 
 .par-terre__ticket {
   display: flex;
@@ -58,8 +71,8 @@
 }
 
 @keyframes par-terre-arrive {
-  from { opacity: 0; transform: translate(-50%, 24px); }
-  to { opacity: 1; transform: translateX(-50%); }
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes par-terre-brille {

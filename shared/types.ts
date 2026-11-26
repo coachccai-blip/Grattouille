@@ -65,6 +65,8 @@ export interface PlayerState {      // ce que le client reçoit
   createdAt: number;
   /** Millisecondes avant le prochain coup de chance (un ticket par terre) ; 0 s'il traîne déjà. */
   luckyIn: number;
+  /** La table de poker où le joueur est assis, pour y revenir. Absent s'il n'est assis nulle part. */
+  poker?: { code: string };
 }
 
 export interface BoardEntry {
