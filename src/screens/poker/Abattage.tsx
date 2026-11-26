@@ -183,7 +183,7 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
 
   let rank = 0;
   return (
-    <section ref={board} className="poker-abattage" aria-label={t("L'abattage")}>
+    <section ref={board} className={cx("poker-abattage", rows.length >= 5 && "poker-abattage--dense")} aria-label={t("L'abattage")}>
       {/* Au dénouement, le sort du pot se lit sous la table : ici, il ne reste que l'endroit d'où partent les jetons. */}
       {result ? <span className="poker-abattage__ancre" data-pot aria-hidden="true" /> : (
         <p className="poker-abattage__pot">
@@ -226,7 +226,7 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
                   </span>
                 </span>
               )}
-              {chosen && <span className="poker-rangee__verdict poker-rangee__verdict--secret">{t("Tu l'accuses. Verdict dans un instant.")}</span>}
+              {chosen && <span className="poker-rangee__verdict poker-rangee__verdict--secret">{t("Tu l'accuses.")}</span>}
               <span className="poker-rangee__tete" aria-hidden="true">
                 <Tete who={identity} />
                 {spoke && <span className="poker-siege__pret"><Icon name="coche" size={14} /></span>}

@@ -715,6 +715,21 @@
   margin-bottom: auto;
 }
 
+/* Cinq ou six mains à comparer : les rangées se serrent, pour tenir à l'écran sans défiler. */
+.poker-abattage--dense {
+  gap: 3px;
+  padding: 4px;
+}
+
+.poker-abattage--dense .poker-abattage__mains { gap: 3px; }
+
+.poker-abattage--dense .poker-rangee__zone {
+  min-height: 52px;
+  padding: 1px 8px;
+}
+
+.poker-abattage--dense .poker-rangee__cartes { padding: 1px 3px 1px 0; }
+
 .poker-rangee {
   border-radius: 12px;
   background: #0A242D;

@@ -91,20 +91,23 @@ interface PasProps {
   onPlus: (() => void) | null;
 }
 
+/** Un mot composé ne se coupe pas à son trait d'union (« buy-in ») : un liant invisible le tient d'un seul tenant. */
+const unbroken = (text: string) => text.replace(/(\p{L})-(\p{L})/gu, "$1-\u2060$2");
+
 /** Un réglage : son nom, sa valeur, et deux boutons pour la baisser ou la monter. */
 export function Pas({ label, value, aide, onMinus, onPlus }: PasProps) {
   // Rien à choisir (une seule valeur possible) : le réglage se lit, sans boutons éteints.
   if (!onMinus && !onPlus) {
     return (
       <div className="poker-pas poker-pas--fixe">
-        <span className="poker-pas__nom">{label}</span>
+        <span className="poker-pas__nom">{unbroken(label)}</span>
         <span className="poker-pas__valeur chiffres">{value}</span>
       </div>
     );
   }
   return (
     <div className="poker-pas" role="group" aria-label={label}>
-      <span className="poker-pas__nom">{label}</span>
+      <span className="poker-pas__nom">{unbroken(label)}</span>
       <button
         type="button"
         className="poker-pas__bouton"

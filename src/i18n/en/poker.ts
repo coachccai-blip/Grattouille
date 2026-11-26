@@ -213,7 +213,7 @@ export const EN_POKER: Record<string, string> = {
   // --- L'abattage et les accusations
   "L'abattage": "The showdown",
   "Carte en double : quelqu'un a triché. Touche une main pour l'accuser.": "A card shown twice: somebody cheated. Tap a hand to accuse.",
-  "Tu l'accuses. Verdict dans un instant.": "You're accusing them. Verdict in a moment.",
+  "Tu l'accuses.": "You're accusing them.",
   "Accuser {nom} ?": "Accuse {nom}?",
   "Si {nom} a triché, sa main ne compte plus ; sinon, tu lui paies {montant}.":
     "If {nom} cheated, their hand no longer counts; if not, you pay them {montant}.",
