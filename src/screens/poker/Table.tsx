@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
-import type { TableView } from "../../../shared/poker/types";
+import type { HandResult, TableView } from "../../../shared/poker/types";
 import type { Line } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { nav, useNav } from "../../app/nav";
@@ -434,6 +434,20 @@ function bilanOf(net: number | null): string | null {
   return t("Cette main ne te coûte rien.");
 }
 
+/** Un pot emporté sans abattage : ce que la main rapporte au joueur, et qui ramasse. */
+function BilanSeul({ result, you, nom }: { result: HandResult; you: number | null; nom: (seat: number) => string }) {
+  const net = netOf(result, you);
+  const headline = bilanOf(net);
+  const pot = result.pots[0];
+  const line = pot ? potLine({ kind: "seul", seat: pot.winners[0]?.seat ?? -1, amount: pot.amount }, you, nom) : null;
+  return (
+    <div className="poker-bilan" role="status">
+      {headline && <p className={cx("poker-bilan__titre", net !== null && net > 0 && "poker-bilan__titre--gain")}>{headline}</p>}
+      {line && <p>{line}</p>}
+    </div>
+  );
+}
+
 function Bilan({ outcome, you, nom }: { outcome: Denouement; you: number | null; nom: (seat: number) => string }) {
   const net = netOf(outcome.result, you);
   const headline = bilanOf(net);
@@ -497,22 +511,25 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   const board = view.phase === "abattage" || outcome !== null;
   const walkover = view.phase === "denouement" && result !== null && !result.showdown;
 
-  // Un pot emporté sans abattage : un mot du gagnant, s'il est beau.
+  // Un pot emporté sans abattage : un mot du gagnant, s'il est beau. Décidé d'avance, comme
+  // au dénouement : sa place est gardée, le tapis ne bouge pas quand il parle.
+  const walkPot = walkover && result ? result.pots[0] ?? null : null;
+  const walkWinner = walkPot?.winners[0] ?? null;
+  const walkBot = walkWinner ? who(walkWinner.seat)?.bot ?? null : null;
+  const walkTalks = walkPot !== null && result !== null && sawHand.current === result.no && walkBot !== null
+    && walkPot.amount >= view.blind * 10;
   const walked = useRef(0);
   useEffect(() => {
-    if (!walkover || !result || walked.current === result.no || sawHand.current !== result.no) return;
+    if (!walkTalks || !result || walked.current === result.no) return;
     walked.current = result.no;
-    const top = result.pots[0]?.winners[0];
-    const bot = top ? who(top.seat)?.bot ?? null : null;
-    if (top && bot && result.pots[0]!.amount >= view.blind * 10) say(tableLine(bot, "gagne", result.no), 3_600);
-  }, [walkover, result, who, say, view.blind]);
+    say(tableLine(walkBot, "gagne", result.no), 3_600);
+  }, [walkTalks, result, walkBot, say]);
 
   const myMove = view.options.back || view.options.cheat || view.turn === you || view.options.accuse.length > 0;
   // C'est au joueur de se décider : le téléphone le lui dit d'une courte vibration.
   useEffect(() => {
     if (myMove) haptic.reveal();
   }, [myMove, view.step]);
-  const walkLine = walkover && result ? potLine({ kind: "seul", seat: result.pots[0]?.winners[0]?.seat ?? -1, amount: result.pots[0]?.amount ?? 0 }, you, nom) : null;
 
   return (
     <main ref={root} className={cx("ecran poker-table", board && "poker-table--abattage")} data-phase={view.phase} data-main={view.handNo}>
@@ -538,10 +555,19 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
             )}
             <Bilan outcome={outcome} you={you} nom={nom} />
           </>
+        ) : walkover && result ? (
+          <>
+            {/* Sans abattage : le même bilan, et un mot du gagnant si le pot est beau. */}
+            {(walkTalks || notice || replique) && (
+              <Voix refus={notice?.text ?? null} replique={replique?.line ?? null} garde>{null}</Voix>
+            )}
+            <BilanSeul result={result} you={you} nom={nom} />
+            <Infos view={view} />
+          </>
         ) : (
           <>
             <Voix refus={notice?.text ?? null} replique={myMove ? null : replique?.line ?? null} double={view.options.accuse.length > 0 && hasDouble(view)}>
-              {walkover ? [bilanOf(result ? netOf(result, you) : null), walkLine].filter(Boolean).join(" ") : promptOf(view, who)}
+              {promptOf(view, who)}
             </Voix>
             {!board && view.hand && <MaMain view={view} dealt={events.dealt === view.handNo && !calm} />}
             {!board && <Infos view={view} />}
