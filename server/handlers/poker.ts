@@ -132,7 +132,7 @@ function readOrder(body: Body, me: PlayerRecord): Order {
     };
   }
   if (body.defi !== undefined) {
-    // Un défi : un tête-à-tête avec l'hôte, 30 blindes chacun.
+    // Un défi : un tête-à-tête avec l'hôte, 30 blindes de base chacun. La blinde monte au fil du duel.
     const def = challengeOf(readPlace(body.defi, me));
     return {
       spec: { kind: "defi", place: def.place, blind: def.blind, maxBuyIn: def.buyIn, seats: 2, difficulty: def.difficulty },

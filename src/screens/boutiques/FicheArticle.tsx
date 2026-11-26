@@ -13,7 +13,7 @@ import type { LookSlot } from "../../../shared/types";
 import { PIOU, type Speaker } from "../../app/dialogues";
 import { lineFor, skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { buyItem, displayBalance, useGame, wear } from "../../app/store";
+import { buyItem, displayBalance, isCovered, useGame, wear } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { playStamp } from "../../fx/audio";
@@ -64,14 +64,17 @@ export function FicheArticle({ item: id }: { item: string }) {
     const ok = await buyItem(item.id);
     if (ok) {
       // La caisse a sonné (c'est l'achat lui-même qui la fait sonner) ; le tampon « Vendu »
-      // tombe, et les ★ s'envolent vers le compteur, une par note.
+      // tombe, et les ★ s'envolent vers le compteur, une par note. Sauf si l'achat ouvre un
+      // lieu ou conclut l'histoire : le grand moment couvre déjà tout l'écran.
       window.setTimeout(playStamp, 260);
       haptic.buy();
-      envolEtoiles(
-        document.querySelector(".fiche-article__etoiles"),
-        document.querySelector("[data-standing] .standing__etoile"),
-        item.standing,
-      );
+      if (!isCovered(useGame.getState())) {
+        envolEtoiles(
+          document.querySelector(".fiche-article__etoiles"),
+          document.querySelector("[data-standing] .standing__etoile"),
+          item.standing,
+        );
+      }
       setBought(true);
       // Le Kiosque lance le générique de fin : la fiche s'efface.
       if (isKiosk) nav.back();

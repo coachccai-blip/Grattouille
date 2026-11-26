@@ -95,10 +95,7 @@ interface PasProps {
 export function Pas({ label, value, aide, onMinus, onPlus }: PasProps) {
   return (
     <div className="poker-pas" role="group" aria-label={label}>
-      <span className="poker-pas__nom">
-        <span>{label}</span>
-        {aide && <span className="poker-pas__aide">{aide}</span>}
-      </span>
+      <span className="poker-pas__nom">{label}</span>
       <button
         type="button"
         className="poker-pas__bouton"
@@ -118,6 +115,7 @@ export function Pas({ label, value, aide, onMinus, onPlus }: PasProps) {
       >
         <span aria-hidden="true">+</span>
       </button>
+      {aide && <span className="poker-pas__aide">{aide}</span>}
     </div>
   );
 }

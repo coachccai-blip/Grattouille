@@ -1,0 +1,257 @@
+// L'abattage : toutes les mains montrées d'un coup, une rangée par joueur encore en jeu,
+// chacune avec le nom de sa combinaison. C'est ici qu'on accuse : toucher la rangée d'un
+// adversaire ouvre la feuille « Tricheur ! ». Puis le dénouement se lit sur les mêmes
+// rangées : au-dessus de la main d'un accusé, le cri, puis le verdict (la fausse carte
+// d'un tricheur, ou ce que chaque accusateur paie à l'innocent) ; à côté de chaque nom,
+// le bilan de la main.
+
+import { useEffect, useState, type CSSProperties } from "react";
+import { formatEuros } from "../../../shared/format";
+import type { Card } from "../../../shared/poker/cards";
+import type { HandCategory } from "../../../shared/poker/hands";
+import type { HandResult, TableView } from "../../../shared/poker/types";
+import { capitalize } from "../../app/helpers";
+import { nav } from "../../app/nav";
+import { isCalm, useGame } from "../../app/store";
+import { Icon } from "../../art/icons";
+import { playCardFlip } from "../../fx/audio";
+import { t } from "../../i18n";
+import { cx } from "../../ticket/parts";
+import { Carte } from "../../ui/Carte";
+import { doubles, neighbours, netOf, winnersOf } from "./calcul";
+import type { Denouement } from "./denouement";
+import { Jeton, Tete } from "./parts";
+import { cardShort, categoryName, nameInSentence, nameList, playerName, type Identity } from "./textes";
+
+interface Row {
+  seat: number;
+  cards: Card[];
+  category: HandCategory;
+}
+
+/** Les mains montrées, dans le sens de la table à partir du voisin du joueur ; la sienne en dernier. */
+function rowsOf(view: TableView): Row[] {
+  const found = new Map<number, Row>();
+  const result = view.phase === "denouement" ? view.result : null;
+  if (result) {
+    for (const hand of result.hands) found.set(hand.seat, { seat: hand.seat, cards: hand.cards, category: hand.category });
+  } else {
+    for (const seat of view.seats) {
+      if (seat && seat.cards && seat.category) found.set(seat.seat, { seat: seat.seat, cards: seat.cards, category: seat.category });
+    }
+  }
+  const order = neighbours(view).map((n) => n.seat);
+  if (view.you !== null) order.push(view.you);
+  const rows: Row[] = [];
+  for (const seat of order) {
+    const row = found.get(seat);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+/** La largeur d'une carte et le pas d'une carte à la suivante, selon la place et le nombre de mains. */
+function useCardFit(rows: number): { width: number; step: number } {
+  const [screen, setScreen] = useState(() => Math.min(window.innerWidth, 480));
+  useEffect(() => {
+    const onResize = () => setScreen(Math.min(window.innerWidth, 480));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  // La rangée : les marges de l'écran et les siennes, la tête, puis une colonne de texte d'au moins 96 px.
+  const room = screen - 16 - 20 - 40 - 8 - 96 - 8;
+  const width = rows <= 3 && screen >= 360 ? 48 : rows <= 4 && screen >= 350 ? 44 : 40;
+  // Chaque carte montre au moins son coin : la valeur et l'enseigne.
+  const step = Math.max(22, Math.min(width + 4, Math.floor((room - width) / 4)));
+  return { width, step };
+}
+
+interface Verdict {
+  /** Les accusateurs, dans l'ordre où ils sont nommés. */
+  from: number[];
+  /** Ce qu'on lit une fois le verdict tombé : une ligne pour un tricheur, une par accusateur pour un innocent. */
+  lines: string[];
+  guilty: boolean;
+}
+
+/** Ce qui se dit au-dessus de la main d'un accusé, une fois le verdict tombé. */
+function verdictOf(result: HandResult, seat: number, you: number | null, nom: (seat: number) => string): Verdict | null {
+  const against = result.accusations.filter((a) => a.to === seat);
+  if (against.length === 0) return null;
+  const from = against.map((a) => a.from);
+  const unmasked = result.unmasked.find((u) => u.seat === seat);
+  if (unmasked) {
+    return {
+      from,
+      guilty: true,
+      lines: [t("Triche ! {fausse} à la place de {vraie}.", { fausse: cardShort(unmasked.to), vraie: cardShort(unmasked.from) })],
+    };
+  }
+  const lines = against.map((a) => {
+    const montant = formatEuros(a.paid);
+    if (a.from === you) {
+      return a.paid > 0 ? t("Franc jeu : tu lui paies {montant}.", { montant }) : t("Franc jeu : ton tapis est vide, rien à payer.");
+    }
+    const accusateur = nom(a.from);
+    if (seat === you) {
+      return a.paid > 0
+        ? t("Franc jeu : {nom} te paie {montant}.", { nom: accusateur, montant })
+        : t("Franc jeu : {nom} n'a plus rien pour payer.", { nom: accusateur });
+    }
+    return a.paid > 0
+      ? t("Franc jeu : {nom} lui paie {montant}.", { nom: accusateur, montant })
+      : t("Franc jeu : {nom} n'a plus rien pour payer.", { nom: accusateur });
+  });
+  return { from, guilty: false, lines };
+}
+
+interface AbattageProps {
+  view: TableView;
+  who: (seat: number) => Identity | null;
+  /** L'abattage vient d'arriver sous les yeux du joueur : les mains se retournent, une rangée après l'autre. */
+  flip: boolean;
+  /** Le dénouement en cours, s'il y en a un. */
+  outcome: Denouement | null;
+}
+
+export function Abattage({ view, who, flip, outcome }: AbattageProps) {
+  const calm = useGame(isCalm);
+  const rows = rowsOf(view);
+  const { width, step } = useCardFit(rows.length);
+  const twice = doubles(rows.map((row) => row.cards));
+  const you = view.you;
+  const showdown = view.phase === "abattage";
+  const accusable = showdown ? view.options.accuse : [];
+  const mine = view.hand;
+  const result = outcome?.result ?? null;
+  const winners = result && outcome?.settled ? winnersOf(result) : new Set<number>();
+  const nom = (seat: number) => (seat === you ? t("toi") : nameInSentence(who(seat)));
+
+  // Les mains des autres se retournent une rangée après l'autre ; la sienne est déjà de face.
+  const others = rows.filter((row) => row.seat !== you).length;
+  const [turned, setTurned] = useState(flip && !calm ? 0 : others);
+  useEffect(() => {
+    if (!flip) return;
+    if (calm) {
+      playCardFlip();
+      return;
+    }
+    const timers: number[] = [];
+    for (let i = 0; i < others; i++) {
+      timers.push(window.setTimeout(() => {
+        setTurned((n) => Math.max(n, i + 1));
+        playCardFlip();
+      }, 180 + i * 190));
+    }
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+    // Une fois par abattage : un joueur qui part en cours de route ne fait rien rejouer.
+  }, [flip, view.handNo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pot = result ? result.pots.reduce((sum, p) => sum + p.amount, 0) : view.pot;
+  let rank = 0;
+  return (
+    <section className="poker-abattage" aria-label={t("L'abattage")}>
+      <p className="poker-abattage__pot">
+        <span className="poker-pot__somme" data-pot>
+          <span className="poker-pot__jetons" aria-hidden="true"><Jeton /><Jeton /><Jeton /></span>
+          <span className="chiffres">{t("Pot : {montant}", { montant: formatEuros(pot) })}</span>
+        </span>
+      </p>
+      <ul className="poker-abattage__mains">
+        {rows.map((row) => {
+          const me = row.seat === you;
+          const faceUp = me || rank++ < turned;
+          const identity = who(row.seat);
+          const name = me ? t("Toi") : playerName(identity);
+          const canAccuse = accusable.includes(row.seat);
+          const verdict = result ? verdictOf(result, row.seat, you, nom) : null;
+          const cried = verdict !== null && (outcome?.accused.has(row.seat) ?? false);
+          const judged = verdict !== null && (outcome?.judged.has(row.seat) ?? false);
+          const guilty = judged && verdict !== null && verdict.guilty;
+          const fake = guilty ? result?.unmasked.find((u) => u.seat === row.seat)?.index ?? -1 : -1;
+          const net = result && outcome?.settled ? netOf(result, row.seat) : null;
+          // Pendant l'abattage, l'accusation du joueur est un secret : lui seul la voit sur la rangée.
+          const chosen = showdown && mine?.accuse === row.seat;
+          const spoke = showdown && (view.seats[row.seat]?.done ?? false);
+
+          const content = (
+            <>
+              {/* Le cri, puis le verdict : la place est gardée dès le début du dénouement, rien ne saute. */}
+              {verdict && (
+                <span className={cx("poker-rangee__verdict", judged && (guilty ? "poker-rangee__verdict--triche" : "poker-rangee__verdict--franc"), !cried && "poker-rangee__verdict--attend")}>
+                  {judged
+                    ? verdict.lines.map((line) => <span key={line}>{line}</span>)
+                    : (
+                      <>
+                        <span>{t("{noms} : « Tricheur ! »", { noms: capitalize(nameList(verdict.from.map(nom))) })}</span>
+                        {verdict.lines.slice(1).map((line) => <span key={line} aria-hidden="true">&nbsp;</span>)}
+                      </>
+                    )}
+                </span>
+              )}
+              {chosen && <span className="poker-rangee__verdict poker-rangee__verdict--secret">{t("Tu l'accuses. Verdict dans un instant.")}</span>}
+              <span className="poker-rangee__tete" aria-hidden="true">
+                <Tete who={identity} />
+                {spoke && <span className="poker-siege__pret"><Icon name="coche" size={14} /></span>}
+              </span>
+              <span className="poker-rangee__qui">
+                <span className="poker-rangee__nom">{name}</span>
+                <span className={cx("poker-rangee__combi", guilty && "poker-rangee__combi--nulle")}>{categoryName(row.category)}</span>
+                {net !== null && (
+                  <span className={cx("poker-rangee__bilan chiffres", net > 0 && "poker-rangee__bilan--plus", net < 0 && "poker-rangee__bilan--moins")}>
+                    {net > 0 ? `+${formatEuros(net)}` : formatEuros(net)}
+                  </span>
+                )}
+              </span>
+              <span className="poker-rangee__cartes" style={{ "--pas": `${step}px`, "--carte": `${width}px` } as CSSProperties}>
+                {row.cards.map((card, i) => (
+                  <Carte
+                    key={i}
+                    carte={card}
+                    largeur={width}
+                    cachee={!faceUp}
+                    className={cx(
+                      twice.has(card) && faceUp && !result && "poker-carte--double",
+                      fake === i && "poker-carte--fausse",
+                      me && mine?.swap?.index === i && "poker-carte--glissee",
+                    )}
+                  />
+                ))}
+              </span>
+            </>
+          );
+          return (
+            <li
+              key={row.seat}
+              data-rangee={row.seat}
+              className={cx(
+                "poker-rangee", me && "poker-rangee--moi", winners.has(row.seat) && "poker-rangee--gagne",
+                guilty && "poker-rangee--triche", canAccuse && "poker-rangee--accusable",
+              )}
+            >
+              {canAccuse ? (
+                <button
+                  type="button"
+                  className="poker-rangee__zone"
+                  onClick={() => nav.push({ name: "poker-feuille", feuille: "accuser", seat: row.seat })}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div className="poker-rangee__zone">{content}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {twice.size > 0 && showdown && (
+        <p className="poker-abattage__indice">
+          <span className="poker-abattage__pastille" aria-hidden="true" />
+          {t("Une carte en double : l'un des deux a triché.")}
+        </p>
+      )}
+    </section>
+  );
+}

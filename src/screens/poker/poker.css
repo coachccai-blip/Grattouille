@@ -1,0 +1,490 @@
+/* Le Poker Tricheur : le hall, ses feuilles, et les petites pièces communes à la table
+   (la tête d'un joueur, un jeton, un réglage). La table elle-même est dans table.css. */
+
+/* ---------------------------------------------------------------- Pièces communes */
+
+/* La tête d'un joueur dans son médaillon : le portrait d'un personnage, ou la tête d'un avatar. */
+.poker-tete {
+  display: block;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--lagune);
+  box-shadow: 0 0 0 2px var(--ivoire);
+}
+
+.poker-tete svg,
+.poker-tete img {
+  width: 100%;
+  height: 100%;
+}
+
+.poker-tete--grande {
+  width: 64px;
+  height: 64px;
+  box-shadow: 0 0 0 3px #fff, var(--ombre-posee);
+}
+
+.poker-tete--mini {
+  width: 30px;
+  height: 30px;
+}
+
+/* Un siège libre : un rond en pointillé. */
+.poker-tete--vide {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(230, 242, 240, .4);
+}
+
+/* Un jeton : un disque mimosa et son liseré. */
+.poker-jeton {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--mimosa);
+  box-shadow: inset 0 0 0 3px var(--mimosa-fonce), inset 0 0 0 5px var(--mimosa), 0 1px 0 rgba(6, 24, 30, .45);
+}
+
+/* Un message là où le joueur regarde : hors connexion. */
+.poker-avis {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font: 500 14px/20px var(--texte);
+}
+
+.poker-avis svg { flex: none; }
+
+.poker-avis--alerte {
+  background: var(--cerise);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- Le hall */
+
+.poker-hall__piou { margin-top: var(--e2); }
+
+/* Les règles : un lien sous la bulle de Piou, aligné sur son texte. */
+.poker-hall__regles {
+  align-self: flex-start;
+  margin-left: 60px;
+}
+
+.poker-hall .poker-avis { margin-top: var(--e2); }
+
+.poker-hall__vide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  align-items: center;
+  margin-top: var(--e6);
+  color: var(--brume);
+  text-align: center;
+}
+
+/* La table où le joueur est assis : un carton ivoire, et un seul bouton. */
+.poker-place {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin-top: var(--e4);
+  padding: 14px 16px 18px;
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--mimosa-fonce);
+}
+
+.poker-place__texte {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 400 14px/20px var(--texte);
+}
+
+.poker-place__texte strong { font: 400 24px/28px var(--titre); }
+.poker-place .bouton { z-index: 1; }
+
+.poker-hall__lieux {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+
+/* Un lieu ouvert : son nom, son hôte qui provoque, et deux billets pour s'asseoir. */
+.poker-lieu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  border-top: 3px solid var(--mimosa-fonce);
+  border-radius: 6px;
+  background: #0A242D;
+  box-shadow: 0 4px 0 rgba(6, 24, 30, .5);
+}
+
+.poker-lieu__nom { font: 400 22px/26px var(--titre); }
+
+.poker-lieu__choix {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+/* Un billet : ce qu'on y joue, ce qu'on y pose. Il s'enfonce comme un bouton. */
+.poker-billet {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 80px;
+  padding: 9px 12px 12px;
+  border-radius: 12px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 400 13px/18px var(--texte);
+  text-align: left;
+  box-shadow: 0 4px 0 var(--mimosa-fonce);
+  transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear;
+}
+
+.poker-billet:active {
+  box-shadow: 0 1px 0 var(--mimosa-fonce);
+  transform: translateY(3px);
+}
+
+.poker-billet__titre { font: 700 17px/22px var(--texte); }
+
+.poker-billet__fait {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--persienne-fonce);
+  font-weight: 500;
+}
+
+.poker-billet__manque {
+  color: var(--cerise);
+  font-weight: 500;
+}
+
+/* La bourse ne suffit pas : le billet se ternit, mais se touche encore (la feuille dit ce qu'il manque). */
+.poker-billet--court {
+  background: #E6DFCC;
+  box-shadow: 0 4px 0 rgba(6, 24, 30, .45);
+}
+
+.poker-hall__fermes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--e3);
+}
+
+/* Un lieu fermé : visible mais grisé, et le cadenas le dit aussi. */
+.poker-ferme {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(10, 36, 45, .7);
+  color: var(--brume);
+  font: 500 14px/20px var(--texte);
+  text-align: left;
+}
+
+.poker-ferme svg { flex: none; }
+
+.poker-ferme__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.poker-ferme__etat {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  font: 500 13px/18px var(--texte);
+}
+
+.poker-hall__amis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+/* ---------------------------------------------------------------- Les feuilles */
+
+.poker-feuille .feuille__corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+
+.poker-feuille__tete {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.poker-feuille__tete .t-titre { text-wrap: balance; }
+
+.poker-feuille__gain { font-weight: 700; }
+
+.poker-feuille__action {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--e2);
+}
+
+.poker-alerte {
+  color: var(--cerise);
+  font: 500 15px/22px var(--texte);
+}
+
+/* Les règles : cinq phrases numérotées, puis les mains, de la plus forte à la plus faible. */
+.poker-regles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.poker-regles li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  font: 400 16px/22px var(--texte);
+}
+
+.poker-regles__numero {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--nuit);
+  color: var(--ivoire);
+  font: 700 15px/28px var(--texte);
+  text-align: center;
+}
+
+.poker-regles__titre {
+  margin-top: 4px;
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
+}
+
+.poker-regles__mains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  font: 700 14px/20px var(--texte);
+}
+
+.poker-regles__mains li:not(:last-child)::after {
+  content: "›";
+  margin: 0 7px;
+  color: var(--encre-douce);
+  font-weight: 400;
+}
+
+/* Un réglage : son nom, moins, sa valeur, plus ; dessous, une précision s'il en faut une. */
+.poker-reglages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.poker-pas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px minmax(76px, auto) 48px;
+  gap: 0 6px;
+  align-items: center;
+  min-height: 52px;
+}
+
+.poker-pas__nom { font: 700 16px/20px var(--texte); }
+
+.poker-pas__aide {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  color: var(--encre-douce);
+  font: 400 13px/18px var(--texte);
+}
+
+.poker-pas__bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font: 700 26px/1 var(--texte);
+  transition: transform var(--t-appui) linear, opacity var(--t-bascule) linear;
+}
+
+.poker-pas__bouton:active:not(:disabled) { transform: scale(.92); }
+.poker-pas__bouton:disabled { opacity: .28; }
+
+.poker-pas__valeur {
+  font: 700 18px/24px var(--texte);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Le niveau des robots : trois choix, un seul allumé. */
+.poker-niveaux {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.poker-niveau {
+  min-height: 48px;
+  border: 2px solid var(--nuit);
+  border-radius: 12px;
+  font: 500 15px/20px var(--texte);
+}
+
+.poker-niveau--choisi {
+  background: var(--nuit);
+  color: var(--ivoire);
+  font-weight: 700;
+}
+
+/* Rejoindre : le code, gros et espacé, puis ceux qui sont déjà à table. */
+.poker-code {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+
+.poker-code__saisie {
+  font: 700 26px/30px var(--texte);
+  letter-spacing: .28em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.poker-presents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.poker-presents li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font: 500 14px/20px var(--texte);
+}
+
+.poker-presents .poker-tete {
+  width: 32px;
+  height: 32px;
+  box-shadow: 0 0 0 2px #fff, 0 2px 4px rgba(14, 47, 58, .3);
+}
+
+/* La triche : la main, puis un clavier de cartes. Ses touches se touchent : treize valeurs
+   sur deux rangs de sept, 44 px au moins chacune, même sur un écran de 320 px. */
+.poker-triche .feuille__corps {
+  gap: 8px;
+  padding-right: 6px;
+  padding-left: 6px;
+}
+
+.poker-triche .feuille__corps > :not(.poker-touches) {
+  margin-right: 14px;
+  margin-left: 14px;
+}
+
+.poker-triche .poker-temps { background: rgba(14, 47, 58, .14); }
+
+.poker-triche__titre {
+  font: 700 18px/24px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.poker-triche__main {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.poker-triche__carte {
+  display: block;
+  border-radius: 6px;
+}
+
+.poker-triche__effet {
+  min-height: 22px;
+  color: var(--encre-douce);
+  font: 500 15px/22px var(--texte);
+  text-align: center;
+}
+
+.poker-touches {
+  display: grid;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--nuit);
+}
+
+.poker-touches--valeurs { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.poker-touches--couleurs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.poker-touche {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 48px;
+  color: var(--nuit);
+  font: 700 19px/1 var(--texte);
+  box-shadow: inset -1px -1px 0 rgba(14, 47, 58, .22);
+}
+
+.poker-touche svg {
+  width: 30px;
+  height: 30px;
+}
+
+.poker-touche--choisie { background: var(--mimosa); }
+
+/* Une carte qu'on tient déjà : la touche est là, éteinte. */
+.poker-touche:disabled {
+  background: #EDE6D4;
+  color: rgba(14, 47, 58, .32);
+}
+
+.poker-touche:disabled svg { opacity: .3; }
+
+/* L'accusation : la main de l'accusé, le risque en une phrase, et le cri. */
+.poker-accuse__main {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.poker-accuse__risque { font: 500 16px/22px var(--texte); }
+
+.poker-accuse__cri.bouton--principal {
+  background: var(--bougainvillier-fonce);
+  color: #fff;
+  box-shadow: 0 4px 0 #7A1B41;
+}
+
+.poker-accuse__cri.bouton--principal:active:not(:disabled) { box-shadow: 0 1px 0 #7A1B41; }
+.poker-accuse__cri.bouton--attente:disabled { box-shadow: 0 4px 0 #7A1B41; }
