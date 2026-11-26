@@ -66,6 +66,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
   const player = useGame((s) => s.player);
   const waiting = useGame((s) => toScratch(s).length);
   const balance = useGame(displayBalance);
+  const online = useGame((s) => s.online);
   const found = useFound();
   const def = placeById(place);
   const tickets = ticketsOfPlace(place);
@@ -222,7 +223,8 @@ export function Comptoir({ place }: { place: PlaceId }) {
           </Bouton>
         ) : (
           <>
-            <Bouton bloc attente={busy === 1} disabled={busy !== null} onClick={() => void buy(1)}>
+            {/* Hors connexion, le bandeau dit déjà qu'on ne peut rien acheter : les boutons s'éteignent. */}
+            <Bouton bloc attente={busy === 1} disabled={busy !== null || !online} onClick={() => void buy(1)}>
               {t("Acheter {prix}", { prix: prix(1) })}
             </Bouton>
             <div className="comptoir__carnets">
@@ -231,7 +233,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
                   key={qty}
                   variante="secondaire"
                   attente={busy === qty}
-                  disabled={busy !== null}
+                  disabled={busy !== null || !online}
                   onClick={() => void buy(qty)}
                   aria-label={t("Carnet de {n} tickets pour {prix}", { n: qty, prix: prix(qty) })}
                 >

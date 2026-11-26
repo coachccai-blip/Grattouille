@@ -1,9 +1,7 @@
 // Pièces communes aux tickets : la case à gratter, le montant qui se resserre pour
 // tenir dans sa case, les correspondances (BRIEF.md, sections 7.2 et 8.3).
 
-import {
-  createContext, useContext, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { formatEuros, splitAmount } from "../../shared/format";
 import { cellClip, type CellShape } from "../scratch/ink";
 import type { TicketTheme } from "./themes";
@@ -17,6 +15,8 @@ export interface TicketContextValue {
   width: number;
   /** Miniature du comptoir : pas de taille minimale des textes, ni règle ni numéro de série. */
   mini: boolean;
+  /** Ticket étroit (petit écran) : l'accessoire s'efface pour laisser la place au jeu. */
+  serre: boolean;
   theme: TicketTheme;
 }
 
@@ -28,36 +28,20 @@ export function useTicket(): TicketContextValue {
   return value;
 }
 
-// Les polices arrivent parfois après le premier rendu : un texte mesuré avec la police
-// de secours ne tient plus une fois la bonne police en place. Chaque arrivée de police
-// fait donc remesurer les textes ajustés.
-let fontsVersion = 0;
-const fontsListeners = new Set<() => void>();
-
-function fontsChanged(): void {
-  fontsVersion++;
-  for (const listener of fontsListeners) listener();
-}
-
-if (typeof document !== "undefined" && "fonts" in document) {
-  document.fonts.addEventListener?.("loadingdone", fontsChanged);
-  void document.fonts.ready.then(fontsChanged);
-}
-
-function subscribeFonts(listener: () => void): () => void {
-  fontsListeners.add(listener);
-  return () => {
-    fontsListeners.delete(listener);
-  };
-}
-
-function useFontsVersion(): number {
-  return useSyncExternalStore(subscribeFonts, () => fontsVersion, () => 0);
-}
+// Un texte ajusté se remesure chaque fois que sa boîte ou lui-même change de taille :
+// une police qui arrive après le premier rendu, une ligne qui passe en gras, un volet
+// qui change, un écran qui tourne. Un seul observateur pour tous les textes ajustés.
+const fitters = new WeakMap<Element, () => void>();
+const sizes = typeof ResizeObserver === "undefined"
+  ? null
+  : new ResizeObserver((entries) => {
+    for (const entry of entries) fitters.get(entry.target)?.();
+  });
 
 /**
  * Le resserrement le plus fort : un dernier recours, pour qu'aucun texte ne soit
- * jamais coupé. Les cases sont dessinées pour que l'on en reste loin (0,8 au pire).
+ * jamais coupé. Les cases sont dessinées pour que l'on en reste loin (0,8 au pire
+ * sur l'écran de référence).
  */
 const SERRE_MIN = 0.58;
 
@@ -68,11 +52,10 @@ const SERRE_MIN = 0.58;
  */
 export function Ajuste({ children, className }: { children: ReactNode; className?: string }) {
   const { width, mini } = useTicket();
-  const fonts = useFontsVersion();
   const ref = useRef<HTMLSpanElement>(null);
   /** Le resserrement déjà posé sur le texte : 1 s'il n'y en a pas. */
   const applied = useRef(1);
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const el = ref.current;
     const box = el?.parentElement;
     if (!el || !box) return;
@@ -82,18 +65,35 @@ export function Ajuste({ children, className }: { children: ReactNode; className
     const available = box.getBoundingClientRect().width;
     const needed = el.getBoundingClientRect().width / applied.current;
     if (available > 0 && needed > available - 0.25) {
-      const scale = Math.max(SERRE_MIN, (available - 0.25) / needed);
+      const scale = Number(Math.max(SERRE_MIN, (available - 0.25) / needed).toFixed(3));
       // Un texte qui déborde part toujours du bord gauche de sa boîte, quel que soit
       // son alignement : c'est de là qu'il se resserre, sinon sa fin serait coupée.
       el.style.transformOrigin = "left center";
-      el.style.transform = `scaleX(${scale.toFixed(3)})`;
-      applied.current = Number(scale.toFixed(3));
+      el.style.transform = `scaleX(${scale})`;
+      applied.current = scale;
     } else {
       el.style.transformOrigin = "";
       el.style.transform = "";
       applied.current = 1;
     }
-  }, [width, mini, children, fonts]);
+  }, []);
+  // Avant que l'écran ne soit peint : jamais d'image avec un texte qui déborde.
+  useLayoutEffect(fit, [fit, width, mini, children]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement;
+    if (!el || !box || !sizes) return;
+    fitters.set(el, fit);
+    fitters.set(box, fit);
+    sizes.observe(el);
+    sizes.observe(box);
+    return () => {
+      sizes.unobserve(el);
+      sizes.unobserve(box);
+      fitters.delete(el);
+      fitters.delete(box);
+    };
+  }, [fit]);
   return (
     <span className={cx("ajuste", className)}>
       <span ref={ref} className="ajuste__texte">{children}</span>
@@ -107,19 +107,19 @@ export function Montant({ value, className }: { value: number; className?: strin
 
 /**
  * Un montant qui passe sur deux lignes quand il est trop long pour sa case : le
- * nombre au-dessus, l'unité en dessous (« 12,5 » puis « Md€ »). Seule une unité de
- * plusieurs lettres se détache : un « € » ou un « T » seul sur sa ligne ne ressemble
- * à rien, ces montants-là restent sur une ligne et se resserrent.
- * `max` : le nombre de caractères qui tiennent sur une ligne. `empile` : détache
- * l'unité même d'un montant court (« 2 » puis « M€ »), pour qu'une série de cases
- * voisines se lise d'un seul coup d'œil.
+ * nombre au-dessus, l'unité en dessous (« 12,5 » puis « Md€ », « €5,000 » puis « T »).
+ * Un montant en euros simples reste sur une ligne et se resserre : un « € » seul sur
+ * sa ligne ne ressemble à rien.
+ * `max` : le nombre de caractères qui tiennent sur une ligne. `empile` : détache aussi
+ * l'unité d'un montant court quand elle fait plusieurs lettres (« 2 » puis « M€ »),
+ * pour qu'une série de cases voisines se lise d'un seul coup d'œil.
  */
 export function MontantEmpile(
   { value, max, empile = false, className }: { value: number; max: number; empile?: boolean; className?: string },
 ) {
   const text = formatEuros(value);
   const cut = splitAmount(text);
-  const stacked = cut !== null && cut[1].length > 1 && (empile || text.length > max);
+  const stacked = cut !== null && cut[1] !== "€" && (text.length > max || (empile && cut[1].length > 1));
   if (!stacked) return <Ajuste className={cx("montant", className)}>{text}</Ajuste>;
   return (
     <span className={cx("montant montant--empile", className)}>

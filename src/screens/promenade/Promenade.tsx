@@ -30,7 +30,16 @@ export function Promenade() {
 
   useEffect(() => {
     // Ouverte sur le meilleur lieu débloqué.
-    bestRef.current?.scrollIntoView({ block: "center" });
+    const show = () => bestRef.current?.scrollIntoView({ block: "center" });
+    show();
+    // Au retour d'un autre écran, le navigateur remet la page là où on l'avait laissée. Si la
+    // Promenade n'avait encore jamais été affichée, c'est tout en haut, sur la Lune : on
+    // revient alors au meilleur lieu ouvert.
+    const frame = requestAnimationFrame(() => {
+      const box = bestRef.current?.getBoundingClientRect();
+      if (box && window.scrollY < 1 && box.bottom > window.innerHeight) show();
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const enter = (place: PlaceDef) => {

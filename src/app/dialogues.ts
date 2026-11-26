@@ -2321,49 +2321,53 @@ const P = {
     fr: "Votre ticket vous attend ! Ça se gratte avec le doigt, comme avec une pièce.",
     en: "Your ticket's waiting! You scratch it with a finger, just like with a coin.",
   },
+  pileUn: {
+    fr: "Un ticket vous attend ! C'est lui qui paiera la suite de la Promenade.",
+    en: "A ticket is waiting for you! It's the one that pays for the rest of the Promenade.",
+  },
+  pile: {
+    fr: "{n} tickets vous attendent ! Ce sont eux qui paieront la suite de la Promenade.",
+    en: "{n} tickets are waiting for you! They're the ones that pay for the rest of the Promenade.",
+  },
   kiosque: {
     fr: "Suivez-moi, suivez-moi ! Gaspard a quatre tickets tout chauds, et vous avez de quoi jouer.",
     en: "Follow me, follow me! Gaspard has four piping-hot tickets, and you can afford to play.",
   },
   ficelle: {
     fr: "{euros} en poche ! De quoi s'offrir une ficelle à {prix} : avec ça, vous voilà presque quelqu'un.",
-    en: "{euros} in your pocket! Enough for a piece of string at {prix}: with that, you're almost somebody.",
+    en: "{euros} in your pocket! Enough for some butcher's string at {prix}: you're almost somebody.",
   },
   standing: {
     fr: "Le Standing ouvre les portes. Encore {n} ★ pour {lieu}.",
     en: "Standing opens doors. {n} more ★ for {lieu}.",
   },
   premieresEtoiles: {
-    fr: "Voilà du Standing ! Les ★ ouvrent les portes de la Promenade : encore {n} pour {lieu}.",
-    en: "That's Standing! The ★ open doors along the Promenade: {n} more for {lieu}.",
+    fr: "Voilà du Standing ! Les ★ ouvrent les portes : encore {n} pour {lieu}.",
+    en: "That's Standing! The ★ open doors: {n} more for {lieu}.",
   },
   prochainBoutiques: {
     fr: [
       "Encore {n} ★ pour {lieu}. Bonne nouvelle : votre bourse a de quoi en acheter.",
       "Plus que {n} ★ avant {lieu} ! Elles se vendent en boutique, et vous avez de quoi.",
-      "Il vous manque {n} ★ pour {lieu}. Vous avez de quoi : chaque achat en boutique en rapporte.",
+      "Il vous manque {n} ★ pour {lieu}. Chaque achat en rapporte, et vous avez de quoi.",
     ],
     en: [
       "{n} more ★ for {lieu}. Good news: your purse can afford some.",
       "Only {n} ★ to go before {lieu}! The shops sell them, and you can afford it.",
-      "You're {n} ★ short of {lieu}. You have the money: every purchase in the shops earns some.",
+      "You're {n} ★ short of {lieu}. Every purchase earns some, and you have the money.",
     ],
   },
   prochainJouer: {
     fr: [
-      "Encore {n} ★ pour {lieu}. Les ★ s'achètent, l'argent se gratte : la chance fera le reste.",
-      "Plus que {n} ★ avant {lieu} ! Il faut d'abord regarnir la bourse. Un ticket, peut-être ?",
+      "Encore {n} ★ pour {lieu}. Les ★ s'achètent, et l'argent, lui, se gratte.",
+      "Plus que {n} ★ avant {lieu} ! D'abord, regarnir la bourse. Un ticket, peut-être ?",
       "Il vous manque {n} ★ pour {lieu}, et de quoi les payer. Les comptoirs sont ouverts.",
     ],
     en: [
-      "{n} more ★ for {lieu}. Stars are bought, money is scratched: luck will do the rest.",
-      "Only {n} ★ to go before {lieu}! The purse needs topping up first. A ticket, perhaps?",
+      "{n} more ★ for {lieu}. The ★ are bought, and the money is scratched.",
+      "Only {n} ★ to go before {lieu}! First, top up the purse. A ticket, perhaps?",
       "You're {n} ★ short of {lieu}, and of the money to buy them. The counters are open.",
     ],
-  },
-  pile: {
-    fr: "Vos tickets s'impatientent ! Ce sont eux qui paieront la suite de la Promenade.",
-    en: "Your tickets are getting impatient! They're the ones paying for the rest of the Promenade.",
   },
   fauche: {
     fr: "Plus un sou ? Ça ne dure jamais, ici. Ouvrez l'œil : un ticket va traîner par terre.",
@@ -2424,12 +2428,12 @@ const P = {
     en: "It's all open, right up to the Moon! Now the collection: {n} of {total}. Mme Colette promises a surprise.",
   },
   kiosqueAVendre: {
-    fr: "Collection complète ! Mme Colette met en vente le Kiosque de Gaspard. {prix} : vous les avez.",
-    en: "Collection complete! Mme Colette has Gaspard's Kiosk up for sale. {prix}: you can afford it.",
+    fr: "Collection complète ! Le Kiosque de Gaspard est à vendre. {prix} : vous les avez.",
+    en: "Collection complete! Gaspard's Kiosk is for sale. {prix}: you can afford it.",
   },
   kiosqueTropCher: {
-    fr: "Collection complète ! Le Kiosque de Gaspard est à vendre : {prix}. Il vous manque {manque}.",
-    en: "Collection complete! Gaspard's Kiosk is for sale: {prix}. You're {manque} short.",
+    fr: "Le Kiosque de Gaspard est à vendre : {prix}. Il vous manque encore {manque}.",
+    en: "Gaspard's Kiosk is for sale: {prix}. You're still {manque} short.",
   },
   patron: {
     fr: "Bonjour, Patron ! Tout est à vous, du port à la Lune. Reste le classement : il n'a pas de plafond.",
@@ -2480,9 +2484,9 @@ export const PIOU = {
     const list = pick(moyen === "boutiques" ? P.prochainBoutiques : P.prochainJouer);
     return fill(choose(list, seed), { n: formatInt(stars), lieu: place });
   },
-  /** Des tickets attendent, et il n'y a rien d'autre à faire avant de les gratter. */
-  get pile(): string {
-    return pick(P.pile);
+  /** Des tickets attendent dans la pile : rien de plus utile que d'aller les gratter. */
+  pile(n: number): string {
+    return n === 1 ? pick(P.pileUn) : fill(pick(P.pile), { n });
   },
   /** Plus de quoi jouer, et le ticket par terre n'est pas encore là. */
   get fauche(): string {

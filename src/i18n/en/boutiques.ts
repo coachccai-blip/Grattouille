@@ -92,7 +92,7 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "Ce navigateur ne sait pas faire vibrer le téléphone.": "This browser can't make the phone vibrate.",
   "Animations réduites": "Reduced motion",
   "Déjà demandé par les réglages de ton téléphone.": "Already requested in your phone's settings.",
-  "Fondus courts, pas de particules, fêtes en image fixe.": "Short fades, no particles, still-image celebrations.",
+  "Fondus courts, pas de particules, fêtes en image fixe.": "Short fades, no particles, celebrations as still images.",
 
   "Mon code de récupération": "My recovery code",
   "Pas d'adresse e-mail, pas de mot de passe : ce code est la seule clé de ta fortune. Note-le quelque part. Sans lui, un téléphone perdu ou vidé, et le compte est perdu.":

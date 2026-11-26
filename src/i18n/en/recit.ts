@@ -18,7 +18,7 @@ export const EN_RECIT: Record<string, string> = {
   "Ton pseudo": "Your name",
   "3 à 16 caractères. C'est le nom que verra tout le classement.":
     "3 to 16 characters. It's the name the whole leaderboard will see.",
-  "Entrer à Grattouille-les-Bains": "Enter Grattouille-les-Bains",
+  "Débarquer": "Step ashore",
   "Retour": "Back",
   "Ce pseudo est réservé. Essaie avec un autre.": "That name is reserved. Try another one.",
   "Il faut 3 à 16 caractères : lettres, chiffres, espace ou tiret.":
@@ -71,13 +71,13 @@ export const EN_RECIT: Record<string, string> = {
   "Fortune :": "Fortune:",
   "{moment} à Grattouille-les-Bains.": "{moment} in Grattouille-les-Bains.",
 
-  // --- Domaine : les chemins que Piou indique, et la pile à gratter
+  // --- Domaine : les chemins que Piou indique
   "Aller chez {vendeur}": "Go to {vendeur}'s",
   "Aller au Kiosque": "Go to the Kiosk",
   "Aller aux boutiques": "Go to the shops",
   "Aller jouer": "Go and play",
   "Voir mon code": "See my code",
   "Voir le classement": "See the leaderboard",
-  "1 ticket à gratter": "1 ticket to scratch",
-  "{n} tickets à gratter": "{n} tickets to scratch",
+  "Gratter mon ticket": "Scratch my ticket",
+  "Gratter mes tickets": "Scratch my tickets",
 };

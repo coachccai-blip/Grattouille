@@ -109,6 +109,12 @@
 
 .bienvenue__form .bienvenue__actions { margin-top: auto; }
 
+/* Écran bas : le formulaire se resserre, pour garder son bouton en vue. */
+@media (max-height: 600px) {
+  .bienvenue--formulaire { padding-top: calc(var(--haut) + var(--e4)); }
+  .bienvenue__form { gap: var(--e3); }
+}
+
 .especes {
   min-width: 0;
   margin: 0;

@@ -6,13 +6,13 @@
 // Sous la scène, Piou dit quoi faire ensuite (RECIT.md) : une seule consigne à la fois,
 // la prochaine étape utile, du premier ticket du quai jusqu'au rachat du Kiosque. Quand
 // il parle d'un objectif chiffré (les ★ du prochain lieu, la collection), sa barre de
-// progression est dans la bulle : l'information n'est écrite qu'une fois à l'écran.
+// progression est dans la bulle : l'information n'est écrite qu'une fois à l'écran, et
+// l'écran tient sans défiler.
 
 import type { ReactNode } from "react";
 import { CATALOG, COLLECTION_SIZE, KIOSK, itemById } from "../../../shared/catalog";
 import { formatEuros } from "../../../shared/format";
 import { bestPlace, collectionComplete, nextPlace } from "../../../shared/rules";
-import { cheapestTicket } from "../../../shared/tickets";
 import type { PlayerState, ShopId } from "../../../shared/types";
 import { PIOU, hostName } from "../../app/dialogues";
 import { skyOf } from "../../app/helpers";
@@ -80,10 +80,21 @@ function Conseil({ player, found, busy, pickUp }: {
         : player.stats.tickets === 0 ? PIOU.premierTrouve : PIOU.trouve(found, player.stats.tickets);
       return { texte, actions: <Bouton variante="texte" attente={busy} onClick={pickUp}>{t("Ramasser le ticket")}</Bouton> };
     }
+    // Des tickets attendent dans la pile : rien de plus utile que de les gratter. Pour le
+    // tout premier (ramassé, donc compté, mais pas encore gagnant), Piou explique le geste.
+    if (waiting > 0) {
+      const premier = player.stats.tickets <= 1 && player.stats.winners === 0;
+      return {
+        texte: premier ? PIOU.aGratter : PIOU.pile(waiting),
+        actions: (
+          <Bouton variante="texte" onClick={() => nav.push({ name: "a-gratter" })}>
+            {waiting > 1 ? t("Gratter mes tickets") : t("Gratter mon ticket")}
+          </Bouton>
+        ),
+      };
+    }
     // Plus de quoi jouer, et rien par terre pour l'instant : cela ne dure pas vingt secondes.
     if (broke) return { texte: PIOU.fauche };
-    // Le ticket du quai est ramassé, pas encore gratté : le talon, juste dessous, y emmène.
-    if (player.stats.tickets === 0 && waiting > 0) return { texte: PIOU.aGratter };
     // Après une dizaine de tickets : invitation non bloquante à noter son code.
     if (!sandbox && !codeNote && player.stats.tickets >= 10) {
       return {
@@ -103,9 +114,6 @@ function Conseil({ player, found, busy, pickUp }: {
 
     const missing = cheapestMissing(player.owned);
     const canShop = missing !== null && balance >= missing;
-    const canPlay = balance >= cheapestTicket("kiosque").price;
-    // Ni de quoi acheter ni de quoi jouer, mais des tickets en attente : le talon, juste dessous, y emmène.
-    if (!canShop && !canPlay && waiting > 0) return { texte: PIOU.pile };
     // Les ★ s'achètent en boutique ; quand la bourse ne suit pas, on retourne d'abord au comptoir.
     const chemin = canShop
       ? <Bouton variante="texte" onClick={versBoutiques}>{t("Aller aux boutiques")}</Bouton>
@@ -170,7 +178,6 @@ function Conseil({ player, found, busy, pickUp }: {
 
 export function Domaine() {
   const player = useGame((s) => s.player);
-  const waiting = useGame((s) => toScratch(s).length);
   const found = useFound();
   const { busy, pickUp } = usePickUp();
   if (!player) return null;
@@ -246,14 +253,6 @@ export function Domaine() {
       </div>
 
       <Conseil player={player} found={found} busy={busy} pickUp={pickUp} />
-
-      {waiting > 0 && (
-        <button type="button" className="talon-lien" onClick={() => nav.push({ name: "a-gratter" })}>
-          <Icon name="jouer" plein />
-          <span>{waiting > 1 ? t("{n} tickets à gratter", { n: waiting }) : t("1 ticket à gratter")}</span>
-          <Icon name="chevron" />
-        </button>
-      )}
       <p className="invisible">{t("{moment} à Grattouille-les-Bains.", { moment: placeMoment(best.id) })}</p>
     </main>
   );

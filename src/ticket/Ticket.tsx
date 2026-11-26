@@ -47,6 +47,13 @@ interface TicketProps {
 }
 
 const NOTHING: ReadonlySet<string> = new Set();
+
+/**
+ * En dessous de cette largeur (un écran de 320 × 568), les textes sont à leur plancher
+ * de 12 px sur un ticket bien plus petit qu'eux : la règle s'efface pour laisser sa
+ * place au jeu. Elle reste à un geste, sur la fiche « règles et lots » du comptoir.
+ */
+const SERRE_SOUS = 212;
 const guillocheCache = new Map<string, string>();
 
 /** Guilloché : des ondes entrelacées, imprimées à 8 % d'opacité. */
@@ -94,14 +101,15 @@ export function Ticket({
     "--tk-encre": `linear-gradient(135deg, ${ink.stops[0]} 0%, ${ink.stops[1]} 40%, ${ink.stops[2]} 60%, ${ink.stops[3]} 100%)`,
     "--tk-guilloche": guilloche(theme.texte),
   } as CSSProperties;
-  const context = useMemo(() => ({ width, mini, theme }), [width, mini, theme]);
+  const serre = !mini && width < SERRE_SOUS;
+  const context = useMemo(() => ({ width, mini, serre, theme }), [width, mini, serre, theme]);
 
   return (
     <TicketContext.Provider value={context}>
       <div
         ref={rootRef}
         className={cx(
-          "ticket", theme.ratio === "9:16" && "ticket--9-16", mini && "ticket--mini",
+          "ticket", theme.ratio === "9:16" && "ticket--9-16", mini && "ticket--mini", serre && "ticket--serre",
           etat !== "neuf" && `ticket--${etat}`, `ticket--${def.engine}`, className,
         )}
         style={style}
@@ -129,7 +137,7 @@ export function Ticket({
             <EngineView def={def} layout={grid} revealed={revealed} panel={panel} onPanel={mini ? undefined : onPanel} />
           </div>
           {/* La miniature n'a ni règle ni numéro : à sa taille, ce ne serait que du bruit. */}
-          {!mini && <p className="ticket__regle">{ruleOf(def)}</p>}
+          {!mini && !serre && <p className="ticket__regle">{ruleOf(def)}</p>}
           <footer className="ticket__talon">
             {!mini && <span className="ticket__serie">{serialOf(seed)}</span>}
           </footer>

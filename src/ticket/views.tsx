@@ -142,7 +142,7 @@ function MorpionView({ def, layout, revealed, prefix, cibles }: ViewProps<Morpio
         })}
         {line && (
           // Un trait barre la ligne gagnante, comme au crayon.
-          <svg className="jeu__trait jeu__trait--crayon" viewBox="0 0 3 3" preserveAspectRatio="none" aria-hidden="true">
+          <svg className="jeu__trait" viewBox="0 0 3 3" preserveAspectRatio="none" aria-hidden="true">
             <line
               x1={(line[0] % 3) + 0.5 + ((line[0] % 3) - (line[2] % 3)) * 0.14}
               y1={Math.floor(line[0] / 3) + 0.5 + (Math.floor(line[0] / 3) - Math.floor(line[2] / 3)) * 0.14}
@@ -409,7 +409,7 @@ function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
       <div className="jeu-parcours__des">
         {/* Avant le premier dé, le pion attend ici ; ensuite, le total des dés grattés s'y écrit. */}
         <span className="jeu-parcours__depart">
-          <span className="jeu__titre">{t(at > 0 ? "Total" : "Départ")}</span>
+          <Ajuste className="jeu__titre">{t(at > 0 ? "Total" : "Départ")}</Ajuste>
           <strong className="jeu-parcours__total">{at > 0 ? at : ""}</strong>
         </span>
         {layout.dice.map((d, i) => (
@@ -619,7 +619,7 @@ interface MultiProps extends ViewProps<MultiLayout> {
 }
 
 function MultiView({ def, layout, revealed, panel, onPanel }: MultiProps) {
-  const { mini } = useTicket();
+  const { mini, serre } = useTicket();
   const prefix = `p${panel}:`;
   const names = panelNames(layout);
   let view: ReactNode;
@@ -660,7 +660,9 @@ function MultiView({ def, layout, revealed, panel, onPanel }: MultiProps) {
             </button>
           );
         })}
-        <Ajuste className="jeu-multi__nom">{t(names[panel] ?? names[0])}</Ajuste>
+        {/* Sur un ticket étroit, les trois pastilles prennent toute la ligne : le nom du volet
+            n'est plus dit qu'aux lecteurs d'écran, par sa pastille. */}
+        {!serre && <Ajuste className="jeu-multi__nom">{t(names[panel] ?? names[0])}</Ajuste>}
       </div>
       <div className="jeu-multi__volet" key={panel}>{view}</div>
     </div>

@@ -116,7 +116,8 @@ export function Reglages() {
     <main className={retour ? "ecran reglages reglages--reprise" : "ecran reglages"}>
       <Entete titre={t("Réglages")} retour />
 
-      <section className="rubrique reglages__langue" aria-labelledby="reglages-langue">
+      {/* Le titre nomme le groupe de boutons radio : une seule annonce pour un lecteur d'écran. */}
+      <div className="rubrique reglages__langue">
         <h2 className="rubrique__titre" id="reglages-langue">{t("Langue")}</h2>
         <div className="langue" role="radiogroup" aria-labelledby="reglages-langue" ref={langues} onKeyDown={auClavier}>
           {LANGS.map((langue) => {
@@ -138,7 +139,7 @@ export function Reglages() {
             );
           })}
         </div>
-      </section>
+      </div>
 
       <div className="rubrique reglages__confort">
         <Interrupteur icon={settings.son ? "son" : "son-coupe"} label={t("Son")} checked={settings.son} onChange={(son) => patchSettings({ son })} />
@@ -206,7 +207,7 @@ export function Reglages() {
         </dl>
       </section>
 
-      <section className="rubrique apropos" aria-labelledby="reglages-apropos">
+      <section className="rubrique" aria-labelledby="reglages-apropos">
         <h2 className="rubrique__titre" id="reglages-apropos">{t("À propos")}</h2>
 
         <h3 className="reglages__sous-titre">{t("Les tickets trouvés")}</h3>

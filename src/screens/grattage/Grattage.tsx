@@ -53,6 +53,13 @@ function centerOf(el: Element | null): Point {
 }
 
 /**
+ * La hauteur de fenêtre que le ticket ne prend jamais : c'est avec elle que les tickets ont
+ * été réglés (252 px de large sur un écran de 360 × 640, et le ticket « serré », sans sa
+ * règle, sur un écran de 320 × 568). L'écran peut en garder plus, jamais moins.
+ */
+const RESERVE = 236;
+
+/**
  * Ce que l'écran garde pour autre chose que le ticket : marges, en-tête, fente du
  * distributeur et plateau (234 px, ou 222 sur un écran court : voir grattage.css), plus
  * les encoches du téléphone et, en bac à sable, la ligne du bandeau (`--haut`, `--bas`).
@@ -64,7 +71,7 @@ function estimateReserve(): number {
   const style = getComputedStyle(probe);
   const insets = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   probe.remove();
-  return (window.innerHeight <= 600 ? 222 : 234) + (Number.isFinite(insets) ? insets : 0);
+  return Math.max(RESERVE, (window.innerHeight <= 600 ? 222 : 234) + (Number.isFinite(insets) ? insets : 0));
 }
 
 /**
@@ -80,7 +87,7 @@ function useReserve(scene: RefObject<HTMLElement | null>, shown: boolean): numbe
     const measure = () => {
       const style = getComputedStyle(el);
       const room = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-      if (room > 0) setReserve(Math.ceil(window.innerHeight - room));
+      if (room > 0) setReserve(Math.max(RESERVE, Math.ceil(window.innerHeight - room)));
     };
     measure();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;

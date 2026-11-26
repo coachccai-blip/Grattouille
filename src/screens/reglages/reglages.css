@@ -2,8 +2,9 @@
 
 .reglages { padding-bottom: calc(var(--bas) + var(--e7)); }
 
-/* Revenu d'un changement de langue : l'écran est déjà là, il ne rejoue pas son entrée. */
-.reglages--reprise { animation: none; }
+/* Revenu d'un changement de langue : l'écran est déjà là, il ne rejoue pas son entrée
+   (ni le fondu des animations réduites). */
+.ecran.reglages--reprise { animation: none; }
 
 .reglages .rubrique__titre {
   color: var(--ecume);

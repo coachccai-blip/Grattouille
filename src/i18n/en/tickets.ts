@@ -50,7 +50,7 @@ export const EN_TICKETS: Record<string, string> = {
   "Chaque mot complété avec tes 10 lettres fait monter le lot.":
     "Each word completed with your 10 letters raises the prize.",
   "Si ton camp sort au moins 5 fois sur 9, tu gagnes le lot.":
-    "If your side comes up at least 5 times out of 9, you win the prize.",
+    "Win the prize if your side comes up 5 or more times out of 9.",
 
   // --- Numéros gagnants
   "Numéros gagnants": "Winning numbers",
@@ -201,7 +201,7 @@ export const EN_TICKETS: Record<string, string> = {
   "Sirop": "Syrup",
   "Bulles": "Bubbles",
   "Sucre": "Sugar",
-  "Ombrelle": "Cocktail umbrella",
+  "Ombrelle": "Paper parasol",
   // Les camps : la roulette, les fanaux.
   "Rouge": "Red",
   "Noir": "Black",

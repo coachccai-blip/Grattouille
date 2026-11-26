@@ -138,13 +138,17 @@
   line-height: 1.2;
 }
 
-/* Ticket trouvé par terre : le ticket est le seul endroit qui le dise. */
+/* Ticket trouvé par terre : le ticket est le seul endroit qui le dise, en deux mots,
+   sous la promesse. Les deux lignes se tiennent à distance du bandeau. */
 .ticket__offert {
   display: block;
   color: var(--tk-doux);
   font-weight: 500;
   font-size: max(var(--tk-min), .76em);
+  line-height: 1.15;
 }
+
+.ticket__promesse:has(.ticket__offert) { padding-top: .5em; }
 
 /* La vignette déborde un peu sur le bandeau : la mascotte s'y accoude. */
 .ticket__vignette {
@@ -168,8 +172,9 @@
   color: var(--tk-zone-texte);
 }
 
-/* Sans règle au-dessous d'elle, la zone de la miniature garde sa marge. */
-.ticket--mini .ticket__zone { margin-bottom: .5em; }
+/* Sans règle au-dessous d'elle (miniature, ticket étroit), la zone garde sa marge. */
+.ticket--mini .ticket__zone,
+.ticket--serre .ticket__zone { margin-bottom: .5em; }
 
 .ticket__regle {
   position: relative;
@@ -471,9 +476,9 @@
 
 .jeu-numeros--5 .jeu-numeros__grille {
   grid-auto-rows: 4.42em;
-  gap: .2em;
+  gap: .18em;
   /* La grille mord un peu sur la marge de la zone : chaque case y gagne en largeur. */
-  margin-inline: -.2em;
+  margin-inline: -.3em;
 }
 
 .jeu-numeros--5 .jeu-numeros__grille .case__fond {
@@ -1176,7 +1181,9 @@
   flex: 1 1 0;
   gap: .2em;
   align-items: center;
-  min-height: max(var(--tk-min), 1.2em);
+  /* Dix lignes de 13 px au plus serré : le barème n'est jamais plus haut que la grille
+     de beaucoup, et les dix lettres gardent leur place dessous. */
+  min-height: 1.08em;
   max-height: 1.5em;
   padding: 0 .2em;
   border-radius: .3em;
@@ -1346,7 +1353,7 @@
   margin-inline: -.35em;
 }
 
-.jeu-multi .jeu-parcours__contenu { padding: 0 .04em; }
+.jeu-multi .jeu-parcours__contenu { padding: 0 .1em; }
 .jeu-multi .jeu-parcours__lot { letter-spacing: -.04em; }
 .jeu-multi .jeu-parcours__lot .montant__nombre { font-size: 1em; }
 .jeu-multi .jeu-coef { gap: .9em; }

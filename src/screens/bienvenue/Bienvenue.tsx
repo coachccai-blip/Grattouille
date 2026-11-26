@@ -139,7 +139,7 @@ function Creation({ onBack }: { onBack: () => void }) {
           </span>
         </label>
         <div className="bienvenue__actions">
-          <Bouton type="submit" bloc attente={busy}>{t("Entrer à Grattouille-les-Bains")}</Bouton>
+          <Bouton type="submit" bloc attente={busy}>{t("Débarquer")}</Bouton>
           <Bouton variante="texte" onClick={onBack} disabled={busy}>{t("Retour")}</Bouton>
         </div>
       </form>

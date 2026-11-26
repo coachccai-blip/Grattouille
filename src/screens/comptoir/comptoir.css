@@ -57,14 +57,30 @@
 
 .comptoir__pile:active { transform: scale(.94); }
 
-.comptoir__hote { flex: none; }
+/* L'hôte : une bulle un peu plus serrée qu'ailleurs, pour laisser la place aux tickets. */
+.comptoir__hote {
+  flex: none;
+  gap: 10px;
+}
+
+.comptoir__hote .portrait {
+  width: 48px;
+  height: 48px;
+}
+
+.comptoir__hote .bulle__texte {
+  margin-top: 2px;
+  padding: 6px 12px 8px;
+}
 
 /* Le carrousel prend toute la place qui reste entre l'hôte et le zinc, avec un plancher :
    sur un écran minuscule, c'est la page qui défile, et le zinc reste collé en bas. */
 .carrousel {
   display: flex;
-  flex: 1 0 176px;
+  flex: 1 0 150px;
   flex-direction: column;
+  /* Sa hauteur ne dépend pas de ce qu'il contient : ce sont les miniatures qui s'y ajustent. */
+  min-height: 0;
   gap: 8px;
   align-items: center;
   justify-content: center;
@@ -187,6 +203,20 @@
 .comptoir__carnets .bouton {
   padding: 0 6px;
   font-size: clamp(14px, 4.4vw, 16px);
+}
+
+/* Écran court (320 × 568) : on resserre tout ce qui n'est pas le carrousel, pour que le
+   comptoir tienne dans la fenêtre ou n'en dépasse que de quelques pixels. */
+@media (max-height: 600px) {
+  .comptoir { gap: var(--e2); }
+  .comptoir .entete__titre--grand { line-height: 28px; }
+  .comptoir__hote .bulle__texte { font-size: 15px; line-height: 20px; }
+  .comptoir__zinc {
+    gap: 6px;
+    padding-top: 6px;
+    padding-bottom: calc(var(--bas) + var(--e2));
+  }
+  .comptoir__carnets .bouton { min-height: 44px; }
 }
 
 /* ---------------------------------------------------------------- Fiche d'un ticket */

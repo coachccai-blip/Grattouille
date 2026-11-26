@@ -1,7 +1,7 @@
 // Petits composants communs (BRIEF.md, section 13.5) : en-tête d'écran, barre
 // d'onglets, message bref, bulle de personnage, jauge de tempérament, interrupteur.
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import type { Temperament } from "../../shared/types";
 import type { Line } from "../app/dialogues";
 import { nav, type Tab } from "../app/nav";
@@ -47,8 +47,50 @@ interface EnteteProps {
   grand?: boolean;
 }
 
+/** La plus petite taille d'un titre qui se réduit pour tenir sur sa ligne. */
+const TITRE_MIN = 18;
+
+/**
+ * Un titre trop long pour sa ligne (à côté d'une bourse bien garnie, sur un écran
+ * étroit, ou une fois traduit) se réduit jusqu'à tenir, sans passer sous 18 px ;
+ * au-delà, il passe sur deux lignes. Jamais de titre coupé.
+ */
+function useTitleFit(titre: string, off: boolean) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || off) return;
+    let alive = true;
+    const fit = () => {
+      if (!alive) return;
+      // La taille prévue par la feuille de style, puis la largeur que le titre voudrait sur une ligne.
+      el.style.fontSize = "";
+      el.style.whiteSpace = "nowrap";
+      const base = parseFloat(getComputedStyle(el).fontSize);
+      const room = el.clientWidth;
+      const wanted = el.scrollWidth;
+      el.style.whiteSpace = "";
+      if (room > 0 && wanted > room) el.style.fontSize = `${Math.max(TITRE_MIN, Math.floor((base * room) / wanted * 10) / 10)}px`;
+    };
+    fit();
+    // La place change quand la bourse s'allonge ou que l'écran tourne ; la police, quand elle finit de charger.
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+    observer?.observe(el);
+    void document.fonts?.ready.then(fit);
+    return () => {
+      alive = false;
+      observer?.disconnect();
+      el.style.fontSize = "";
+    };
+  }, [titre, off]);
+  return ref;
+}
+
 export function Entete({ titre, retour = false, gauche, droite, titreDiscret = false, grand = false }: EnteteProps) {
-  const title = <h1 className={cx("entete__titre", titreDiscret && "invisible", grand && "entete__titre--grand")}>{titre}</h1>;
+  const fit = useTitleFit(titre, titreDiscret);
+  const title = (
+    <h1 ref={fit} className={cx("entete__titre", titreDiscret && "invisible", grand && "entete__titre--grand")}>{titre}</h1>
+  );
   return (
     <header className={cx("entete", grand && "entete--grand")}>
       <div className="entete__barre">

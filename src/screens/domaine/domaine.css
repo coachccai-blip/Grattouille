@@ -2,11 +2,19 @@
 
 .domaine { gap: var(--e3); }
 
-/* La scène : le ciel du meilleur lieu débloqué, puis ce que le joueur possède. */
+/* L'en-tête a déjà son air : la scène vient juste dessous. */
+.domaine .entete { margin-bottom: calc(var(--e2) * -1); }
+
+/*
+ * La scène : le ciel du meilleur lieu débloqué, puis ce que le joueur possède. Elle
+ * prend la hauteur que lui laissent l'en-tête, le nom et la bulle de Piou, pour que
+ * l'écran tienne sans défiler : 226 px sur un téléphone de 640 px de haut.
+ */
 .domaine__scene {
   position: relative;
   flex: none;
-  height: clamp(220px, 40vh, 320px);
+  height: clamp(164px, calc(100vh - var(--haut) - var(--bas) - 414px), 320px);
+  height: clamp(164px, calc(100dvh - var(--haut) - var(--bas) - 414px), 320px);
   margin: 0 calc(var(--e4) * -1);
   overflow: hidden;
   border-bottom: 4px solid #0A242D;
@@ -141,38 +149,21 @@
 
 .objectif--patron { border-color: var(--mimosa); }
 
-/* Le rappel des tickets en attente : un talon de ticket. */
-.talon-lien {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  min-height: 56px;
-  padding: 0 16px 0 20px;
-  border-left: 3px dashed rgba(14, 47, 58, .45);
-  border-radius: 6px;
-  background: var(--ivoire);
-  color: var(--nuit);
-  font: 700 16px/24px var(--texte);
-  text-align: left;
-  box-shadow: 0 4px 0 rgba(6, 24, 30, .5);
-  transition: transform var(--t-appui) linear;
-}
-
-.talon-lien:active { transform: translateY(2px); }
-.talon-lien > span { flex: 1 1 auto; }
-.talon-lien > svg:first-child { color: var(--bougainvillier-fonce); --icone-fond: var(--ivoire); }
-
 /* Le conseil de Piou : sa phrase, la barre de l'objectif dont il parle, et le chemin. */
 .conseil .bulle__texte { flex: 1 1 auto; }
-.conseil .bouton { display: flex; margin: 2px 0 -6px -12px; color: var(--persienne-fonce); }
+.conseil .bouton { display: flex; margin: -2px 0 -10px -12px; color: var(--persienne-fonce); }
 .conseil__actions { display: flex; flex-wrap: wrap; }
 
 /* La barre de progression, sur le papier de la bulle. */
 .conseil .barre {
-  margin: 10px 0 4px;
+  margin: 8px 0 2px;
   background: rgba(14, 47, 58, .16);
+}
+
+/* Écran étroit : le portrait se fait plus petit, la phrase y gagne une ligne. */
+@media (max-width: 340px) {
+  .bulle.conseil { gap: 8px; }
+  .conseil .portrait { width: 44px; height: 44px; }
 }
 
 /* ---------------------------------------------------------------- Dressing */

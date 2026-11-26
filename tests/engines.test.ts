@@ -1,18 +1,37 @@
 // Moteurs de tickets (BRIEF.md, sections 7.1 à 7.9 et 17.4).
 
-import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { afterEach, describe, expect, it } from "vitest";
 import { TICKETS, ticketById } from "../shared/tickets";
 import { buildLayout, cellIds, evaluate, matches, needsPick, pickOptions, ruleOf } from "../src/engines";
 import { CAMP_CELLS, MAJORITY, countOf } from "../src/engines/camps";
 import { COEFS, tripleOf } from "../src/engines/coef";
-import { completeWords, gridOf } from "../src/engines/mots";
-import { ALPHABET, GRILLES, LETTRES_MORTES } from "../src/engines/mots-grilles";
+import { GRID_COLS, GRID_ROWS, completeWords, gridOf, grilleValide, grillesOf } from "../src/engines/mots";
+import { ALPHABET, GRILLES, LETTRES_MORTES, type Grille } from "../src/engines/mots-grilles";
+import { GRILLES_EN } from "../src/engines/mots-grilles-en";
+import { panelNames } from "../src/engines/multi";
 import { boardOf, totalOf } from "../src/engines/parcours";
 import { decoy, mulberry32, palette, splitGain } from "../src/engines/common";
 import { roundWon } from "../src/engines/duel";
-import { DRAW_SIZE, LINE_COUNT } from "../src/engines/lignes";
+import { CARD_RANK_NAMES, CARD_SUIT_NAMES, DRAW_SIZE, LINE_COUNT } from "../src/engines/lignes";
 import { completeLines } from "../src/engines/morpion";
 import { optStrings } from "../src/engines/common";
+import { i18nMisses, lang, setLang, t } from "../src/i18n";
+import { EN_TICKETS } from "../src/i18n/en/tickets";
+import { SYMBOL_NAMES, symbolName } from "../src/ticket/themes";
+
+// Chaque test repart du français, même si le précédent a échoué en anglais.
+afterEach(() => setLang("fr"));
+
+/** Exécute `run` en anglais, puis revient au français quoi qu'il arrive. */
+function inEnglish<T>(run: () => T): T {
+  setLang("en");
+  try {
+    return run();
+  } finally {
+    setLang("fr");
+  }
+}
 
 const SEEDS = 500;
 
@@ -587,6 +606,150 @@ describe("mots", () => {
   });
 });
 
+describe("mots, en anglais", () => {
+  const tickets = TICKETS.filter((t) => t.engine === "mots");
+  const lexiques = tickets.map((def) => String(def.options.lexique));
+  const texts = (grille: Grille) => grille.map(([text]) => text).sort();
+
+  it("le français n'a que des grilles françaises, quelle que soit la langue quittée", () => {
+    inEnglish(() => undefined);
+    expect(lang()).toBe("fr");
+    for (const lexique of Object.keys(GRILLES)) expect(grillesOf(lexique)).toBe(GRILLES[lexique]);
+    // Un lexique inconnu retombe sur celui de la terrasse.
+    expect(grillesOf("inconnu")).toBe(GRILLES.terrasse);
+  });
+
+  it("les grilles anglaises respectent le même contrat que les françaises", () => {
+    for (const [lexique, grilles] of Object.entries(GRILLES_EN)) {
+      // Les mêmes lexiques qu'en français : rien d'autre ne serait jamais affiché.
+      expect(Object.keys(GRILLES)).toContain(lexique);
+      for (const grille of grilles) {
+        if (!grilleValide(grille)) throw new Error(`${lexique} : grille anglaise invalide (${texts(grille).join(", ")})`);
+        expect(grille.length).toBe(10);
+        let rows = 0;
+        let cols = 0;
+        for (const [text, row, col, dir] of grille) {
+          expect(text.length).toBeGreaterThanOrEqual(3);
+          for (const ch of text) expect(ALPHABET.includes(ch)).toBe(true);
+          rows = Math.max(rows, row + (dir === 1 ? text.length : 1));
+          cols = Math.max(cols, col + (dir === 0 ? text.length : 1));
+        }
+        expect(rows).toBeLessThanOrEqual(GRID_ROWS);
+        expect(cols).toBeLessThanOrEqual(GRID_COLS);
+      }
+    }
+  });
+
+  it("le contrôle des grilles refuse ce qui ne tient pas debout", () => {
+    const good = GRILLES.terrasse![0]!;
+    expect(grilleValide(good)).toBe(true);
+    // Neuf mots seulement.
+    expect(grilleValide(good.slice(1))).toBe(false);
+    // Une lettre hors des dix : le K de « KAYAK ».
+    expect(grilleValide(good.map((w, i) => (i === 0 ? (["KAYAK", w[1], w[2], w[3]] as const) : w)))).toBe(false);
+    // Un mot déplacé : les croisements ne tombent plus juste.
+    expect(grilleValide(good.map((w, i) => (i === 0 ? ([w[0], w[1] + 1, w[2] + 1, w[3]] as const) : w)))).toBe(false);
+    // Toutes les grilles françaises passent le contrôle.
+    for (const grilles of Object.values(GRILLES)) for (const g of grilles) expect(grilleValide(g)).toBe(true);
+  });
+
+  it("en anglais : les grilles anglaises du lexique, ou les françaises tant qu'il n'en a pas", () => {
+    expect(tickets.length).toBe(2);
+    inEnglish(() => {
+      for (const lexique of lexiques) {
+        const english = (GRILLES_EN[lexique] ?? []).filter(grilleValide);
+        const used = grillesOf(lexique);
+        if (english.length > 0) expect(used).toEqual(english);
+        else expect(used).toBe(GRILLES[lexique]);
+        expect(used.length).toBeGreaterThan(0);
+      }
+      // Un lexique sans grille anglaise garde ses grilles françaises.
+      if (!GRILLES_EN.inconnu) expect(grillesOf("inconnu")).toBe((GRILLES_EN.terrasse ?? []).some(grilleValide) ? grillesOf("terrasse") : GRILLES.terrasse);
+    });
+  });
+
+  it("invariant : evaluate(buildLayout(def, gain, seed)) === gain, pour chaque lot, sur 500 graines", () => {
+    for (const def of tickets) {
+      const pal = palette(def);
+      inEnglish(() => {
+        const grids = new Set<number>();
+        for (let k = 0; k <= pal.length; k++) {
+          const gain = k === 0 ? 0 : pal[k - 1]!;
+          for (let i = 0; i < SEEDS; i++) {
+            const seed = seedAt(i);
+            const layout = buildLayout(def, gain, seed);
+            if (layout.engine !== "mots") throw new Error("moteur inattendu");
+            const paid = evaluate(layout);
+            if (paid !== gain) throw new Error(`${def.id} (anglais) gain=${gain} seed=${seed} paie ${paid}`);
+            grids.add(layout.grid);
+            // Dix lettres toutes différentes, et autant de mots complets que le rang du lot.
+            expect(layout.letters.length).toBe(10);
+            expect(new Set(layout.letters).size).toBe(10);
+            expect(completeWords(layout, layout.letters).length).toBe(k);
+            // La grille lue est bien une grille de la langue du jeu.
+            expect(grillesOf(String(def.options.lexique))).toContain(gridOf(layout));
+          }
+        }
+        // Toutes les grilles du lexique servent.
+        expect(grids.size).toBe(grillesOf(String(def.options.lexique)).length);
+      });
+    }
+  });
+
+  it("toutes les lettres grattées : les mots complets paient exactement le gain", () => {
+    for (const def of tickets) {
+      inEnglish(() => {
+        for (const gain of [0, ...palette(def)]) {
+          for (let i = 0; i < 60; i++) {
+            const layout = buildLayout(def, gain, seedAt(i));
+            const list = matches(layout, new Set(cellIds(layout)));
+            expect(list.reduce((s, m) => s + m.amount, 0)).toBe(gain);
+            expect(matches(layout, new Set()).length).toBe(0);
+            expect(new Set(list.map((m) => m.key)).size).toBe(list.length);
+          }
+        }
+      });
+    }
+  });
+
+  it("le gain ne dépend pas de la langue : seule l'image change", () => {
+    for (const def of tickets) {
+      const lexique = String(def.options.lexique);
+      const hasEnglish = (GRILLES_EN[lexique] ?? []).some(grilleValide);
+      let different = 0;
+      for (const gain of [0, ...palette(def)]) {
+        for (let i = 0; i < 40; i++) {
+          const seed = seedAt(i);
+          const fr = buildLayout(def, gain, seed);
+          expect(evaluate(fr)).toBe(gain);
+          const wordsFr = fr.engine === "mots" ? texts(gridOf(fr)) : [];
+          const [paid, scale, wordsEn] = inEnglish(() => {
+            const en = buildLayout(def, gain, seed);
+            if (en.engine !== "mots") throw new Error("moteur inattendu");
+            return [evaluate(en), en.scale, texts(gridOf(en))] as const;
+          });
+          expect(paid).toBe(gain);
+          // Le barème est celui du ticket, dans les deux langues.
+          expect(scale).toEqual(fr.engine === "mots" ? fr.scale : []);
+          if (wordsEn.join() !== wordsFr.join()) different++;
+        }
+      }
+      // Avec des grilles anglaises, les mots ne sont plus ceux du français.
+      if (hasEnglish) expect(different).toBeGreaterThan(0);
+      else expect(different).toBe(0);
+    }
+  });
+
+  it("les autres moteurs ne changent pas avec la langue : même graine, même grille", () => {
+    for (const def of TICKETS.filter((t) => t.engine !== "mots")) {
+      const gain = palette(def)[5]!;
+      const fr = buildLayout(def, gain, 20261125);
+      const en = inEnglish(() => buildLayout(def, gain, 20261125));
+      expect(en).toEqual(fr);
+    }
+  });
+});
+
 describe("règles", () => {
   it("chaque ticket a sa règle en une phrase", () => {
     for (const def of TICKETS) {
@@ -594,5 +757,126 @@ describe("règles", () => {
       expect(rule.length).toBeGreaterThan(20);
       expect(rule.endsWith(".")).toBe(true);
     }
+  });
+
+  it("dans les deux langues : une règle anglaise pour chaque ticket, courte, sans manque", () => {
+    for (const def of TICKETS) {
+      const fr = ruleOf(def);
+      const en = inEnglish(() => ruleOf(def));
+      // La règle française est la clé de sa traduction.
+      expect(EN_TICKETS[fr]).toBe(en);
+      expect(en).not.toBe(fr);
+      expect(en.endsWith(".")).toBe(true);
+      // Deux lignes au pied d'un ticket de 252 px : 86 caractères au plus.
+      expect(fr.length).toBeLessThanOrEqual(86);
+      expect(en.length).toBeLessThanOrEqual(86);
+      // Guillemets et espaces : l'anglais s'affiche tel quel.
+      expect(/[«»\u00A0\u202F]/.test(en)).toBe(false);
+      expect(i18nMisses()).not.toContain(fr);
+    }
+    // Revenu au français, la règle redevient française.
+    expect(lang()).toBe("fr");
+    expect(ruleOf(ticketById("tirelire")!)).toBe("Trouve 3 montants identiques : tu gagnes ce montant.");
+  });
+
+  it("deux tickets qui ne se jouent pas pareil n'ont pas la même règle", () => {
+    const rules = new Map<string, string>();
+    for (const def of TICKETS) {
+      const key = `${def.engine}:${String(def.options.mode ?? def.options.skin ?? def.options.family ?? def.options.target ?? "")}`;
+      const rule = ruleOf(def);
+      const seen = [...rules.entries()].find(([k, r]) => r === rule && k.split(":")[0] !== def.engine);
+      expect(seen).toBeUndefined();
+      rules.set(key, rule);
+    }
+  });
+});
+
+describe("textes des tickets", () => {
+  /** Tout ce qu'un ticket peut imprimer ou faire lire, en français : ce sont les clés de traduction. */
+  function frenchTexts(): string[] {
+    const out = new Set<string>();
+    for (const def of TICKETS) {
+      out.add(ruleOf(def));
+      for (const opponent of optStrings(def.options, "opponents")) out.add(opponent);
+      const layout = buildLayout(def, 0, 1);
+      if (layout.engine === "multi") for (const name of panelNames(layout)) out.add(name);
+    }
+    for (const name of Object.values(SYMBOL_NAMES)) out.add(name);
+    for (const name of [...Object.values(CARD_RANK_NAMES), ...Object.values(CARD_SUIT_NAMES)]) out.add(name);
+    return [...out];
+  }
+
+  /** Les phrases passées à `t("…")` dans le code du ticket. */
+  function literalKeys(): string[] {
+    const out = new Set<string>();
+    for (const file of ["src/ticket/Ticket.tsx", "src/ticket/views.tsx"]) {
+      const source = readFileSync(file, "utf8");
+      for (const m of source.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)) out.add(m[1]!);
+      // Les deux branches d'un choix : t(condition ? "A" : "B").
+      for (const m of source.matchAll(/\bt\([^()"]*\?\s*"([^"]*)"\s*:\s*"([^"]*)"/g)) {
+        out.add(m[1]!);
+        out.add(m[2]!);
+      }
+    }
+    return [...out];
+  }
+
+  it("chaque texte d'un ticket a sa traduction anglaise", () => {
+    const keys = [...frenchTexts(), ...literalKeys()];
+    expect(keys.length).toBeGreaterThan(120);
+    expect(keys.filter((fr) => EN_TICKETS[fr] === undefined)).toEqual([]);
+    inEnglish(() => {
+      for (const fr of keys) expect(t(fr)).toBe(EN_TICKETS[fr]);
+      expect(keys.filter((fr) => i18nMisses().includes(fr))).toEqual([]);
+    });
+  });
+
+  it("les noms des symboles suivent la langue, et un symbole inconnu garde son repli", () => {
+    expect(symbolName("constellation:homard")).toBe("Homard");
+    expect(symbolName("famille:inconnu", "inconnu")).toBe("inconnu");
+    inEnglish(() => {
+      expect(symbolName("constellation:homard")).toBe("Lobster");
+      expect(symbolName("fanal:babord")).toBe("Port");
+      expect(symbolName("famille:inconnu", "inconnu")).toBe("inconnu");
+      // Les figures : valet, dame et roi se lisent jack, queen et king.
+      expect(t("{rang} de {couleur}", { rang: t("valet"), couleur: t("pique") })).toBe("jack of spades");
+      expect(t("{rang} de {couleur}", { rang: t("roi"), couleur: t("cœur") })).toBe("king of hearts");
+      expect(t("Payé")).toBe("Paid");
+    });
+    expect(t("Payé")).toBe("Payé");
+  });
+
+  it("une traduction tient à la place de son texte : jamais beaucoup plus longue", () => {
+    const tooLong = Object.entries(EN_TICKETS)
+      .filter(([fr, en]) => en.length > fr.length + 8)
+      .map(([fr, en]) => `${fr} → ${en}`);
+    expect(tooLong).toEqual([]);
+    // Les libellés imprimés dans la zone de jeu tiennent sur une ligne.
+    for (const fr of ["Numéros gagnants", "Tes numéros", "Comptes gagnants", "Tes comptes", "Coefficient de marée", "Taux d'intérêt", "Les ingrédients"]) {
+      expect(EN_TICKETS[fr]!.length).toBeLessThanOrEqual(20);
+    }
+  });
+
+  it("plus aucune mention « jeu de fiction », dans aucune langue", () => {
+    const forbidden = /fiction|gain r[ée]el|argent r[ée]el|aucun gain|r[ée]serv[ée] aux adultes|real money|no real|not real|adults only/i;
+    const texts = [...frenchTexts(), ...literalKeys(), ...Object.keys(EN_TICKETS), ...Object.values(EN_TICKETS)];
+    expect(texts.filter((x) => forbidden.test(x))).toEqual([]);
+    // Ni dans le code du ticket, ni dans celui des moteurs, ni dans leur feuille de style.
+    const files = [
+      ...readdirSync("src/ticket").map((f) => `src/ticket/${f}`),
+      ...readdirSync("src/engines").map((f) => `src/engines/${f}`),
+      ...readdirSync("src/scratch").map((f) => `src/scratch/${f}`),
+      "src/i18n/en/tickets.ts",
+    ];
+    expect(files.length).toBeGreaterThan(20);
+    expect(files.filter((file) => forbidden.test(readFileSync(file, "utf8")))).toEqual([]);
+  });
+
+  it("un ticket trouvé le dit en deux mots, et le tampon en un", () => {
+    const source = readFileSync("src/ticket/Ticket.tsx", "utf8");
+    expect(source).toContain('t("Trouvé par terre")');
+    expect(source).not.toMatch(/toujours gagnant/i);
+    expect(EN_TICKETS["Trouvé par terre"]).toBe("Found on the ground");
+    expect(EN_TICKETS["Payé"]).toBe("Paid");
   });
 });
