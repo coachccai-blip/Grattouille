@@ -2,20 +2,29 @@
 // devenu. Du fond vers l'avant : ciel du meilleur lieu débloqué, résidence choisie,
 // véhicule à gauche, avatar au centre, trésors sur une console à droite. Et parfois,
 // par terre, un ticket que quelqu'un a laissé tomber.
+//
+// Sous la scène, Piou dit quoi faire ensuite (RECIT.md) : une seule consigne à la fois,
+// la prochaine étape utile, du premier ticket du quai jusqu'au rachat du Kiosque. Quand
+// il parle d'un objectif chiffré (les ★ du prochain lieu, la collection), sa barre de
+// progression est dans la bulle : l'information n'est écrite qu'une fois à l'écran.
 
+import type { ReactNode } from "react";
 import { CATALOG, COLLECTION_SIZE, KIOSK, itemById } from "../../../shared/catalog";
-import { formatEuros, formatInt } from "../../../shared/format";
-import { bestPlace, nextPlace, rankOf } from "../../../shared/rules";
-import type { PlayerState } from "../../../shared/types";
-import { PIOU } from "../../app/dialogues";
-import { capitalize, pluriel, skyOf } from "../../app/helpers";
+import { formatEuros } from "../../../shared/format";
+import { bestPlace, collectionComplete, nextPlace } from "../../../shared/rules";
+import { cheapestTicket } from "../../../shared/tickets";
+import type { PlayerState, ShopId } from "../../../shared/types";
+import { PIOU, hostName } from "../../app/dialogues";
+import { skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { displayBalance, patchSettings, toScratch, useFound, useGame } from "../../app/store";
+import { displayBalance, isBroke, patchSettings, toScratch, useFound, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
-import { Bouton } from "../../ui/Bouton";
+import { t } from "../../i18n";
+import { itemName, keeperName, placeMoment, placeShort, rankName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
+import { Bouton } from "../../ui/Bouton";
 import { Bourse, Standing } from "../../ui/Bourse";
 import { Barre, BulleLibre, Entete, Phrase } from "../../ui/Commun";
 import { usePickUp } from "../../ui/Trouve";
@@ -29,89 +38,134 @@ function topTreasures(owned: readonly string[]): string[] {
     .map((i) => i.id);
 }
 
-/** Carte d'objectif : le prochain lieu et sa barre de ★, puis la collection, puis le Kiosque. */
-function Objectif({ player }: { player: PlayerState }) {
-  const next = nextPlace(player.standing);
-  if (next) {
-    return (
-      <section className="objectif" aria-label="Objectif">
-        <p className="objectif__titre">Prochain lieu : {next.short}</p>
-        <p className="objectif__compte"><Phrase text={`★ ${formatInt(player.standing)} sur ${formatInt(next.standing)}`} /></p>
-        <Barre value={player.standing} max={next.standing} />
-      </section>
-    );
+/** Le prix du bien le moins cher qui manque encore à la collection, ou `null` si elle est complète. */
+function cheapestMissing(owned: readonly string[]): number | null {
+  let min: number | null = null;
+  for (const item of CATALOG) {
+    if (!owned.includes(item.id) && (min === null || item.price < min)) min = item.price;
   }
-  if (player.owned.length < COLLECTION_SIZE) {
-    return (
-      <section className="objectif" aria-label="Objectif">
-        <p className="objectif__titre">Collection : {player.owned.length} sur {COLLECTION_SIZE}</p>
-        <p className="objectif__compte">Quand elle sera complète, Mme Colette aura une surprise.</p>
-        <Barre value={player.owned.length} max={COLLECTION_SIZE} />
-      </section>
-    );
-  }
-  if (!player.kiosk) {
-    return (
-      <button type="button" className="objectif objectif--kiosque" onClick={() => nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "colette" }])}>
-        <span className="objectif__titre">Le Kiosque est à vendre</span>
-        <span className="objectif__compte">Mme Colette vous attend à l'agence. {formatEuros(KIOSK.price)}.</span>
-      </button>
-    );
-  }
-  return (
-    <section className="objectif objectif--patron" aria-label="Objectif">
-      <p className="objectif__titre">Patron du Kiosque</p>
-      <p className="objectif__compte">La collection est complète. Il reste une fortune à faire grossir.</p>
-    </section>
-  );
+  return min;
 }
 
-/** Un seul conseil à la fois : Piou guide le début de partie, sans jamais bloquer. */
+/** Ce que Piou conseille : une phrase, parfois une barre de progression, parfois un chemin. */
+interface Avis {
+  texte: string;
+  /** Où en est l'objectif dont parle la phrase. */
+  barre?: { value: number; max: number };
+  actions?: ReactNode;
+}
+
+const versBoutiques = () => nav.reset([{ name: "boutiques" }]);
+const versJeu = () => nav.reset([{ name: "promenade" }]);
+const versBoutique = (shop: ShopId) => nav.reset([{ name: "boutiques" }, { name: "boutique", shop }]);
+
+/**
+ * Un seul conseil à la fois, sans jamais bloquer : Piou guide toute la partie. La
+ * phrase dit pourquoi, le bouton dit où aller ; ils ne se répètent pas.
+ */
 function Conseil({ player, found, busy, pickUp }: {
   player: PlayerState; found: "fauche" | "chance" | null; busy: boolean; pickUp: () => void;
 }) {
   const balance = useGame(displayBalance);
+  const waiting = useGame((s) => toScratch(s).length);
+  const broke = useGame(isBroke);
   const codeNote = useGame((s) => s.settings.codeNote);
   const sandbox = useGame((s) => s.sandbox);
 
-  // Un ticket traîne par terre : c'est la première chose à dire.
-  if (found) {
-    return (
-      <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {player.stats.tickets === 0 ? PIOU.premierTrouve : found === "fauche" ? PIOU.parTerre : PIOU.chance}
-        <Bouton variante="texte" attente={busy} onClick={pickUp}>Ramasser le ticket</Bouton>
-      </BulleLibre>
-    );
-  }
-  if (player.stats.tickets <= 1 && player.owned.length === 0 && balance < 3) {
-    return (
-      <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {PIOU.kiosque}
-        <Bouton variante="texte" onClick={() => nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }])}>Aller au Kiosque</Bouton>
-      </BulleLibre>
-    );
-  }
-  if (player.owned.length === 0 && balance >= 3) {
-    return (
-      <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {PIOU.ficelle(formatEuros(balance))}
-        <Bouton variante="texte" onClick={() => nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "sidonie" }])}>Aller chez Sidonie</Bouton>
-      </BulleLibre>
-    );
-  }
-  // Après une dizaine de tickets : invitation non bloquante à noter son code.
-  if (!sandbox && !codeNote && player.stats.tickets >= 10) {
-    return (
-      <BulleLibre pnj="piou" nom="Piou" className="conseil">
-        {PIOU.code}
-        <span className="conseil__actions">
-          <Bouton variante="texte" onClick={() => nav.push({ name: "reglages" })}>Voir mon code</Bouton>
-          <Bouton variante="texte" onClick={() => patchSettings({ codeNote: true })}>Plus tard</Bouton>
-        </span>
-      </BulleLibre>
-    );
-  }
-  return null;
+  const avis = ((): Avis => {
+    // Un ticket traîne par terre : c'est la première chose à dire.
+    if (found) {
+      const texte = player.kiosk
+        ? PIOU.trouvePatron
+        : player.stats.tickets === 0 ? PIOU.premierTrouve : PIOU.trouve(found, player.stats.tickets);
+      return { texte, actions: <Bouton variante="texte" attente={busy} onClick={pickUp}>{t("Ramasser le ticket")}</Bouton> };
+    }
+    // Plus de quoi jouer, et rien par terre pour l'instant : cela ne dure pas vingt secondes.
+    if (broke) return { texte: PIOU.fauche };
+    // Le ticket du quai est ramassé, pas encore gratté : le talon, juste dessous, y emmène.
+    if (player.stats.tickets === 0 && waiting > 0) return { texte: PIOU.aGratter };
+    // Après une dizaine de tickets : invitation non bloquante à noter son code.
+    if (!sandbox && !codeNote && player.stats.tickets >= 10) {
+      return {
+        texte: PIOU.code,
+        actions: (
+          <span className="conseil__actions">
+            <Bouton variante="texte" onClick={() => nav.push({ name: "reglages" })}>{t("Voir mon code")}</Bouton>
+            <Bouton variante="texte" onClick={() => patchSettings({ codeNote: true })}>{t("Plus tard")}</Bouton>
+          </span>
+        ),
+      };
+    }
+    // Après la fin : il reste une fortune à faire grossir.
+    if (player.kiosk) {
+      return { texte: PIOU.patron, actions: <Bouton variante="texte" onClick={() => nav.reset([{ name: "classement" }])}>{t("Voir le classement")}</Bouton> };
+    }
+
+    const missing = cheapestMissing(player.owned);
+    const canShop = missing !== null && balance >= missing;
+    const canPlay = balance >= cheapestTicket("kiosque").price;
+    // Ni de quoi acheter ni de quoi jouer, mais des tickets en attente : le talon, juste dessous, y emmène.
+    if (!canShop && !canPlay && waiting > 0) return { texte: PIOU.pile };
+    // Les ★ s'achètent en boutique ; quand la bourse ne suit pas, on retourne d'abord au comptoir.
+    const chemin = canShop
+      ? <Bouton variante="texte" onClick={versBoutiques}>{t("Aller aux boutiques")}</Bouton>
+      : <Bouton variante="texte" onClick={versJeu}>{t("Aller jouer")}</Bouton>;
+
+    // Les premiers euros, et encore rien à soi : une ficelle chez Mlle Sidonie, ou d'abord un tour au Kiosque.
+    if (player.owned.length === 0) {
+      if (balance >= 3) {
+        return {
+          texte: PIOU.ficelle(formatEuros(balance)),
+          actions: <Bouton variante="texte" onClick={() => versBoutique("sidonie")}>{t("Aller chez {vendeur}", { vendeur: keeperName("sidonie") })}</Bouton>,
+        };
+      }
+      return {
+        texte: PIOU.kiosque,
+        actions: <Bouton variante="texte" onClick={() => nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }])}>{t("Aller au Kiosque")}</Bouton>,
+      };
+    }
+
+    // Le prochain lieu et les ★ qui manquent. Au premier achat, Piou dit ce qu'est le Standing.
+    const next = nextPlace(player.standing);
+    if (next) {
+      const stars = next.standing - player.standing;
+      const lieu = placeShort(next.id);
+      return {
+        texte: player.owned.length === 1
+          ? PIOU.premieresEtoiles(stars, lieu)
+          : PIOU.prochainLieu(stars, lieu, canShop ? "boutiques" : "jouer", player.owned.length),
+        barre: { value: player.standing, max: next.standing },
+        actions: chemin,
+      };
+    }
+    // Tout est ouvert : il reste la collection.
+    if (!collectionComplete(player.owned)) {
+      return {
+        texte: PIOU.collection(player.owned.length, COLLECTION_SIZE),
+        barre: { value: player.owned.length, max: COLLECTION_SIZE },
+        actions: chemin,
+      };
+    }
+    // Collection complète : le Kiosque est à vendre.
+    if (balance >= KIOSK.price) {
+      return {
+        texte: PIOU.kiosqueAVendre(formatEuros(KIOSK.price)),
+        actions: <Bouton variante="texte" onClick={() => versBoutique("colette")}>{t("Aller chez {vendeur}", { vendeur: keeperName("colette") })}</Bouton>,
+      };
+    }
+    return {
+      texte: PIOU.kiosqueAVendre(formatEuros(KIOSK.price), formatEuros(KIOSK.price - balance)),
+      actions: <Bouton variante="texte" onClick={versJeu}>{t("Aller jouer")}</Bouton>,
+    };
+  })();
+
+  return (
+    <BulleLibre pnj="piou" nom={hostName("piou")} className="conseil">
+      <Phrase text={avis.texte} />
+      {avis.barre && <Barre value={avis.barre.value} max={avis.barre.max} />}
+      {avis.actions}
+    </BulleLibre>
+  );
 }
 
 export function Domaine() {
@@ -130,10 +184,10 @@ export function Domaine() {
   return (
     <main className="ecran ecran--onglets domaine">
       <Entete
-        titre="Domaine"
+        titre={t("Domaine")}
         titreDiscret
         gauche={
-          <button type="button" className="entete__bouton" onClick={() => nav.push({ name: "reglages" })} aria-label="Réglages">
+          <button type="button" className="entete__bouton" onClick={() => nav.push({ name: "reglages" })} aria-label={t("Réglages")}>
             <Icon name="reglages" />
           </button>
         }
@@ -144,8 +198,12 @@ export function Domaine() {
         <button
           type="button"
           className="domaine__residence"
-          onClick={() => (ownsResidences ? nav.push({ name: "choix-domaine", slot: "residence" }) : nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "colette" }]))}
-          aria-label={residence ? `Résidence : ${itemById(residence)?.name}. Changer de résidence` : "Pas encore de résidence : le banc du port. Voir l'Agence Colette"}
+          onClick={() => (ownsResidences ? nav.push({ name: "choix-domaine", slot: "residence" }) : versBoutique("colette"))}
+          aria-label={
+            residence
+              ? t("Résidence : {nom}. En changer", { nom: itemName(residence) })
+              : t("Pas encore de résidence : le banc du port. Voir les résidences à vendre")
+          }
         >
           <Illustration id={residence ? `item:${residence}` : "decor:banc"} />
         </button>
@@ -154,25 +212,25 @@ export function Domaine() {
             type="button"
             className="domaine__vehicule"
             onClick={() => nav.push({ name: "choix-domaine", slot: "vehicule" })}
-            aria-label={vehicle ? `Véhicule : ${itemById(vehicle)?.name}. Changer de véhicule` : "À pied. Choisir un véhicule"}
+            aria-label={vehicle ? t("Véhicule : {nom}. En changer", { nom: itemName(vehicle) }) : t("À pied. Choisir un véhicule")}
           >
-            {vehicle ? <Illustration id={`item:${vehicle}`} /> : <span className="domaine__a-pied">à pied</span>}
+            {vehicle ? <Illustration id={`item:${vehicle}`} /> : <span className="domaine__a-pied">{t("à pied")}</span>}
           </button>
         )}
         {treasures.length > 0 && (
-          <div className="domaine__tresors" aria-label={`Trésors exposés : ${treasures.map((id) => itemById(id)?.name).join(", ")}`}>
+          <div className="domaine__tresors" role="img" aria-label={t("Trésors exposés : {liste}", { liste: treasures.map(itemName).join(", ") })}>
             <div className="domaine__tresors-rang">
               {treasures.map((id) => <Illustration key={id} id={`item:${id}`} />)}
             </div>
             <span className="domaine__console" aria-hidden="true" />
           </div>
         )}
-        <button type="button" className="domaine__avatar" onClick={() => nav.push({ name: "dressing" })} aria-label="Ouvrir le dressing">
+        <button type="button" className="domaine__avatar" onClick={() => nav.push({ name: "dressing" })} aria-label={t("Ouvrir le dressing")}>
           <Avatar species={player.species} look={player.look} />
         </button>
         {/* Le ticket qui traîne par terre : il brille doucement, on le ramasse d'un toucher. */}
         {found && (
-          <button type="button" className="domaine__trouve" onClick={pickUp} disabled={busy} aria-label="Un ticket traîne par terre. Le ramasser">
+          <button type="button" className="domaine__trouve" onClick={pickUp} disabled={busy} aria-label={t("Un ticket traîne par terre. Le ramasser")}>
             <span className="domaine__trouve-ticket" aria-hidden="true"><Icon name="jouer" plein size={30} /></span>
             <span className="domaine__trouve-eclat" aria-hidden="true" />
           </button>
@@ -182,22 +240,21 @@ export function Domaine() {
       <div className="domaine__identite">
         <h2 className="t-titre">{player.pseudo}</h2>
         <p className="domaine__fortune">
-          <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron")}>{rankOf(player.standing, player.kiosk)}</span>
-          Fortune : <strong className="chiffres">{formatEuros(player.fortune)}</strong>
+          <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron")}>{rankName(player.standing, player.kiosk)}</span>
+          {t("Fortune :")} <strong className="chiffres">{formatEuros(player.fortune)}</strong>
         </p>
       </div>
 
       <Conseil player={player} found={found} busy={busy} pickUp={pickUp} />
-      <Objectif player={player} />
 
       {waiting > 0 && (
         <button type="button" className="talon-lien" onClick={() => nav.push({ name: "a-gratter" })}>
           <Icon name="jouer" plein />
-          <span>{waiting} {pluriel(waiting, "ticket")} à gratter</span>
+          <span>{waiting > 1 ? t("{n} tickets à gratter", { n: waiting }) : t("1 ticket à gratter")}</span>
           <Icon name="chevron" />
         </button>
       )}
-      <p className="invisible">{capitalize(best.moment)} à Grattouille-les-Bains.</p>
+      <p className="invisible">{t("{moment} à Grattouille-les-Bains.", { moment: placeMoment(best.id) })}</p>
     </main>
   );
 }

@@ -6,16 +6,20 @@
 // Tout le grattage se passe sur l'appareil, sans réseau. Quand le résultat
 // s'affiche, le ticket est noté comme gratté ; il sera déclaré au serveur avec la
 // requête suivante, ou en quittant l'écran.
+//
+// L'écran a trois étages : l'en-tête, la scène où se tient le ticket, et le plateau.
+// Le plateau garde la même hauteur d'un temps à l'autre et porte, tour à tour, les
+// boutons, puis le résultat : le ticket ne bouge pas, et rien ne se pose jamais sur lui.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
-import { TIER_DURATION, TIER_RANK, isPlaceOpen, tierOf, type Tier } from "../../../shared/rules";
+import { TIER_DURATION, TIER_RANK, isPlaceOpen, tierOf } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
 import type { PendingTicket, TicketDef } from "../../../shared/types";
 import type { Line, Speaker } from "../../app/dialogues";
-import { atLeast, lineFor, nextFrame, pluriel } from "../../app/helpers";
-import { nav } from "../../app/nav";
+import { atLeast, lineFor, nextFrame } from "../../app/helpers";
+import { nav, useNav } from "../../app/nav";
 import { buyTickets, displayBalance, flushAck, isCalm, markRevealed, rememberSign, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
 import { buildLayout, cellIds, matches, needsPick, resolvePick } from "../../engines";
@@ -23,6 +27,8 @@ import { PANEL_COUNT, panelCellIds } from "../../engines/multi";
 import { playMatch, playStamp, playTicketBought, playTier, scratchEnd } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { Fx, type Point } from "../../fx/particles";
+import { t } from "../../i18n";
+import { ticketName } from "../../i18n/noms";
 import { ScratchLayer, type ScratchHandle } from "../../scratch/ScratchLayer";
 import { Ticket, useTicketWidth } from "../../ticket/Ticket";
 import { cx } from "../../ticket/parts";
@@ -30,7 +36,7 @@ import { themeOf } from "../../ticket/themes";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
 import { Bulle, Entete, HorsLigne } from "../../ui/Commun";
-import { Fete } from "./Fete";
+import { Fete, Resultat, fullScreen, resultText } from "./Fete";
 import { Roue } from "./Roue";
 import "./grattage.css";
 
@@ -46,11 +52,42 @@ function centerOf(el: Element | null): Point {
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 }
 
-/** Ce que l'écran annonce quand le résultat tombe : un mot, en plus de la couleur et du son. */
-function resultText(tier: Tier, gain: number): string {
-  if (tier === "perdu") return "Rien cette fois.";
-  if (tier === "rembourse") return "Remboursé.";
-  return `Gagné ${formatEuros(gain)}`;
+/**
+ * Ce que l'écran garde pour autre chose que le ticket : marges, en-tête, fente du
+ * distributeur et plateau (234 px, ou 222 sur un écran court : voir grattage.css), plus
+ * les encoches du téléphone et, en bac à sable, la ligne du bandeau (`--haut`, `--bas`).
+ */
+function estimateReserve(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;visibility:hidden;padding-top:var(--haut);padding-bottom:var(--bas)";
+  document.body.appendChild(probe);
+  const style = getComputedStyle(probe);
+  const insets = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  probe.remove();
+  return (window.innerHeight <= 600 ? 222 : 234) + (Number.isFinite(insets) ? insets : 0);
+}
+
+/**
+ * La hauteur de fenêtre que le ticket ne peut pas prendre. Estimée d'abord, puis
+ * mesurée sur la scène dès qu'elle est à l'écran (`shown`) : un bandeau de plus, un
+ * texte agrandi, et le ticket se réduit au lieu de déborder sur le plateau.
+ */
+function useReserve(scene: RefObject<HTMLElement | null>, shown: boolean): number {
+  const [reserve, setReserve] = useState(estimateReserve);
+  useLayoutEffect(() => {
+    const el = scene.current;
+    if (!el || !shown) return;
+    const measure = () => {
+      const style = getComputedStyle(el);
+      const room = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      if (room > 0) setReserve(Math.ceil(window.innerHeight - room));
+    };
+    measure();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    return () => observer?.disconnect();
+  }, [scene, shown]);
+  return reserve;
 }
 
 export function Grattage({ tickets, rafale: startRafale }: Props) {
@@ -58,6 +95,8 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   const calm = useGame(isCalm);
   const online = useGame((s) => s.online);
   const balance = useGame(displayBalance);
+  // D'où l'on vient : « Retour au comptoir » ne se dit que si le retour y mène.
+  const fromCounter = useNav((s) => s.stack[s.index - 1]?.name === "comptoir");
 
   const [queue, setQueue] = useState(tickets);
   const [index, setIndex] = useState(0);
@@ -98,8 +137,13 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   panelRef.current = panel;
   const rafaleRef = useRef(rafale);
   rafaleRef.current = rafale;
+  // Le bloc du résultat pendant la fête, et l'endroit où il se trouvait quand elle s'est
+  // terminée : après, le même bloc repart de là.
+  const feteBlock = useRef<HTMLParagraphElement>(null);
+  const anchor = useRef<DOMRect | null>(null);
 
-  const width = useTicketWidth(def, 236);
+  const reserve = useReserve(scene, phase !== "choix");
+  const width = useTicketWidth(def, reserve);
   const layout = useMemo(() => buildLayout(def, ticket.gain, ticket.seed, pick), [def, ticket, pick]);
   const ids = useMemo(() => cellIds(layout), [layout]);
   const multi = layout.engine === "multi";
@@ -132,6 +176,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     const asks = needsPick(d);
     finished.current = false;
     seenMatches.current = 0;
+    anchor.current = null;
     setQueue(q);
     setIndex(i);
     setCells(new Set());
@@ -147,8 +192,8 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   // --- Sortie du distributeur, puis grattage.
   useEffect(() => {
     if (phase !== "sortie") return;
-    const t = window.setTimeout(() => setPhase("gratte"), calm ? 200 : rafale ? 240 : 600);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setPhase("gratte"), calm ? 200 : rafale ? 240 : 600);
+    return () => window.clearTimeout(timer);
   }, [phase, calm, rafale, index, queue]);
 
   // --- Les correspondances tintent dès que leurs cases sont visibles.
@@ -168,8 +213,9 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     if (rafaleRef.current && big) setRafale(false);
     const duration = quick ? 420 : calm ? Math.min(TIER_DURATION[tier], 900) : TIER_DURATION[tier];
     setPhase("resultat");
-    setAnnounce(house && ticket.gain > 0 ? `${resultText(tier, ticket.gain)}. Trouvé par terre.` : resultText(tier, ticket.gain));
-    setTotals((t) => ({ count: t.count + 1, winners: t.winners + (ticket.gain > 0 ? 1 : 0), gain: t.gain + ticket.gain }));
+    // « Trouvé par terre » est imprimé sur le ticket : l'annonce ne le répète pas.
+    setAnnounce(resultText(tier, ticket.gain));
+    setTotals((sum) => ({ count: sum.count + 1, winners: sum.winners + (ticket.gain > 0 ? 1 : 0), gain: sum.gain + ticket.gain }));
     // Le ticket rejoint `grattouille.revealed` : la bourse compte jusqu'à sa nouvelle valeur.
     markRevealed(ticket.id, quick ? 300 : TIER_DURATION[tier]);
     playTier(tier);
@@ -197,14 +243,20 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     // Un toucher passe la fête du jackpot après 1 s.
     if (tier === "jackpot" && !quick) window.setTimeout(() => alive.current && setSkippable(true), 1000);
     resultMs.current = duration;
-  }, [tier, calm, house, ticket]);
+  }, [tier, calm, ticket]);
 
-  // --- La fête dure le temps de son palier, puis l'écran propose la suite.
+  // --- La fête est finie : on note où se tenait le bloc du résultat, puis l'écran propose la suite.
+  const leaveFete = useCallback(() => {
+    anchor.current = feteBlock.current?.getBoundingClientRect() ?? null;
+    setPhase("apres");
+  }, []);
+
+  // --- La fête dure le temps de son palier.
   useEffect(() => {
     if (phase !== "resultat") return;
-    const t = window.setTimeout(() => setPhase("apres"), resultMs.current);
-    return () => window.clearTimeout(t);
-  }, [phase]);
+    const timer = window.setTimeout(leaveFete, resultMs.current);
+    return () => window.clearTimeout(timer);
+  }, [phase, leaveFete]);
 
   // --- Volet suivant du ticket multiple, puis fin du grattage.
   useEffect(() => {
@@ -213,14 +265,14 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
       const current = panelCellIds(layout, panel);
       if (current.every((id) => cells.has(id)) && panel < PANEL_COUNT - 1) {
         // Le ticket passe seul au volet suivant quand le volet courant est entièrement gratté.
-        const t = window.setTimeout(() => setPanel((p) => (p === panel ? panel + 1 : p)), auto || rafale ? 160 : 520);
-        return () => window.clearTimeout(t);
+        const timer = window.setTimeout(() => setPanel((p) => (p === panel ? panel + 1 : p)), auto || rafale ? 160 : 520);
+        return () => window.clearTimeout(timer);
       }
     }
     if (ids.length > 0 && ids.every((id) => cells.has(id))) {
       // Le temps que la dernière encre finisse de se dissoudre.
-      const t = window.setTimeout(finish, calm || rafale ? 60 : 260);
-      return () => window.clearTimeout(t);
+      const timer = window.setTimeout(finish, calm || rafale ? 60 : 260);
+      return () => window.clearTimeout(timer);
     }
   }, [cells, phase, panel, multi, layout, ids, auto, rafale, calm, finish]);
 
@@ -260,8 +312,8 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     }
     if (phase === "apres") {
       if (index + 1 < queue.length) {
-        const t = window.setTimeout(() => start(queue, index + 1), 140);
-        return () => window.clearTimeout(t);
+        const timer = window.setTimeout(() => start(queue, index + 1), 140);
+        return () => window.clearTimeout(timer);
       }
       setRafale(false); // fin du carnet : le récapitulatif s'affiche
     }
@@ -270,8 +322,8 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   // --- Le ticket quitte l'écran : froissé s'il a perdu, vers la bourse s'il a gagné.
   useEffect(() => {
     if (phase !== "apres") return;
-    const t = window.setTimeout(() => setGone(true), calm ? 200 : 400);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setGone(true), calm ? 200 : 400);
+    return () => window.clearTimeout(timer);
   }, [phase, calm, index, queue]);
 
   // --- Le doigt fantôme montre le geste sur la première case.
@@ -297,7 +349,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   }, []);
 
   const skip = () => {
-    if (phase === "resultat" && skippable) setPhase("apres");
+    if (phase === "resultat" && skippable) leaveFete();
   };
 
   const rebuy = async () => {
@@ -324,21 +376,42 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   const canRebuy = !house && online && isPlaceOpen(def.place, player.standing) && balance >= def.price;
   const etat = phase === "resultat" || phase === "apres" ? (ticket.gain > 0 ? "gagnant" : "perdu") : "neuf";
   const showTicket = phase !== "choix" && !gone;
+  const fete = phase === "resultat" && !rafale;
+  const plein = fete && fullScreen(tier);
+  // L'hôte réagit une fois, quand le ticket est payé : à la mesure du gain, et pour un
+  // gros gain même au milieu d'un carnet.
   let reaction: Line | null = null;
-  if (phase === "resultat" && !rafale && TIER_RANK[tier] >= TIER_RANK.gros) {
-    reaction = lineFor(player, host, tier === "jackpot" ? "jackpot" : "gros", seed + index);
-  } else if (phase === "apres" && !rafale && !carnet) {
-    reaction = lineFor(player, host, ticket.gain > 0 ? "gagne" : "perdu", seed + index);
+  if (phase === "apres" && !rafale) {
+    if (TIER_RANK[tier] >= TIER_RANK.gros) reaction = lineFor(player, host, tier === "jackpot" ? "jackpot" : "gros", seed + index);
+    else if (!carnet) reaction = lineFor(player, host, ticket.gain > 0 ? "gagne" : "perdu", seed + index);
   }
+  // Le récapitulatif vaut pour un carnet comme pour une pile de tickets dépareillés.
+  const recap = totals.winners === 0
+    ? t("{n} tickets : aucun gagnant", { n: totals.count })
+    : totals.winners > 1
+      ? t("{n} tickets : {gagnants} gagnants", { n: totals.count, gagnants: totals.winners })
+      : t("{n} tickets : 1 gagnant", { n: totals.count });
+  const pause = () => setRafale(false);
 
   return (
-    <main className={cx("ecran grattage", rafale && "grattage--rafale")}>
+    <main className={cx("ecran grattage", rafale && "grattage--rafale", plein && tier === "jackpot" && "grattage--or")}>
       <HorsLigne />
-      {/* Le ticket porte déjà son nom : l'en-tête ne le répète qu'aux lecteurs d'écran. */}
-      <Entete titre={carnet ? `Ticket ${index + 1} sur ${queue.length}` : def.name} titreDiscret={!carnet} retour droite={<Bourse />} />
+      {/* Le ticket porte déjà son nom : l'en-tête ne le dit qu'aux lecteurs d'écran. Dans un carnet, il compte les tickets. */}
+      <Entete
+        titre={carnet ? t("Ticket {n} sur {total}", { n: index + 1, total: queue.length }) : ticketName(def.id)}
+        titreDiscret
+        retour
+        gauche={carnet ? <span className="grattage__compte chiffres" aria-hidden="true">{index + 1}/{queue.length}</span> : undefined}
+        droite={<Bourse />}
+      />
       <p className="invisible" role="status" aria-live="polite">{announce}</p>
 
-      <div className={cx("grattage__scene", phase === "choix" && "grattage__scene--choix")} ref={scene}>
+      {/* En rafale, toucher la scène met en pause : le bouton du plateau le dit et le fait aussi. */}
+      <div
+        className={cx("grattage__scene", phase === "choix" && "grattage__scene--choix")}
+        ref={scene}
+        onClick={rafale ? pause : undefined}
+      >
         <span className="distributeur" aria-hidden="true" />
 
         {phase === "choix" && (
@@ -403,60 +476,73 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
           </span>
         )}
 
-        {phase === "resultat" && !rafale && (
-          <Fete tier={tier} gain={ticket.gain} house={house} reaction={reaction} skippable={skippable} onSkip={skip} />
-        )}
-
-        {gone && phase === "apres" && (
-          <div className="bilan">
-            <p className={cx("bilan__titre", ticket.gain > 0 && "bilan__titre--gain")}>{resultText(tier, ticket.gain)}</p>
-            {house && <p className="bilan__mention">Trouvé par terre</p>}
-            {carnet && last && (
-              <p className="bilan__carnet">
-                Carnet de {totals.count} : {totals.winners} {pluriel(totals.winners, "gagnant")}, {formatEuros(totals.gain)}
+        {/* Le ticket s'en va : le résultat prend sa place au milieu de la scène, puis l'hôte réagit. */}
+        {phase === "apres" && !rafale && (
+          <div className={cx("bilan", !gone && "bilan--attend")}>
+            {carnet && last ? (
+              // Dernier ticket : le compte des gagnants et le total, à la place du dernier résultat.
+              <p className="resultat resultat--carnet">
+                <span className="resultat__mot">{recap}</span>
+                <span className="resultat__montant">{formatEuros(totals.gain)}</span>
               </p>
+            ) : (
+              <Resultat tier={tier} gain={ticket.gain} depart={anchor} calm={calm} />
             )}
             <Bulle line={reaction} />
           </div>
         )}
-
-        {rafale && (
-          <button type="button" className="grattage__pause" onClick={() => setRafale(false)}>
-            <span>Total : <strong className="chiffres">{formatEuros(totals.gain)}</strong></span>
-            <span>Touche l'écran pour mettre en pause</span>
-          </button>
-        )}
       </div>
 
-      <div className="grattage__actions">
-        {(phase === "sortie" || phase === "gratte") && !rafale && (
-          <>
-            <Bouton bloc disabled={phase !== "gratte" || auto} onClick={() => void sweep(900)}>Tout gratter</Bouton>
-            {carnet && index >= 1 && (
-              <Bouton variante="secondaire" bloc disabled={phase !== "gratte" || auto} onClick={() => setRafale(true)}>
-                Gratter en rafale
-              </Bouton>
-            )}
-          </>
-        )}
-        {phase === "apres" && !rafale && (
-          last ? (
-            <>
-              {canRebuy ? (
-                <Bouton bloc attente={busy} onClick={() => void rebuy()}>Racheter le même {formatEuros(def.price)}</Bouton>
-              ) : (
-                <Bouton bloc onClick={() => nav.back()}>Retour au comptoir</Bouton>
-              )}
-              {canRebuy && <Bouton variante="secondaire" bloc disabled={busy} onClick={() => nav.back()}>Changer de ticket</Bouton>}
-            </>
+      {/* Le plateau : les boutons, puis le résultat, à la même place et jamais sur le ticket. */}
+      {phase !== "choix" && (
+        <div className={cx("grattage__plateau", fete && "grattage__plateau--resultat")}>
+          {rafale ? (
+            <button type="button" className="grattage__pause" onClick={pause}>
+              <span className="grattage__total">
+                <span>{t("Total")}</span>
+                <strong className="chiffres">{formatEuros(totals.gain)}</strong>
+              </span>
+              <span>{t("Touche l'écran pour mettre en pause")}</span>
+            </button>
+          ) : phase === "resultat" ? (
+            !plein && <Resultat tier={tier} gain={ticket.gain} blockRef={feteBlock} />
+          ) : phase === "apres" ? (
+            last ? (
+              <>
+                {canRebuy ? (
+                  <Bouton bloc attente={busy} onClick={() => void rebuy()}>
+                    {t("Racheter le même {prix}", { prix: formatEuros(def.price) })}
+                  </Bouton>
+                ) : (
+                  <Bouton bloc onClick={() => nav.back()}>{fromCounter ? t("Retour au comptoir") : t("Continuer")}</Bouton>
+                )}
+                {canRebuy && (
+                  <Bouton variante="secondaire" bloc disabled={busy} onClick={() => nav.back()}>
+                    {fromCounter ? t("Changer de ticket") : t("Continuer")}
+                  </Bouton>
+                )}
+              </>
+            ) : (
+              <>
+                <Bouton bloc onClick={() => start(queue, index + 1)}>{t("Ticket suivant")}</Bouton>
+                <Bouton variante="secondaire" bloc onClick={() => setRafale(true)}>{t("Gratter en rafale")}</Bouton>
+              </>
+            )
           ) : (
             <>
-              <Bouton bloc onClick={() => start(queue, index + 1)}>Ticket suivant</Bouton>
-              <Bouton variante="secondaire" bloc onClick={() => { setRafale(true); }}>Gratter en rafale</Bouton>
+              <Bouton bloc disabled={phase !== "gratte" || auto} onClick={() => void sweep(900)}>{t("Tout gratter")}</Bouton>
+              {carnet && index >= 1 && (
+                <Bouton variante="secondaire" bloc disabled={phase !== "gratte" || auto} onClick={() => setRafale(true)}>
+                  {t("Gratter en rafale")}
+                </Bouton>
+              )}
             </>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
+      {/* Énorme et jackpot : la fête prend tout l'écran, sur un fond opaque. La bourse reste dessus, et compte. */}
+      {plein && <Fete tier={tier} gain={ticket.gain} blockRef={feteBlock} skippable={skippable} onSkip={skip} />}
 
       {/* Le canvas d'effets, tout en haut : copeaux, pièces, confettis. */}
       <canvas ref={fxCanvas} className="grattage__fx" aria-hidden="true" />

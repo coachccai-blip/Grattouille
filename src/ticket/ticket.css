@@ -471,15 +471,17 @@
 
 .jeu-numeros--5 .jeu-numeros__grille {
   grid-auto-rows: 4.42em;
-  gap: .26em;
+  gap: .2em;
+  /* La grille mord un peu sur la marge de la zone : chaque case y gagne en largeur. */
+  margin-inline: -.2em;
 }
 
 .jeu-numeros--5 .jeu-numeros__grille .case__fond {
   gap: .1em;
-  padding: .2em .06em;
+  padding: .2em 0;
 }
 
-.jeu-numeros--5 .jeu__petit { letter-spacing: -.02em; }
+.jeu-numeros--5 .jeu__petit { letter-spacing: -.04em; }
 
 /* ---------------------------------------------------------------- morpion */
 
@@ -638,9 +640,17 @@
 
 .jeu-etoile--rect .case__fond { gap: .3em; }
 
-/* Dans l'étoile et sous la cloche, le contenu se tient au cœur de la forme. */
+/* Dans l'étoile, le contenu se tient au cœur de la forme. */
 .case--etoile .case__fond { padding: 2.1em 1.5em 1.5em; gap: 0; }
-.case--cloche .case__fond { padding: 1.9em 1.05em 1.5em; gap: 0; }
+
+/* Sous la cloche, l'assiette est une ellipse : le symbole et son montant se centrent
+   sur elle, le montant là où elle est encore large. */
+.case--cloche .case__fond { padding: 1.37em 1.15em 1.06em; gap: 0; }
+
+.jeu-etoile--cloche .jeu__symbole {
+  width: 2em;
+  height: 2em;
+}
 
 /* ---------------------------------------------------------------- lignes */
 
@@ -867,15 +877,17 @@
 /* ---------------------------------------------------------------- parcours */
 
 .jeu-parcours {
-  --pas: 4.6em;      /* hauteur d'une case du chemin */
+  --pas: 5em;        /* hauteur d'une case du chemin */
   --pion: 1.9em;     /* taille du pion */
-  --ecart: .25em;
+  --ecart: .2em;
   --ecart-y: .45em;
   --des: 5.6em;      /* hauteur de la rangée des dés */
   position: relative;
   display: flex;
   flex-direction: column;
   gap: .5em;
+  /* Le chemin mord un peu sur la marge de la zone : chaque case y gagne en largeur. */
+  margin-inline: -.3em;
 }
 
 /* Le chemin serpente du bas vers le haut : la case 1 en bas à gauche, la 18 en haut à droite. */
@@ -918,7 +930,7 @@
   justify-content: center;
   width: 100%;
   min-width: 0;
-  padding: 0 .12em;
+  padding: 0 .1em;
   text-align: center;
   transition: transform 200ms var(--sortie);
 }
@@ -940,6 +952,7 @@
   font-weight: 700;
   font-size: max(var(--tk-min), 1.02em);
   line-height: 1.05;
+  letter-spacing: -.02em;
 }
 
 .jeu-parcours__lot .montant__nombre { font-size: 1.08em; }
@@ -1324,14 +1337,17 @@
 /* Le Gratte-Ciel : sur un ticket étroit, les trois volets se resserrent sans passer
    sous 44 px par case. */
 .jeu-multi .jeu-parcours {
-  --pas: 4.75em;
+  --pas: 5em;
   --pion: 1.75em;
   --ecart: .14em;
   --ecart-y: .42em;
   --des: 5.2em;
   gap: .6em;
+  margin-inline: -.35em;
 }
 
+.jeu-multi .jeu-parcours__contenu { padding: 0 .04em; }
+.jeu-multi .jeu-parcours__lot { letter-spacing: -.04em; }
 .jeu-multi .jeu-parcours__lot .montant__nombre { font-size: 1em; }
 .jeu-multi .jeu-coef { gap: .9em; }
 .jeu-multi .jeu-coef__grille { grid-auto-rows: 6em; gap: .5em; }

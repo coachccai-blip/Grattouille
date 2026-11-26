@@ -1,5 +1,9 @@
 /* L'écran de grattage : le ticket est la star. Tout le reste est mat et calme pour
-   lui laisser la place. */
+   lui laisser la place.
+
+   Trois étages, de haut en bas : l'en-tête, la scène où se tient le ticket, et le
+   plateau. Le plateau garde la même hauteur d'un temps à l'autre : il porte les boutons,
+   puis le résultat. Le ticket ne bouge donc pas, et rien ne vient se poser sur lui. */
 
 .grattage {
   gap: var(--e2);
@@ -9,10 +13,19 @@
   overflow: hidden;
 }
 
+/* L'en-tête reste au-dessus de la fête en plein écran : la bourse y compte ses pièces. */
+.grattage .entete { z-index: 16; }
+
+/* Dans un carnet : « 3/10 », à côté de la flèche de retour. */
+.grattage__compte {
+  flex: none;
+  font: 400 24px/28px var(--titre);
+}
+
 .grattage__scene {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -29,17 +42,12 @@
  */
 .grattage__scene--choix {
   justify-content: flex-start;
+  padding-bottom: var(--e2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .grattage__scene--choix > .roue { margin-block: auto; }
-
-/* Écran court : on resserre, pour que le choix tienne sans défiler dès 320 × 568. */
-@media (max-height: 600px) {
-  .grattage__scene--choix { padding-top: 10px; }
-  .grattage__scene--choix > .roue { gap: var(--e2); }
-}
 
 /* Le distributeur : une fente bordée de laiton, d'où sort le ticket. */
 .distributeur {
@@ -119,14 +127,23 @@
   transition: opacity 200ms linear;
 }
 
-.grattage__actions {
+/* ---------------------------------------------------------------- Le plateau */
+
+/* Deux boutons l'un sous l'autre : c'est la hauteur du plateau, qu'il en porte un, deux,
+   ou le résultat. Le bouton principal est toujours à la même place, sous le pouce. */
+.grattage__plateau {
   position: relative;
   z-index: 5;
   display: flex;
   flex: none;
   flex-direction: column;
   gap: var(--e2);
-  min-height: 60px;
+  min-height: 116px;
+}
+
+.grattage__plateau--resultat {
+  align-items: center;
+  justify-content: center;
 }
 
 /* Le canvas d'effets, au-dessus de tout, transparent aux gestes. */
@@ -139,30 +156,28 @@
   pointer-events: none;
 }
 
-/* Rafale : un toucher met en pause. */
+/* Rafale : le total court sur le plateau, sous le ticket. Un toucher met en pause. */
 .grattage__pause {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--e2);
   align-items: center;
-  justify-content: flex-end;
-  padding-bottom: 6px;
+  justify-content: center;
+  width: 100%;
   color: var(--brume);
   font: 500 14px/20px var(--texte);
 }
 
-.grattage__pause strong {
-  color: var(--mimosa);
-  font: 700 20px/24px var(--texte);
+.grattage__total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.grattage__pause > span {
-  padding: 2px 12px;
-  border-radius: 99px;
-  background: rgba(10, 36, 45, .86);
+.grattage__total strong {
+  color: var(--mimosa);
+  font: 400 32px/36px var(--titre);
 }
 
 /* Le doigt fantôme : il montre le geste sur la première case, puis disparaît. */
@@ -189,99 +204,106 @@
   75% { transform: translate(30%, 34%) rotate(4deg); }
 }
 
-/* ---------------------------------------------------------------- Les fêtes */
+/* ---------------------------------------------------------------- Le résultat */
 
-.fete { z-index: 8; }
-
-.fete--perdu,
-.fete--bandeau {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
+/* Un mot, un montant. Le même bloc sur le plateau, au milieu de la scène et, en grand,
+   sur la fête en plein écran. */
+.resultat {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
-  max-width: calc(100% - 32px);
-  padding: 6px 20px 8px;
-  border-radius: 6px;
-  background: var(--nuit);
-  color: var(--brume);
-  font: 500 16px/24px var(--texte);
+  max-width: 100%;
   text-align: center;
-  white-space: nowrap;
-  box-shadow: 0 4px 0 rgba(6, 24, 30, .5);
-  transform: translateX(-50%);
-  animation: fete-monte 220ms var(--rebond) both;
 }
 
-.fete--bandeau { color: var(--ecume); }
-
-.fete--gros {
-  position: absolute;
-  right: 16px;
-  bottom: 10px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--e2);
-  align-items: center;
-}
-
-.fete--gros .fete--bandeau { position: static; transform: none; animation-name: fete-pose; }
-
-.fete__mot {
+.resultat__mot {
   color: var(--bougainvillier-clair);
   font: 700 20px/24px var(--texte);
 }
 
 /* Le montant gagné s'affiche en Abril Fatface. */
-.fete__montant {
+.resultat__montant {
   color: var(--mimosa);
   font: 400 40px/44px var(--titre);
+  white-space: nowrap;
 }
 
-.fete__mention {
+/* Les paliers sobres : pas de rose pour un petit gain, pas de jaune pour un ticket perdu. */
+.resultat--petit .resultat__mot { color: var(--ecume); }
+
+.resultat--perdu .resultat__mot,
+.resultat--rembourse .resultat__mot {
   color: var(--brume);
-  font: 500 12px/16px var(--texte);
+  font: 400 28px/32px var(--titre);
 }
 
-@keyframes fete-monte {
-  from { opacity: 0; transform: translate(-50%, 16px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+.resultat--rembourse .resultat__mot { color: var(--ecume); }
+
+/* Fin d'un carnet : le compte des gagnants, puis le total. */
+.resultat--carnet .resultat__mot {
+  color: var(--ecume);
+  font: 500 16px/24px var(--texte);
 }
 
-@keyframes fete-pose {
+/* Sur le plateau, le résultat se pose. */
+.grattage__plateau .resultat { animation: resultat-pose 220ms var(--rebond) both; }
+
+@keyframes resultat-pose {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
 }
 
-/* Énorme : plein écran. */
-.fete--plein {
+.calme .grattage__plateau .resultat { animation: fondu 200ms linear both; }
+
+/* ---------------------------------------------------------------- La fête en plein écran */
+
+/* Énorme et jackpot. Le fond est opaque : le ticket, dessous, ne se lit pas à travers. */
+.fete {
   position: fixed;
   inset: 0;
   z-index: 15;
   display: flex;
   flex-direction: column;
-  gap: var(--e3);
   align-items: center;
   justify-content: center;
   padding: var(--e5);
-  background: rgba(6, 24, 30, .88);
-  text-align: center;
+  overflow: hidden;
+  background: #06181E;
   animation: fondu 200ms linear both;
 }
 
-.fete--plein .fete__mot {
+/* Énorme : des rayons mimosa tournent derrière le montant. */
+.fete--enorme::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(170vw, 760px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(247, 201, 72, .2) 0deg 9deg, transparent 9deg 18deg);
+  -webkit-mask: radial-gradient(circle, #000 18%, transparent 68%);
+  mask: radial-gradient(circle, #000 18%, transparent 68%);
+  transform: translate(-50%, -50%);
+  animation: rayons-tournent 12s linear infinite;
+  pointer-events: none;
+}
+
+.fete .resultat {
+  position: relative;
+  gap: var(--e2);
+}
+
+.resultat--grand .resultat__mot {
   color: var(--bougainvillier-clair);
   font: 400 40px/44px var(--titre);
 }
 
-.fete--plein .fete__montant {
-  font: 400 clamp(40px, 13vw, 64px)/1 var(--titre);
+.resultat--grand .resultat__montant {
+  font: 400 clamp(36px, 12.5vw, 64px)/1.1 var(--titre);
   animation: fete-grossit 700ms var(--rebond) both;
 }
-
-.fete--plein .bulle { margin-top: var(--e4); text-align: left; }
 
 .fete__passer {
   position: absolute;
@@ -296,22 +318,25 @@
   cursor: pointer;
 }
 
-.fete--jackpot .fete__mot {
+.fete--jackpot .resultat__mot {
   color: var(--nuit);
-  font: 400 clamp(48px, 15vw, 64px)/1 var(--titre);
+  font: 400 clamp(44px, 15vw, 64px)/1.1 var(--titre);
 }
 
-.fete--jackpot .fete__montant {
+.fete--jackpot .resultat__montant {
   color: var(--nuit);
-  font: 400 clamp(44px, 14vw, 64px)/1 var(--titre);
   animation: fete-grossit 1600ms var(--rebond) both;
 }
 
 .fete--jackpot .fete__passer { color: var(--nuit); }
 
+/* Sur l'écran d'or, la flèche de retour s'écrit en nuit. */
+.grattage--or .entete__retour { color: var(--nuit); }
+
 .fete__eclair {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: #fff;
   animation: eclair 420ms ease-out both;
   pointer-events: none;
@@ -328,46 +353,49 @@
 }
 
 /* Animations réduites : la fête se ramène à une image fixe et au montant. */
-.calme .fete--plein .fete__montant,
-.calme .fete--jackpot .fete__montant,
-.calme .fete--perdu,
-.calme .fete--bandeau { animation: fondu 200ms linear both; }
+.calme .resultat--grand .resultat__montant { animation: fondu 200ms linear both; }
 
 .calme .fete__eclair,
+.calme .fete--enorme::before,
 .calme .grattage__ticket--rayons::before { display: none; }
 
 /* ---------------------------------------------------------------- Après le résultat */
 
+/* Le ticket s'en va : le résultat prend le milieu de la scène, et l'hôte réagit dessous.
+   Le bloc est posé par-dessus la scène pour ne pas pousser le ticket pendant qu'il sort. */
 .bilan {
+  position: absolute;
+  inset: 18px var(--e4) 4px;
   display: flex;
   flex-direction: column;
-  gap: var(--e3);
+  gap: var(--e4);
   align-items: center;
-  width: 100%;
-  text-align: center;
+  justify-content: center;
+}
+
+.bilan .bulle {
+  text-align: left;
   animation: fondu 200ms linear both;
 }
 
-.bilan__titre {
-  color: var(--brume);
-  font: 400 28px/32px var(--titre);
+.bilan .resultat--carnet { animation: fondu 200ms linear both; }
+
+/* Tant que le ticket sort, la place de l'hôte est gardée, vide : le résultat ne sautera pas. */
+.bilan--attend .bulle,
+.bilan--attend .resultat--carnet {
+  visibility: hidden;
+  animation: none;
 }
 
-.bilan__titre--gain {
-  color: var(--mimosa);
-  font: 400 40px/44px var(--titre);
+/* Écran court : on resserre, pour que le ticket garde sa taille et que le choix tienne
+   sans défiler dès 320 × 568, bandeau du bac à sable compris. */
+@media (max-height: 600px) {
+  .grattage { gap: var(--e1); }
+  .grattage__scene { padding-top: 14px; }
+  .grattage__scene--choix { padding-top: 10px; }
+  .grattage__scene--choix > .roue { gap: var(--e2); }
+  .bilan { top: 14px; }
 }
-
-.bilan__mention { color: var(--persienne-clair); font: 500 14px/20px var(--texte); }
-
-.bilan__carnet {
-  padding: 6px 16px;
-  border: 2px dashed rgba(230, 242, 240, .4);
-  border-radius: 6px;
-  font: 500 16px/24px var(--texte);
-}
-
-.bilan .bulle { margin-top: var(--e3); text-align: left; }
 
 /* ---------------------------------------------------------------- La roue des signes */
 

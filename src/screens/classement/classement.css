@@ -80,7 +80,8 @@
   width: 100%;
   min-height: 36px;
   margin-top: 4px;
-  font: 700 clamp(12px, 3.9vw, 14px)/18px var(--texte);
+  /* 13 px : un mot de douze lettres tient encore sur la marche. */
+  font: 700 clamp(12px, 3.6vw, 13px)/18px var(--texte);
   overflow-wrap: anywhere;
 }
 

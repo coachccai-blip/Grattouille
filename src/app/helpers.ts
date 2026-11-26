@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { oddsLabel } from "../../shared/economy";
 import { placeById } from "../../shared/places";
-import type { PlaceId, PlayerState } from "../../shared/types";
+import type { PlaceId, PlayerState, TicketDef } from "../../shared/types";
 import { MOTIFS, motifBackground } from "../art/motifs";
 import { lang, t } from "../i18n";
 import { patronLine, say, type Line, type Situation, type Speaker } from "./dialogues";
@@ -76,4 +76,17 @@ export function oddsText(weight: number): string {
 /** « 2,6 » : sur combien de tickets un seul gagne. */
 export function oddsOutOf(weight: number): string {
   return oddsNumber(weight) ?? "∞";
+}
+
+/**
+ * Ce qu'il faut savoir du choix à faire avant de gratter (un signe, un arcane, un camp) :
+ * il ne change pas les chances. Rend la phrase française, clé de traduction ; `null` pour
+ * un ticket sans choix.
+ */
+export function pickNote(def: TicketDef): string | null {
+  if (def.engine === "camps") return "Ton camp ne change pas tes chances. Il change ton cœur.";
+  if (def.engine !== "etoile") return null;
+  return def.options.family === "arcane"
+    ? "Ton arcane ne change pas tes chances. Il change la tête du ticket."
+    : "Ton signe ne change pas tes chances. Il change la tête du ticket.";
 }

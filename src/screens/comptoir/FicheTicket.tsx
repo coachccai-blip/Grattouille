@@ -2,15 +2,17 @@
 // euros avec les chances réelles, tempérament. La transparence fait partie du jeu.
 
 import { useState } from "react";
-import { expectedReturn, oddsLabel, prizeTable, winningWeight } from "../../../shared/economy";
+import { expectedReturn, prizeTable, winningWeight } from "../../../shared/economy";
 import { formatEuros, formatReturn } from "../../../shared/format";
 import { ticketById } from "../../../shared/tickets";
-import { atLeast } from "../../app/helpers";
+import { atLeast, oddsOutOf, oddsText, pickNote } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { buyTickets } from "../../app/store";
 import { ruleOf } from "../../engines";
 import { playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
+import { t } from "../../i18n";
+import { ticketName } from "../../i18n/noms";
 import { Bouton } from "../../ui/Bouton";
 import { Jauge } from "../../ui/Commun";
 import { Feuille } from "../../ui/Feuille";
@@ -21,6 +23,8 @@ export function FicheTicket({ ticket }: { ticket: string }) {
   const [busy, setBusy] = useState(false);
   if (!def) return null;
   const table = prizeTable(def);
+  const name = ticketName(def.id);
+  const note = pickNote(def);
 
   const buy = async () => {
     if (busy) return;
@@ -39,39 +43,42 @@ export function FicheTicket({ ticket }: { ticket: string }) {
   };
 
   return (
-    <Feuille titre={`Règles et lots : ${def.name}`} onClose={() => nav.back()} className="fiche-ticket">
+    <Feuille titre={t("Règles et lots : {ticket}", { ticket: name })} onClose={() => nav.back()} className="fiche-ticket">
       <div className="fiche-ticket__tete">
-        <h2 className="t-titre">{def.name}</h2>
+        <h2 className="t-titre">{name}</h2>
         <span className="fiche-ticket__prix">{formatEuros(def.price)}</span>
       </div>
       <Jauge temperament={def.temperament} />
       <p>{ruleOf(def)}</p>
-      {def.engine === "etoile" && <p className="note">Ton signe ne change pas tes chances. Il change la tête du ticket.</p>}
+      {note && <p className="note">{t(note)}</p>}
       <p className="note">
-        Un ticket sur {oddsLabel(winningWeight(def.temperament)).replace("1 sur ", "")} gagne. Chaque euro misé en
-        rapporte {formatReturn(expectedReturn(def.temperament))} en moyenne.
+        {t("Un ticket sur {n} gagne. Chaque euro misé en rapporte {retour} en moyenne.", {
+          n: oddsOutOf(winningWeight(def.temperament)),
+          retour: formatReturn(expectedReturn(def.temperament)),
+        })}
       </p>
 
       <table className="lots">
-        <caption>Tableau des lots et chances réelles</caption>
-        <thead>
+        {/* Le titre du tableau suffit à l'œil : les en-têtes de colonnes sont pour les lecteurs d'écran. */}
+        <caption>{t("Lots et chances réelles")}</caption>
+        <thead className="invisible">
           <tr>
-            <th scope="col">Gain</th>
-            <th scope="col">Chance</th>
+            <th scope="col">{t("Gain")}</th>
+            <th scope="col">{t("Chance")}</th>
           </tr>
         </thead>
         <tbody>
           {[...table].reverse().map((row) => (
             <tr key={row.multiplier} className={row.multiplier === 0 ? "lots__perdu" : undefined}>
-              <td>{row.multiplier === 0 ? "Perdu" : formatEuros(row.amount)}</td>
-              <td>{row.odds}</td>
+              <td>{row.multiplier === 0 ? t("Perdu") : formatEuros(row.amount)}</td>
+              <td>{oddsText(row.weight)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <div className="fiche-ticket__acheter">
-        <Bouton bloc attente={busy} onClick={() => void buy()}>Acheter {formatEuros(def.price)}</Bouton>
+        <Bouton bloc attente={busy} onClick={() => void buy()}>{t("Acheter {prix}", { prix: formatEuros(def.price) })}</Bouton>
       </div>
     </Feuille>
   );

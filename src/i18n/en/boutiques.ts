@@ -28,7 +28,7 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "+{n}★ de Standing": "+{n}★ Standing",
   "Il te manque {montant}.": "You're {montant} short.",
   "garde le doigt posé": "press and hold",
-  "C'est plus de la moitié de ta bourse.": "That's more than half your money.",
+  "C'est plus de la moitié de ta bourse.": "That's more than half your purse.",
   "Hors connexion. Les boutiques rouvrent dès que le réseau revient.":
     "You're offline. The shops reopen as soon as the network is back.",
   "Retirer": "Take off",
@@ -45,7 +45,7 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "Fermer": "Close",
 
   // --- Dressing
-  "Dressing": "Wardrobe",
+  "Dressing": "Dressing room",
   "{pseudo} dans le miroir": "{pseudo} in the mirror",
   "Emplacements": "Categories",
   "Chapeau": "Hat",
@@ -122,7 +122,7 @@ export const EN_BOUTIQUES: Record<string, string> = {
     "{million} is a million euros; {milliard}, a billion; {billion}, a trillion, which is a thousand billion. Yes, that exists. No, nobody has ever seen one.",
   "Dans la vraie vie": "In real life",
   "Un vrai ticket à gratter reverse en moyenne autour de 70 % des mises, et entre un ticket sur trois et un sur quatre est gagnant, souvent juste pour rembourser la mise. Ici, chaque euro misé en rapporte plus de deux : c'est pour ça que c'est un jeu.":
-    "A real scratch card pays back around 70% of the money staked on average, and between one card in three and one in four wins, often just enough to cover its price. Here, every euro staked brings back more than two: that's what makes it a game.",
+    "A real scratch card pays back around 70% of the money staked on average, and between one card in three and one in four wins, often just enough to cover its price. Here, every euro staked pays back more than two: that's what makes it a game.",
   "Si le jeu d'argent pèse sur toi ou sur un proche : Joueurs Info Service, appel anonyme et non surtaxé, tous les jours de 8 h à 2 h.":
     "If gambling is weighing on you or someone close to you: Joueurs Info Service, a French helpline, anonymous and charged as a normal call, every day from 8 am to 2 am. Outside France, your national gambling helpline can help.",
   "09 74 75 13 13": "+33 9 74 75 13 13",

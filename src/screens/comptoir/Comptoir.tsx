@@ -1,20 +1,24 @@
 // Le comptoir d'un lieu (BRIEF.md, sections 5.5, 6.6 et 12.2) : l'hôte, les tickets
-// du lieu en carrousel (de trois à cinq), tempérament, prix. On y achète à l'unité,
-// par carnet de 5 ou de 10. Qui n'a plus de quoi jouer y trouve un ticket par terre.
+// du lieu en carrousel (de trois à cinq), puis le zinc : le nom du ticket choisi, son
+// tempérament, son prix. On y achète à l'unité, par carnet de 5 ou de 10. Qui n'a plus
+// de quoi jouer y trouve un ticket par terre.
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { maxGain } from "../../../shared/economy";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
 import { ticketsOfPlace } from "../../../shared/tickets";
 import type { PlaceId } from "../../../shared/types";
-import { PIOU, type Speaker } from "../../app/dialogues";
+import { PIOU, hostName, type Speaker } from "../../app/dialogues";
 import { atLeast, lineFor, placeBackground } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { buyTickets, displayBalance, pickUpTicket, toScratch, useFound, useGame } from "../../app/store";
+import { Icon } from "../../art/icons";
 import { playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
-import { Ticket } from "../../ticket/Ticket";
+import { t } from "../../i18n";
+import { placeName, ticketName } from "../../i18n/noms";
+import { Ticket, ticketHeight } from "../../ticket/Ticket";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
@@ -24,20 +28,38 @@ import "./comptoir.css";
 /** Le dernier ticket regardé dans chaque lieu, le temps de la visite. */
 const lastChoice: Partial<Record<PlaceId, number>> = {};
 
-/** Largeur d'une miniature : elle laisse toujours le comptoir et son bouton à l'écran. */
-function useMiniWidth(): number {
-  const measure = () => {
-    const vw = Math.min(window.innerWidth, 480);
-    const vh = window.innerHeight;
-    return Math.round(Math.max(118, Math.min(250, vw * 0.62, (vh - 470) / 1.6)));
-  };
-  const [w, setW] = useState(measure);
-  useEffect(() => {
-    const update = () => setW(measure());
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return w;
+/** L'écart entre deux miniatures, en pixels. */
+const GAP = 12;
+/** Ce que le carrousel garde pour ses points, sous les miniatures (voir comptoir.css). */
+const DOTS = 14;
+
+/**
+ * La largeur d'une miniature : ce que la hauteur du carrousel permet, mesurée, sans
+ * dépasser ce qui laisse voir ses voisines. Le carrousel prend la place qui reste entre
+ * l'hôte et le zinc : rien ne déborde, et le zinc reste sous le pouce.
+ * `ratio` : hauteur ÷ largeur de la plus haute miniature du lieu.
+ */
+function useMiniWidth(box: RefObject<HTMLElement | null>, ratio: number): number {
+  const [width, setWidth] = useState(110);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const style = getComputedStyle(el);
+      const room = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - DOTS;
+      const widest = Math.min(Math.min(window.innerWidth, 480) * 0.56, 230);
+      setWidth(Math.max(60, Math.floor(Math.min(widest, room / ratio))));
+    };
+    measure();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [box, ratio]);
+  return width;
 }
 
 export function Comptoir({ place }: { place: PlaceId }) {
@@ -58,7 +80,9 @@ export function Comptoir({ place }: { place: PlaceId }) {
   };
   const [busy, setBusy] = useState<number | "trouve" | null>(null);
   const [seed] = useState(() => Math.floor(Math.random() * 1000));
-  const width = useMiniWidth();
+  const carousel = useRef<HTMLDivElement>(null);
+  const ratio = Math.max(...tickets.map((x) => ticketHeight(x, 1)));
+  const width = useMiniWidth(carousel, ratio);
   const swipe = useRef<{ x: number; id: number } | null>(null);
 
   if (!player) return null;
@@ -68,6 +92,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
   // présenté est hors de portée, quel que soit le lieu.
   const foundHere = found === "fauche" && balance < ticket.price;
   const line = lineFor(player, def.host as Speaker, "accueil", seed);
+  const prix = (qty: number) => formatEuros(ticket.price * qty);
 
   const buy = async (qty: number) => {
     if (busy !== null) return;
@@ -88,12 +113,12 @@ export function Comptoir({ place }: { place: PlaceId }) {
     if (busy !== null) return;
     setBusy("trouve");
     const t0 = performance.now();
-    const ticket = await pickUpTicket();
-    if (ticket) {
+    const picked = await pickUpTicket();
+    if (picked) {
       await atLeast(t0, 500);
       playTicketBought();
       haptic.buy();
-      nav.push({ name: "grattage", tickets: [ticket] });
+      nav.push({ name: "grattage", tickets: [picked] });
     }
     setBusy(null);
   };
@@ -114,71 +139,107 @@ export function Comptoir({ place }: { place: PlaceId }) {
     <main className={cx("ecran comptoir", `comptoir--${def.text}`)} style={placeBackground(place)}>
       <HorsLigne />
       <div className="comptoir__haut">
-        <Entete titre={def.name} grand retour droite={<Bourse />} />
+        <Entete
+          titre={placeName(place)}
+          grand
+          retour
+          droite={(
+            <>
+              {/* La pile « À gratter » : à côté de la bourse, avec ce qu'on possède. */}
+              {waiting > 0 && (
+                <button
+                  type="button"
+                  className="comptoir__pile"
+                  onClick={() => nav.push({ name: "a-gratter" })}
+                  aria-label={waiting > 1 ? t("{n} tickets à gratter", { n: waiting }) : t("1 ticket à gratter")}
+                >
+                  <Icon name="jouer" plein size={24} />
+                  <span className="chiffres" aria-hidden="true">{waiting}</span>
+                </button>
+              )}
+              <Bourse />
+            </>
+          )}
+        />
       </div>
-      <Bulle line={line} className="comptoir__hote" />
+      {/* Une seule bulle à la fois : sans le sou, c'est Piou qui parle, et il montre le ticket par terre. */}
+      {foundHere ? (
+        <BulleLibre pnj="piou" nom={hostName("piou")} className="comptoir__hote">
+          {player.stats.tickets === 0 ? PIOU.premierTrouve : player.kiosk ? PIOU.trouvePatron : PIOU.trouve("fauche", seed)}
+        </BulleLibre>
+      ) : (
+        <Bulle line={line} className="comptoir__hote" />
+      )}
 
       <div
+        ref={carousel}
         className="carrousel"
         onPointerDown={onDown}
         onPointerUp={onUp}
         onPointerCancel={() => { swipe.current = null; }}
         role="group"
-        aria-label="Les tickets du lieu"
+        aria-label={t("Les tickets du lieu")}
       >
         {/* La piste est centrée : on la décale pour amener le ticket choisi au milieu. */}
-        <div className="carrousel__piste" style={{ transform: `translateX(${((tickets.length - 1) / 2 - selected) * (width * 0.86 + 12)}px)` }}>
-          {tickets.map((t, i) => (
+        <div className="carrousel__piste" style={{ transform: `translateX(${((tickets.length - 1) / 2 - selected) * (width + GAP)}px)` }}>
+          {tickets.map((x, i) => (
             <button
-              key={t.id}
+              key={x.id}
               type="button"
               className={cx("carrousel__ticket", i === selected && "carrousel__ticket--choisi")}
-              style={{ width: width * 0.86 }}
+              style={{ width }}
               aria-pressed={i === selected}
-              aria-label={`${t.name}, ${formatEuros(t.price)}, jusqu'à ${formatEuros(maxGain(t))}`}
-              onClick={() => (i === selected ? nav.push({ name: "fiche-ticket", ticket: t.id }) : setSelected(i))}
+              aria-label={t("{ticket}, {prix}, jusqu'à {max}", {
+                ticket: ticketName(x.id), prix: formatEuros(x.price), max: formatEuros(maxGain(x)),
+              })}
+              onClick={() => (i === selected ? nav.push({ name: "fiche-ticket", ticket: x.id }) : setSelected(i))}
             >
-              <Ticket def={t} width={width * 0.86} mini />
+              <Ticket def={x} width={width} mini />
             </button>
           ))}
         </div>
         <div className="carrousel__points" aria-hidden="true">
-          {tickets.map((t, i) => <span key={t.id} className={cx("carrousel__point", i === selected && "carrousel__point--choisi")} />)}
+          {tickets.map((x, i) => <span key={x.id} className={cx("carrousel__point", i === selected && "carrousel__point--choisi")} />)}
         </div>
       </div>
 
       {/* Le comptoir lui-même : tout ce qui se touche est ici, à portée de pouce. */}
       <div className="comptoir__zinc">
+        {/* Le ticket choisi, en clair : la miniature est trop petite pour qu'on y lise son nom. */}
         <div className="comptoir__infos">
-          <Jauge temperament={ticket.temperament} />
-          <Bouton variante="texte" onClick={() => nav.push({ name: "fiche-ticket", ticket: ticket.id })}>règles et lots</Bouton>
+          <strong className="comptoir__nom">{ticketName(ticket.id)}</strong>
+          <span className="comptoir__max">{t("jusqu'à {max}", { max: formatEuros(maxGain(ticket)) })}</span>
+          <Jauge temperament={ticket.temperament} court />
+          <Bouton variante="texte" className="comptoir__regles" onClick={() => nav.push({ name: "fiche-ticket", ticket: ticket.id })}>
+            {t("règles et lots")}
+          </Bouton>
         </div>
         {!open ? (
-          <p className="note">Ce lieu est encore fermé.</p>
+          <p className="note">{t("Ce lieu est encore fermé.")}</p>
         ) : foundHere ? (
-          <>
-            <BulleLibre pnj="piou" nom="Piou" className="comptoir__piou">{PIOU.parTerre}</BulleLibre>
-            <Bouton bloc attente={busy === "trouve"} disabled={busy !== null} onClick={() => void pickUp()}>
-              Ramasser le ticket par terre
-            </Bouton>
-          </>
+          <Bouton bloc attente={busy === "trouve"} disabled={busy !== null} onClick={() => void pickUp()}>
+            {t("Ramasser le ticket")}
+          </Bouton>
         ) : (
           <>
             <Bouton bloc attente={busy === 1} disabled={busy !== null} onClick={() => void buy(1)}>
-              Acheter {formatEuros(ticket.price)}
+              {t("Acheter {prix}", { prix: prix(1) })}
             </Bouton>
             <div className="comptoir__carnets">
-              <Bouton variante="secondaire" attente={busy === 5} disabled={busy !== null} onClick={() => void buy(5)}>
-                Carnet de 5 pour {formatEuros(ticket.price * 5)}
-              </Bouton>
-              <Bouton variante="secondaire" attente={busy === 10} disabled={busy !== null} onClick={() => void buy(10)}>
-                Carnet de 10 pour {formatEuros(ticket.price * 10)}
-              </Bouton>
+              {[5, 10].map((qty) => (
+                <Bouton
+                  key={qty}
+                  variante="secondaire"
+                  attente={busy === qty}
+                  disabled={busy !== null}
+                  onClick={() => void buy(qty)}
+                  aria-label={t("Carnet de {n} tickets pour {prix}", { n: qty, prix: prix(qty) })}
+                >
+                  {t("{n} pour {prix}", { n: qty, prix: prix(qty) })}
+                </Bouton>
+              ))}
             </div>
           </>
-        )}
-        {waiting > 0 && (
-          <Bouton variante="texte" onClick={() => nav.push({ name: "a-gratter" })}>À gratter ({waiting})</Bouton>
         )}
       </div>
     </main>

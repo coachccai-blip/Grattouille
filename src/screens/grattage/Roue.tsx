@@ -5,11 +5,13 @@
 // Il ne change pas les chances : il change la tête du ticket.
 
 import type { TicketDef } from "../../../shared/types";
+import { pickNote } from "../../app/helpers";
 import { Symbole } from "../../art/Illustration";
 import { pickOptions } from "../../engines";
 import { optString } from "../../engines/common";
+import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
-import { SYMBOL_NAMES, symbolKey } from "../../ticket/themes";
+import { symbolKey, symbolName } from "../../ticket/themes";
 import { Bouton } from "../../ui/Bouton";
 
 interface RoueProps {
@@ -25,10 +27,11 @@ const SOMBRES = new Set(["signe-du-homard", "babord-tribord", "eclipse-totale"])
 function Camps({ def, pick, onPick, onGo }: RoueProps) {
   const family = optString(def.options, "family", "roulette");
   const camps = pickOptions(def);
+  const note = pickNote(def);
   return (
     <div className={cx("roue roue--camps", SOMBRES.has(def.id) && "roue--nuit")}>
-      <h2 className="t-titre">Choisis ton camp</h2>
-      <div className="camps" role="radiogroup" aria-label="Ton camp">
+      <h2 className="t-titre">{t("Choisis ton camp")}</h2>
+      <div className="camps" role="radiogroup" aria-label={t("Ton camp")}>
         {camps.map((camp, i) => {
           const key = `${family}:${camp}`;
           return (
@@ -41,14 +44,14 @@ function Camps({ def, pick, onPick, onGo }: RoueProps) {
               onClick={() => onPick(camp)}
             >
               <Symbole cle={key} />
-              <strong>{SYMBOL_NAMES[key] ?? camp}</strong>
-              {i === 0 && <span className="camps__contre" aria-hidden="true">ou</span>}
+              <strong>{symbolName(key, camp)}</strong>
+              {i === 0 && <span className="camps__contre" aria-hidden="true">{t("ou")}</span>}
             </button>
           );
         })}
       </div>
-      <p className="note">Ton camp ne change pas tes chances. Il change ton cœur.</p>
-      <Bouton bloc onClick={onGo}>Gratter avec ce camp</Bouton>
+      {note && <p className="note">{t(note)}</p>}
+      <Bouton bloc onClick={onGo}>{t("Gratter")}</Bouton>
     </div>
   );
 }
@@ -59,10 +62,16 @@ export function Roue(props: RoueProps) {
   const signs = pickOptions(def);
   const pickKey = symbolKey(def.options.family, pick);
   const arcanes = def.options.family === "arcane";
+  const note = pickNote(def);
   return (
     <div className={cx("roue", SOMBRES.has(def.id) && "roue--nuit")}>
-      <h2 className="t-titre">{arcanes ? "Choisis ton arcane" : "Choisis ton signe"}</h2>
-      <div className="roue__cercle" role="radiogroup" aria-label={arcanes ? "Ton arcane" : "Ton signe"} style={{ "--n": signs.length } as React.CSSProperties}>
+      <h2 className="t-titre">{arcanes ? t("Choisis ton arcane") : t("Choisis ton signe")}</h2>
+      <div
+        className="roue__cercle"
+        role="radiogroup"
+        aria-label={arcanes ? t("Ton arcane") : t("Ton signe")}
+        style={{ "--n": signs.length } as React.CSSProperties}
+      >
         {signs.map((sign, i) => {
           const key = symbolKey(def.options.family, sign);
           return (
@@ -71,7 +80,7 @@ export function Roue(props: RoueProps) {
               type="button"
               role="radio"
               aria-checked={sign === pick}
-              aria-label={SYMBOL_NAMES[key] ?? sign}
+              aria-label={symbolName(key, sign)}
               className={cx("roue__signe", sign === pick && "roue__signe--choisi")}
               style={{ "--i": i } as React.CSSProperties}
               onClick={() => onPick(sign)}
@@ -82,13 +91,11 @@ export function Roue(props: RoueProps) {
         })}
         <div className="roue__centre" aria-hidden="true">
           <Symbole cle={pickKey} />
-          <strong>{SYMBOL_NAMES[pickKey] ?? pick}</strong>
+          <strong>{symbolName(pickKey, pick)}</strong>
         </div>
       </div>
-      <p className="note">
-        {arcanes ? "Ton arcane ne change pas tes chances. Il change la tête du ticket." : "Ton signe ne change pas tes chances. Il change la tête du ticket."}
-      </p>
-      <Bouton bloc onClick={onGo}>{arcanes ? "Gratter avec cet arcane" : "Gratter avec ce signe"}</Bouton>
+      {note && <p className="note">{t(note)}</p>}
+      <Bouton bloc onClick={onGo}>{t("Gratter")}</Bouton>
     </div>
   );
 }

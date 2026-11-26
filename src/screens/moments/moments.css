@@ -193,14 +193,21 @@
 .calme .moment__ticket-eclat { animation: none; }
 
 /*
- * Générique de fin. Tant que Gaspard parle, le Kiosque doré garde la même hauteur d'un
- * temps à l'autre, et se rogne par le bas : le dôme et le store restent en vue.
+ * Générique de fin. Le Kiosque doré se montre en entier quand Gaspard remet les clés ;
+ * à l'aveu, il laisse de la place aux bulles et se rogne par le bas : le dôme et le
+ * store restent en vue. D'un temps à l'autre, le décor glisse au lieu de sauter.
  */
-.moment--cles .moment__decor,
-.moment--aveu .moment__decor {
-  justify-content: flex-start;
-  max-height: max(96px, 31vh);
+.moment--fin .moment__decor {
+  max-height: calc(var(--haut) + 24px + min(100vw, var(--colonne)) * .65);
+  transition: max-height 420ms var(--sortie);
 }
+
+.moment--cles .moment__decor,
+.moment--aveu .moment__decor { justify-content: flex-start; }
+
+.moment--aveu .moment__decor { max-height: max(96px, 31vh); }
+
+.calme .moment--fin .moment__decor { transition: none; }
 
 /* D'un temps du générique au suivant, le texte se fond ; le cadre ne bouge pas. */
 .moment__temps > * { animation: fondu 280ms linear both; }

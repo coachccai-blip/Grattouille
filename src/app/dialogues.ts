@@ -2118,8 +2118,8 @@ const OUVERTURES: Record<PlaceId, Deux<string>> = {
     en: "At your service! Four tickets, one counter, and the best view of the harbour.",
   },
   cafe: {
-    fr: "C'est moi qui sers, ici : la citronnade, les tickets, les nouvelles du port. Dans cet ordre.",
-    en: "I do the serving here: lemonade, tickets, and the harbour gossip. In that order.",
+    fr: "Je sers la citronnade, les tickets et les nouvelles du port. Dans cet ordre.",
+    en: "I serve the lemonade, the tickets and the harbour gossip. In that order.",
   },
   casino: {
     fr: "Croupier de la maison. Ici, on joue gros et on parle peu. Je me charge de parler peu.",
@@ -2130,16 +2130,16 @@ const OUVERTURES: Record<PlaceId, Deux<string>> = {
     en: "Hmph. One does not walk in here: one is received. I am receiving you. Wipe your paws.",
   },
   cercle: {
-    fr: "Majordome de ces messieurs. On parie sur tout, à minuit. Moustache de rigueur : la mienne suffira.",
-    en: "Butler to the members. We bet on everything, at midnight. Moustaches required: mine will do for two.",
+    fr: "Ici, on parie sur tout, à minuit. Moustache de rigueur : la mienne suffira pour deux.",
+    en: "Here, we bet on everything, at midnight. Moustaches required: mine will do for two.",
   },
   yacht: {
-    fr: "Commodore, à vos ordres ! Mon yacht est plus long que la rade : on a poussé la mer pour vous.",
-    en: "Your Commodore, at your service! My yacht is longer than the bay: we moved the sea over for you.",
+    fr: "À vos ordres ! Mon yacht est plus long que la rade : pour vous, on a poussé la mer.",
+    en: "At your service! My yacht is longer than the bay: we moved the sea over for you.",
   },
   banque: {
-    fr: "Banquier, de père en fils. Parlez bas : ici, les chiffres ne tiennent plus debout, alors on les couche.",
-    en: "Banker, like my father before me. Speak softly: the figures can't stand up in here, so we lay them down.",
+    fr: "Banquier, de père en fils. Parlez bas : ici, les chiffres ne tiennent plus debout.",
+    en: "A banker, like my father. Speak softly: in here, the figures can no longer stand up.",
   },
   lune: {
     fr: "Je garde le Croissant. Vous ne monterez pas plus haut : j'ai vérifié. Entrez, la Terre se lève.",

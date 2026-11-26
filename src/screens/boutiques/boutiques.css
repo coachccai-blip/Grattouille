@@ -296,9 +296,10 @@
   transform: rotate(8deg);
 }
 
-/* Sur l'avatar, le tampon se pose en bas, à côté du buste : il ne mord ni sur les
-   oreilles ni sur un chapeau large. */
-.apercu--avatar .apercu__tampon {
+/* Le tampon ne se pose jamais sur l'article qu'on regarde : en bas, à côté du buste,
+   pour un chapeau ou des lunettes ; en haut pour une tenue ou un accessoire. */
+.apercu--chapeau .apercu__tampon,
+.apercu--lunettes .apercu__tampon {
   top: auto;
   right: 12px;
   bottom: 14px;

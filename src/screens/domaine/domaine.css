@@ -91,7 +91,8 @@
 .domaine__fortune { color: var(--brume); }
 .domaine__fortune strong { color: var(--mimosa); font-weight: 700; }
 
-/* Carte d'objectif : une plaque de rue émaillée, vissée aux quatre coins. */
+/* Carte d'objectif : une plaque de rue émaillée, vissée aux quatre coins. L'écran des
+   boutiques s'en sert pour annoncer que le Kiosque est à vendre. */
 .objectif {
   position: relative;
   display: flex;
@@ -163,9 +164,16 @@
 .talon-lien > span { flex: 1 1 auto; }
 .talon-lien > svg:first-child { color: var(--bougainvillier-fonce); --icone-fond: var(--ivoire); }
 
+/* Le conseil de Piou : sa phrase, la barre de l'objectif dont il parle, et le chemin. */
 .conseil .bulle__texte { flex: 1 1 auto; }
 .conseil .bouton { display: flex; margin: 2px 0 -6px -12px; color: var(--persienne-fonce); }
 .conseil__actions { display: flex; flex-wrap: wrap; }
+
+/* La barre de progression, sur le papier de la bulle. */
+.conseil .barre {
+  margin: 10px 0 4px;
+  background: rgba(14, 47, 58, .16);
+}
 
 /* ---------------------------------------------------------------- Dressing */
 

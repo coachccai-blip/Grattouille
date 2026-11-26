@@ -8,20 +8,62 @@
 }
 
 .bienvenue__affiche {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
 
-/* Le matin au port : le ciel du Kiosque, d'un bord à l'autre de l'écran. */
+/* Le matin au port : le ciel du Kiosque, d'un bord à l'autre de l'écran. Le haut du
+   ciel reste libre : c'est là que se tient le choix de la langue. */
 .bienvenue__decor {
   align-self: stretch;
   margin: 0 calc(var(--e4) * -1) var(--e5);
-  padding: calc(var(--haut) + var(--e5)) var(--e4) 0;
+  padding: calc(var(--haut) + 44px) var(--e4) 0;
   border-bottom: 4px solid #0A242D;
   background: linear-gradient(to bottom, #BEE7F5, #FDF3D0);
 }
+
+/* « Français | English » : deux mots discrets dans le ciel, en haut à droite. La langue
+   en cours est en gras et soulignée ; chaque mot garde une cible de 44 px. */
+.bienvenue__langues {
+  position: absolute;
+  top: var(--haut);
+  right: calc(var(--e2) * -1);
+  z-index: 1;
+  display: flex;
+}
+
+.bienvenue__langue {
+  position: relative;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--nuit);
+  font: 500 14px/20px var(--texte);
+}
+
+.bienvenue__langue + .bienvenue__langue::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 1px;
+  background: currentColor;
+  opacity: .45;
+}
+
+.bienvenue__langue--choisie {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.bienvenue__langue:active { opacity: .7; }
+.bienvenue__langue:focus-visible { outline-color: var(--nuit); outline-offset: -4px; }
 
 .bienvenue__decor svg {
   max-width: 400px;
@@ -39,11 +81,12 @@
   font: 500 16px/24px var(--texte);
 }
 
+/* L'accroche : une seule phrase, celle du récit. */
 .bienvenue__accroche {
-  max-width: 28ch;
+  max-width: 30ch;
   margin-top: var(--e4);
   color: var(--ecume);
-  font: 400 16px/24px var(--texte);
+  font: 400 18px/26px var(--texte);
   text-wrap: balance;
 }
 
@@ -53,13 +96,6 @@
   gap: var(--e3);
   align-items: stretch;
   color: var(--ecume);
-}
-
-.bienvenue__mention {
-  color: var(--brume);
-  font: 500 14px/20px var(--texte);
-  text-align: center;
-  text-wrap: balance;
 }
 
 .bienvenue--formulaire { padding-top: calc(var(--haut) + var(--e5)); }

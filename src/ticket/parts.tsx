@@ -70,22 +70,28 @@ export function Ajuste({ children, className }: { children: ReactNode; className
   const { width, mini } = useTicket();
   const fonts = useFontsVersion();
   const ref = useRef<HTMLSpanElement>(null);
+  /** Le resserrement déjà posé sur le texte : 1 s'il n'y en a pas. */
+  const applied = useRef(1);
   useLayoutEffect(() => {
     const el = ref.current;
     const box = el?.parentElement;
     if (!el || !box) return;
-    // Les deux largeurs sont celles de la mise en page : la transformation déjà posée
-    // ne les change pas, on mesure donc sans rien remettre à zéro.
-    const available = box.clientWidth;
-    const needed = el.scrollWidth;
-    if (available > 0 && needed > available) {
+    // Mesures au dixième de pixel : à un demi-pixel près, un texte « qui tient » est
+    // coupé. Le rapport des deux largeurs ne dépend pas des transformations des parents
+    // (une case qui rebondit, une miniature réduite) ; celle du texte lui-même est connue.
+    const available = box.getBoundingClientRect().width;
+    const needed = el.getBoundingClientRect().width / applied.current;
+    if (available > 0 && needed > available - 0.25) {
+      const scale = Math.max(SERRE_MIN, (available - 0.25) / needed);
       // Un texte qui déborde part toujours du bord gauche de sa boîte, quel que soit
       // son alignement : c'est de là qu'il se resserre, sinon sa fin serait coupée.
       el.style.transformOrigin = "left center";
-      el.style.transform = `scaleX(${Math.max(SERRE_MIN, available / needed).toFixed(3)})`;
+      el.style.transform = `scaleX(${scale.toFixed(3)})`;
+      applied.current = Number(scale.toFixed(3));
     } else {
       el.style.transformOrigin = "";
       el.style.transform = "";
+      applied.current = 1;
     }
   }, [width, mini, children, fonts]);
   return (
@@ -101,17 +107,19 @@ export function Montant({ value, className }: { value: number; className?: strin
 
 /**
  * Un montant qui passe sur deux lignes quand il est trop long pour sa case : le
- * nombre au-dessus, l'unité en dessous (« 12,5 » puis « Md€ »). Un montant en euros
- * simples reste toujours sur une ligne : un « € » seul sur sa ligne ne ressemble à rien.
- * `max` : le nombre de caractères qui tiennent sur une ligne. `empile` : passe aussi
- * sur deux lignes tout montant dont l'unité est un mot à elle seule (« M€ », « Bn€ »).
+ * nombre au-dessus, l'unité en dessous (« 12,5 » puis « Md€ »). Seule une unité de
+ * plusieurs lettres se détache : un « € » ou un « T » seul sur sa ligne ne ressemble
+ * à rien, ces montants-là restent sur une ligne et se resserrent.
+ * `max` : le nombre de caractères qui tiennent sur une ligne. `empile` : détache
+ * l'unité même d'un montant court (« 2 » puis « M€ »), pour qu'une série de cases
+ * voisines se lise d'un seul coup d'œil.
  */
 export function MontantEmpile(
   { value, max, empile = false, className }: { value: number; max: number; empile?: boolean; className?: string },
 ) {
   const text = formatEuros(value);
   const cut = splitAmount(text);
-  const stacked = cut !== null && cut[1] !== "€" && (text.length > max || (empile && cut[1].length > 1));
+  const stacked = cut !== null && cut[1].length > 1 && (empile || text.length > max);
   if (!stacked) return <Ajuste className={cx("montant", className)}>{text}</Ajuste>;
   return (
     <span className={cx("montant montant--empile", className)}>

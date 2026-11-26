@@ -48,11 +48,16 @@ export function Reglages() {
   const langues = useRef<HTMLDivElement>(null);
 
   // Après un changement de langue : même hauteur de page, et le choix garde la main au clavier.
+  // La coquille remet tout nouvel écran en haut de page (App.tsx), après cet effet : la
+  // hauteur est donc reposée une seconde fois, juste avant l'affichage.
   useLayoutEffect(() => {
     reprise = null;
     if (!retour) return;
-    window.scrollTo(0, retour.y);
+    const replacer = () => window.scrollTo(0, retour.y);
+    replacer();
+    const image = requestAnimationFrame(replacer);
     langues.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus({ preventScroll: true });
+    return () => cancelAnimationFrame(image);
   }, [retour]);
 
   if (!player) return null;
