@@ -10,8 +10,9 @@
 //   force, bluffe un peu ; accuse une main trop belle (full ou mieux) une fois sur deux, et
 //   toujours quand un adversaire montre une carte qu'il a lui-même reçue.
 // - Difficile : triche une fois sur deux, discrètement (un brelan, une suite, une couleur,
-//   jamais plus) ; relance et bluffe avec mesure ; accuse d'après la vraisemblance de la
-//   main montrée, et tient une carte en double pour une preuve quand il en détient l'autre.
+//   jamais plus ; s'il n'y a rien de discret à gagner, il s'abstient) ; relance et bluffe
+//   avec mesure ; accuse d'après la vraisemblance de la main montrée, et tient une carte en
+//   double pour une preuve quand il en détient l'autre.
 
 import { uniformInt } from "../economy";
 import { DECK, type Card, type Random32 } from "./cards";

@@ -108,7 +108,8 @@ export function Boutique({ shop }: { shop: ShopId }) {
         </div>
       )}
 
-      <ul className="etiquettes" role={def.slots.length > 1 ? "tabpanel" : undefined}>
+      {/* Les étiquettes entrent en cascade ; changer de rayon en amène de nouvelles, qui entrent à leur tour. */}
+      <ul className="etiquettes cascade" role={def.slots.length > 1 ? "tabpanel" : undefined}>
         {items.map((item) => <Etiquette key={item.id} item={item} player={player} balance={balance} />)}
       </ul>
     </main>

@@ -189,7 +189,7 @@ export function Domaine() {
   const ownsVehicles = player.owned.some((id) => itemById(id)?.slot === "vehicule");
 
   return (
-    <main className="ecran ecran--onglets domaine">
+    <main className="ecran ecran--onglets domaine cascade">
       <Entete
         titre={t("Domaine")}
         titreDiscret

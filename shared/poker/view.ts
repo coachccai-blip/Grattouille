@@ -24,22 +24,27 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     const p = playerInHand(t, index);
     // Une main ne se montre qu'à l'abattage, et seulement si son joueur est encore en jeu.
     const shown = p !== null && t.phase === "abattage" && !p.folded;
+    // Qui a fait son choix se voit ; ce qu'il a choisi, jamais.
+    let done = false;
+    if (t.phase === "denouement") done = seat.ready;
+    else if (p && t.phase === "triche") done = p.chosen;
+    else if (p && t.phase === "abattage") done = p.spoke;
     return {
       seat: index,
       pseudo: seat.bot === null ? seat.pseudo : null,
       bot: seat.bot,
       species: seat.bot === null ? seat.species : null,
-      look: seat.bot === null ? seat.look : null,
+      look: seat.bot === null && seat.look ? { ...seat.look } : null,
       stack: seat.stack,
       reserve: seat.reserve,
-      funded: seat.bot !== null || seat.seq >= 1,
+      funded: isFunded(seat),
       absent: seat.absent,
       inHand: p !== null,
       folded: p !== null && p.folded,
       allIn: p !== null && p.allIn && !p.folded,
       bet: p ? p.bet : 0,
       committed: p ? p.committed : 0,
-      done: t.phase === "denouement" ? seat.ready : p !== null && (t.phase === "triche" ? p.chosen : t.phase === "abattage" ? p.spoke : false),
+      done,
       cards: shown ? [...p.cards] : null,
       category: shown ? evaluate(p.cards).category : null,
     };

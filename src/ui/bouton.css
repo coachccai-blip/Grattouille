@@ -108,3 +108,29 @@
   touch-action: none;
   -webkit-touch-callout: none;
 }
+
+/* Un reflet passe sur le bouton d'achat quand la bourse suffit : une bande de lumière
+   qui traverse, puis laisse le bouton tranquille trois secondes. Sous le texte, qui
+   reste net. */
+.bouton--reflet::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, .62) 50%, transparent 100%);
+  transform: translateX(-140%) skewX(-18deg);
+  animation: bouton-reflet 3.6s ease-in-out 700ms infinite;
+  pointer-events: none;
+}
+
+.bouton--reflet .bouton__texte,
+.bouton--reflet .bouton__piece { z-index: 1; }
+
+@keyframes bouton-reflet {
+  0% { transform: translateX(-140%) skewX(-18deg); }
+  20%, 100% { transform: translateX(340%) skewX(-18deg); }
+}
+
+.calme .bouton--reflet::after { display: none; }

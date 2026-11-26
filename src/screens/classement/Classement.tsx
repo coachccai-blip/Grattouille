@@ -163,7 +163,7 @@ export function Classement() {
       {!board && loading && <p className="classement__vide" role="status">{t("Le classement arrive…")}</p>}
 
       {podium.length > 0 && (
-        <ol className="podium" aria-label={t("Les trois premiers")}>
+        <ol className="podium cascade" aria-label={t("Les trois premiers")}>
           {podium.map((entry, i) => {
             const me = entry.id === player?.id;
             return (
@@ -183,7 +183,7 @@ export function Classement() {
       )}
 
       {rest.length > 0 && (
-        <ol className="plaques" start={4} aria-label={t("La suite du classement")}>
+        <ol className="plaques cascade" start={4} aria-label={t("La suite du classement")}>
           {rest.map((entry, i) => {
             const me = entry.id === player?.id;
             return (

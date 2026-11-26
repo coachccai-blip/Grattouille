@@ -253,6 +253,27 @@ describe("le hall", () => {
     expect((await w.call("GET", "/api/me", undefined, a.auth)).body.state.poker).toBeUndefined();
   });
 
+  it("revenir au hall après une longue absence solde la table laissée en plan", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 1_000);
+    const code = (await w.poker.create(a, { maison: "kiosque", buyIn: 100 })).body.view!.code;
+    expect(w.balance(a)).toBe(900);
+    // Le joueur ferme le jeu en pleine main et revient une heure plus tard, par le hall.
+    w.advance(3_600_000);
+    expect((await w.call("GET", "/api/me", undefined, a.auth)).body.state.poker).toEqual({ code });
+    const lobby = await w.poker.lobby(a);
+    expect(lobby.body.seat).toBeNull();
+    expect(lobby.body.state.poker).toBeUndefined();
+    // Écarté pour absence, il a retrouvé son tapis : ses 100 €, moins les blindes des mains jouées sans lui.
+    const record = w.storage.peek(a.playerId)!;
+    expect(record.poker).toBeNull();
+    expect(record.balance).toBe(lobby.body.state.balance);
+    expect(record.balance).toBeGreaterThanOrEqual(900 + 100 - 4);
+    expect(record.balance).toBeLessThanOrEqual(900 + 100 + 12);
+    expect(w.storage.tableCodes()).toEqual([]);
+    expect((await w.poker.poll(a, code) as Reply).body.error.code).toBe("TABLE_NOT_FOUND");
+  });
+
   it("toutes les routes du poker sont authentifiées", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 5_000);
@@ -339,7 +360,7 @@ describe("créer une table", () => {
     const a = await w.signup("Marcel", 399);
     const r = await w.poker.create(a, { blind: 10, maxBuyIn: 200, seats: 2, bots: 1 });
     expect([r.status, (r.body as any).error]).toEqual([409, {
-      code: "BLIND_TOO_HIGH", message: "Cette blinde est trop haute pour ta bourse : elle ne peut pas dépasser son quarantième.",
+      code: "BLIND_TOO_HIGH", message: "Cette blinde est trop haute pour ta bourse. Elle ne peut pas dépasser son quarantième.",
     }]);
     expect(w.storage.tableCodes()).toEqual([]);
     w.storage.poke(a.playerId, (p) => { p.balance = 400; });
@@ -351,7 +372,7 @@ describe("créer une table", () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 500);
     const asked = await w.poker.create(a, { blind: 10, maxBuyIn: 1000, seats: 2, bots: 1, buyIn: 501 });
-    expect([asked.status, (asked.body as any).error]).toEqual([409, { code: "BUYIN_UNAFFORDABLE", message: "Ta bourse ne suffit pas pour cette cave." }]);
+    expect([asked.status, (asked.body as any).error]).toEqual([409, { code: "BUYIN_UNAFFORDABLE", message: "Ta bourse ne suffit pas pour cette cave. Choisis-en une plus petite, ou une table moins chère." }]);
     // À la table du Kiosque, il faut 20 € ; pour son défi, 30 €.
     w.storage.poke(a.playerId, (p) => { p.balance = 19; });
     expect((await w.poker.create(a, { maison: "kiosque" }) as Reply).body.error.code).toBe("BUYIN_UNAFFORDABLE");
@@ -442,6 +463,21 @@ describe("créer une table", () => {
     for (const a of accounts) codes.push((await w.poker.create(a, { maison: "kiosque", buyIn: 50 })).body.view!.code);
     expect(new Set(codes).size).toBe(12);
     expect(w.storage.tableCodes().sort()).toEqual([...codes].sort());
+
+    // Le même hasard dans un autre monde tirerait le même premier code. S'il est pris, on en tire un autre.
+    const first = makeWorld();
+    const a1 = await first.signup("Marcel", 1_000);
+    const drawn = (await first.poker.create(a1, { ...PRIVATE, seats: 2, buyIn: 300 })).body.view!.code;
+    const second = makeWorld();
+    const a2 = await second.signup("Marcel", 1_000);
+    await second.storage.createTable({ ...first.table(drawn)!, seats: [null, null], owner: null });
+    const r = await second.poker.create(a2, { ...PRIVATE, seats: 2, buyIn: 300 });
+    expect(r.status).toBe(201);
+    expect(r.body.view!.code).not.toBe(drawn);
+    expect(r.body.view!.you).toBe(0);
+    // La table qui tenait déjà ce code n'a pas été touchée.
+    expect(second.table(drawn)!.seats).toEqual([null, null]);
+    expect(second.storage.tableCodes().sort()).toEqual([drawn, r.body.view!.code].sort());
   });
 });
 
@@ -727,9 +763,9 @@ describe("agir à la table", () => {
       return [r.status, r.body.error?.code, r.body.error?.message];
     };
     // Pendant la triche : pas d'enchère, pas d'accusation.
-    expect(await refused(a, { type: "parole" })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant."]);
-    expect(await refused(a, { type: "accuser", seat: 1 })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant."]);
-    expect(await refused(a, { type: "lancer" })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant."]);
+    expect(await refused(a, { type: "parole" })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant. Regarde où en est la table."]);
+    expect(await refused(a, { type: "accuser", seat: 1 })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant. Regarde où en est la table."]);
+    expect(await refused(a, { type: "lancer" })).toEqual([409, "ACTION_IMPOSSIBLE", "Ce geste n'est pas possible maintenant. Regarde où en est la table."]);
     const mine = (await w.view(a, code)).hand!.cards;
     expect((await refused(a, { type: "tricher", index: 0, card: mine[3]! }))[1]).toBe("ACTION_IMPOSSIBLE");
     await w.poker.act(a, code, { type: "franc-jeu" });
@@ -753,7 +789,7 @@ describe("agir à la table", () => {
     const code = await started(w, [a, b]);
     for (const action of [{ type: "franc-jeu" }, { type: "parole" }, { type: "quitter" }, { type: "recaver", amount: 100 }, { type: "retour" }] as PokerAction[]) {
       const r = await w.poker.act(c, code, action) as Reply;
-      expect([action.type, r.status, r.body.error]).toEqual([action.type, 409, { code: "NOT_SEATED", message: "Tu n'es plus assis à cette table." }]);
+      expect([action.type, r.status, r.body.error]).toEqual([action.type, 409, { code: "NOT_SEATED", message: "Tu n'es plus assis à cette table. Repasse par le hall pour t'y rasseoir." }]);
     }
     for (const action of [{ type: "franc-jeu" }, { type: "quitter" }, { type: "recaver", amount: 100 }] as PokerAction[]) {
       const r = await w.poker.act(a, "ZZZZZ", action) as Reply;
@@ -1190,6 +1226,41 @@ describe("l'argent entre la bourse et la table", () => {
     await w.poker.lobby(b);
     expect(w.table(code)!.seats[1]!.stack).toBe(300);
     expect(w.money([a, b])).toBe(5_900);
+  });
+
+  it("s'asseoir, coupé, puis réessayer aussitôt : le même siège, une seule cave", async () => {
+    // Coupé avant que la bourse ne paie : le siège est réservé, rien n'est sorti.
+    const w = makeWorld();
+    const [a, b] = [await w.signup("Marcel", 5_000), await w.signup("Lulu", 900)];
+    const code = await seated(w, [a], 500);
+    w.failAt("mutatePlayer", 1);
+    expect((await w.crashing(() => w.poker.join(b, code, 300))).status).toBe(500);
+    const reserved = w.table(code)!.seats[1]!;
+    expect(reserved).toMatchObject({ playerId: b.playerId, seq: 0, stack: 0 });
+    expect(w.storage.peek(b.playerId)).toMatchObject({ balance: 900 });
+    expect(w.storage.peek(b.playerId)!.poker ?? null).toBeNull();
+    const retry = await w.poker.join(b, code, 300);
+    expect(retry.status).toBe(200);
+    // Le siège réservé a été repris tel quel, avec sa séance.
+    expect(w.table(code)!.seats[1]).toMatchObject({ sid: reserved.sid, seq: 1, stack: 300 });
+    expect(w.table(code)!.seats.filter(Boolean)).toHaveLength(2);
+    expect(w.balance(b)).toBe(600);
+    consistent(w, [a, b]);
+
+    // Coupé après que la bourse a payé : réessayer termine le travail sans repayer.
+    const w2 = makeWorld();
+    const [c, d] = [await w2.signup("Marcel", 5_000), await w2.signup("Lulu", 900)];
+    const code2 = await seated(w2, [c], 500);
+    w2.failAt("mutateTable", 2);
+    expect((await w2.crashing(() => w2.poker.join(d, code2, 300))).status).toBe(500);
+    expect(w2.balance(d)).toBe(600);
+    // Même en demandant une autre cave : celle qui est déjà sortie de la bourse fait foi.
+    const again = await w2.poker.join(d, code2, 450);
+    expect(again.status).toBe(200);
+    expect(again.body.view!.seats[1]).toMatchObject({ stack: 300, funded: true });
+    expect(w2.balance(d)).toBe(600);
+    expect(w2.money([c, d])).toBe(5_900);
+    consistent(w2, [c, d]);
   });
 
   it("s'asseoir, coupé, et le siège réservé expire avant le retour du joueur : la cave retourne à la bourse", async () => {

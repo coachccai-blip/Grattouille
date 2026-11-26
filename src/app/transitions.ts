@@ -55,7 +55,12 @@ interface Pending {
   screen: HTMLElement | null;
   tabsClone: HTMLElement | null;
   sheets: HTMLElement[] | null;
+  /** Le défilement de chaque boîte de la copie : à reposer chaque fois qu'elle change de place dans la page. */
+  scrolls: Scroll[];
 }
+
+/** Une boîte de la copie, et le défilement qu'elle doit garder. */
+type Scroll = [el: Element, top: number, left: number];
 
 let pending: Pending | null = null;
 const ghosts = new Set<HTMLElement>();
@@ -108,15 +113,24 @@ function copyCanvases(from: Element, to: Element): void {
 /** Les boîtes qui défilent dans l'écran gardent leur défilement dans la copie. */
 const SCROLLERS = ".feuille__corps, .rayons, .grattage__scene";
 
-function copyScroll(from: Element, to: Element): void {
+/** Le défilement des boîtes de `from`, à reporter sur celles de sa copie `to`. */
+function readScroll(from: Element, to: Element): Scroll[] {
   const a = from.matches(SCROLLERS) ? [from, ...from.querySelectorAll(SCROLLERS)] : [...from.querySelectorAll(SCROLLERS)];
   const b = to.matches(SCROLLERS) ? [to, ...to.querySelectorAll(SCROLLERS)] : [...to.querySelectorAll(SCROLLERS)];
+  const out: Scroll[] = [];
   a.forEach((el, i) => {
     const copy = b[i];
-    if (!copy || (el.scrollTop === 0 && el.scrollLeft === 0)) return;
-    copy.scrollTop = el.scrollTop;
-    copy.scrollLeft = el.scrollLeft;
+    if (copy && (el.scrollTop !== 0 || el.scrollLeft !== 0)) out.push([copy, el.scrollTop, el.scrollLeft]);
   });
+  return out;
+}
+
+/** Une boîte sortie de la page puis remise perd son défilement : on le repose une fois la copie en place. */
+function applyScroll(scrolls: readonly Scroll[]): void {
+  for (const [el, top, left] of scrolls) {
+    el.scrollTop = top;
+    el.scrollLeft = left;
+  }
 }
 
 function cloneOf(el: Element): HTMLElement {
@@ -126,7 +140,7 @@ function cloneOf(el: Element): HTMLElement {
 }
 
 /** La copie de l'écran affiché, posée à sa place exacte. Rend `null` s'il n'y a rien à copier. */
-function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null } | null {
+function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null; scrolls: Scroll[] } | null {
   const fond = document.querySelector(".jeu__fond");
   const screen = fond?.querySelector(":scope > .ecran");
   if (!fond || !(screen instanceof HTMLElement)) return null;
@@ -156,16 +170,15 @@ function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null } | 
   const bar = fond.querySelector(":scope > .onglets");
   const tabs = bar ? cloneOf(bar) : null;
 
-  document.body.appendChild(ghost);
-  // Le défilement de la page devient celui de la copie (elle est en place : elle peut défiler).
-  scroller.scrollTop = Math.max(0, -rect.top);
-  copyScroll(screen, copy);
+  // Le défilement de la page devient celui de la copie.
+  const scrolls: Scroll[] = [[scroller, Math.max(0, -rect.top), 0], ...readScroll(screen, copy)];
   const sheets = fond.querySelectorAll(":scope > .feuille");
   const copies = ghost.querySelectorAll(":scope > .feuille");
   sheets.forEach((sheet, i) => {
-    if (copies[i]) copyScroll(sheet, copies[i]!);
+    if (copies[i]) scrolls.push(...readScroll(sheet, copies[i]!));
   });
-  return { ghost, tabs };
+  document.body.appendChild(ghost);
+  return { ghost, tabs, scrolls };
 }
 
 /** Règle la copie de l'écran pour la transition décidée : son animation, sa place dans la pile, ses onglets. */
@@ -189,6 +202,8 @@ function stage(p: Pending, kind: Kind, to: View): void {
     ghost.style.zIndex = p.from.tabs && to.tabs ? "29" : "35";
     if (ghost.parentNode !== document.body || ghost.nextSibling !== null) document.body.appendChild(ghost);
   }
+  // La copie est à sa place : son défilement aussi.
+  applyScroll(p.scrolls);
 }
 
 /** Les copies des feuilles qui se referment (et de leur voile), posées à leur place. */
@@ -218,7 +233,7 @@ function buildSheetGhosts(from: View, to: View): HTMLElement[] {
       copy.removeAttribute("tabindex");
       copy.inert = true;
       document.body.appendChild(copy);
-      copyScroll(sheet, copy);
+      applyScroll(readScroll(sheet, copy));
       out.push(copy);
     }
   });
@@ -239,7 +254,7 @@ function onNav(state: { stack: readonly Screen[]; index: number }, prev: { stack
     if (from.baseKey === to.baseKey && from.sheetKeys.join("|") === to.sheetKeys.join("|")) return;
     // Un nouveau geste : la transition précédente, si elle court encore, laisse la place.
     dismissAll();
-    pending = { from, navBefore: document.documentElement.dataset.nav, screen: null, tabsClone: null, sheets: null };
+    pending = { from, navBefore: document.documentElement.dataset.nav, screen: null, tabsClone: null, sheets: null, scrolls: [] };
     // Tout ce qui change la pile dans la même foulée (revenir au Domaine, puis empiler deux
     // écrans) ne fait qu'une transition : du premier écran au dernier.
     queueMicrotask(() => {
@@ -256,17 +271,18 @@ function onNav(state: { stack: readonly Screen[]; index: number }, prev: { stack
   if (p.from.baseKey !== to.baseKey) {
     // L'écran change.
     const kind = kindOf(p.from, to);
-    setNav(kind);
     for (const ghost of p.sheets ?? []) ghost.remove();
     p.sheets = null;
-    if (!animate) return;
-    if (!p.screen) {
+    // La copie d'abord : elle lit la mise en page, et l'écran en place ne doit pas encore
+    // voir le nouveau sens (il rejouerait son entrée).
+    if (animate && !p.screen) {
       const built = buildScreenGhost();
-      if (!built) return;
-      p.screen = built.ghost;
-      p.tabsClone = built.tabs;
+      p.screen = built?.ghost ?? null;
+      p.tabsClone = built?.tabs ?? null;
+      p.scrolls = built?.scrolls ?? [];
     }
-    stage(p, kind, to);
+    setNav(kind);
+    if (animate) stage(p, kind, to);
     return;
   }
 

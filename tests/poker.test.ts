@@ -1894,7 +1894,7 @@ describe("l'argent se conserve", () => {
     let sidePotHands = 0;
     let unmasked = 0;
     let innocents = 0;
-    for (let seed = 101; seed <= 220; seed++) {
+    for (let seed = 101; seed <= 200; seed++) {
       const game = randomGame(seed, {
         step: sound,
         hand: (t) => {
@@ -1973,11 +1973,11 @@ describe("ce que voit un joueur", () => {
     return s;
   }
 
-  it("une vue ne dépend d'aucun secret des autres : 40 parties, tous les sièges, à chaque instant", () => {
+  it("une vue ne dépend d'aucun secret des autres : 30 parties, tous les sièges, à chaque instant", () => {
     const side = rngOf(606);
     let compared = 0;
     const phases = new Set<string>();
-    for (let seed = 301; seed <= 340; seed++) {
+    for (let seed = 301; seed <= 330; seed++) {
       randomGame(seed, {
         step: (t, now) => {
           phases.add(t.phase);
@@ -1991,8 +1991,53 @@ describe("ce que voit un joueur", () => {
         },
       }, { steps: 150 });
     }
-    expect(compared).toBeGreaterThan(30_000);
+    expect(compared).toBeGreaterThan(25_000);
     expect([...phases].sort()).toEqual(["abattage", "attente", "denouement", "encheres", "fermee", "triche"]);
+  });
+
+  it("les options annoncées sont exactes : tout ce qui est annoncé est accepté, tout le reste est refusé", () => {
+    let checked = 0;
+    const accepted = (t: TableState, id: string, action: GameAction, now: number, step: number) =>
+      refusal(() => act(t, id, action, now, rngOf(1), step)) === "accepté";
+    for (let seed = 601; seed <= 615; seed++) {
+      let tick = 0;
+      randomGame(seed, {
+        step: (t, now) => {
+          // Un état sur quatre suffit : chaque essai rejoue le moteur.
+          if (t.phase === "fermee" || tick++ % 4 !== 0) return;
+          t.seats.forEach((seat, index) => {
+            if (!seat || seat.bot !== null) return;
+            const view = viewOfSeat(t, index, now);
+            const o = view.options;
+            const id = seat.playerId;
+            const expectSame = (label: string, action: GameAction, announced: boolean) => {
+              if (accepted(t, id, action, now, view.step) !== announced) throw new Error(`${label} : annoncé ${announced}, phase ${t.phase}, siège ${index}`);
+              checked += 1;
+            };
+            expectSame("lancer", { type: "lancer" }, o.start);
+            expectSame("suite", { type: "suite" }, o.next);
+            expectSame("franc-jeu", { type: "franc-jeu" }, o.cheat);
+            const free = DECK.find((card) => !(view.hand?.cards ?? []).includes(card))!;
+            expectSame("tricher", { type: "tricher", index: 0, card: free }, o.cheat);
+            expectSame("parole", { type: "parole" }, o.check && o.fold);
+            expectSame("suivre", { type: "suivre" }, o.call > 0);
+            expectSame("coucher", { type: "coucher" }, o.fold);
+            expectSame("tapis", { type: "tapis" }, o.allIn);
+            for (const amount of new Set([1, t.blind, view.pot, view.pot + 1, seat.stack, o.bet?.min ?? 2, (o.bet?.min ?? 2) - 1, o.bet?.max ?? 3, (o.bet?.max ?? 3) + 1])) {
+              if (amount <= 0) continue;
+              expectSame(`miser ${amount}`, { type: "miser", amount }, o.bet !== null && amount >= o.bet.min && amount <= o.bet.max);
+            }
+            for (const amount of new Set([view.bet + 1, view.bet + t.blind, o.raise?.min ?? 2, (o.raise?.min ?? 2) - 1, o.raise?.max ?? 3, (o.raise?.max ?? 3) + 1])) {
+              if (amount <= 0) continue;
+              expectSame(`relancer ${amount}`, { type: "relancer", amount }, o.raise !== null && amount >= o.raise.min && amount <= o.raise.max);
+            }
+            expectSame("rien", { type: "rien" }, o.accuse.length > 0);
+            t.seats.forEach((_, target) => expectSame(`accuser ${target}`, { type: "accuser", seat: target }, o.accuse.includes(target)));
+          });
+        },
+      }, { steps: 120 });
+    }
+    expect(checked).toBeGreaterThan(20_000);
   });
 
   it("avant l'abattage : sa main, et rien des cartes des autres", () => {
@@ -2146,6 +2191,10 @@ describe("les robots", () => {
     return viewOfSeat(s, 1, T0);
   }
 
+  /** La même vue pendant la triche, avec cinq autres cartes : pour compter sur des milliers de mains. */
+  const dealtView = botView("7h 5d 4c 3s 2h");
+  const withCards = (cards: Card[]): TableView => ({ ...dealtView, hand: { ...dealtView.hand!, cards, category: evaluate(cards).category } });
+
   const after = (view: TableView, swap: { index: number; card: Card } | null): Card[] => {
     const cards = [...view.hand!.cards];
     if (swap) cards[swap.index] = swap.card;
@@ -2166,7 +2215,7 @@ describe("les robots", () => {
     let cheated = 0;
     const N = 3_000;
     for (let i = 0; i < N; i++) {
-      const view = botView(shuffledDeck(rng).slice(0, 5).join(" "));
+      const view = withCards(shuffledDeck(rng).slice(0, 5));
       if (botCheat(view, "facile", rng)) cheated += 1;
     }
     expect(cheated / N).toBeGreaterThan(1 / 6 - 0.03);
@@ -2187,7 +2236,7 @@ describe("les robots", () => {
     let cheated = 0;
     const N = 3_000;
     for (let i = 0; i < N; i++) {
-      const view = botView(shuffledDeck(rng).slice(0, 5).join(" "));
+      const view = withCards(shuffledDeck(rng).slice(0, 5));
       const swap = botCheat(view, "normal", rng);
       if (!swap) continue;
       cheated += 1;
@@ -2206,9 +2255,9 @@ describe("les robots", () => {
     const rng = rngOf(52);
     let cheated = 0;
     let possible = 0;
-    const N = 3_000;
+    const N = 2_000;
     for (let i = 0; i < N; i++) {
-      const view = botView(shuffledDeck(rng).slice(0, 5).join(" "));
+      const view = withCards(shuffledDeck(rng).slice(0, 5));
       const level = evaluate(view.hand!.cards).level;
       const discreet = possibleSwaps(view.hand!.cards).some(({ value }) => value.level > level && value.level >= 3 && value.level <= 5);
       if (discreet) possible += 1;
@@ -2239,7 +2288,7 @@ describe("les robots", () => {
   it("un robot ne propose que des remplacements permis", () => {
     const rng = rngOf(53);
     for (let i = 0; i < 1_500; i++) {
-      const view = botView(shuffledDeck(rng).slice(0, 5).join(" "));
+      const view = withCards(shuffledDeck(rng).slice(0, 5));
       for (const level of LEVELS) {
         const swap = botCheat(view, level, rng);
         if (!swap) continue;

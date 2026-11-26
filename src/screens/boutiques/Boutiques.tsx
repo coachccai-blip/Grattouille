@@ -37,7 +37,7 @@ export function Boutiques() {
         </button>
       )}
 
-      <ul className="vitrines">
+      <ul className="vitrines cascade">
         {SHOPS.map((shop) => {
           const items = itemsOfShop(shop.id);
           const owned = items.filter((i) => player.owned.includes(i.id)).length;

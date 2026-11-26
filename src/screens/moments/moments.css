@@ -11,8 +11,36 @@
   overflow-y: auto;
   background: var(--nuit);
   color: var(--ecume);
-  animation: fondu 280ms linear both;
+  animation: fondu 80ms linear both;
 }
+
+/*
+ * Un grand moment lève son rideau : un pan de nuit, ourlé de laiton, couvre l'écran
+ * puis file vers le haut et découvre la scène. 280 ms en tout.
+ */
+.moment::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  border-bottom: 6px solid transparent;
+  background: linear-gradient(#06181E, #0A242D) padding-box, var(--laiton) border-box;
+  animation: rideau-leve 280ms cubic-bezier(.5, 0, .2, 1) both;
+  pointer-events: none;
+}
+
+@keyframes rideau-leve {
+  0%, 12% { transform: translateY(0); }
+  100% { transform: translateY(-102%); }
+}
+
+/* En débarquant, on vient d'un formulaire couleur de nuit : le rideau est là d'emblée,
+   sans laisser entrevoir le Domaine qui vient de se monter dessous. */
+.moment--accueil { animation: none; }
+
+/* Animations réduites : un fondu, pas de rideau. */
+.calme .moment { animation: fondu 200ms linear both; }
+.calme .moment::after { display: none; }
 
 /* L'écran s'assombrit autour de la colonne. */
 .moment::before {
@@ -103,6 +131,20 @@
   align-items: flex-start;
   min-width: 0;
 }
+
+/* Les bulles poussent l'une après l'autre, une fois le rideau levé. */
+.moment__paroles > .portrait { animation: portrait-pose 240ms var(--rebond) 260ms backwards; }
+.moment__bulles .bulle__texte { animation-delay: 320ms; }
+.moment__bulles .bulle__texte:nth-child(2) { animation-delay: 460ms; }
+.moment__bulles .bulle__texte:nth-child(n + 3) { animation-delay: 600ms; }
+
+/* D'un temps du générique à l'autre, il n'y a plus de rideau à attendre. */
+.moment__temps .moment__paroles > .portrait { animation-delay: 0ms; }
+.moment__temps .moment__bulles .bulle__texte { animation-delay: 80ms; }
+.moment__temps .moment__bulles .bulle__texte:nth-child(2) { animation-delay: 220ms; }
+.moment__temps .moment__bulles .bulle__texte:nth-child(n + 3) { animation-delay: 360ms; }
+
+.calme .moment__paroles > .portrait { animation: none; }
 
 /* Seule la première bulle pointe vers celui qui parle. */
 .moment__bulles .bulle__texte + .bulle__texte {

@@ -373,14 +373,19 @@ function calme(): boolean {
   return typeof document !== "undefined" && document.documentElement.classList.contains("calme");
 }
 
+/** Le temps que le pion se donne pour rejoindre sa case, une fois le dé gratté, en millisecondes. */
+const TRAJET_MS = 480;
+
 /**
  * La case où l'on voit le pion : il rejoint `at` en sautant de case en case, un « toc »
- * par case. Plus il a de retard (« Tout gratter », la rafale), plus il presse le pas :
- * il n'est jamais en retard de plus d'une demi-seconde, et ne retient pas le jeu.
+ * par case. Plus il a de chemin à faire (« Tout gratter », la rafale), plus il presse le
+ * pas : il arrive une demi-seconde au plus après le dernier dé, et ne retient pas le jeu.
  */
 function usePas(at: number, immediat: boolean): number {
   const [pas, setPas] = useState(at);
   const enRoute = useRef(false);
+  // L'heure à laquelle il doit être arrivé : repoussée chaque fois qu'un dé allonge sa route.
+  const arrivee = useRef({ at, heure: 0 });
   useEffect(() => {
     if (pas === at) {
       enRoute.current = false;
@@ -390,7 +395,9 @@ function usePas(at: number, immediat: boolean): number {
       setPas(at);
       return;
     }
-    const wait = enRoute.current ? Math.max(30, Math.min(110, 440 / (at - pas))) : 0;
+    const now = performance.now();
+    if (arrivee.current.at !== at) arrivee.current = { at, heure: now + TRAJET_MS };
+    const wait = enRoute.current ? Math.max(30, Math.min(110, (arrivee.current.heure - now) / (at - pas))) : 0;
     const timer = window.setTimeout(() => {
       enRoute.current = true;
       playPawnStep(pas);

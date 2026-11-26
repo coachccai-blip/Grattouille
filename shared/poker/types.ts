@@ -306,6 +306,8 @@ export interface TableState {
    * jetons sur la table (tapis, réserves, pot) = `in` − `out` + `bank`.
    * `in` : reçu des bourses ; `out` : rendu ou dû aux bourses ; `bank` : l'argent
    * fictif des robots, net (ce qu'ils ont apporté moins ce qui a disparu avec eux).
+   * Sans robot, `bank` reste nul. Rien ne dépend de ces compteurs : ils servent aux
+   * tests et au diagnostic.
    */
   audit: { in: number; out: number; bank: number };
 }
@@ -435,8 +437,8 @@ export interface TableView {
   turn: number | null;
   /**
    * L'échéance, à l'heure du serveur : fin de la triche, fin du tour de parole d'un
-   * humain, fin de l'abattage, fin de l'affichage du dénouement. `null` s'il n'y en a pas
-   * (attente, ou tour d'un robot).
+   * humain, fin de l'abattage, fin de l'affichage du dénouement, reprise prévue après une
+   * attente. `null` s'il n'y en a pas (attente sans reprise prévue, tour d'un robot).
    */
   deadline: number | null;
   /** Sa main. `null` s'il n'est pas dans la main en cours. */

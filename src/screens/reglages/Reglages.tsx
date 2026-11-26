@@ -115,7 +115,7 @@ export function Reglages() {
   const [avantPseudo = "", apresPseudo = ""] = t("Pour confirmer, écris ton pseudo : {pseudo}").split("{pseudo}");
 
   return (
-    <main className={retour ? "ecran reglages reglages--reprise" : "ecran reglages"}>
+    <main className={retour ? "ecran reglages reglages--reprise" : "ecran reglages cascade"}>
       <Entete titre={t("Réglages")} retour />
 
       {/* Le titre nomme le groupe de boutons radio : une seule annonce pour un lecteur d'écran. */}

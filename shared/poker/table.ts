@@ -967,7 +967,7 @@ export function act(state: TableState, playerId: string, action: GameAction, now
       break;
     case "suite":
       if (step !== undefined && step !== d.step) refuse("ACTION_IMPOSSIBLE");
-      if (d.phase !== "denouement" || !isFunded(seat)) refuse("ACTION_IMPOSSIBLE");
+      if (d.phase !== "denouement" || !isFunded(seat) || seat.ready) refuse("ACTION_IMPOSSIBLE");
       seat.ready = true;
       seat.absent = false;
       // La main suivante part dès que tous les joueurs humains présents l'ont demandée.

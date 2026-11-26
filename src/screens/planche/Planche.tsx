@@ -2,6 +2,7 @@
 // toutes les illustrations sur une page, pour juger la cohérence d'un coup d'œil.
 // Ce qui manque au registre apparaît en cadre vide, avec son identifiant.
 
+import { useState } from "react";
 import { CATALOG } from "../../../shared/catalog";
 import { PLACES } from "../../../shared/places";
 import { SPECIES } from "../../../shared/rules";
@@ -14,6 +15,7 @@ import { expectedIds, illustration } from "../../art/registry";
 import { buildLayout, cellIds } from "../../engines";
 import { palette } from "../../engines/common";
 import { Ticket } from "../../ticket/Ticket";
+import { Carte } from "../../ui/Carte";
 import "./planche.css";
 
 /** Huit garde-robes, de l'arrivée au port jusqu'à la Lune. */
@@ -57,6 +59,23 @@ function Tuile({ id, fond, large }: { id: string; fond?: string; large?: boolean
       </div>
       <figcaption>{id}</figcaption>
     </figure>
+  );
+}
+
+/** La carte retournable, à toutes ses tailles : un toucher retourne tout le jeu. */
+function Cartes() {
+  const [dos, setDos] = useState(false);
+  const mains = ["Ah", "Ks", "Qd", "Jc", "Th", "9s", "2d"];
+  return (
+    <div className="planche__cartes" onClick={() => setDos((d) => !d)}>
+      {[40, 56, 72, 96].map((largeur) => (
+        <div className="planche__main" key={largeur}>
+          {mains.map((carte, i) => <Carte key={carte} carte={carte} largeur={largeur} cachee={dos} choisie={i === 1 && !dos} />)}
+          <Carte largeur={largeur} />
+          <span className="note">{largeur} px</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -151,6 +170,9 @@ export default function Planche() {
           </div>
         </section>
       ))}
+
+      <h2>Cartes à retourner (toucher pour retourner le jeu)</h2>
+      <Cartes />
 
       <h2>Les trente tickets, neufs</h2>
       <div className="planche__tickets">

@@ -3,7 +3,7 @@
 // tempérament, son prix. On y achète à l'unité, par carnet de 5 ou de 10. Qui n'a plus
 // de quoi jouer y trouve un ticket par terre.
 
-import { useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
 import { maxGain } from "../../../shared/economy";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
@@ -188,13 +188,14 @@ export function Comptoir({ place }: { place: PlaceId }) {
         aria-label={t("Les tickets du lieu")}
       >
         {/* La piste est centrée : on la décale pour amener le ticket choisi au milieu. */}
-        <div className="carrousel__piste" style={{ transform: `translateX(${((tickets.length - 1) / 2 - selected) * (width + GAP)}px)` }}>
+        {/* Les tickets du comptoir entrent en cascade, à partir du ticket présenté. */}
+        <div className="carrousel__piste cascade" style={{ transform: `translateX(${((tickets.length - 1) / 2 - selected) * (width + GAP)}px)` }}>
           {tickets.map((x, i) => (
             <button
               key={x.id}
               type="button"
               className={cx("carrousel__ticket", i === selected && "carrousel__ticket--choisi")}
-              style={{ width }}
+              style={{ width, "--rang": Math.abs(i - selected) } as CSSProperties}
               data-son="carrousel"
               aria-pressed={i === selected}
               aria-label={t("{ticket}, {prix}, jusqu'à {max}", {

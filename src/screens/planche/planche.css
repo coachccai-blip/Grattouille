@@ -56,3 +56,21 @@
 }
 
 .tuile--manque figcaption { color: var(--cerise-clair); }
+
+/* La carte retournable, à ses quatre tailles. */
+.planche__cartes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--persienne-fonce);
+  cursor: pointer;
+}
+
+.planche__main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

@@ -48,6 +48,21 @@
   to { transform: none; }
 }
 
+/* Avant d'avoir un compte (l'affiche, puis le formulaire) : on avance, on revient, d'un
+   court glissé fondu. Il n'y a pas de pile d'écrans ici, donc pas de fantôme. */
+.ecran--suite { animation: ecran-suite var(--t-glisse) var(--sortie) both; }
+.ecran--revenu { animation: ecran-revenu var(--t-glisse) var(--sortie) both; }
+
+@keyframes ecran-suite {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ecran-revenu {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: none; }
+}
+
 /*
  * Le fantôme : une copie figée de l'écran qu'on quitte, posée exactement où il était
  * (même défilement), le temps qu'il sorte. Le vrai écran, lui, est démonté tout de
@@ -176,6 +191,11 @@
 }
 
 .calme .cascade > * { animation: none; }
+
+/* En revenant en arrière, l'écran qu'on retrouve attendait dessous : ses listes y sont
+   déjà, elles ne rentrent pas une seconde fois. */
+html[data-nav="retour"] .jeu__fond > .ecran .cascade > *,
+html[data-nav="retour"] .jeu__fond > .ecran.cascade > * { animation: none; }
 
 /* ---------------------------------------------------------------- Étoiles qui s'envolent */
 

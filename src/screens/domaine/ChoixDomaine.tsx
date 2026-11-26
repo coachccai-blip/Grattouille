@@ -27,7 +27,7 @@ export function ChoixDomaine({ slot }: { slot: "residence" | "vehicule" }) {
   return (
     <Feuille titre={titre} onClose={() => nav.back()} className="choix-domaine">
       <h2 className="t-titre">{titre}</h2>
-      <div className="choix">
+      <div className="choix cascade">
         <button type="button" className="choix__article" aria-pressed={current === null} data-son="choix" onClick={() => choose(null)}>
           {slot === "residence" ? <Illustration id="decor:banc" /> : <span className="choix__rien"><Icon name="fermer" /></span>}
           <span>{slot === "residence" ? t("Le banc du port") : t("À pied")}</span>

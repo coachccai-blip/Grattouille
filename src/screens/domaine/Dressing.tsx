@@ -64,7 +64,7 @@ export function Dressing() {
       </div>
 
       {owned.length > 0 ? (
-        <div className="choix" role="tabpanel">
+        <div className="choix cascade" role="tabpanel">
           <button
             type="button"
             className="choix__article"
@@ -107,7 +107,7 @@ export function Dressing() {
 
       <section className="rubrique" aria-labelledby="dressing-espece">
         <h2 className="rubrique__titre" id="dressing-espece">{t("Changer d'espèce, c'est gratuit")}</h2>
-        <div className="especes__grille">
+        <div className="especes__grille cascade">
           {SPECIES.map((s, i) => (
             <button
               key={s}

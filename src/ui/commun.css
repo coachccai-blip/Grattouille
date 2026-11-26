@@ -79,7 +79,16 @@
   background: var(--lagune);
   box-shadow: 0 -2px 0 rgba(6, 24, 30, .35);
   transform: translateX(-50%);
+  /* La barre monte quand elle arrive (sans effet ensuite : elle reste en place d'un onglet à l'autre). */
+  animation: onglets-montent var(--t-ecran) var(--sortie) backwards;
 }
+
+@keyframes onglets-montent {
+  from { transform: translate(-50%, 100%); }
+}
+
+.calme .onglets,
+.onglets--posee { animation: none; }
 
 .onglet {
   position: relative;
@@ -104,8 +113,9 @@
   height: 30px;
 }
 
-/* Actif : icône pleine, mot en mimosa. */
+/* Actif : icône pleine, mot en mimosa. L'icône rebondit en s'allumant. */
 .onglet--actif { color: var(--mimosa); }
+.onglet--actif .onglet__pastille svg { animation: rebond var(--t-rebond) var(--rebond); }
 
 .onglet:active .onglet__pastille { transform: scale(.92); }
 
@@ -134,7 +144,16 @@
   color: #fff;
   font: 700 12px/22px var(--texte);
   text-align: center;
+  /* Le compte rebondit chaque fois qu'il change. */
+  animation: compte-saute 320ms var(--rebond) backwards;
 }
+
+@keyframes compte-saute {
+  from { transform: scale(.4); }
+}
+
+.calme .onglet__compte,
+.calme .onglet--actif .onglet__pastille svg { animation: none; }
 
 /* ---------------------------------------------------------------- Message bref */
 
@@ -239,6 +258,26 @@
 }
 
 .bulle__geste { color: var(--encre-douce); }
+
+/* Une bulle pousse : elle grandit depuis le coin qui pointe vers celui qui parle, et son
+   portrait se pose. Sans effet une fois arrivée. */
+.bulle__texte {
+  transform-origin: 0 0;
+  animation: bulle-pousse 260ms var(--rebond) 60ms backwards;
+}
+
+.bulle > .portrait { animation: portrait-pose 240ms var(--rebond) backwards; }
+
+@keyframes bulle-pousse {
+  from { opacity: 0; transform: scale(.5); }
+}
+
+@keyframes portrait-pose {
+  from { opacity: 0; transform: scale(.6); }
+}
+
+.calme .bulle__texte,
+.calme .bulle > .portrait { animation: none; }
 
 /* ---------------------------------------------------------------- Jauge de tempérament */
 

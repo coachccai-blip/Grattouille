@@ -135,12 +135,18 @@ export function Bourse({ className }: { className?: string }) {
   const flash = useGame((s) => s.purseFlash);
   const calm = useGame(isCalm);
   // L'argent arrive : la bourse rebondit. Le compteur change de parité à chaque arrivée,
-  // pour que l'animation reparte même si la précédente n'est pas finie.
-  const [arrivee, setArrivee] = useState(0);
+  // pour que l'animation reparte même si la précédente n'est pas finie ; une demi-seconde
+  // plus tard, il n'en reste rien.
+  const [arrivee, setArrivee] = useState({ n: 0, vive: false });
+  useEffect(() => {
+    if (!arrivee.vive) return;
+    const timer = window.setTimeout(() => setArrivee((a) => ({ ...a, vive: false })), 480);
+    return () => window.clearTimeout(timer);
+  }, [arrivee]);
   // Animations réduites : comptage du solde en 300 ms, sans attendre.
   const shown = useCompte(balance, calm ? 300 : countMs, true, {
     delai: calm ? 0 : countDelay,
-    onDepart: () => setArrivee((n) => n + 1),
+    onDepart: () => setArrivee((a) => ({ n: a.n + 1, vive: true })),
   });
   const [refus, setRefus] = useState(false);
   const firstFlash = useRef(flash);
@@ -155,7 +161,7 @@ export function Bourse({ className }: { className?: string }) {
     <div
       className={cx("bourse", refus && "bourse--refus", shown < balance && "bourse--compte", className)}
       data-bourse
-      data-arrivee={arrivee === 0 ? undefined : arrivee % 2 === 1 ? "a" : "b"}
+      data-arrivee={arrivee.vive ? (arrivee.n % 2 === 1 ? "a" : "b") : undefined}
     >
       <Icon name="piece" plein className="bourse__piece" size={28} />
       <span className="bourse__montant chiffres" aria-hidden="true"><Cases text={formatEuros(shown)} /></span>

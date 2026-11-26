@@ -1,0 +1,81 @@
+/* La carte retournable (Carte.tsx) : de 40 à 96 px de large, 7 de haut pour 5 de large.
+   Elle tourne autour de son axe vertical en 250 ms : transformation seule. */
+
+.carte {
+  --carte-l: 56px;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--carte-l);
+  aspect-ratio: 5 / 7;
+  /* La profondeur du retournement suit la taille de la carte. */
+  perspective: calc(var(--carte-l) * 7);
+  vertical-align: middle;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.carte__pivot {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 250ms var(--sortie);
+}
+
+.carte--cachee .carte__pivot { transform: rotateY(180deg); }
+
+.carte__face,
+.carte__dos {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--carte-l) * .1);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* La face : un carton blanc, comme les cartes des tickets. Son ombre est une forme
+   décalée, jamais un flou qui s'animerait. */
+.carte__face { box-shadow: 0 calc(var(--carte-l) * .04) 0 rgba(6, 24, 30, .35); }
+
+.carte__carton {
+  fill: #fff;
+  stroke: rgba(14, 47, 58, .28);
+  stroke-width: 1.2;
+}
+
+/* La valeur : Jost gras, 12 px au plus petit (une carte de 40 px). */
+.carte__rang {
+  fill: var(--nuit);
+  font: 700 15px/1 var(--texte);
+  text-anchor: middle;
+}
+
+/* « 10 » : deux chiffres, un rien resserrés pour tenir dans le coin. */
+.carte__rang--large { letter-spacing: -1.4px; }
+
+.carte--rouge .carte__rang { fill: var(--cerise); }
+
+/* Le dos, le même que celui des tickets à cartes : treillis mimosa sur bleu de nuit,
+   dans un filet ivoire et laiton. */
+.carte__dos {
+  background: var(--dos-carte);
+  box-shadow:
+    inset 0 0 0 calc(var(--carte-l) * .045) var(--ivoire),
+    inset 0 0 0 calc(var(--carte-l) * .07) #C99A3A,
+    0 calc(var(--carte-l) * .04) 0 rgba(6, 24, 30, .35);
+  transform: rotateY(180deg);
+}
+
+/* La carte choisie, la carte gagnante : un liseré mimosa, et elle se soulève. */
+.carte--choisie { transform: translateY(calc(var(--carte-l) * -.08)); }
+
+.carte--choisie .carte__face,
+.carte--choisie .carte__dos { outline: calc(var(--carte-l) * .05) solid var(--mimosa); outline-offset: 1px; }
+
+.carte { transition: transform var(--t-bascule) var(--sortie); }
+
+/* Animations réduites : la carte change de côté d'un coup. */
+.calme .carte,
+.calme .carte__pivot { transition: none; }

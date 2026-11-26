@@ -1,7 +1,7 @@
 // Petits composants communs (BRIEF.md, section 13.5) : en-tête d'écran, barre
 // d'onglets, message bref, bulle de personnage, jauge de tempérament, interrupteur.
 
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Temperament } from "../../shared/types";
 import type { Line } from "../app/dialogues";
 import { nav, type Tab } from "../app/nav";
@@ -131,8 +131,11 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
 /** Quatre onglets, icône et mot. « Jouer » porte une pastille mimosa plus grande. */
 export function Onglets({ actif }: { actif: Tab | null }) {
   const waiting = useGame((s) => toScratch(s).length);
+  // La barre monte en arrivant. Sauf quand on revient en arrière : elle attendait sous
+  // l'écran qui s'en va, déjà en place. (Décidé une fois, à la pose : elle ne rejoue rien.)
+  const [posee] = useState(() => typeof document !== "undefined" && document.documentElement.dataset.nav === "retour");
   return (
-    <nav className="onglets" aria-label={t("Navigation principale")}>
+    <nav className={cx("onglets", posee && "onglets--posee")} aria-label={t("Navigation principale")}>
       {TABS.map((tab, i) => {
         const active = tab.id === actif;
         const jouer = tab.id === "promenade";

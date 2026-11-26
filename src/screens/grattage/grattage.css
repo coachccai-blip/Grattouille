@@ -317,8 +317,25 @@
   padding: var(--e5);
   overflow: hidden;
   background: #06181E;
-  animation: fondu 200ms linear both;
+  /* Elle se fond, et tremble d'un cheveu : c'est un très gros gain. */
+  animation: fondu 200ms linear both, secousse 420ms linear 80ms;
 }
+
+/* Un gros gain fait trembler la scène d'un cheveu : deux pixels, moins d'une demi-seconde. */
+.grattage__scene--secousse { animation: secousse 380ms linear; }
+
+@keyframes secousse {
+  0%, 100% { transform: translate(0, 0); }
+  14% { transform: translate(-2px, 1px); }
+  28% { transform: translate(2px, -1px); }
+  42% { transform: translate(-2px, -1px); }
+  57% { transform: translate(2px, 1px); }
+  71% { transform: translate(-1px, 0); }
+  85% { transform: translate(1px, 0); }
+}
+
+.calme .fete { animation: fondu 200ms linear both; }
+.calme .grattage__scene--secousse { animation: none; }
 
 /* Énorme : des rayons mimosa tournent derrière le montant. */
 .fete--enorme::before {

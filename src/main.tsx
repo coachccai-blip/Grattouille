@@ -3,12 +3,14 @@
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/mouvement.css";
 
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { initNav } from "./app/nav";
 import { loadSettings } from "./app/persist";
 import { boot, useGame } from "./app/store";
+import { initTransitions } from "./app/transitions";
 import { installGrain } from "./fx/grain";
 import { setLang } from "./i18n";
 
@@ -26,5 +28,6 @@ function Racine() {
 setLang(loadSettings().langue);
 installGrain();
 initNav();
+initTransitions();
 createRoot(document.getElementById("root")!).render(<Racine />);
 void boot();

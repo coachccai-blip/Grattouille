@@ -49,11 +49,17 @@ function Langues() {
 
 export function Bienvenue() {
   const [step, setStep] = useState<Step>("accueil");
+  // Revenu d'un formulaire : l'affiche rentre par la gauche, comme on revient en arrière.
+  const [revenu, setRevenu] = useState(false);
   const sandbox = useGame((s) => s.sandbox);
-  if (step === "creation") return <Creation onBack={() => setStep("accueil")} />;
-  if (step === "retrouver") return <Retrouver onBack={() => setStep("accueil")} />;
+  const back = () => {
+    setRevenu(true);
+    setStep("accueil");
+  };
+  if (step === "creation") return <Creation onBack={back} />;
+  if (step === "retrouver") return <Retrouver onBack={back} />;
   return (
-    <main className="ecran bienvenue">
+    <main className={cx("ecran bienvenue", revenu && "ecran--revenu")}>
       <div className="bienvenue__affiche">
         <Langues />
         <div className="bienvenue__decor" aria-hidden="true">
@@ -107,12 +113,12 @@ function Creation({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <main className="ecran bienvenue bienvenue--formulaire">
+    <main className="ecran bienvenue bienvenue--formulaire ecran--suite">
       <form className="bienvenue__form" onSubmit={submit} noValidate>
         <h1 className="t-titre">{t("Qui débarque au port ?")}</h1>
         <fieldset className="especes">
           <legend className="t-second">{t("Choisis ton espèce. Tu pourras en changer quand tu veux.")}</legend>
-          <div className="especes__grille">
+          <div className="especes__grille cascade">
             {SPECIES.map((s, i) => (
               <button
                 key={s}
@@ -195,7 +201,7 @@ function Retrouver({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <main className="ecran bienvenue bienvenue--formulaire">
+    <main className="ecran bienvenue bienvenue--formulaire ecran--suite">
       <form className="bienvenue__form" onSubmit={submit} noValidate>
         <h1 className="t-titre">{t("Te revoilà au port !")}</h1>
         <p className="t-second">{t("Ton pseudo et ton code de récupération suffisent : ni adresse e-mail, ni mot de passe.")}</p>

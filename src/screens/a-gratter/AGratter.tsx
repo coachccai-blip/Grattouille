@@ -26,7 +26,7 @@ export function AGratter() {
       <Entete titre={t("À gratter")} retour droite={<Bourse />} />
       <BulleLibre pnj="piou" nom={hostName("piou")}>{pile.length > 0 ? PIOU.enAttente(pile.length) : PIOU.pileVide}</BulleLibre>
 
-      <ul className="pile">
+      <ul className="pile cascade">
         {pile.map((ticket, i) => {
           const def = ticketById(ticket.type);
           if (!def) return null;

@@ -20,10 +20,6 @@ export function isFunded(seat: SeatState): boolean {
   return seat.bot !== null || seat.seq >= 1;
 }
 
-export function hasHuman(t: TableState): boolean {
-  return t.seats.some((s) => s !== null && s.bot === null);
-}
-
 /** Le joueur de ce siège dans la main en cours, s'il y a des cartes. */
 export function playerInHand(t: TableState, seat: number): HandPlayer | null {
   return t.hand?.players.find((p) => p.seat === seat && !p.gone) ?? null;
@@ -33,11 +29,6 @@ export function playerInHand(t: TableState, seat: number): HandPlayer | null {
 export function isLive(t: TableState, seat: number): boolean {
   const p = playerInHand(t, seat);
   return p !== null && !p.folded;
-}
-
-/** Les sièges encore en jeu dans la main, dans l'ordre de parole. */
-export function liveSeats(t: TableState): number[] {
-  return t.hand ? t.hand.players.filter((p) => !p.folded).map((p) => p.seat) : [];
 }
 
 /** Les sièges dans l'ordre de la table, à partir du voisin de `from`. */

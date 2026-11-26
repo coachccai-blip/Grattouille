@@ -3,7 +3,7 @@
 // fermés sont visibles, grisés, avec leur plaque. C'est aussi là qu'on trouve, de
 // temps en temps, un ticket par terre.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import { PLACES } from "../../../shared/places";
 import { bestPlace, nextPlace } from "../../../shared/rules";
@@ -54,7 +54,8 @@ export function Promenade() {
   return (
     <main className="ecran ecran--onglets promenade">
       <Entete titre={t("La Promenade")} droite={<Bourse />} />
-      <ol className="promenade__rue" reversed>
+      {/* Les lieux entrent en cascade, à partir de celui sur lequel la rue s'ouvre. */}
+      <ol className="promenade__rue cascade" reversed>
         {/* De la Lune jusqu'au port : le Kiosque est en bas. */}
         {[...PLACES].reverse().map((place) => {
           const open = standing >= place.standing;
@@ -78,7 +79,7 @@ export function Promenade() {
             lu = t("{lieu}, fermé : ouvre à {n} étoiles", { lieu, n });
           }
           return (
-            <li key={place.id}>
+            <li key={place.id} style={{ "--rang": Math.abs(PLACES.indexOf(place) - PLACES.indexOf(best)) } as CSSProperties}>
               <button
                 ref={place.id === best.id ? bestRef : undefined}
                 type="button"

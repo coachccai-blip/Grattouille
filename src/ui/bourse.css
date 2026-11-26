@@ -28,8 +28,32 @@
   --icone-fond: #8F6A1F;
 }
 
+/* L'argent arrive : la bourse rebondit, et sa pièce tourne tant qu'elle compte. Deux
+   noms pour la même animation : passer de l'un à l'autre la fait repartir. */
+.bourse[data-arrivee="a"] { animation: bourse-rebond-a 440ms var(--sortie); }
+.bourse[data-arrivee="b"] { animation: bourse-rebond-b 440ms var(--sortie); }
+
+@keyframes bourse-rebond-a {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  62% { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bourse-rebond-b {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  62% { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
+
+.bourse--compte .bourse__piece { animation: piece-tourne 560ms ease-in-out infinite; }
+
+.calme .bourse[data-arrivee],
+.calme .bourse--compte .bourse__piece { animation: none; }
+
 /* Un achat refusé faute d'argent : la bourse clignote en cerise clair. */
-.bourse--refus { animation: bourse-refus 700ms linear; }
+.bourse.bourse--refus { animation: bourse-refus 700ms linear; }
 
 @keyframes bourse-refus {
   0%, 40%, 80% { color: var(--cerise-clair); transform: translateX(0); }
@@ -49,12 +73,50 @@
   white-space: nowrap;
 }
 
+/* L'étoile et, quand le Standing monte, les éclats qui en jaillissent. */
+.standing__astre {
+  position: relative;
+  display: flex;
+  flex: none;
+}
+
 .standing__etoile {
   flex: none;
   color: var(--bougainvillier);
 }
 
-.standing--gagne .standing__etoile { animation: rebond 500ms var(--rebond); }
+.standing--gagne .standing__etoile { animation: rebond 500ms var(--rebond) 2; }
+
+/* Six petites étoiles partent en couronne et s'éteignent. */
+.standing__eclats {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.standing__eclats i {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--bougainvillier-clair);
+  clip-path: polygon(50% 2%, 61% 36%, 98% 36%, 68% 58%, 79% 93%, 50% 72%, 21% 93%, 32% 58%, 2% 36%, 39% 36%);
+  animation: eclat-jaillit 700ms var(--sortie) both;
+  animation-delay: calc(var(--i) * 30ms);
+}
+
+@keyframes eclat-jaillit {
+  from { opacity: 1; transform: rotate(calc(var(--i) * 60deg + 30deg)) translateY(-4px) scale(.3); }
+  70% { opacity: 1; }
+  to { opacity: 0; transform: rotate(calc(var(--i) * 60deg + 30deg)) translateY(-30px) scale(1.1); }
+}
+
+.calme .standing--gagne .standing__etoile { animation: none; }
+.calme .standing__eclats { display: none; }
 
 .sur-papier .standing,
 .papier .standing { color: var(--bougainvillier-fonce); }

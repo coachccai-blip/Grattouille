@@ -999,7 +999,8 @@
   z-index: 1;
   width: var(--pion);
   height: var(--pion);
-  transition: top 320ms var(--sortie), left 320ms var(--sortie), width 320ms var(--sortie), height 320ms var(--sortie);
+  /* Il est posé d'emblée sur sa case : c'est une transformation qui le fait sauter de l'une
+     à l'autre (views.tsx), jamais une animation de mise en page. */
   pointer-events: none;
 }
 
@@ -1016,10 +1017,17 @@
   height: 2.8em;
 }
 
-.jeu-parcours__pion--gagne svg { animation: rebond var(--t-rebond) var(--rebond) 320ms both; }
+/* Arrivé sur une case qui paie, il saute de joie. */
+.jeu-parcours__pion--gagne svg { animation: pion-joie 520ms var(--sortie) 2; }
 
-.calme .jeu-parcours__pion,
+@keyframes pion-joie {
+  0%, 100% { transform: none; }
+  40% { transform: translateY(-34%) scale(1.12); }
+  70% { transform: translateY(0) scale(.94, 1.06); }
+}
+
 .calme .jeu-parcours__contenu { transition: none; }
+.calme .jeu-parcours__pion--gagne svg { animation: none; }
 
 .jeu-parcours__des {
   display: grid;
@@ -1368,3 +1376,155 @@
 .jeu-multi .jeu-morpion__grille { grid-template-columns: repeat(3, 5.2em); grid-auto-rows: 5.2em; }
 .jeu-multi .jeu-morpion__lot { width: 16.4em; }
 .jeu-multi .jeu-morpion__lot .case { height: 4.9em; }
+
+/* ================================================================ Le mouvement du ticket */
+
+/* Tout ce qui suit est transformation et opacité. Rien sur les miniatures, et rien en
+   animations réduites (au plus, le rebond d'origine). */
+
+/* ---------------------------------------------------------------- Une case gagnante pulse */
+
+/* Un halo mimosa part du bord de la case et s'éteint, sans jamais passer sur son contenu
+   (il est dessous) ; la case elle-même respire à peine. */
+.case--touche::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: .5em;
+  box-shadow: 0 0 0 .16em var(--mimosa);
+  opacity: 0;
+  animation: touche-halo 1500ms ease-out infinite;
+  pointer-events: none;
+}
+
+.case--rond.case--touche::before { border-radius: 50%; }
+
+/* Une étoile, une cloche : la forme est découpée, c'est son contour qui s'allume déjà. */
+.case--etoile.case--touche::before,
+.case--cloche.case--touche::before { display: none; }
+
+.case--touche .case__fond { animation: touche-respire 1500ms ease-in-out infinite; }
+
+/* Sur les tickets à lettres et à rangées, une case cerclée n'est pas encore un gain (la
+   lettre sert, la carte est sur une rangée) : elle ne pulse pas. C'est le mot complet, la
+   rangée complète, qui saluent. */
+.jeu-mots .case--touche::before,
+.jeu-lignes .case--touche::before { display: none; }
+
+.jeu-mots .case--touche .case__fond,
+.jeu-lignes .case--touche .case__fond { animation: none; }
+
+@keyframes touche-halo {
+  0% { opacity: .85; transform: scale(1); }
+  60%, 100% { opacity: 0; transform: scale(1.13); }
+}
+
+@keyframes touche-respire {
+  0%, 100% { transform: translateY(-.14em) scale(1.03); }
+  50% { transform: translateY(-.14em) scale(1.07); }
+}
+
+/* La case d'arrivée du pion, quand elle paie, et la rangée complète : même respiration. */
+.jeu-parcours__case--gagne { animation: gagne-respire 1500ms ease-in-out infinite; }
+.jeu-lignes__rangee--complete { animation: rebond var(--t-rebond) var(--rebond), rangee-respire 1500ms ease-in-out 300ms infinite; }
+.jeu-mots__palier--atteint { animation: rebond var(--t-rebond) var(--rebond); }
+
+@keyframes gagne-respire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+
+@keyframes rangee-respire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+/* ---------------------------------------------------------------- Une carte révélée se retourne */
+
+/* Réussite (le tirage) et Le 21 d'Hector (les mains) : 250 ms, autour de l'axe vertical.
+   Le dos d'abord, qui se présente par la tranche ; puis la face, qui finit de tourner.
+   Le dos est celui de la carte retournable (src/ui/Carte.tsx). */
+.jeu-lignes--cartes .jeu-lignes__tirage .case--vue::after,
+.jeu-duel--cartes .jeu-duel__rencontre.case--vue::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: .5em;
+  background: var(--dos-carte);
+  box-shadow: inset 0 0 0 .12em var(--ivoire), inset 0 0 0 .2em #C99A3A;
+  animation: carte-dos 250ms linear both;
+  pointer-events: none;
+}
+
+.jeu-lignes--cartes .jeu-lignes__tirage .case--vue .case__fond,
+.jeu-duel--cartes .jeu-duel__rencontre.case--vue .case__fond { animation: carte-face 250ms linear backwards; }
+
+/* Au 21, une main gagnante se retourne, puis respire comme les autres cases gagnantes. */
+.jeu-duel--cartes .jeu-duel__rencontre.case--vue.case--touche .case__fond {
+  animation: carte-face 250ms linear backwards, touche-respire 1500ms ease-in-out 250ms infinite;
+}
+
+/* La carte tourne d'un bloc : son contenu ne rebondit pas en plus. */
+.jeu-lignes--cartes .jeu-lignes__tirage .case--vue .case__fond > *,
+.jeu-duel--cartes .jeu-duel__rencontre.case--vue .case__fond > * { animation: none; }
+
+@keyframes carte-dos {
+  0% { opacity: 1; transform: perspective(26em) rotateY(0deg); animation-timing-function: ease-in; }
+  49% { opacity: 1; transform: perspective(26em) rotateY(88deg); }
+  50%, 100% { opacity: 0; transform: perspective(26em) rotateY(90deg); }
+}
+
+@keyframes carte-face {
+  0%, 49% { opacity: 0; transform: perspective(26em) rotateY(-90deg); }
+  50% { opacity: 1; transform: perspective(26em) rotateY(-88deg); animation-timing-function: ease-out; }
+  100% { opacity: 1; transform: perspective(26em) rotateY(0deg); }
+}
+
+/* ---------------------------------------------------------------- Les dés roulent */
+
+.jeu-parcours__des .case--vue .case__fond > .jeu-de { animation: de-roule 440ms var(--sortie); }
+
+@keyframes de-roule {
+  0% { transform: translateY(-30%) rotate(-320deg) scale(.5); }
+  55% { transform: translateY(0) rotate(16deg) scale(1.12); }
+  78% { transform: rotate(-7deg) scale(.97); }
+  100% { transform: none; }
+}
+
+/* ---------------------------------------------------------------- Les lettres s'allument */
+
+/* Chaque case de la grille qui s'allume grossit un instant ; un mot complet salue. */
+.jeu-mots__case--vue { animation: lettre-allume 320ms var(--rebond); }
+.jeu-mots__case--mot { animation: mot-complet 400ms var(--rebond); }
+
+@keyframes lettre-allume {
+  from { transform: scale(1.4); }
+}
+
+@keyframes mot-complet {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.24); }
+}
+
+/* ---------------------------------------------------------------- Ni sur les miniatures, ni en animations réduites */
+
+.ticket--mini .case--touche::before,
+.ticket--mini .case--vue::after,
+.calme .case--touche::before,
+.calme .case--vue::after { display: none; }
+
+.ticket--mini .case--touche .case__fond,
+.ticket--mini .case--vue .case__fond,
+.ticket--mini .jeu-parcours__case--gagne,
+.ticket--mini .jeu-mots__case--vue,
+.ticket--mini .jeu-mots__case--mot,
+.ticket--mini .jeu-parcours__des .case--vue .case__fond > .jeu-de,
+.calme .case--touche .case__fond,
+.calme .case--vue .case__fond,
+.calme .jeu-parcours__case--gagne,
+.calme .jeu-lignes__rangee--complete,
+.calme .jeu-mots__palier--atteint,
+.calme .jeu-mots__case--vue,
+.calme .jeu-mots__case--mot,
+.calme .jeu-parcours__des .case--vue .case__fond > .jeu-de { animation: none; }
