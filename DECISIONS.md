@@ -225,6 +225,38 @@ Grattouille. » Ce que la demande ne tranchait pas, tranché au plus simple :
   retiennent pas d'argent). Chaque interrogation coûte deux lectures. `npm run simulate`
   ne modélise pas les gains du poker.
 
+## 0 quater. Bruitages, animations et effets
+
+Demande du 26 novembre : « une vraie expérience auditive » et des animations « pour
+gamifier davantage ».
+
+- **Tout est synthétisé** (Web Audio, `src/fx/audio.ts`) : une soixantaine de sons, aucun
+  fichier, aucune dépendance. Une seule famille : une petite boîte à musique de bord de mer,
+  sur une gamme pentatonique commune, pour qu'on puisse jouer une heure sans couper le son.
+  Un son d'interface dure moins de 200 ms ; le jackpot a sa fanfare de deux secondes ; un
+  ticket perdu a une petite chute tendre, jamais moqueuse. Une mouette à l'arrivée au port.
+- **Chaque geste a son son**, déclenché là où l'événement se produit : boutons (trois appuis
+  distincts), onglets, feuilles, interrupteurs, refus, achats (le distributeur, la caisse,
+  une note par étoile gagnée), la bourse qui compte, le grattage, les dés, les cartes, les
+  lettres, le pion, les paliers de gain, le tampon, le ticket trouvé, les temps du récit,
+  et les dix sons du poker.
+- **Sortie** : un limiteur et seize voix au plus ; un même son ne se redéclenche pas avant
+  105 ms. Le réglage « Son » coupé, rien ne démarre, pas même le contexte audio.
+- **Ces sons ont été vérifiés par mesure, pas à l'oreille** : un script compte ce qui se
+  déclenche à chaque geste (97 gestes), un rendu hors ligne mesure durée et niveau de chaque
+  son. Leur agrément reste à juger sur un vrai téléphone.
+- **Animations** : uniquement `transform` et `opacity`. Transitions entre écrans (l'écran
+  entre par la droite, repart par la droite, les onglets se fondent, les feuilles montent,
+  les grands moments lèvent leur rideau), compteurs qui défilent (le gain, puis la bourse
+  quand les pièces arrivent ; la fortune et le Standing), listes en cascade (12 éléments au
+  plus, 40 ms d'écart), cartes qui se retournent, dés qui roulent, pion qui saute de case en
+  case, étoiles qui jaillissent, reflet sur le bouton d'achat à portée, écran qui tremble
+  d'un cheveu sur un gros gain.
+- **Aucune animation ne fait attendre** : un écran se touche dès sa deuxième image, et les
+  fêtes de gain gardent leurs durées. « Animations réduites » (ou la préférence du système)
+  remplace tout mouvement par un fondu bref.
+- **Pas de musique ni de boucle d'ambiance** : choix délibéré, pour ne pas lasser.
+
 ## 1. Déploiement (jalon 0)
 
 **Voie retenue : la voie B d'abord (déposer le projet entier sur Netlify), la voie A

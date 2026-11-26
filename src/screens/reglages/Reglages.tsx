@@ -19,7 +19,7 @@ import "../bienvenue/bienvenue.css";
 /** Chaque langue se nomme dans sa propre langue : on retrouve la sienne sans savoir lire l'autre. */
 const NOMS_DES_LANGUES: Record<Lang, string> = { fr: "Français", en: "English" };
 
-const VERSION = "1.1";
+const VERSION = "2.0";
 
 /**
  * Changer de langue remonte tout l'écran (main.tsx). Ce que les réglages avaient en
