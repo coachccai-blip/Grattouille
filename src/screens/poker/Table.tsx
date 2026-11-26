@@ -31,6 +31,7 @@ import { BarreTemps, Tete } from "./parts";
 import { hostLine, tableLine } from "./repliques";
 import { Tapis } from "./Tapis";
 import { categoryName, identityOf, nameInSentence, nameList, tableTitle, type Identity } from "./textes";
+import "./poker.css";
 import "./table.css";
 
 /** Retour au hall, quelle que soit la feuille ouverte par-dessus la table. */
@@ -165,6 +166,17 @@ function promptOf(view: TableView, who: (seat: number) => Identity | null): stri
   }
 }
 
+/** La blinde en vigueur ; dans un défi, ce qu'elle vaudra bientôt, et dans combien de mains. */
+function blindText(view: TableView): string {
+  const montant = formatEuros(view.blind);
+  if (!view.rise) return t("Blinde : {montant}", { montant });
+  const suivante = formatEuros(view.rise.blind);
+  const n = view.rise.hand - view.handNo;
+  return n > 1
+    ? t("Blinde : {montant}, puis {suivante} dans {n} mains", { montant, suivante, n })
+    : t("Blinde : {montant}, puis {suivante} à la main suivante", { montant, suivante });
+}
+
 // ---------------------------------------------------------------------------
 // La main du joueur
 
@@ -222,11 +234,14 @@ function Infos({ view }: { view: TableView }) {
         </span>
         <strong className="chiffres">{formatEuros(me.stack)}</strong>
       </span>
-      {state && <span className={cx("poker-moi__combi", hand?.folded && "poker-moi__combi--efface")}>{state}</span>}
-      <span className="poker-moi__chiffre poker-moi__chiffre--droite">
-        <span className="poker-moi__nom">{t("Ta mise")}</span>
-        <strong className="chiffres">{formatEuros(me.committed)}</strong>
-      </span>
+      {/* Chaque chose garde sa colonne, qu'elle soit là ou non : le tapis à gauche, la mise à droite. */}
+      {state ? <span className={cx("poker-moi__combi", hand?.folded && "poker-moi__combi--efface")}>{state}</span> : <span />}
+      {hand ? (
+        <span className="poker-moi__chiffre poker-moi__chiffre--droite">
+          <span className="poker-moi__nom">{t("Ta mise")}</span>
+          <strong className="chiffres">{formatEuros(me.committed)}</strong>
+        </span>
+      ) : <span />}
     </div>
   );
 }
@@ -288,6 +303,8 @@ function Actions({ view }: { view: TableView }) {
   const recave = () => nav.push({ name: "poker-feuille", feuille: "recave" });
   // Le tapis ne couvre plus la blinde : sans recave, la main suivante part sans le joueur.
   const dry = me.stack + me.reserve < view.blind;
+  // Recaver se propose quand le tapis est passé sous la cave minimale de la table : avant, rien ne presse.
+  const low = o.rebuy !== null && me.stack + me.reserve < view.minBuyIn;
 
   if (o.back) {
     return (
@@ -321,7 +338,7 @@ function Actions({ view }: { view: TableView }) {
     const over = view.kind === "defi" && (me.stack + me.reserve <= 0 || (rival !== null && rival.stack <= 0));
     const next = (
       <Bouton
-        variante={dry && o.rebuy ? "secondaire" : "principal"}
+        variante={dry && low ? "secondaire" : "principal"}
         attente={busy === "suite"}
         disabled={off || !o.next}
         onClick={() => void play({ type: "suite" })}
@@ -331,15 +348,15 @@ function Actions({ view }: { view: TableView }) {
     );
     return (
       <div className="poker-actions">
-        <div className={cx("poker-actions__rang", !o.rebuy && "poker-actions__rang--seul")}>
-          {o.rebuy && !dry && <Bouton variante="secondaire" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+        <div className={cx("poker-actions__rang", !low && "poker-actions__rang--seul")}>
+          {low && !dry && <Bouton variante="secondaire" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
           {next}
-          {o.rebuy && dry && <Bouton disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+          {low && dry && <Bouton disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
         </div>
       </div>
     );
   }
-  if (o.rebuy && (dry || view.phase === "attente")) {
+  if (low && (dry || view.phase === "attente")) {
     return (
       <div className="poker-actions">
         <Bouton variante={dry ? "principal" : "secondaire"} bloc disabled={off} onClick={recave}>{t("Recaver")}</Bouton>
@@ -386,7 +403,11 @@ function Bilan({ outcome, you, nom }: { outcome: Denouement; you: number | null;
   const headline = bilanOf(net);
   return (
     <div className="poker-bilan" role="status">
-      {headline && <p className={cx("poker-bilan__titre", !outcome.settled && "poker-bilan--attend")}>{headline}</p>}
+      {headline && (
+        <p className={cx("poker-bilan__titre", net !== null && net > 0 && "poker-bilan__titre--gain", !outcome.settled && "poker-bilan--attend")}>
+          {headline}
+        </p>
+      )}
       {outcome.lines.map((line, i) => {
         const text = potLine(line, you, nom);
         if (!text) return null;
@@ -454,7 +475,7 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   const walkLine = walkover && result ? potLine({ kind: "seul", seat: result.pots[0]?.winners[0]?.seat ?? -1, amount: result.pots[0]?.amount ?? 0 }, you, nom) : null;
 
   return (
-    <main ref={root} className={cx("ecran poker-table", board && "poker-table--abattage")}>
+    <main ref={root} className={cx("ecran poker-table", board && "poker-table--abattage")} data-phase={view.phase} data-main={view.handNo}>
       <EnteteTable titre={tableTitle(view)} view={view} />
       {offline && <HorsLigne />}
       <div className="poker-table__scene">
@@ -462,16 +483,16 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
           <Abattage view={view} who={who} flip={view.phase === "abattage" && sawBefore.current === view.handNo} outcome={outcome} />
         ) : (
           <Tapis view={view} labels={events.labels}>
-            <span className="poker-pot__blinde">{t("Blinde : {montant}", { montant: formatEuros(view.blind) })}</span>
+            <span className="poker-pot__blinde">{blindText(view)}</span>
           </Tapis>
         )}
       </div>
       <section className="poker-moi" data-siege="moi" aria-label={t("Ta place")}>
-        <BarreTemps deadline={view.deadline} offset={offset} total={phaseTotal(view)} mine={myMove || view.phase === "denouement"} />
+        <BarreTemps deadline={view.deadline} offset={offset} total={phaseTotal(view)} mine={myMove} />
         {outcome ? (
           <>
             {/* Après un abattage : un mot d'un personnage, s'il y en a un, puis ce que la main rapporte et où va le pot. */}
-            <Voix refus={notice?.text ?? null} replique={replique?.line ?? null}>{null}</Voix>
+            {(notice || replique) && <Voix refus={notice?.text ?? null} replique={replique?.line ?? null}>{null}</Voix>}
             <Bilan outcome={outcome} you={you} nom={nom} />
           </>
         ) : (
@@ -520,7 +541,7 @@ function Attente({ view, offline }: { view: TableView; offline: boolean }) {
   };
 
   return (
-    <main className="ecran poker-table poker-table--attente">
+    <main className="ecran poker-table poker-table--attente" data-phase="attente" data-main={0}>
       <EnteteTable titre={tableTitle(view)} view={view} />
       {offline && <HorsLigne />}
       <div className="poker-table__scene">
@@ -570,7 +591,7 @@ const RAISONS: Partial<Record<Left["reason"], string>> = {
   reserve: "Ta cave n'est pas arrivée à temps : ta place a été libérée.",
   inactive: "La table s'est endormie : trente minutes sans un geste, elle a fermé.",
   banque: "La table a fermé : il y avait trop d'argent sur le tapis pour compter juste.",
-  "defi-nul": "Match nul : plus personne ne peut payer la blinde.",
+  "defi-nul": "Match nul : plus personne n'a de quoi continuer.",
 };
 
 function Sortie({ view, left, gone }: { view: TableView | null; left: Left | null; gone: boolean }) {

@@ -89,9 +89,11 @@ export function Feuille({ titre, onClose, children, className }: FeuilleProps) {
       >
         <div className="feuille__poignee" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           {/* Au clavier ou au lecteur d'écran (`detail` vaut 0), le bouton ferme directement. */}
+          {/* Son propre son : le glissé de la feuille qui se referme, rien de plus. */}
           <button
             type="button"
             className="feuille__fermer"
+            data-son="feuille"
             aria-label={t("Fermer")}
             onClick={(e) => {
               if (e.detail === 0) onClose();

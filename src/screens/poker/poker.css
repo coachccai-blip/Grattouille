@@ -305,7 +305,7 @@
 
 .poker-pas {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px minmax(76px, auto) 48px;
+  grid-template-columns: minmax(0, 1fr) 48px minmax(96px, max-content) 48px;
   gap: 0 6px;
   align-items: center;
   min-height: 52px;

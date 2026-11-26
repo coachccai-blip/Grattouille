@@ -179,7 +179,7 @@ export function Domaine() {
   const calm = useGame(isCalm);
   // Le ticket qui traîne scintille en apparaissant ; la fortune défile quand on revient plus riche.
   useFoundSparkle(found !== null);
-  const fortune = useCompteSouvenir("domaine:fortune", player?.fortune ?? 0, calm ? 0 : 900);
+  const fortune = useCompteSouvenir(player ? `fortune:${player.id}` : undefined, player?.fortune ?? 0, calm ? 0 : 900);
   if (!player) return null;
   const best = bestPlace(player.standing);
   const residence = player.look.residence;
@@ -198,7 +198,7 @@ export function Domaine() {
             <Icon name="reglages" />
           </button>
         }
-        droite={<><Bourse /><Standing souvenir="domaine:standing" /></>}
+        droite={<><Bourse /><Standing souvenir={`standing:${player.id}`} /></>}
       />
 
       <div className={cx("domaine__scene", found && "domaine__scene--trouve")} style={{ backgroundImage: skyOf(best.id) }}>

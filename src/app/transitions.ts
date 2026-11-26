@@ -64,6 +64,10 @@ type Scroll = [el: Element, top: number, left: number];
 
 let pending: Pending | null = null;
 const ghosts = new Set<HTMLElement>();
+/** Les fantômes qu'on retient : l'écran qui doit les recouvrir n'est pas encore chargé. */
+const held = new Set<HTMLElement>();
+let waiting: MutationObserver | null = null;
+let waitTimer = 0;
 
 function calm(): boolean {
   return isCalm(useGame.getState()) || document.documentElement.classList.contains("calme");
@@ -75,10 +79,18 @@ function canAnimate(): boolean {
 
 function dismiss(ghost: HTMLElement): void {
   ghosts.delete(ghost);
+  held.delete(ghost);
   ghost.remove();
 }
 
+function stopWaiting(): void {
+  waiting?.disconnect();
+  waiting = null;
+  window.clearTimeout(waitTimer);
+}
+
 function dismissAll(): void {
+  stopWaiting();
   for (const ghost of [...ghosts]) dismiss(ghost);
 }
 
@@ -86,12 +98,39 @@ function dismissAll(): void {
 function release(ghost: HTMLElement): void {
   ghosts.add(ghost);
   const done = (e?: Event) => {
-    if (e && e.target !== ghost) return;
+    if ((e && e.target !== ghost) || held.has(ghost)) return;
     dismiss(ghost);
   };
   ghost.addEventListener("animationend", done);
   ghost.addEventListener("animationcancel", done);
-  window.setTimeout(() => dismiss(ghost), 520);
+  window.setTimeout(done, 520);
+}
+
+/** L'écran d'attente d'un morceau du jeu qui se charge (App.tsx) : il n'entre pas, il laisse voir le fantôme. */
+const BUSY = '.jeu__fond > .ecran[aria-busy="true"]';
+
+/**
+ * L'écran où l'on entre n'est pas encore chargé (le poker a son propre morceau) : l'écran
+ * qu'on quitte reste en vue, en retrait, jusqu'à ce que le nouveau arrive et glisse
+ * par-dessus. Trois secondes au plus : passé ce délai, on ne retient plus rien.
+ */
+function holdUntilLoaded(ghost: HTMLElement): void {
+  const fond = document.querySelector(".jeu__fond");
+  if (!fond || !document.querySelector(BUSY)) return;
+  held.add(ghost);
+  window.clearTimeout(settleTimer);
+  const arrived = () => {
+    stopWaiting();
+    // Le temps que l'écran chargé finisse de glisser par-dessus.
+    window.setTimeout(() => dismiss(ghost), 300);
+    settleSoon();
+  };
+  stopWaiting();
+  waiting = new MutationObserver(() => {
+    if (!document.querySelector(BUSY)) arrived();
+  });
+  waiting.observe(fond, { childList: true });
+  waitTimer = window.setTimeout(arrived, 3000);
 }
 
 /** Recopie le contenu des canvas (l'encre d'un ticket) : une copie de nœud ne le fait pas. */
@@ -246,6 +285,30 @@ function setNav(kind: string | undefined): void {
   else root.dataset.nav = kind;
 }
 
+/** Le temps d'une transition, et un peu plus : après quoi l'écran est « posé ». */
+const SETTLE_MS = 340;
+let settleTimer = 0;
+
+/**
+ * Une fois la transition jouée, <html> porte `data-nav-pose` : un écran monté plus tard à la
+ * place de celui qui vient d'entrer (un morceau du jeu chargé à la demande, qui remplace son
+ * écran d'attente) apparaît d'un coup, au lieu de rejouer l'entrée. La marque tombe au
+ * prochain changement d'écran.
+ */
+function unsettle(): void {
+  window.clearTimeout(settleTimer);
+  delete document.documentElement.dataset.navPose;
+}
+
+function settleSoon(): void {
+  window.clearTimeout(settleTimer);
+  settleTimer = window.setTimeout(() => {
+    document.documentElement.dataset.navPose = "";
+    // Ceinture et bretelles : aucun glissé ne doit laisser la page décalée de côté.
+    if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+  }, SETTLE_MS);
+}
+
 /** La pile vient de changer. Appelé à chaque changement, avant que React ne redessine : l'ancien écran est encore là. */
 function onNav(state: { stack: readonly Screen[]; index: number }, prev: { stack: readonly Screen[]; index: number }): void {
   const to = viewOf(state);
@@ -261,8 +324,17 @@ function onNav(state: { stack: readonly Screen[]; index: number }, prev: { stack
       const p = pending;
       pending = null;
       if (!p) return;
-      if (p.screen) release(p.screen);
       for (const ghost of p.sheets ?? []) release(ghost);
+      const ghost = p.screen;
+      if (!ghost) return;
+      release(ghost);
+      // Une fois l'écran suivant monté (à l'image qui vient) : s'il n'est encore qu'un écran
+      // d'attente, le fantôme qu'il doit recouvrir patiente avec lui.
+      if (ghost.classList.contains("fantome--pousse")) {
+        requestAnimationFrame(() => {
+          if (ghosts.has(ghost)) holdUntilLoaded(ghost);
+        });
+      }
     });
   }
   const p = pending;
@@ -281,7 +353,9 @@ function onNav(state: { stack: readonly Screen[]; index: number }, prev: { stack
       p.tabsClone = built?.tabs ?? null;
       p.scrolls = built?.scrolls ?? [];
     }
+    unsettle();
     setNav(kind);
+    settleSoon();
     if (animate) stage(p, kind, to);
     return;
   }

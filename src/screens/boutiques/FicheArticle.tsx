@@ -69,11 +69,15 @@ export function FicheArticle({ item: id }: { item: string }) {
       window.setTimeout(playStamp, 260);
       haptic.buy();
       if (!isCovered(useGame.getState())) {
-        envolEtoiles(
-          document.querySelector(".fiche-article__etoiles"),
-          document.querySelector("[data-standing] .standing__etoile"),
-          item.standing,
-        );
+        // À l'image suivante : la fiche vient de s'allonger (le mot du vendeur, la suite), et
+        // les ★ partent de là où l'étiquette « +8 ★ » se trouve maintenant.
+        requestAnimationFrame(() => {
+          envolEtoiles(
+            document.querySelector(".fiche-article__etoiles"),
+            document.querySelector("[data-standing] .standing__etoile"),
+            item.standing,
+          );
+        });
       }
       setBought(true);
       // Le Kiosque lance le générique de fin : la fiche s'efface.

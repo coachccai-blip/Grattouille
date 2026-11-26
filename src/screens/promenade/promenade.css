@@ -81,3 +81,30 @@
 .lieu--ferme .lieu__etat,
 .lieu--ferme .lieu__nom,
 .lieu--ferme .lieu__moment { color: var(--brume); }
+
+/* Le Poker Tricheur : au bout de la rue, sous le Kiosque. Pas un lieu : un tapis vert,
+   et cinq cartes en éventail. */
+.lieu--poker { margin-top: var(--e3); }
+
+.lieu__feutre {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  background: #1A5E4A;
+  box-shadow: inset 0 0 0 3px #124536;
+}
+
+.lieu__eventail {
+  display: flex;
+  justify-content: center;
+  /* L'éventail dépasse un peu sous la plaque : il sort de la manche. */
+  margin-bottom: -16px;
+}
+
+.lieu__eventail .carte {
+  margin: 0 -8px;
+  transform: translateY(calc(var(--i) * var(--i) * 3px)) rotate(calc(var(--i) * 8deg));
+  transform-origin: 50% 110%;
+}

@@ -3,6 +3,7 @@
 // ce fichier gardent leurs phrases françaises, qui sont les clés de traduction.
 
 import { cardRank, cardSuit, type Card } from "../../../shared/poker/cards";
+import { placeById } from "../../../shared/places";
 import type { HandCategory } from "../../../shared/poker/hands";
 import type { Difficulty, SeatView, TableView } from "../../../shared/poker/types";
 import { hostName } from "../../app/dialogues";
@@ -102,11 +103,9 @@ export function nameList(names: readonly string[]): string {
 }
 
 /** Le titre d'une table : le lieu d'une table de la maison, l'hôte d'un défi, le code d'une table d'amis. */
-export function tableTitle(view: Pick<TableView, "kind" | "place" | "code" | "seats">): string {
+export function tableTitle(view: Pick<TableView, "kind" | "place" | "code">): string {
   if (view.kind === "maison" && view.place) return capitalize(placeShort(view.place));
-  if (view.kind === "defi") {
-    const host = view.seats.find((seat) => seat !== null && seat.bot !== null);
-    return host?.bot ? t("Défi : {hote}", { hote: hostName(host.bot) }) : t("Le défi");
-  }
+  // L'hôte se retrouve par son lieu : une table fermée n'a plus personne d'assis.
+  if (view.kind === "defi") return view.place ? t("Défi : {hote}", { hote: hostName(placeById(view.place).host) }) : t("Le défi");
   return t("Table {code}", { code: view.code });
 }

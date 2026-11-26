@@ -58,11 +58,13 @@ function useCardFit(rows: number): { width: number; step: number } {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  // La rangée : les marges de l'écran et les siennes, la tête, puis une colonne de texte d'au moins 96 px.
-  const room = screen - 16 - 20 - 40 - 8 - 96 - 8;
-  const width = rows <= 3 && screen >= 360 ? 48 : rows <= 4 && screen >= 350 ? 44 : 40;
+  // Ce qui reste aux cartes : l'écran moins ses marges (16), le bord du tapis (20), celles de la
+  // rangée (16), la tête (40), deux écarts (16), la retenue des cartes (3), et la colonne du nom.
+  const text = screen < 350 ? 98 : 108;
+  const room = screen - 16 - 20 - 16 - 40 - 16 - 3 - text;
+  const width = rows <= 3 && screen >= 380 ? 48 : rows <= 4 && screen >= 350 ? 44 : 40;
   // Chaque carte montre au moins son coin : la valeur et l'enseigne.
-  const step = Math.max(22, Math.min(width + 4, Math.floor((room - width) / 4)));
+  const step = Math.max(17, Math.min(width + 4, Math.floor((room - width) / 4)));
   return { width, step };
 }
 
@@ -149,16 +151,18 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
     // Une fois par abattage : un joueur qui part en cours de route ne fait rien rejouer.
   }, [flip, view.handNo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pot = result ? result.pots.reduce((sum, p) => sum + p.amount, 0) : view.pot;
   let rank = 0;
   return (
     <section className="poker-abattage" aria-label={t("L'abattage")}>
-      <p className="poker-abattage__pot">
-        <span className="poker-pot__somme" data-pot>
-          <span className="poker-pot__jetons" aria-hidden="true"><Jeton /><Jeton /><Jeton /></span>
-          <span className="chiffres">{t("Pot : {montant}", { montant: formatEuros(pot) })}</span>
-        </span>
-      </p>
+      {/* Au dénouement, le sort du pot se lit sous la table : ici, il ne reste que l'endroit d'où partent les jetons. */}
+      {result ? <span className="poker-abattage__ancre" data-pot aria-hidden="true" /> : (
+        <p className="poker-abattage__pot">
+          <span className="poker-pot__somme" data-pot>
+            <span className="poker-pot__jetons" aria-hidden="true"><Jeton /><Jeton /><Jeton /></span>
+            <span className="chiffres">{t("Pot : {montant}", { montant: formatEuros(view.pot) })}</span>
+          </span>
+        </p>
+      )}
       <ul className="poker-abattage__mains">
         {rows.map((row) => {
           const me = row.seat === you;
@@ -201,7 +205,7 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
                 <span className={cx("poker-rangee__combi", guilty && "poker-rangee__combi--nulle")}>{categoryName(row.category)}</span>
                 {net !== null && (
                   <span className={cx("poker-rangee__bilan chiffres", net > 0 && "poker-rangee__bilan--plus", net < 0 && "poker-rangee__bilan--moins")}>
-                    {net > 0 ? `+${formatEuros(net)}` : formatEuros(net)}
+                    {net > 0 ? `+${formatEuros(net)}` : net < 0 ? `−${formatEuros(-net)}` : formatEuros(0)}
                   </span>
                 )}
               </span>

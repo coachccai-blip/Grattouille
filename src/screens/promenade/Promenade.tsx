@@ -19,9 +19,13 @@ import { t } from "../../i18n";
 import { placeMoment, placeName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
 import { Bourse } from "../../ui/Bourse";
+import { Carte } from "../../ui/Carte";
 import { Entete, Phrase } from "../../ui/Commun";
 import { TicketParTerre } from "../../ui/Trouve";
 import "./promenade.css";
+
+/** L'affiche du Poker Tricheur : une quinte royale à cœur… dont l'as est à pique. */
+const AFFICHE = ["Th", "Jh", "Qh", "Kh", "As"] as const;
 
 export function Promenade() {
   const standing = useGame((s) => s.player?.standing ?? 0);
@@ -49,6 +53,13 @@ export function Promenade() {
   const enter = (place: PlaceDef) => {
     if (standing >= place.standing) nav.push({ name: "comptoir", place: place.id });
     else toast(lockedText(place.id, standing), "erreur");
+  };
+
+  // Le Poker Tricheur : ouvert dès la première minute. Qui est assis à une table y retourne tout droit.
+  const table = useGame((s) => s.player?.poker?.code ?? null);
+  const poker = () => {
+    nav.push({ name: "poker" });
+    if (table) nav.push({ name: "poker-table", code: table });
   };
 
   return (
@@ -104,6 +115,24 @@ export function Promenade() {
           );
         })}
       </ol>
+      {/* Au bout de la rue, sous le Kiosque : le sport national. Ce n'est pas un lieu, c'est un tapis vert. */}
+      <button
+        type="button"
+        className="lieu lieu--poker"
+        onClick={poker}
+        aria-label={t("Le Poker Tricheur, le sport national de Grattouille")}
+      >
+        <span className="lieu__feutre" aria-hidden="true">
+          <span className="lieu__eventail">
+            {AFFICHE.map((carte, i) => <Carte key={carte} carte={carte} largeur={64} style={{ "--i": i - 2 } as CSSProperties} />)}
+          </span>
+        </span>
+        <span className="lieu__plaque" aria-hidden="true">
+          <span className="lieu__moment">{t("Le sport national de Grattouille")}</span>
+          <span className="lieu__nom">{t("Le Poker Tricheur")}</span>
+          <span className="lieu__etat">{table ? t("Ta place t'attend à table.") : t("Triche, bluffe, accuse.")}</span>
+        </span>
+      </button>
       <TicketParTerre />
     </main>
   );

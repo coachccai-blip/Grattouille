@@ -1,0 +1,825 @@
+/* La table du Poker Tricheur : le tapis et ses sièges en haut, la place du joueur en bas.
+   L'écran tient dans la fenêtre, sans défiler : le tapis prend la place qui reste.
+   Mouvements : des transformations et de l'opacité, rien d'autre ; en animations
+   réduites, des fondus. */
+
+.poker-table {
+  /* Le feutre : assez sombre pour que l'écume et le mimosa s'y lisent. */
+  --feutre: #1A5E4A;
+  --feutre-fonce: #124536;
+  gap: 6px;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding-right: calc(var(--droite) + 8px);
+  padding-bottom: calc(var(--bas) + 10px);
+  padding-left: calc(var(--gauche) + 8px);
+  overflow: hidden;
+}
+
+.poker-table .entete__barre { min-height: 48px; }
+.poker-table .entete__titre { font-size: clamp(19px, 5.6vw, 24px); }
+.poker-table .entete__retour { margin-left: -4px; }
+.poker-table .entete__droite { margin-right: -4px; }
+
+.poker-table__vide {
+  margin: auto;
+  color: var(--brume);
+  text-align: center;
+}
+
+.poker-table__scene {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------- Le tapis */
+
+.poker-tapis {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 6px 10px;
+}
+
+/* Le feutre commence à mi-hauteur des têtes d'en face : elles sont assises au bord. */
+.poker-tapis::before {
+  content: "";
+  position: absolute;
+  inset: 22px 0 0;
+  border: 4px solid var(--mimosa-fonce);
+  border-radius: 26px;
+  background: var(--feutre);
+  box-shadow: inset 0 0 0 3px var(--feutre-fonce);
+}
+
+.poker-tapis__haut {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 2px;
+  align-items: flex-start;
+  justify-content: space-evenly;
+}
+
+.poker-tapis__milieu {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  min-height: 0;
+}
+
+/* Cinq ou six sièges : le premier voisin à gauche, le dernier à droite, le pot entre eux. */
+.poker-tapis--cotes .poker-tapis__milieu { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.poker-tapis--cotes .poker-tapis__milieu > .poker-siege:first-child { justify-self: start; }
+.poker-tapis--cotes .poker-tapis__milieu > .poker-siege:last-child { justify-self: end; }
+
+/* ---------------------------------------------------------------- Un siège */
+
+.poker-siege {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 96px;
+  max-width: 31vw;
+  min-width: 0;
+  color: var(--ecume);
+  text-align: center;
+}
+
+.poker-siege__tete {
+  position: relative;
+  display: block;
+}
+
+/* À qui la parole : un anneau mimosa, qui bat doucement. */
+.poker-siege--parle .poker-tete { box-shadow: 0 0 0 3px var(--mimosa); }
+
+.poker-siege--parle .poker-siege__tete::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2px solid var(--mimosa);
+  border-radius: 50%;
+  animation: poker-parle 1200ms ease-in-out infinite;
+}
+
+@keyframes poker-parle {
+  0%, 100% { opacity: .15; transform: scale(.94); }
+  50% { opacity: .9; transform: scale(1); }
+}
+
+.calme .poker-siege--parle .poker-siege__tete::after {
+  opacity: .7;
+  animation: none;
+}
+
+/* Couché, absent, pas encore installé : la tête s'efface, le texte reste lisible. */
+.poker-siege--efface .poker-tete { opacity: .45; }
+.poker-siege--efface .poker-siege__tapis { color: var(--brume); }
+
+.poker-siege--libre .poker-siege__nom { color: var(--brume); }
+
+/* Sa main, de dos : trois petites cartes en éventail au bord du médaillon. */
+.poker-siege__cartes {
+  position: absolute;
+  bottom: -5px;
+  left: -9px;
+  display: flex;
+}
+
+.poker-siege__cartes i {
+  width: 11px;
+  height: 15px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: var(--dos-carte);
+  box-shadow: inset 0 0 0 1px var(--ivoire), 0 1px 0 rgba(6, 24, 30, .4);
+}
+
+.poker-siege__cartes i:first-child {
+  margin-left: 0;
+  transform: rotate(-14deg);
+}
+
+.poker-siege__cartes i:last-child { transform: rotate(14deg) translateY(1px); }
+
+/* Le bouton du donneur. */
+.poker-siege__donneur {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 700 12px/18px var(--texte);
+  text-align: center;
+  box-shadow: 0 1px 0 rgba(6, 24, 30, .55);
+}
+
+.poker-siege__donneur--moi {
+  position: static;
+  display: inline-block;
+}
+
+/* Il a choisi (pendant la triche), parlé (à l'abattage), ou demandé la suite. */
+.poker-siege__pret {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--persienne);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--feutre);
+  animation: poker-pret 240ms var(--rebond) backwards;
+}
+
+@keyframes poker-pret {
+  from { opacity: 0; transform: scale(.4); }
+}
+
+.calme .poker-siege__pret { animation: fondu 200ms linear backwards; }
+
+.poker-siege__nom {
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  font: 500 12px/16px var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le geste qui vient de tomber prend un instant la place du nom. */
+.poker-siege__nom--geste {
+  color: var(--mimosa);
+  font-weight: 700;
+  animation: poker-geste 240ms var(--rebond) backwards;
+}
+
+@keyframes poker-geste {
+  from { opacity: 0; transform: scale(.7); }
+}
+
+.calme .poker-siege__nom--geste { animation: fondu 200ms linear backwards; }
+
+.poker-siege__tapis {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--mimosa);
+  font: 700 13px/16px var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sa mise dans le tour : la ligne garde sa place, vide ou non, pour que rien ne saute. */
+.poker-siege__mise {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  color: var(--ivoire);
+  font: 700 12px/18px var(--texte);
+  white-space: nowrap;
+}
+
+.poker-siege__mise .poker-jeton {
+  width: 12px;
+  height: 12px;
+  box-shadow: inset 0 0 0 2px var(--mimosa-fonce), 0 1px 0 rgba(6, 24, 30, .45);
+}
+
+/* ---------------------------------------------------------------- Le pot */
+
+.poker-pot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.poker-pot__somme {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 14px 5px 10px;
+  border-radius: 99px;
+  background: rgba(6, 24, 30, .42);
+  color: var(--mimosa);
+  font: 700 19px/24px var(--texte);
+  white-space: nowrap;
+}
+
+.poker-pot__jetons { display: inline-flex; }
+.poker-pot__jetons .poker-jeton + .poker-jeton { margin-left: -9px; }
+
+.poker-pot__blinde {
+  max-width: 200px;
+  color: var(--brume);
+  font: 500 12px/16px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Un jeton qui glisse d'un siège au pot, ou du pot à son gagnant (evenements.ts). */
+.poker-jeton--vol {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* La salle d'attente : le code de la table, à la place du pot. */
+.poker-code-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px 10px;
+  border: 2px dashed var(--mimosa);
+  border-radius: 14px;
+  background: rgba(6, 24, 30, .5);
+}
+
+.poker-code-table__titre {
+  color: var(--ecume);
+  font: 500 12px/16px var(--texte);
+  text-align: center;
+}
+
+.poker-code-table__lettres {
+  color: var(--mimosa);
+  font: 400 clamp(26px, 9vw, 40px)/1.15 var(--titre);
+  letter-spacing: .1em;
+  /* L'espacement suit aussi la dernière lettre : on la recentre. */
+  margin-right: -.1em;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+/* ---------------------------------------------------------------- La place du joueur */
+
+.poker-moi {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* La barre de temps : elle se vide jusqu'à l'échéance. */
+.poker-temps {
+  flex: none;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(230, 242, 240, .14);
+}
+
+.poker-temps__reste {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--brume);
+  transform-origin: left center;
+  animation: poker-temps linear both;
+}
+
+.poker-temps--moi .poker-temps__reste { background: var(--mimosa); }
+.poker-temps--presse .poker-temps__reste { background: var(--cerise-clair); }
+
+@keyframes poker-temps {
+  from { transform: scaleX(var(--depart, 1)); }
+  to { transform: scaleX(0); }
+}
+
+/* La voix de la table : ce qu'il y a à faire, ou ce qu'un personnage vient de dire.
+   Deux lignes de haut, toujours : rien ne saute quand la phrase change. */
+.poker-voix {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font: 500 15px/20px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.poker-voix--refus { color: var(--cerise-clair); }
+
+.poker-voix--replique {
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.poker-voix--replique p {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px 10px 5px;
+  border-radius: 3px 14px 14px 14px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 400 14px/18px var(--texte);
+  text-align: left;
+  text-wrap: pretty;
+  transform-origin: 0 50%;
+  animation: bulle-pousse 240ms var(--rebond) backwards;
+}
+
+.poker-voix--replique em { color: var(--encre-douce); }
+.poker-voix--replique .poker-tete { animation: portrait-pose 220ms var(--rebond) backwards; }
+
+.calme .poker-voix--replique p,
+.calme .poker-voix--replique .poker-tete { animation: fondu 200ms linear backwards; }
+
+/* Le nom de qui parle est dit aux lecteurs d'écran : son portrait suffit à l'œil. */
+.poker-voix__nom {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* La main : cinq cartes côte à côte, en grand. */
+.poker-main {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.poker-main__carte {
+  display: block;
+  flex: none;
+  border-radius: 6px;
+}
+
+/* On peut en remplacer une : les cartes se soulèvent l'une après l'autre, pour inviter au geste.
+   (Sur la carte elle-même, pas sur ce qui la porte : la donne, elle, ne se rejoue pas.) */
+.poker-main--choix .poker-main__carte .carte {
+  animation: poker-invite 1800ms ease-in-out calc(900ms + var(--i) * 140ms) infinite;
+}
+
+@keyframes poker-invite {
+  0%, 60%, 100% { transform: none; }
+  30% { transform: translateY(-5px); }
+}
+
+/* La donne : les cartes arrivent une à une, du milieu de la table. */
+.poker-main--donne .poker-main__carte {
+  animation: poker-donne 300ms var(--sortie) calc(140ms + var(--i) * 115ms) backwards;
+}
+
+@keyframes poker-donne {
+  from { opacity: 0; transform: translateY(-70px) rotate(-10deg) scale(.6); }
+}
+
+.calme .poker-main--choix .poker-main__carte .carte { animation: none; }
+.calme .poker-main--donne .poker-main__carte { animation: fondu 200ms linear backwards; }
+
+/* Couché : la main s'efface. */
+.poker-main--couchee { opacity: .4; }
+
+/* La carte glissée : une petite étoile bougainvillier dans le coin, que le joueur est seul à voir. */
+.poker-carte--glissee::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: -7px;
+  left: -7px;
+  width: 16px;
+  height: 16px;
+  background: var(--bougainvillier);
+  clip-path: polygon(50% 0, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0 50%, 37% 37%);
+}
+
+.poker-carte--glissee .carte__pivot { animation: poker-glisse 340ms var(--sortie); }
+
+@keyframes poker-glisse {
+  from { transform: rotateY(90deg); }
+}
+
+.calme .poker-carte--glissee .carte__pivot { animation: none; }
+
+/* Sous la main : le tapis, la combinaison, la mise. */
+.poker-moi__infos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+}
+
+.poker-moi__chiffre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font: 700 16px/20px var(--texte);
+}
+
+.poker-moi__chiffre strong {
+  overflow: hidden;
+  color: var(--mimosa);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poker-moi__chiffre--droite {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.poker-moi__nom {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--brume);
+  font: 500 12px/16px var(--texte);
+}
+
+.poker-moi__combi {
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: var(--lagune);
+  font: 700 14px/18px var(--texte);
+  white-space: nowrap;
+}
+
+.poker-moi__combi--efface { color: var(--brume); }
+
+.poker-moi__reglages {
+  color: var(--brume);
+  font: 500 14px/20px var(--texte);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- Les gestes */
+
+/* La zone des gestes garde la hauteur d'un bouton : rien ne saute quand la parole tourne. */
+.poker-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: flex-end;
+  min-height: 52px;
+}
+
+.poker-actions .bouton {
+  min-width: 0;
+  min-height: 52px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.poker-actions .bouton--principal { font-size: clamp(16px, 5vw, 19px); }
+
+.poker-actions__rang {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.poker-actions__rang--seul { grid-template-columns: minmax(0, 1fr); }
+
+/* Se coucher à gauche, la parole (ou suivre) à droite, plus large : c'est le geste attendu. */
+.poker-actions__rang--parole { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+
+/* Les mises : « Miser », puis trois tailles au plus, du plus petit au plus gros. */
+.poker-mises {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.poker-mises__titre {
+  flex: none;
+  align-self: center;
+  max-width: 78px;
+  color: var(--brume);
+  font: 500 14px/18px var(--texte);
+}
+
+.poker-mise {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 48px;
+  padding: 2px 4px;
+  border: 2px solid var(--ecume);
+  border-radius: 14px;
+  color: var(--ecume);
+  transition: transform var(--t-appui) linear, opacity var(--t-bascule) linear;
+}
+
+.poker-mise:active:not(:disabled) { transform: translateY(2px); }
+.poker-mise:disabled { opacity: .4; }
+
+.poker-mise__taille {
+  color: var(--brume);
+  font: 500 12px/14px var(--texte);
+}
+
+.poker-mise__somme {
+  max-width: 100%;
+  overflow: hidden;
+  font: 700 15px/20px var(--texte);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poker-mise--tapis { border-color: var(--mimosa); }
+.poker-mise--tapis .poker-mise__taille { color: var(--mimosa); }
+
+/* ---------------------------------------------------------------- L'abattage */
+
+/* Le tapis, vu de près : une rangée par main montrée. S'il y en a trop pour l'écran, il défile. */
+.poker-abattage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px 6px;
+  overflow-y: auto;
+  border: 4px solid var(--mimosa-fonce);
+  border-radius: 22px;
+  background: var(--feutre);
+  box-shadow: inset 0 0 0 3px var(--feutre-fonce);
+  overscroll-behavior: contain;
+}
+
+.poker-abattage__pot {
+  display: flex;
+  flex: none;
+  justify-content: center;
+}
+
+.poker-abattage__pot .poker-pot__somme { font-size: 16px; }
+
+/* D'où partent les jetons quand le pot est ramassé : le haut du tapis. */
+.poker-abattage__ancre {
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 0;
+}
+
+.poker-abattage__mains {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.poker-rangee {
+  border-radius: 12px;
+  background: #0A242D;
+}
+
+.poker-rangee--moi { box-shadow: inset 0 0 0 2px rgba(230, 242, 240, .32); }
+
+/* On peut l'accuser : un liseré bougainvillier, et la rangée s'enfonce sous le doigt. */
+.poker-rangee--accusable { box-shadow: inset 0 0 0 2px var(--bougainvillier-clair); }
+.poker-rangee--accusable:active { transform: translateY(2px); }
+
+/* Il ramasse un pot : un liseré mimosa. */
+.poker-rangee--gagne { box-shadow: inset 0 0 0 2px var(--mimosa); }
+
+.poker-rangee__zone {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 60px;
+  padding: 6px 8px;
+  color: var(--ecume);
+  text-align: left;
+}
+
+/* Au-dessus de la main d'un accusé : le cri, puis le verdict. La place est gardée dès le
+   début du dénouement. */
+.poker-rangee__verdict {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  color: var(--bougainvillier-clair);
+  font: 700 13px/18px var(--texte);
+  animation: poker-cri 260ms var(--rebond) backwards;
+}
+
+.poker-rangee__verdict--triche { color: var(--cerise-clair); }
+.poker-rangee__verdict--franc { color: var(--persienne-clair); }
+
+.poker-rangee__verdict--attend {
+  visibility: hidden;
+  animation: none;
+}
+
+@keyframes poker-cri {
+  from { opacity: 0; transform: scale(.8); }
+}
+
+.calme .poker-rangee__verdict { animation: fondu 200ms linear backwards; }
+
+.poker-rangee__tete { position: relative; }
+
+.poker-rangee__tete .poker-tete {
+  width: 40px;
+  height: 40px;
+}
+
+.poker-rangee__tete .poker-siege__pret { box-shadow: 0 0 0 2px #0A242D; }
+
+.poker-rangee__qui {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Un nom long passe sur deux lignes : jamais coupé au milieu d'un mot connu. */
+.poker-rangee__nom {
+  display: -webkit-box;
+  overflow: hidden;
+  font: 700 14px/17px var(--texte);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.poker-rangee__combi {
+  color: var(--mimosa);
+  font: 500 13px/16px var(--texte);
+}
+
+/* La main d'un tricheur démasqué ne compte plus. */
+.poker-rangee__combi--nulle {
+  color: var(--brume);
+  text-decoration: line-through;
+}
+
+.poker-rangee__bilan {
+  font: 700 13px/16px var(--texte);
+  animation: fondu 240ms linear backwards;
+}
+
+.poker-rangee__bilan--plus { color: var(--persienne-clair); }
+.poker-rangee__bilan--moins { color: var(--cerise-clair); }
+
+/* Les cartes se chevauchent : chacune montre au moins son coin, la valeur et l'enseigne. */
+.poker-rangee__cartes {
+  display: flex;
+  flex: none;
+  padding: 3px 3px 3px 0;
+}
+
+.poker-rangee__cartes .carte + .carte { margin-left: calc(var(--pas) - var(--carte)); }
+
+/* Une carte montrée deux fois à la table : un indice. */
+.poker-carte--double .carte__face { box-shadow: 0 0 0 3px var(--bougainvillier); }
+
+/* La fausse carte d'un tricheur démasqué. */
+.poker-carte--fausse .carte__face { box-shadow: 0 0 0 3px var(--cerise); }
+
+.poker-abattage__indice {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ecume);
+  font: 500 13px/18px var(--texte);
+  text-align: center;
+}
+
+.poker-abattage__pastille {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--bougainvillier);
+  border-radius: 3px;
+  background: #fff;
+}
+
+/* Le dénouement, côté joueur : ce que la main lui rapporte, puis où va le pot. Chaque
+   phrase a sa place dès le début, et se lit quand son heure vient. */
+.poker-bilan {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  font: 400 14px/20px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.poker-bilan p { animation: fondu 240ms linear backwards; }
+
+.poker-bilan__titre { font: 700 17px/22px var(--texte); }
+.poker-bilan__titre--gain { color: var(--mimosa); }
+
+.poker-bilan--attend {
+  visibility: hidden;
+  animation: none !important;
+}
+
+/* ---------------------------------------------------------------- Sorti de table */
+
+.poker-sortie {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--e4);
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.poker-sortie .t-titre { text-wrap: balance; }
+.poker-sortie p { color: var(--ecume); }
+
+/* La cagnotte d'un hôte ruiné : un carton ivoire, la somme en grand. */
+.poker-sortie__cagnotte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 12px 14px;
+  border-radius: 16px;
+  background: var(--ivoire);
+  box-shadow: 0 4px 0 var(--mimosa-fonce);
+}
+
+.poker-sortie .poker-sortie__cagnotte,
+.poker-sortie .poker-sortie__cagnotte strong { color: var(--nuit); }
+
+.poker-sortie__cagnotte span {
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
+}
+
+.poker-sortie__cagnotte strong { font-size: clamp(30px, 10vw, 40px); }

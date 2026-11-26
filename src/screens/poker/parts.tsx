@@ -68,7 +68,7 @@ export function BarreTemps({ deadline, offset, total, mine }: TempsProps) {
 
   const running = deadline !== null && start.left > 0;
   return (
-    <div className={cx("poker-temps", mine && "poker-temps--moi", urgent && running && "poker-temps--presse")} aria-hidden="true">
+    <div className={cx("poker-temps", mine && "poker-temps--moi", mine && urgent && running && "poker-temps--presse")} aria-hidden="true">
       {running && (
         <span
           key={deadline}

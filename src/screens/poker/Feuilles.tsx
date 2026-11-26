@@ -78,7 +78,7 @@ function Regles() {
   const fermer = useFermer();
   return (
     <Feuille titre={t("Les règles du Poker Tricheur")} onClose={fermer} className="poker-feuille">
-      <h2 className="t-titre">{t("Les règles, en cinq phrases")}</h2>
+      <h2 className="t-titre">{t("Les règles")}</h2>
       <ol className="poker-regles">
         {REGLES.map((regle, i) => (
           <li key={regle}>
@@ -219,7 +219,7 @@ function Creer() {
   const blinds = usePoker((s) => s.lobby?.blinds ?? null);
   const balance = useGame(displayBalance);
   const { busy, error, run } = useSeating();
-  // La blinde proposée d'abord : la plus haute qui laisse poser cent blindes ; sinon la plus petite.
+  // La blinde proposée d'abord : la plus haute dont cent blindes ne pèsent pas plus du quart de la bourse ; sinon la plus petite.
   const [blind, setBlind] = useState<number | null>(null);
   const [caves, setCaves] = useState(MAX_BUYIN_BLINDS);
   const [seats, setSeats] = useState(4);
@@ -236,7 +236,7 @@ function Creer() {
     );
   }
 
-  const comfy = [...blinds].reverse().find((b) => b * MAX_BUYIN_BLINDS <= balance) ?? blinds[0]!;
+  const comfy = [...blinds].reverse().find((b) => b * MAX_BUYIN_BLINDS * 4 <= balance) ?? blinds[0]!;
   const chosen = blind !== null && blinds.includes(blind) ? blind : comfy;
   const maxBuyIn = chosen * caves;
   const buyIn = Math.min(maxBuyIn, Math.floor(balance));
@@ -451,7 +451,7 @@ function Triche({ index }: { index: number }) {
   return (
     <Feuille titre={t("Remplacer une carte")} onClose={fermer} className="poker-feuille poker-triche">
       <BarreTemps deadline={view.deadline} offset={offset} total={CHEAT_MS} mine />
-      <h2 className="poker-triche__titre">{t("À la place : {carte}", { carte: replaced })}</h2>
+      <h2 className="poker-triche__titre">{t("Remplacer : {carte}", { carte: replaced })}</h2>
       <div className="poker-triche__main" role="group" aria-label={t("Ta main : touche la carte à remplacer")}>
         {hand.cards.map((held, i) => (
           <button
@@ -467,9 +467,9 @@ function Triche({ index }: { index: number }) {
         ))}
       </div>
       <p className="poker-triche__effet" role="status">
-        {result ? t("Ta main devient : {main}", { main: categoryName(result.category) }) : t("Choisis une valeur et une couleur.")}
+        {result ? t("Ta main devient : {main}", { main: categoryName(result.category) }) : t("Par quelle carte ? Une valeur, une couleur.")}
       </p>
-      <div className="poker-touches poker-touches--valeurs" role="group" aria-label={t("Valeur")}>
+      <div className="poker-touches poker-touches--valeurs" role="group" aria-label={t("Valeur de la carte")}>
         {RANKS.map((r) => (
           <button
             key={r}
@@ -483,7 +483,7 @@ function Triche({ index }: { index: number }) {
           </button>
         ))}
       </div>
-      <div className="poker-touches poker-touches--couleurs" role="group" aria-label={t("Couleur")}>
+      <div className="poker-touches poker-touches--couleurs" role="group" aria-label={t("Couleur de la carte")}>
         {SUITS.map((s) => (
           <button
             key={s}
@@ -594,7 +594,7 @@ function Recave() {
         <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(range.min - balance) })}</Alerte>
       ) : (
         <>
-          <Pas label={t("De ta bourse à ton tapis")} value={formatEuros(amount)} onMinus={minus} onPlus={plus} />
+          <Pas label={t("Montant")} value={formatEuros(amount)} onMinus={minus} onPlus={plus} />
           <p className="note">
             {t("Ton tapis passera à {montant}, à la main suivante.", { montant: formatEuros(me.stack + me.reserve + amount) })}
           </p>

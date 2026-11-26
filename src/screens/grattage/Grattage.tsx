@@ -269,7 +269,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
         const spread = tier === "rembourse" ? 0.6 : tier === "petit" ? 1 : tier === "joli" ? 1.7 : 2.2;
         window.setTimeout(() => {
           if (!alive.current) return;
-          const amount = document.querySelector(".grattage__plateau .resultat__montant, .grattage__plateau .resultat");
+          const amount = document.querySelector(".grattage__plateau .resultat__montant") ?? document.querySelector(".grattage__plateau .resultat");
           fx.current?.coinsTo(centerOf(amount ?? root.current), purse(), coins, spread);
         }, launch);
       } else if (tier === "enorme") {

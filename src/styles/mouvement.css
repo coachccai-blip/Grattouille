@@ -38,6 +38,22 @@
 /* Changer d'onglet : fondu croisé. L'écran est déjà là ; c'est le fantôme de l'ancien qui s'efface. */
 :where(html[data-nav="fondu"] .jeu__fond) > .ecran { animation: none; }
 
+/* Une fois la transition jouée, l'écran est posé (app/transitions.ts) : celui qui serait
+   monté plus tard à sa place (un morceau du jeu chargé à la demande, qui remplace son écran
+   d'attente) apparaît d'un coup, au lieu de rejouer l'entrée. Pour l'écran déjà en place,
+   rien ne change : son animation est finie. */
+html[data-nav-pose] .jeu__fond > .ecran {
+  animation-duration: 1ms;
+  animation-delay: 0s;
+}
+
+/* Un écran d'attente (`aria-busy` : le temps qu'un morceau du jeu se charge) n'entre pas et
+   ne cache rien : il laisse voir l'écran qu'on quitte, et c'est l'écran chargé qui entre. */
+.jeu__fond > .ecran[aria-busy="true"] {
+  background: none;
+  animation: none;
+}
+
 @keyframes ecran-pousse {
   from { transform: translateX(100%); }
   to { transform: none; }
