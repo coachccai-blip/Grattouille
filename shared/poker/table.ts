@@ -28,8 +28,8 @@ import {
   MISSES_BEFORE_ABSENT, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS, minBuyIn,
 } from "./rules";
 import {
-  canDeal, chipsOnTable, dealableSeats, hasHuman, isFunded, isLive, playerInHand, seatIndexOf,
-  seatIndexOfSession, seatsAfter,
+  canDeal, chipsOnTable, dealableSeats, isFunded, isLive, playerInHand, seatIndexOf, seatIndexOfSession,
+  seatsAfter,
 } from "./state";
 import type {
   Accusation, AvatarLook, CloseReason, Difficulty, GameAction, HandPlayer, HandState, LeaveReason, LogEntry,
@@ -137,7 +137,11 @@ function note(d: TableState, kind: LogKind, seat: number, amount = 0, extra: Par
 /** Un délai dépassé. Au deuxième de suite, le joueur est absent. */
 function miss(seat: SeatState): void {
   seat.missed += 1;
-  if (seat.missed >= MISSES_BEFORE_ABSENT) seat.absent = true;
+  if (seat.missed >= MISSES_BEFORE_ABSENT && !seat.absent) {
+    seat.absent = true;
+    // La main où il s'absente ne compte pas : il lui en reste trois entières avant de quitter la table.
+    seat.idle = -1;
+  }
 }
 
 /** Le joueur vient d'agir : il est là. */
@@ -200,12 +204,11 @@ function fire(d: TableState, at: number, rng: Random32): void {
   for (let index = 0; index < d.seats.length; index++) {
     const seat = d.seats[index];
     if (seat && seat.bot === null && seat.seq === 0 && seat.since + RESERVE_MS <= t) {
-      const wasTurn = removeSeat(d, index, t, "reserve");
-      afterRemoval(d, t, rng, wasTurn);
+      depart(d, index, t, rng, "reserve");
       return;
     }
   }
-  if (d.activeAt + IDLE_TABLE_MS <= t) closeTable(d, t, "inactive", "inactive");
+  if (d.activeAt + IDLE_TABLE_MS <= t) closeTable(d, t, "inactive", () => "inactive");
 }
 
 /** Fait avancer la table jusqu'à `now`. Rend vrai si quelque chose a bougé. */
@@ -289,28 +292,27 @@ function firePhase(d: TableState, t: number, rng: Random32): void {
 /** Les joueurs écartés, la fin d'un défi, puis la main suivante si elle peut partir. */
 function nextHand(d: TableState, t: number, rng: Random32): void {
   d.nextAt = null;
-  // Trois mains de suite sans jouer : le joueur quitte la table et récupère son tapis.
-  for (let index = 0; index < d.seats.length; index++) {
-    const seat = d.seats[index];
-    if (seat && seat.bot === null && seat.idle >= IDLE_HANDS_BEFORE_LEAVE) {
-      removeSeat(d, index, t, seat.absent ? "absent" : "a-sec");
-    }
-  }
-  if (!hasHuman(d)) {
-    closeTable(d, t, "vide", "quitte");
+  // Trois mains de suite sans jouer (absent, ou à sec) : le joueur quitte la table et
+  // récupère son tapis.
+  const humans = fundedHumans(d);
+  const leaving = humans.filter((index) => d.seats[index]!.idle >= IDLE_HANDS_BEFORE_LEAVE);
+  const cause = (seat: SeatState): LeaveReason => (seat.absent ? "absent" : "a-sec");
+  if (humans.length === 0 || leaving.length === humans.length) {
+    // Plus aucun joueur humain : la table ferme avec eux.
+    closeTable(d, t, "vide", cause);
     return;
   }
-  if (d.kind === "defi") {
+  for (const index of leaving) removeSeat(d, index, t, cause(d.seats[index]!));
+  if (d.kind === "defi" && d.handNo > 0) {
     // Un défi dure jusqu'à ce que l'un des deux n'ait plus de quoi payer la blinde.
     const human = d.seats.find((s) => s !== null && s.bot === null)!;
     const host = d.seats.find((s) => s !== null && s.bot !== null);
-    if (isFunded(human) && d.handNo > 0) {
-      const humanOut = human.stack + human.reserve < d.blind;
-      const hostOut = !host || host.stack < d.blind;
-      if (humanOut || hostOut) {
-        closeTable(d, t, "defi", humanOut && hostOut ? "defi-nul" : hostOut ? "defi-gagne" : "defi-perdu");
-        return;
-      }
+    const humanOut = human.stack + human.reserve < d.blind;
+    const hostOut = !host || host.stack < d.blind;
+    if (humanOut || hostOut) {
+      const outcome: LeaveReason = humanOut && hostOut ? "defi-nul" : hostOut ? "defi-gagne" : "defi-perdu";
+      closeTable(d, t, "defi", () => outcome);
+      return;
     }
   }
   if (!startHand(d, t, rng) && d.phase !== "fermee") d.phase = "attente";
@@ -340,7 +342,7 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
     }
   }
   if (chipsOnTable(d) > MAX_TABLE_CHIPS) {
-    closeTable(d, t, "banque", "banque");
+    closeTable(d, t, "banque", () => "banque");
     return true;
   }
 
@@ -750,10 +752,35 @@ function removeSeat(d: TableState, index: number, t: number, reason: LeaveReason
   return wasTurn;
 }
 
+/** Les sièges des joueurs humains dont la cave est posée. */
+function fundedHumans(d: TableState): number[] {
+  const out: number[] = [];
+  d.seats.forEach((seat, index) => {
+    if (seat && seat.bot === null && isFunded(seat)) out.push(index);
+  });
+  return out;
+}
+
+/**
+ * Un joueur s'en va. S'il est le dernier humain et qu'aucune main n'est en cours, la
+ * table ferme avec lui : il est encore assis au moment du partage d'un pot resté là.
+ * En pleine main, il se couche d'abord ; la main continue sans lui.
+ */
+function depart(d: TableState, index: number, t: number, rng: Random32, reason: LeaveReason): void {
+  const seat = d.seats[index]!;
+  const humans = fundedHumans(d);
+  if (!d.hand && isFunded(seat) && humans.length === 1 && humans[0] === index) {
+    closeTable(d, t, "vide", () => reason);
+    return;
+  }
+  const wasTurn = removeSeat(d, index, t, reason);
+  afterRemoval(d, t, rng, wasTurn);
+}
+
 /** Ce qu'un départ entraîne : une table sans humain se ferme ; sinon la main continue sans lui. */
 function afterRemoval(d: TableState, t: number, rng: Random32, wasTurn: boolean): void {
-  if (!hasHuman(d)) {
-    closeTable(d, t, "vide", "quitte");
+  if (fundedHumans(d).length === 0) {
+    closeTable(d, t, "vide", () => "quitte");
     return;
   }
   const h = d.hand;
@@ -770,9 +797,9 @@ function afterRemoval(d: TableState, t: number, rng: Random32, wasTurn: boolean)
 /**
  * Ferme la table et rend les tapis. Une main en cours est annulée : chacun reprend ce
  * qu'il y avait versé. Un pot resté là est partagé entre les joueurs assis ; la part des
- * robots disparaît avec eux.
+ * robots disparaît avec eux. `reason` : ce qu'on dira à chaque joueur humain encore assis.
  */
-function closeTable(d: TableState, t: number, why: CloseReason, reason: LeaveReason): void {
+function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: SeatState) => LeaveReason): void {
   const h = d.hand;
   if (h) {
     for (const p of h.players) {
@@ -796,7 +823,7 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: LeaveRea
     } else {
       const payout = seat.stack + seat.reserve + share;
       // Un siège réservé dont la cave n'est jamais arrivée n'a rien à reprendre.
-      const cause: LeaveReason = isFunded(seat) ? reason : "reserve";
+      const cause: LeaveReason = isFunded(seat) ? reason(seat) : "reserve";
       d.ended.push({ sid: seat.sid, playerId: seat.playerId, seat: index, payout, received: seat.received, reason: cause, at: t });
       d.audit.out += payout;
       d.departed.push({ playerId: seat.playerId, seat: index, reason: cause, payout, at: t });
@@ -899,8 +926,7 @@ export function cancel(state: TableState, sid: string, now: number, rng: Random3
   const index = seatIndexOfSession(d, sid);
   if (index < 0 || d.seats[index]!.seq > 0) return done(state, d, moved);
   d.clock = t;
-  const wasTurn = removeSeat(d, index, t, "reserve");
-  afterRemoval(d, t, rng, wasTurn);
+  depart(d, index, t, rng, "reserve");
   run(d, t, rng);
   return done(state, d, true);
 }
@@ -912,8 +938,7 @@ export function leave(state: TableState, playerId: string, now: number, rng: Ran
   if (index < 0) refuse("NOT_SEATED");
   d.clock = t;
   d.activeAt = t;
-  const wasTurn = removeSeat(d, index, t, "quitte");
-  afterRemoval(d, t, rng, wasTurn);
+  depart(d, index, t, rng, "quitte");
   run(d, t, rng);
   return done(state, d, true);
 }
