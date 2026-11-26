@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .netlify/
-livraison/
+# L'archive à déposer sur Netlify est versionnée : elle se télécharge depuis GitHub.
+livraison/*
+!livraison/grattouille-netlify.zip
 *.log
 .DS_Store

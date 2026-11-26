@@ -90,8 +90,15 @@ function build(c: AudioContext): void {
   bus = input;
 }
 
+/**
+ * Vrai dès le premier geste du joueur. Avant, le navigateur refuse de démarrer le son (et
+ * le signale à chaque tentative) : un son demandé trop tôt, après un rechargement par
+ * exemple, est simplement passé sous silence.
+ */
+let gestured = false;
+
 function context(): AudioContext | null {
-  if (!enabled || typeof window === "undefined") return null;
+  if (!enabled || !gestured || typeof window === "undefined") return null;
   if (!ctx) {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
@@ -138,6 +145,7 @@ export function setSoundEnabled(on: boolean): void {
 
 /** À appeler sur le premier toucher : les navigateurs n'autorisent le son qu'après un geste. */
 export function unlockAudio(): void {
+  gestured = true;
   context();
 }
 

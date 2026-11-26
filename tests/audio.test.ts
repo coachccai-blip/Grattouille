@@ -393,6 +393,20 @@ describe("avec un faux Web Audio", () => {
     audio = await import("../src/fx/audio");
   });
 
+  /** Le premier geste du joueur : sans lui, le module ne démarre aucun son. */
+  const geste = () => audio.unlockAudio();
+
+  it("avant le premier geste du joueur, rien ne démarre : pas de contexte, pas d'avertissement du navigateur", () => {
+    audio.playTap();
+    audio.playSparkle();
+    audio.playTier("jackpot");
+    expect(FakeContext.made).toHaveLength(0);
+    geste();
+    audio.playTap();
+    expect(FakeContext.made).toHaveLength(1);
+    expect(FakeContext.made[0]!.sources.length).toBeGreaterThan(0);
+  });
+
   afterEach(() => {
     audio.scratchEnd();
     vi.restoreAllMocks();
@@ -428,6 +442,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("chaque son fait sonner au moins une voix, à des volumes et des hauteurs raisonnables", () => {
+    geste();
     for (const [name, call] of calls(audio)) {
       const made = sourcesOf(call);
       expect([name, made.length > 0]).toEqual([name, true]);
@@ -450,6 +465,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("le réglage « Son » coupe tout : aucune source, aucune minuterie, et plus de grattage", () => {
+    geste();
     audio.playTap();
     audio.scratchMove(1);
     const before = ctx().sources.length;
@@ -479,6 +495,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("un même son ne se redéclenche pas dix fois par seconde", () => {
+    geste();
     const window = globalThis as unknown as { window: { __sons: string[] } };
     for (const [name, call] of calls(audio)) {
       later();
@@ -495,6 +512,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("jamais plus de seize voix à la fois, même quand tout sonne en même temps", () => {
+    geste();
     audio.unlockAudio();
     later();
     const before = ctx().sources.length;
@@ -513,6 +531,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("un son d'interface dure moins de 200 ms", () => {
+    geste();
     const ui: [string, () => void][] = [
       ["appui principal", () => audio.playTap()],
       ["appui secondaire", () => audio.playTap("secondaire")],
@@ -537,6 +556,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("la fanfare du jackpot dure deux secondes, et la fête garde ses pièces jusqu'au bout", () => {
+    geste();
     const made = sourcesOf(() => audio.playTier("jackpot"));
     const t0 = ctx().currentTime;
     const notes = made.filter((s) => s.kind === "oscillator" && s.type === "sawtooth");
@@ -557,6 +577,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("une même gamme pentatonique pour toutes les notes", () => {
+    geste();
     const musical: [string, () => void][] = [
       ...[0, 1, 2, 3, 4, 5, 6].map((step): [string, () => void] => [`pièce ${step}`, () => audio.playCoin(step)]),
       ["étoiles", () => audio.playStars(8)],
@@ -583,6 +604,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("les pièces montent avec le compte, sans jamais redescendre", () => {
+    geste();
     const pitches = [0, 1, 2, 3, 4, 5, 6, 7, 20].map((step) => sourcesOf(() => audio.playCoin(step))[0]!.frequency.events[0]!.value);
     for (let i = 1; i < pitches.length; i++) expect(pitches[i]).toBeGreaterThanOrEqual(pitches[i - 1]!);
     expect(pitches[6]).toBeGreaterThan(pitches[0]! * 1.9);
@@ -592,6 +614,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("un carnet s'imprime plus longtemps qu'un ticket, et une étoile vaut une note (huit au plus)", () => {
+    geste();
     const one = sourcesOf(() => audio.playTicketBought(1)).length;
     const five = sourcesOf(() => audio.playTicketBought(5)).length;
     const ten = sourcesOf(() => audio.playTicketBought(10)).length;
@@ -606,6 +629,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("le grattage : une seule source qui tourne, coupée quand le doigt se lève", () => {
+    geste();
     audio.unlockAudio();
     vi.useFakeTimers();
     try {
@@ -627,6 +651,7 @@ describe("avec un faux Web Audio", () => {
   });
 
   it("le contexte se suspend quand la page se cache, et reprend quand elle revient", () => {
+    geste();
     audio.playTap();
     audio.suspendAudio();
     expect(ctx().suspended).toBe(1);

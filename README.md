@@ -25,7 +25,8 @@ laissait ouverts, et l'extension qui a doublé le jeu (section 0), sont consign�
 
 1. Se connecter à Netlify. Sans connexion, les fichiers seraient publiés tels quels,
    sans construction ni serveur de jeu.
-2. Décompresser `grattouille-netlify.zip` et déposer **le dossier obtenu, en entier** :
+2. Récupérer l'archive `livraison/grattouille-netlify.zip` (elle est dans ce dépôt), la
+   décompresser et déposer **le dossier obtenu, en entier** :
    celui qui contient `netlify.toml` et `package.json`. Pas le dossier `dist`, et sans
    `node_modules`. Netlify lit `netlify.toml`, lance `npm run build` et publie `dist`.
 3. Vérifier que la fonction `api` apparaît dans la liste des fonctions du projet, et que
