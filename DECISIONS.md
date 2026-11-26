@@ -172,6 +172,59 @@ débarque sans rien. Le joueur, devenu Patron, en laisse tomber un à son tour ;
 montre l'inconnu qui débarque le lendemain. Piou donne une consigne à la fois, de la
 première minute à l'après-fin. Le bouton d'inscription devient « Débarquer ».
 
+## 0 ter. Le Poker Tricheur
+
+Demande du 26 novembre : un poker entre amis, par tables à code, avec l'argent du jeu, où
+chacun peut tricher d'une carte et accuser les autres ; des robots de difficulté réglable ;
+des tables selon le patrimoine ; un retour dans la campagne. « Le sport national de
+Grattouille. » Ce que la demande ne tranchait pas, tranché au plus simple :
+
+- **Cinq cartes fermées, une seule triche.** Chacun reçoit cinq cartes et peut en remplacer
+  UNE par la carte de son choix, pourvu qu'il ne l'ait pas déjà. Deux joueurs peuvent donc
+  montrer la même carte : c'est un indice. Pas de cartes communes, pas de tirage.
+- **Une main en cinq temps** : la blinde (payée par tous), la donne, la triche (secrète et
+  simultanée), un seul tour d'enchères à la limite du pot (trois relances au plus, tapis et
+  pots annexes comme au poker), puis l'abattage, où chaque joueur encore en jeu peut accuser
+  un autre joueur encore en jeu.
+- **Les accusations.** L'accusé qui a triché est démasqué : il perd toute sa mise, qui reste
+  au pot, et sort de la main. L'accusé innocent reçoit de chaque accusateur une somme égale
+  à sa propre mise. Un tricheur que personne n'accuse garde son secret : la triche n'est
+  jamais révélée autrement. Seuls les joueurs de l'abattage accusent : ce sont eux qui ont
+  un pot à gagner, et un risque à prendre.
+- **Cas limites.** Une mise que personne n'a suivie revient à son joueur avant l'abattage
+  (« la mise de l'accusé » est ce qu'il avait vraiment en jeu). Les accusations se jugent
+  une à une : un accusateur démasqué paie quand même s'il a accusé à tort. Un pot dont tous
+  les prétendants sont démasqués reste sur la table pour la main suivante ; qui quitte la
+  table y renonce.
+- **La table.** 2 à 6 sièges, une blinde sur une échelle (1, 2, 5, 10… jusqu'à 1 000 Md€),
+  une cave entre 20 et 100 blindes, un code de 5 caractères. On ne s'assoit qu'à une table.
+- **Le patrimoine.** Il faut de quoi poser 20 blindes pour s'asseoir, et la blinde d'une
+  table créée ne dépasse pas le quarantième de la bourse du créateur.
+- **Les robots** portent le nom et le portrait des personnages. Facile : triche peu et
+  grossièrement, accuse au hasard. Normal : triche une fois sur trois, accuse les mains
+  trop belles et les cartes qu'il tient lui-même. Difficile : triche discrètement, accuse
+  d'après la vraisemblance. Leur argent est fictif : le poker contre des robots crée ou
+  détruit de l'argent, dans des proportions voisines de celles des tickets.
+- **Les tables de la maison** : une par lieu ouvert, contre l'hôte et deux personnages, à la
+  blinde du ticket le moins cher du lieu ; facile au Kiosque et au Grand Café, normal au
+  Casino et au Salon, difficile ensuite.
+- **Les défis** (la campagne) : un tête-à-tête contre l'hôte de chaque lieu ouvert, 30
+  blindes chacun. La blinde monte en cours de duel (elle double toutes les quatre mains,
+  puis toutes les deux) et un joueur qui ne peut plus la payer joue son reste à tapis : un
+  duel se dénoue en 14 à 16 mains en médiane. La première fois qu'il ruine l'hôte d'un
+  lieu, le joueur reçoit sa cagnotte : 100 blindes de ce lieu. Huit défis, du Kiosque à la
+  Lune.
+- **Serveur.** Pas de WebSocket : le client interroge sa table (réponse minimale quand rien
+  n'a changé). Pas de minuteur côté serveur non plus : chaque requête fait d'abord avancer
+  la table jusqu'à l'heure courante (délais échus, tours des robots). Le moteur est pur
+  (`shared/poker/`) : c'est lui que les tests éprouvent et que le bac à sable réutilise.
+- **L'argent entre la bourse et la table** passe par deux écritures qui ne sont pas
+  atomiques ; chaque mouvement porte un identifiant et se rejoue sans doublon. Les tests
+  coupent le serveur avant et après chaque écriture : pas un euro créé ni perdu.
+- **Limites connues.** Les tables abandonnées ne sont pas nettoyées du stockage (elles ne
+  retiennent pas d'argent). Chaque interrogation coûte deux lectures. `npm run simulate`
+  ne modélise pas les gains du poker.
+
 ## 1. Déploiement (jalon 0)
 
 **Voie retenue : la voie B d'abord (déposer le projet entier sur Netlify), la voie A
