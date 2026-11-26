@@ -532,7 +532,13 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   }, [myMove, view.step]);
 
   return (
-    <main ref={root} className={cx("ecran poker-table", board && "poker-table--abattage")} data-phase={view.phase} data-main={view.handNo}>
+    <main
+      ref={root}
+      // Cinq ou six sièges : deux voisins s'assoient sur les côtés du tapis, qui a besoin de plus de place.
+      className={cx("ecran poker-table", board && "poker-table--abattage", view.seats.length >= 5 && "poker-table--grande")}
+      data-phase={view.phase}
+      data-main={view.handNo}
+    >
       <EnteteTable titre={tableTitle(view)} view={view} />
       {offline && <HorsLigne />}
       <div className="poker-table__scene">
@@ -544,7 +550,8 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
           </Tapis>
         )}
       </div>
-      <section className="poker-moi" data-siege="moi" aria-label={t("Ta place")}>
+      {/* À lui de miser : les mises prennent une rangée de plus, la phrase tient en une ligne. */}
+      <section className={cx("poker-moi", view.phase === "encheres" && view.options.fold && "poker-moi--mise")} data-siege="moi" aria-label={t("Ta place")}>
         <BarreTemps deadline={view.deadline} offset={offset} total={phaseTotal(view)} mine={myMove} />
         {outcome ? (
           <>

@@ -944,6 +944,18 @@
   .poker-voix--garde { min-height: 44px; }
   .poker-voix--replique p { padding: 3px 10px 4px; }
 
+  /* À lui de miser : « À toi : 3 € pour suivre. » tient en une ligne, le tapis garde sa place. */
+  .poker-moi--mise .poker-voix { min-height: 24px; }
+
+  /* Cinq ou six sièges sur un écran court : un nom tient en une ligne, quitte à s'abréger
+     (un pseudo de plus de treize lettres). Le tapis et la mise de chacun restent sur le feutre. */
+  .poker-tapis--cotes .poker-siege__nom {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    overflow-wrap: normal;
+    word-break: break-all;
+  }
+
   .poker-bilan {
     min-height: 40px;
     line-height: 18px;
@@ -983,6 +995,12 @@
   }
 
   .poker-rangee__cartes { padding: 1px 3px 1px 0; }
+}
+
+/* À une grande table (cinq ou six sièges), sur un écran de hauteur moyenne : quand c'est au
+   joueur de miser, sa phrase tient en une ligne, et le tapis garde la place de ses voisins. */
+@media (max-height: 700px) {
+  .poker-table--grande .poker-moi--mise .poker-voix { min-height: 24px; }
 }
 
 /* ---------------------------------------------------------------- Écrans étroits */
