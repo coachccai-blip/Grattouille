@@ -2,18 +2,57 @@
 
 .reglages { padding-bottom: calc(var(--bas) + var(--e7)); }
 
-.reglages .rubrique:first-of-type {
-  gap: 0;
-  margin-top: var(--e2);
-}
+/* Revenu d'un changement de langue : l'écran est déjà là, il ne rejoue pas son entrée. */
+.reglages--reprise { animation: none; }
 
 .reglages .rubrique__titre {
   color: var(--ecume);
   font: 700 20px/24px var(--texte);
 }
 
+.reglages .reglages__langue { margin-top: var(--e3); }
+
+/* La langue : deux choix côte à côte, chacun écrit dans sa langue. Le choix en cours
+   est plein, en mimosa, et coché : la couleur ne porte pas l'information à elle seule. */
+.langue {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e2);
+}
+
+.langue__choix {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 2px solid var(--brume);
+  border-radius: 99px;
+  color: var(--ecume);
+  font: 500 16px/20px var(--texte);
+  transition: transform var(--t-appui) linear;
+}
+
+.langue__choix[aria-checked="true"] {
+  border-color: var(--mimosa);
+  background: var(--mimosa);
+  color: var(--nuit);
+  font-weight: 700;
+}
+
+.langue__choix:active { transform: translateY(2px); }
+
+.langue__choix svg { flex: none; }
+
+/* Son, vibrations, animations : trois interrupteurs qui se suivent, sans titre. */
+.reglages .reglages__confort {
+  gap: 0;
+  margin-top: var(--e3);
+}
+
 .reglages__sous-titre {
-  margin: var(--e2) 0 0;
+  margin: var(--e2) 0 calc(var(--e2) * -1);
   font: 700 16px/24px var(--texte);
 }
 
@@ -65,13 +104,22 @@
   text-align: right;
 }
 
-/* Le numéro reste dans la phrase, avec une cible de toucher de 48 px. */
+/* Le ticket du plus beau gain, sous le montant. */
+.carnet-de-bord__ticket {
+  display: block;
+  color: var(--brume);
+  font: 400 14px/20px var(--texte);
+}
+
+/* Le numéro d'écoute : sur sa ligne, avec une cible de toucher de 48 px. */
 .reglages__numero {
-  display: inline-block;
-  margin: -12px -6px;
-  padding: 12px 6px;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 48px;
+  margin: calc(var(--e3) * -1) 0;
   color: var(--mimosa);
-  font-weight: 700;
+  font: 700 20px/24px var(--texte);
   white-space: nowrap;
 }
 
@@ -86,6 +134,8 @@
   flex-direction: column;
   gap: var(--e3);
 }
+
+.reglages__suppression .champ__label strong { font-weight: 700; }
 
 .reglages__supprimer {
   background: var(--cerise);

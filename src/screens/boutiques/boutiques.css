@@ -64,7 +64,11 @@
   min-width: 0;
 }
 
-.vitrine__nom { font: 400 24px/28px var(--titre); }
+/* Un nom long (« Galerie Archibald ») passe sur deux lignes, sans orphelin. */
+.vitrine__nom {
+  font: 400 24px/28px var(--titre);
+  text-wrap: balance;
+}
 
 .vitrine__rayon {
   color: var(--brume);
@@ -81,11 +85,12 @@
 
 /* ---------------------------------------------------------------- Rayons */
 
+/* Les quatre rayons tiennent d'un bord à l'autre, sans rien couper, dès 320 px de large
+   et dans les deux langues. Le défilement n'est qu'un filet de sécurité. */
 .rayons {
   display: flex;
-  gap: 4px;
   margin: 0 calc(var(--e4) * -1);
-  padding: 0 var(--e4);
+  padding: 0 var(--e3);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -95,10 +100,11 @@
 .rayons__onglet {
   flex: 1 0 auto;
   min-height: 48px;
-  padding: 0 10px;
+  padding: 0 4px;
   border-bottom: 3px solid transparent;
   color: var(--brume);
-  font: 500 16px/24px var(--texte);
+  font: 500 clamp(14px, 4.4vw, 16px)/24px var(--texte);
+  white-space: nowrap;
 }
 
 .rayons__onglet[aria-selected="true"] {
@@ -242,7 +248,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  height: min(34vh, 250px);
+  /* Sur un petit écran, l'aperçu laisse le bouton d'achat visible sans faire défiler. */
+  height: min(30vh, 250px);
   overflow: hidden;
   border-radius: 12px;
   background-color: var(--lagune);
@@ -327,6 +334,12 @@
 }
 
 .fiche-article__actions .bouton--texte { align-self: center; }
+
+/* « Garder le doigt posé » : le bouton dit ce qu'il achète, puis le geste, en plus petit. */
+.maintenir__titre,
+.maintenir__geste { display: block; }
+
+.maintenir__geste { font: 500 14px/18px var(--texte); }
 
 .fiche-article__manque {
   color: var(--cerise);

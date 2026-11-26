@@ -9,13 +9,23 @@
 // donné, le moteur choisit quelles lettres manquent au tirage, de façon qu'il reste
 // exactement le bon nombre de mots complets, puis remplace les lettres manquantes par
 // des lettres qui ne figurent dans aucun mot.
+//
+// Les grilles suivent la langue du jeu : en anglais, des mots anglais (mots-grilles-en.ts),
+// écrits avec les dix mêmes lettres. Le lot, lui, vient du serveur : il ne dépend pas de
+// la langue, seule l'image change. Une grille se lit donc dans la langue où elle a été
+// construite : changer de langue remonte tout l'écran, et la grille est refaite.
 
 import type { TicketDef } from "../../shared/types";
+import { lang } from "../i18n";
 import { mulberry32, optString, palette, pickOne, shuffle, type Match, type Rng } from "./common";
 import { ALPHABET, GRILLES, LETTRES_MORTES, type Grille } from "./mots-grilles";
+import { GRILLES_EN } from "./mots-grilles-en";
 
 export const LETTER_COUNT = ALPHABET.length; // 10
 export const WORD_COUNT = 10;
+/** La place d'une grille sur le ticket : 9 colonnes sur 8 rangées au plus. */
+export const GRID_COLS = 9;
+export const GRID_ROWS = 8;
 
 export interface MotsLayout {
   engine: "mots";
@@ -26,15 +36,6 @@ export interface MotsLayout {
   letters: string[];
   /** Le barème : ce que rapportent 1 mot, 2 mots... 10 mots complets. */
   scale: number[];
-}
-
-function grillesOf(lexique: string): readonly Grille[] {
-  return GRILLES[lexique] ?? GRILLES.terrasse!;
-}
-
-export function gridOf(layout: Pick<MotsLayout, "lexique" | "grid">): Grille {
-  const list = grillesOf(layout.lexique);
-  return list[layout.grid % list.length]!;
 }
 
 /** Les lettres d'un mot, en masque de bits sur ALPHABET. */
@@ -76,6 +77,105 @@ function hiddenSets(grille: Grille): number[][] {
   }
   HIDDEN_CACHE.set(grille, all);
   return all;
+}
+
+function checkGrille(grille: Grille): boolean {
+  if (!Array.isArray(grille) || grille.length !== WORD_COUNT) return false;
+  const words = new Set<string>();
+  const cells = new Map<string, string>();
+  let rows = 0;
+  let cols = 0;
+  for (const [text, row, col, dir] of grille) {
+    if (typeof text !== "string" || text.length < 2 || words.has(text)) return false;
+    if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0 || (dir !== 0 && dir !== 1)) return false;
+    words.add(text);
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]!;
+      if (!ALPHABET.includes(ch)) return false;
+      const r = row + (dir === 1 ? i : 0);
+      const c = col + (dir === 0 ? i : 0);
+      const key = `${r}:${c}`;
+      // Deux mots qui se croisent partagent la même lettre.
+      const before = cells.get(key);
+      if (before !== undefined && before !== ch) return false;
+      cells.set(key, ch);
+      rows = Math.max(rows, r + 1);
+      cols = Math.max(cols, c + 1);
+    }
+  }
+  if (rows > GRID_ROWS || cols > GRID_COLS) return false;
+  // Toute suite de deux lettres ou plus, en ligne ou en colonne, est un mot de la grille.
+  let runs = 0;
+  const scan = (outer: number, inner: number, at: (o: number, i: number) => string | undefined): boolean => {
+    for (let o = 0; o < outer; o++) {
+      let run = "";
+      for (let i = 0; i <= inner; i++) {
+        const ch = at(o, i);
+        if (ch) {
+          run += ch;
+          continue;
+        }
+        if (run.length >= 2) {
+          if (!words.has(run)) return false;
+          runs++;
+        }
+        run = "";
+      }
+    }
+    return true;
+  };
+  if (!scan(rows, cols, (r, c) => cells.get(`${r}:${c}`))) return false;
+  if (!scan(cols, rows, (c, r) => cells.get(`${r}:${c}`))) return false;
+  if (runs !== WORD_COUNT) return false;
+  // La grille sait porter tous les lots : de 0 à 10 mots complets.
+  return hiddenSets(grille).every((sets) => sets.length > 0);
+}
+
+const VALID_CACHE = new WeakMap<Grille, boolean>();
+
+/**
+ * Vrai si une grille tient debout : 10 mots différents écrits avec les dix lettres,
+ * des croisements justes, aucun mot parasite, 9 colonnes sur 8 rangées au plus, et un
+ * jeu de lettres à cacher pour chaque nombre de mots de 0 à 10.
+ */
+export function grilleValide(grille: Grille): boolean {
+  let ok = VALID_CACHE.get(grille);
+  if (ok === undefined) {
+    ok = checkGrille(grille);
+    VALID_CACHE.set(grille, ok);
+  }
+  return ok;
+}
+
+const EN_CACHE = new Map<string, { source: readonly Grille[]; valid: readonly Grille[] }>();
+
+/** Les grilles anglaises d'un lexique, celles qui tiennent debout seulement. */
+function grillesAnglaises(lexique: string): readonly Grille[] {
+  const source = GRILLES_EN[lexique];
+  if (!source || source.length === 0) return [];
+  const cached = EN_CACHE.get(lexique);
+  if (cached && cached.source === source) return cached.valid;
+  const valid = source.filter(grilleValide);
+  EN_CACHE.set(lexique, { source, valid });
+  return valid;
+}
+
+/**
+ * Les grilles d'un lexique, dans la langue du jeu. Tant qu'un lexique n'a pas de
+ * grille anglaise, le jeu en anglais garde les grilles françaises.
+ */
+export function grillesOf(lexique: string): readonly Grille[] {
+  const known = GRILLES[lexique] ? lexique : "terrasse";
+  if (lang() === "en") {
+    const en = grillesAnglaises(known);
+    if (en.length > 0) return en;
+  }
+  return GRILLES[known]!;
+}
+
+export function gridOf(layout: Pick<MotsLayout, "lexique" | "grid">): Grille {
+  const list = grillesOf(layout.lexique);
+  return list[layout.grid % list.length]!;
 }
 
 export function buildMots(pal: readonly number[], lexique: string, gain: number, rng: Rng): MotsLayout {

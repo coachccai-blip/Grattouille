@@ -2,6 +2,9 @@
 // (BRIEF.md, sections 7.3 à 7.9, et les quatre moteurs ajoutés ensuite). Chaque vue
 // lit une grille construite par src/engines et l'ensemble des cases déjà révélées ;
 // elle ne décide de rien.
+//
+// Tous les textes passent par `t()` : les tables gardent leurs mots français, c'est
+// le rendu qui les écrit dans la langue du jeu.
 
 import type { CSSProperties, ReactNode } from "react";
 import { formatEuros } from "../../shared/format";
@@ -10,19 +13,21 @@ import { Symbole } from "../art/Illustration";
 import type { Layout } from "../engines";
 import { MAJORITY, type CampsLayout } from "../engines/camps";
 import { tripleOf, type CoefLayout } from "../engines/coef";
-import { optString, optStrings } from "../engines/common";
-import { formatChrono, roundWon, type DuelLayout } from "../engines/duel";
+import { optString, optStrings, palette } from "../engines/common";
+import { formatChrono, roundWon, type DuelLayout, type DuelSkin } from "../engines/duel";
 import type { EtoileLayout } from "../engines/etoile";
-import { COCKTAIL_INGREDIENTS, cardOf, drawnVisible, type LignesLayout } from "../engines/lignes";
+import {
+  CARD_RANK_NAMES, CARD_SUIT_NAMES, COCKTAIL_INGREDIENTS, cardOf, drawnVisible, type CardSuit, type LignesLayout,
+} from "../engines/lignes";
 import { LINES, completeLines, type MorpionLayout } from "../engines/morpion";
 import { gridOf, type MotsLayout } from "../engines/mots";
 import { PANEL_COUNT, panelCellIds, panelNames, panelRevealed, type MultiLayout } from "../engines/multi";
 import type { NumerosLayout } from "../engines/numeros";
 import { SQUARES, type ParcoursLayout } from "../engines/parcours";
 import type { TrioLayout } from "../engines/trio";
-import { palette } from "../engines/common";
-import { Ajuste, Case, Montant, cx, prefixed, useTicket } from "./parts";
-import { SYMBOL_NAMES, symbolKey } from "./themes";
+import { pick, t } from "../i18n";
+import { Ajuste, Case, Montant, MontantEmpile, cx, prefixed, useTicket } from "./parts";
+import { symbolKey, symbolName } from "./themes";
 
 interface ViewProps<L> {
   def: TicketDef;
@@ -40,7 +45,7 @@ function TrioView({ def, layout, revealed, prefix }: ViewProps<TrioLayout>) {
   const symbols = optStrings(def.options, "symbols");
   const pal = palette(def);
   const mode = symbols.length > 0 ? "symboles" : "montants";
-  // Les trois cases identiques, une fois toutes visibles.
+  // Les trois cases identiques, une fois toutes visibles : elles se cerclent de mimosa.
   const counts = new Map<number, number[]>();
   layout.cells.forEach((a, i) => {
     if (!revealed.has(prefixed(prefix, `c${i}`))) return;
@@ -49,7 +54,7 @@ function TrioView({ def, layout, revealed, prefix }: ViewProps<TrioLayout>) {
   const trio = [...counts.values()].find((list) => list.length >= 3) ?? null;
   const forme = prefix ? "rect" : theme.forme;
   return (
-    <div className="jeu-trio">
+    <div className={cx("jeu-trio", `jeu-trio--${mode}`)}>
       <div className="jeu-trio__grille">
         {layout.cells.map((amount, i) => {
           const id = prefixed(prefix, `c${i}`);
@@ -58,24 +63,15 @@ function TrioView({ def, layout, revealed, prefix }: ViewProps<TrioLayout>) {
             <Case key={id} id={id} forme={forme} vue={revealed.has(id)} touche={trio?.includes(i) ?? false}>
               {mode === "symboles" ? (
                 <>
-                  <Symbole cle={key} className="jeu__symbole" title={SYMBOL_NAMES[key]} />
+                  <Symbole cle={key} className="jeu__symbole" title={symbolName(key)} />
                   <Montant value={amount} className="jeu__petit" />
                 </>
               ) : (
-                <Montant value={amount} className="jeu__gros" />
+                <MontantEmpile value={amount} max={6} className="jeu__gros" />
               )}
             </Case>
           );
         })}
-        {trio && (
-          // À la troisième case identique, un trait mimosa relie les trois.
-          <svg className="jeu__trait" viewBox="0 0 3 3" preserveAspectRatio="none" aria-hidden="true">
-            <polyline
-              points={trio.slice(0, 3).map((i) => `${(i % 3) + 0.5},${Math.floor(i / 3) + 0.5}`).join(" ")}
-              pathLength="1"
-            />
-          </svg>
-        )}
       </div>
     </div>
   );
@@ -84,16 +80,26 @@ function TrioView({ def, layout, revealed, prefix }: ViewProps<TrioLayout>) {
 // ---------------------------------------------------------------------------
 // numeros : numéros gagnants
 
+/** Les deux titres de la grille : les numéros gagnants, puis ceux du joueur. */
+function numerosTitres(comptes: boolean, volet: boolean): readonly [string, string] {
+  // `comptes` : les numéros sont des comptes numérotés.
+  if (comptes) return ["Comptes gagnants", "Tes comptes"];
+  // Dans un volet du ticket multiple, le nom du volet dit déjà « les numéros ».
+  if (volet) return ["Gagnants", "Les tiens"];
+  return ["Numéros gagnants", "Tes numéros"];
+}
+
 function NumerosView({ def, layout, revealed, prefix }: ViewProps<NumerosLayout>) {
   const visibleWinners = new Set<number>();
   layout.winning.forEach((n, i) => {
     if (revealed.has(prefixed(prefix, `w${i}`))) visibleWinners.add(n);
   });
-  // `comptes` : les numéros sont des comptes numérotés, gravés sur des plaques de laiton.
+  // `comptes` : les numéros sont gravés sur des plaques de laiton.
   const comptes = !prefix && def.options.skin === "comptes";
+  const [gagnants, tiens] = numerosTitres(comptes, Boolean(prefix));
   return (
-    <div className={cx("jeu-numeros", comptes && "jeu-numeros--comptes")}>
-      <p className="jeu__titre">{comptes ? "Comptes gagnants" : "Numéros gagnants"}</p>
+    <div className={cx("jeu-numeros", `jeu-numeros--${layout.cols}`, comptes && "jeu-numeros--comptes")}>
+      <p className="jeu__titre">{t(gagnants)}</p>
       <div className="jeu-numeros__gagnants">
         {layout.winning.map((n, i) => {
           const id = prefixed(prefix, `w${i}`);
@@ -105,7 +111,7 @@ function NumerosView({ def, layout, revealed, prefix }: ViewProps<NumerosLayout>
           );
         })}
       </div>
-      <p className="jeu__titre">{comptes ? "Tes comptes" : "Tes numéros"}</p>
+      <p className="jeu__titre">{t(tiens)}</p>
       <div className="jeu-numeros__grille" style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}>
         {layout.yours.map((cell, i) => {
           const id = prefixed(prefix, `n${i}`);
@@ -140,7 +146,7 @@ function MorpionView({ def, layout, revealed, prefix, cibles }: ViewProps<Morpio
           const key = isTarget ? target : other;
           return (
             <Case key={id} id={id} vue={revealed.has(id)} touche={line?.includes(i) ?? false}>
-              <Symbole cle={key} className="jeu__symbole jeu__symbole--grand" title={SYMBOL_NAMES[key]} />
+              <Symbole cle={key} className="jeu__symbole jeu__symbole--grand" title={symbolName(key)} />
             </Case>
           );
         })}
@@ -158,7 +164,7 @@ function MorpionView({ def, layout, revealed, prefix, cibles }: ViewProps<Morpio
         )}
       </div>
       <div className="jeu-morpion__lot">
-        <span className="jeu__titre">Lot</span>
+        <span className="jeu__titre">{t("Lot")}</span>
         <Case id={lotId} vue={revealed.has(lotId)} touche={line !== null && revealed.has(lotId)}>
           <Montant value={layout.lot} className="jeu__gros" />
         </Case>
@@ -170,14 +176,13 @@ function MorpionView({ def, layout, revealed, prefix, cibles }: ViewProps<Morpio
 // ---------------------------------------------------------------------------
 // duel : battre l'adversaire
 
-function duelValue(skin: DuelLayout["skin"], value: number): { text: string; note?: string } {
-  if (skin === "course") return { text: formatChrono(value) };
-  if (skin === "cartes" && value > 21) return { text: String(value), note: "saute" };
-  return { text: String(value) };
-}
+/** Entre les deux camps : le ballon, le drapeau à damier ou le pique. */
+const DUEL_EMBLEMES: Record<DuelSkin, string> = { foot: "foot:ballon", course: "course:drapeau", cartes: "carte:pique" };
 
 function DuelView({ def, layout, revealed, prefix }: ViewProps<DuelLayout>) {
-  const them = layout.skin === "cartes" ? (def.id === "vingt-et-un" ? "Hector" : "Croupier") : layout.skin === "course" ? "Rival" : "";
+  // L'adversaire : une équipe (football), Hector à sa table ou le croupier (cartes), le rival (course).
+  const them = layout.skin === "cartes" ? (def.id === "vingt-et-un" ? "Hector" : "Croupier") : "Rival";
+  const course = layout.skin === "course";
   return (
     <div className={cx("jeu-duel", `jeu-duel--${layout.skin}`)}>
       {layout.rounds.map((round, i) => {
@@ -185,21 +190,30 @@ function DuelView({ def, layout, revealed, prefix }: ViewProps<DuelLayout>) {
         const idA = prefixed(prefix, `r${i}a`);
         const won = roundWon(layout.skin, round.you, round.them);
         const seen = revealed.has(idM);
-        const you = duelValue(layout.skin, round.you);
-        const other = duelValue(layout.skin, round.them);
+        // « les Goélands » : sur le ticket, le nom de l'équipe suffit.
+        const opponent = t(round.opponent ?? them).replace(/^les /, "");
+        // Au-dessus de 21, l'adversaire saute : le mot le dit à côté de sa main.
+        const bust = layout.skin === "cartes" && round.them > 21;
         return (
           <div className="jeu-duel__manche" key={idM}>
             <Case id={idM} vue={seen} touche={seen && won && revealed.has(idA)} className="jeu-duel__rencontre">
               <span className={cx("jeu-duel__camp", seen && won && "jeu-duel__camp--gagne")}>
-                <Ajuste className="jeu-duel__nom">Toi</Ajuste>
-                <Ajuste className="jeu-duel__score">{you.text}</Ajuste>
+                <Ajuste className="jeu-duel__nom">{t("Toi")}</Ajuste>
+                <Ajuste className="jeu-duel__score">{course ? formatChrono(round.you) : String(round.you)}</Ajuste>
               </span>
               <span className="jeu-duel__contre" aria-hidden="true">
-                <Symbole cle={layout.skin === "foot" ? "foot:ballon" : layout.skin === "course" ? "course:drapeau" : "carte:pique"} />
+                <Symbole cle={DUEL_EMBLEMES[layout.skin]} />
               </span>
-              <span className="jeu-duel__camp">
-                <Ajuste className="jeu-duel__nom">{round.opponent ?? them}{other.note ? ` (${other.note})` : ""}</Ajuste>
-                <Ajuste className="jeu-duel__score">{other.text}</Ajuste>
+              <span className={cx("jeu-duel__camp", bust && "jeu-duel__camp--saute")}>
+                <Ajuste className="jeu-duel__nom">{opponent}</Ajuste>
+                {bust ? (
+                  <span className="jeu-duel__score">
+                    {round.them}
+                    <small className="jeu-duel__note">{t("saute")}</small>
+                  </span>
+                ) : (
+                  <Ajuste className="jeu-duel__score">{course ? formatChrono(round.them) : String(round.them)}</Ajuste>
+                )}
               </span>
             </Case>
             <Case id={idA} vue={revealed.has(idA)} touche={seen && won && revealed.has(idA)} className="jeu-duel__montant">
@@ -219,11 +233,11 @@ function EtoileView({ def, layout, revealed }: ViewProps<EtoileLayout>) {
   const { theme } = useTicket();
   const pickKey = symbolKey(def.options.family, layout.pick);
   return (
-    <div className="jeu-etoile">
+    <div className={cx("jeu-etoile", `jeu-etoile--${theme.forme}`)}>
       <p className="jeu-etoile__signe">
-        <span>{def.options.family === "arcane" ? "Ton arcane" : "Ton signe"}</span>
+        <span>{t(def.options.family === "arcane" ? "Ton arcane" : "Ton signe")}</span>
         <Symbole cle={pickKey} className="jeu-etoile__choisi" />
-        <strong>{SYMBOL_NAMES[pickKey] ?? layout.pick}</strong>
+        <strong>{symbolName(pickKey, layout.pick)}</strong>
       </p>
       <div className="jeu-etoile__grille">
         {layout.cells.map((cell, i) => {
@@ -231,7 +245,7 @@ function EtoileView({ def, layout, revealed }: ViewProps<EtoileLayout>) {
           const key = symbolKey(def.options.family, cell.sign);
           return (
             <Case key={id} id={id} forme={theme.forme} vue={revealed.has(id)} touche={revealed.has(id) && cell.sign === layout.pick}>
-              <Symbole cle={key} className="jeu__symbole" title={SYMBOL_NAMES[key]} />
+              <Symbole cle={key} className="jeu__symbole" title={symbolName(key)} />
               <Montant value={cell.amount} className="jeu__petit" />
             </Case>
           );
@@ -244,11 +258,21 @@ function EtoileView({ def, layout, revealed }: ViewProps<EtoileLayout>) {
 // ---------------------------------------------------------------------------
 // lignes : tirage et rangées à compléter
 
+/** Les figures s'écrivent V, D, R en français, et J, Q, K en anglais. */
+const RANGS_EN: Record<string, string> = { V: "J", D: "Q", R: "K" };
+const FIGURES: Record<string, string> = { V: "carte:valet", D: "carte:dame", R: "carte:roi" };
+
+/** « valet de pique », ou « jack of spades ». */
+function cardName(rank: string, suit: CardSuit): string {
+  const figure = CARD_RANK_NAMES[rank];
+  return t("{rang} de {couleur}", { rang: figure ? t(figure) : rank, couleur: t(CARD_SUIT_NAMES[suit]) });
+}
+
 function Element({ skin, e, stamped }: { skin: LignesLayout["skin"]; e: number; stamped?: boolean }) {
   if (skin === "cocktails") {
     const key = `cocktail:${COCKTAIL_INGREDIENTS[e] ?? "citron"}`;
     return (
-      <span className={cx("jeu-ingredient", stamped && "jeu-element--tamponne")} role="img" aria-label={SYMBOL_NAMES[key] ?? key}>
+      <span className={cx("jeu-ingredient", stamped && "jeu-element--tamponne")} role="img" aria-label={symbolName(key)}>
         <Symbole cle={key} />
       </span>
     );
@@ -261,10 +285,15 @@ function Element({ skin, e, stamped }: { skin: LignesLayout["skin"]; e: number; 
     );
   }
   const card = cardOf(e);
-  const face = card.rank === "V" ? "carte:valet" : card.rank === "D" ? "carte:dame" : card.rank === "R" ? "carte:roi" : null;
+  const face = FIGURES[card.rank];
+  const rang = pick<Record<string, string>>({ fr: {}, en: RANGS_EN })[card.rank] ?? card.rank;
   return (
-    <span className={cx("jeu-carte", card.red && "jeu-carte--rouge", stamped && "jeu-element--tamponne")} role="img" aria-label={card.name}>
-      <span className="jeu-carte__rang" aria-hidden="true">{card.rank}</span>
+    <span
+      className={cx("jeu-carte", card.red && "jeu-carte--rouge", stamped && "jeu-element--tamponne")}
+      role="img"
+      aria-label={cardName(card.rank, card.suit)}
+    >
+      <span className="jeu-carte__rang" aria-hidden="true">{rang}</span>
       <Symbole cle={`carte:${card.suit}`} className="jeu-carte__enseigne" />
       {face && <Symbole cle={face} className="jeu-carte__figure" />}
     </span>
@@ -275,7 +304,7 @@ function LignesView({ layout, revealed }: ViewProps<LignesLayout>) {
   const visible = drawnVisible(layout, revealed);
   return (
     <div className={cx("jeu-lignes", `jeu-lignes--${layout.skin}`)}>
-      <p className="jeu__titre">{layout.skin === "cocktails" ? "Les ingrédients" : "Tirage"}</p>
+      <p className="jeu__titre">{t(layout.skin === "cocktails" ? "Les ingrédients" : "Tirage")}</p>
       <div className="jeu-lignes__tirage">
         {layout.draw.map((e, i) => {
           const id = `d${i}`;
@@ -316,7 +345,7 @@ const PIPS: Record<number, readonly number[]> = {
 
 function De({ value }: { value: number }) {
   return (
-    <svg className="jeu-de" viewBox="0 0 40 40" role="img" aria-label={`Dé : ${value}`}>
+    <svg className="jeu-de" viewBox="0 0 40 40" role="img" aria-label={t("Dé : {valeur}", { valeur: value })}>
       <rect x="2" y="2" width="36" height="36" rx="8" className="jeu-de__face" />
       <path d="M38 12v18a8 8 0 0 1 -8 8H12q20 -2 26 -26Z" className="jeu-de__ombre" />
       {(PIPS[value] ?? []).map((i) => (
@@ -338,29 +367,6 @@ function pathSpot(square: number): { col: number; row: number } {
   return { col: fromBottom % 2 === 0 ? inRow : PATH_COLS - 1 - inRow, row: PATH_ROWS - 1 - fromBottom };
 }
 
-/**
- * Le montant d'une case du chemin. Court (« 30 € », « 2 M€ »), il tient sur une ligne ;
- * long (« 1 500 € », « 1 000 Bn€ »), il passe sur deux, le nombre au-dessus de l'unité.
- */
-function MontantCase({ value }: { value: number }) {
-  const text = formatEuros(value);
-  // L'unité suit une espace insécable.
-  const cut = text.lastIndexOf("\u00A0");
-  if (text.length <= 5 || cut <= 0) {
-    return (
-      <span className="jeu-parcours__lot">
-        <Ajuste>{text}</Ajuste>
-      </span>
-    );
-  }
-  return (
-    <span className="jeu-parcours__lot">
-      <Ajuste>{text.slice(0, cut)}</Ajuste>
-      <Ajuste>{text.slice(cut + 1)}</Ajuste>
-    </span>
-  );
-}
-
 function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
   const ids = layout.dice.map((_, i) => prefixed(prefix, `x${i}`));
   let at = 0;
@@ -370,44 +376,50 @@ function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
   const done = ids.every((id) => revealed.has(id));
   const won = done && (layout.squares[at - 1] ?? 0) > 0;
   const spot = at > 0 ? pathSpot(at) : null;
-  // Au départ, le pion attend à gauche des dés ; ensuite il se pose sur sa case.
+  // Au départ, le pion attend à gauche des dés ; ensuite il se pose au pied de sa case.
   const pawn = spot
     ? ({ "--col": spot.col, "--row": spot.row } as CSSProperties)
     : undefined;
   return (
     <div className={cx("jeu-parcours", `jeu-parcours--${layout.skin}`)}>
-      <div className="jeu-parcours__plateau">
-        <ol className="jeu-parcours__chemin" aria-label="Le chemin">
-          {layout.squares.map((amount, i) => {
-            const n = i + 1;
-            const { col, row } = pathSpot(n);
-            return (
-              <li
-                key={n}
-                className={cx(
-                  "jeu-parcours__case",
-                  amount > 0 ? "jeu-parcours__case--lot" : n < 3 ? "jeu-parcours__case--elan" : "jeu-parcours__case--vide",
-                  // Au bout d'une rangée, une flèche montre que le chemin monte.
-                  n % PATH_COLS === 0 && n < SQUARES && "jeu-parcours__case--virage",
-                  done && at === n && "jeu-parcours__case--arrivee",
-                  won && at === n && "jeu-parcours__case--gagne",
-                )}
-                style={{ gridColumn: col + 1, gridRow: row + 1 }}
-                aria-label={amount > 0 ? `Case ${n} : ${formatEuros(amount)}` : `Case ${n} : rien`}
-              >
-                <span className="jeu-parcours__numero" aria-hidden="true">{n}</span>
-                {amount > 0 ? <MontantCase value={amount} /> : null}
-              </li>
-            );
-          })}
-        </ol>
-        <span className={cx("jeu-parcours__pion", !spot && "jeu-parcours__pion--depart", won && "jeu-parcours__pion--gagne")} style={pawn} aria-hidden="true">
-          <Symbole cle={PIONS[layout.skin] ?? "pion:crabe"} />
-        </span>
-      </div>
+      <ol className="jeu-parcours__chemin" aria-label={t("Le chemin")}>
+        {layout.squares.map((amount, i) => {
+          const n = i + 1;
+          const { col, row } = pathSpot(n);
+          return (
+            <li
+              key={n}
+              className={cx(
+                "jeu-parcours__case",
+                amount > 0 ? "jeu-parcours__case--lot" : "jeu-parcours__case--vide",
+                // Au bout d'une rangée, une flèche montre que le chemin monte.
+                n % PATH_COLS === 0 && n < SQUARES && "jeu-parcours__case--virage",
+                // Le pion est là : le contenu de la case lui fait une place, il ne le recouvre pas.
+                at === n && "jeu-parcours__case--pion",
+                done && at === n && "jeu-parcours__case--arrivee",
+                won && at === n && "jeu-parcours__case--gagne",
+              )}
+              style={{ gridColumn: col + 1, gridRow: row + 1 }}
+              aria-label={amount > 0
+                ? t("Case {n} : {montant}", { n, montant: formatEuros(amount) })
+                : t("Case {n} : rien", { n })}
+            >
+              <span className="jeu-parcours__contenu" aria-hidden="true">
+                {amount > 0
+                  ? <MontantEmpile value={amount} max={5} empile className="jeu-parcours__lot" />
+                  : <span className="jeu-parcours__numero">{n}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <span className={cx("jeu-parcours__pion", !spot && "jeu-parcours__pion--depart", won && "jeu-parcours__pion--gagne")} style={pawn} aria-hidden="true">
+        <Symbole cle={PIONS[layout.skin] ?? "pion:crabe"} />
+      </span>
       <div className="jeu-parcours__des">
+        {/* Avant le premier dé, le pion attend ici ; ensuite, le total des dés grattés s'y écrit. */}
         <span className="jeu-parcours__depart">
-          <span className="jeu__titre">Départ</span>
+          <span className="jeu__titre">{t(at > 0 ? "Total" : "Départ")}</span>
           <strong className="jeu-parcours__total">{at > 0 ? at : ""}</strong>
         </span>
         {layout.dice.map((d, i) => (
@@ -448,11 +460,14 @@ function CoefView({ layout, revealed, prefix }: ViewProps<CoefLayout>) {
       </div>
       <div className="jeu-coef__bas">
         <span className="jeu-coef__nom">
-          <span className="jeu__titre">{COEF_LABELS[layout.skin] ?? "Coefficient"}</span>
+          <span className="jeu__titre">{t(COEF_LABELS[layout.skin] ?? "Coefficient")}</span>
           {/* Le calcul s'écrit quand les trois montants et le coefficient sont visibles. */}
-          <Ajuste className={cx("jeu-coef__calcul", found && kSeen && "jeu-coef__calcul--vu")}>
-            {found && kSeen ? `${formatEuros(base)} × ${layout.coef} = ${formatEuros(base * layout.coef)}` : "montant × coefficient"}
-          </Ajuste>
+          {found && kSeen && (
+            <>
+              <Ajuste className="jeu-coef__calcul">{`${formatEuros(base)} × ${layout.coef}`}</Ajuste>
+              <Ajuste className="jeu-coef__total">{`= ${formatEuros(base * layout.coef)}`}</Ajuste>
+            </>
+          )}
         </span>
         <Case id={kId} vue={kSeen} touche={found && kSeen} className="jeu-coef__k">
           <span className="jeu-coef__fois">
@@ -497,6 +512,7 @@ function MotsView({ layout, revealed }: ViewProps<MotsLayout>) {
   const inGrid = new Set<string>();
   for (const cell of cells.values()) inGrid.add(cell.letter);
   const count = complete.size;
+  const vars = { n: count, total: grille.length };
   return (
     <div className="jeu-mots">
       <div className="jeu-mots__haut">
@@ -504,7 +520,9 @@ function MotsView({ layout, revealed }: ViewProps<MotsLayout>) {
           className="jeu-mots__grille"
           style={{ "--cols": cols, "--rows": rows } as CSSProperties}
           role="img"
-          aria-label={`Grille de mots croisés : ${count} ${count > 1 ? "mots complets" : "mot complet"} sur ${grille.length}`}
+          aria-label={count > 1
+            ? t("Grille de mots croisés : {n} mots complets sur {total}", vars)
+            : t("Grille de mots croisés : {n} mot complet sur {total}", vars)}
         >
           {[...cells.values()].map((cell) => (
             <span
@@ -521,7 +539,8 @@ function MotsView({ layout, revealed }: ViewProps<MotsLayout>) {
             </span>
           ))}
         </div>
-        <ol className="jeu-mots__bareme" aria-label="Barème">
+        {/* Le barème : ce que rapportent 10 mots, 9 mots… 1 mot. */}
+        <ol className="jeu-mots__bareme" aria-label={t("Barème")}>
           {layout.scale.map((amount, i) => (
             <li key={i} className={cx("jeu-mots__palier", count === i + 1 && "jeu-mots__palier--atteint")}>
               <span className="jeu-mots__n">{i + 1}</span>
@@ -530,7 +549,7 @@ function MotsView({ layout, revealed }: ViewProps<MotsLayout>) {
           )).reverse()}
         </ol>
       </div>
-      <div className="jeu-mots__lettres" aria-label="Tes lettres">
+      <div className="jeu-mots__lettres" role="group" aria-label={t("Tes lettres")}>
         {layout.letters.map((letter, i) => {
           const id = `l${i}`;
           return (
@@ -561,6 +580,7 @@ function CampsView({ def, layout, revealed }: ViewProps<CampsLayout>) {
   const won = mine >= MAJORITY;
   const pickKey = `${family}:${layout.pick}`;
   const otherKey = `${family}:${other}`;
+  const pickName = symbolName(pickKey, layout.pick);
   return (
     <div className={cx("jeu-camps", `jeu-camps--${family}`)}>
       <div className="jeu-camps__grille">
@@ -569,25 +589,28 @@ function CampsView({ def, layout, revealed }: ViewProps<CampsLayout>) {
           const key = `${family}:${camp}`;
           return (
             <Case key={id} id={id} forme={theme.forme} vue={revealed.has(id)} touche={won && camp === layout.pick && revealed.has(id)}>
-              <Symbole cle={key} className="jeu__symbole jeu__symbole--grand" title={SYMBOL_NAMES[key]} />
+              <Symbole cle={key} className="jeu__symbole jeu__symbole--grand" title={symbolName(key)} />
             </Case>
           );
         })}
       </div>
       <div className="jeu-camps__cote">
         <p className="jeu-camps__camp">
-          <span className="jeu__titre">Ton camp</span>
+          <span className="jeu__titre">{t("Ton camp")}</span>
           <Symbole cle={pickKey} className="jeu-camps__choisi" />
-          <strong>{SYMBOL_NAMES[pickKey] ?? layout.pick}</strong>
+          <Ajuste className="jeu-camps__nom">{pickName}</Ajuste>
         </p>
         {/* Le score se compte tout seul, case après case. */}
-        <p className="jeu-camps__score" aria-label={`${SYMBOL_NAMES[pickKey] ?? layout.pick} ${mine}, ${SYMBOL_NAMES[otherKey] ?? other} ${theirs}`}>
+        <p
+          className="jeu-camps__score"
+          aria-label={t("{camp} {a}, {autre} {b}", { camp: pickName, a: mine, autre: symbolName(otherKey, other), b: theirs })}
+        >
           <strong className={cx(won && "jeu-camps__gagne")}>{mine}</strong>
           <span aria-hidden="true">–</span>
           <span>{theirs}</span>
         </p>
         <div className="jeu-camps__lot">
-          <span className="jeu__titre">Lot</span>
+          <span className="jeu__titre">{t("Lot")}</span>
           <Case id="lot" vue={revealed.has("lot")} touche={won && revealed.has("lot")}>
             <Montant value={layout.lot} className="jeu__moyen" />
           </Case>
@@ -620,7 +643,7 @@ function MultiView({ def, layout, revealed, panel, onPanel }: MultiProps) {
   return (
     <div className={cx("jeu-multi", `jeu-multi--${layout.kind}`)}>
       {/* Trois pastilles permettent de revenir en arrière. */}
-      <div className="jeu-multi__pastilles" role="tablist" aria-label="Volets du ticket">
+      <div className="jeu-multi__pastilles" role="tablist" aria-label={t("Volets du ticket")}>
         {Array.from({ length: PANEL_COUNT }, (_, p) => {
           const complete = panelCellIds(layout, p).every((id) => revealed.has(id));
           const reachable = p === 0 || panelCellIds(layout, p - 1).every((id) => revealed.has(id));
@@ -643,11 +666,11 @@ function MultiView({ def, layout, revealed, panel, onPanel }: MultiProps) {
               onClick={() => onPanel?.(p)}
             >
               <span aria-hidden="true">{p + 1}</span>
-              <span className="invisible">{names[p]}</span>
+              <span className="invisible">{t(names[p]!)}</span>
             </button>
           );
         })}
-        <span className="jeu-multi__nom">{names[panel]}</span>
+        <Ajuste className="jeu-multi__nom">{t(names[panel] ?? names[0])}</Ajuste>
       </div>
       <div className="jeu-multi__volet" key={panel}>{view}</div>
     </div>

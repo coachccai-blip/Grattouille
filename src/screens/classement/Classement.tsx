@@ -10,6 +10,7 @@ import { api } from "../../app/api";
 import { toast, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Etoile, Icon } from "../../art/icons";
+import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Entete } from "../../ui/Commun";
@@ -19,19 +20,33 @@ import "./classement.css";
 const MIN_REFRESH_MS = 20_000;
 let cache: { board: Board; at: number } | null = null;
 
+/** Ce qu'un lecteur d'écran lit d'une plaque ou d'une marche du podium : une phrase, d'une traite. */
+function lecture(entry: BoardEntry, rank: number, me: boolean): string {
+  const vars = {
+    rang: formatInt(rank),
+    nom: me ? t("Toi") : entry.pseudo,
+    etoiles: formatInt(entry.standing),
+    fortune: formatEuros(entry.fortune),
+  };
+  return entry.kiosk
+    ? t("{rang}. {nom}, propriétaire du Kiosque : {fortune}, {etoiles} étoiles.", vars)
+    : t("{rang}. {nom} : {fortune}, {etoiles} étoiles.", vars);
+}
+
 function Plaque({ entry, rank, me, pinned = false }: { entry: BoardEntry; rank: number; me: boolean; pinned?: boolean }) {
   return (
     <div className={cx("plaque", me && "plaque--toi", entry.kiosk && "plaque--kiosque", pinned && "plaque--epinglee")}>
-      <span className="plaque__rang chiffres">{formatInt(rank)}</span>
+      <span className="invisible">{lecture(entry, rank, me)}</span>
+      <span className="plaque__rang chiffres" aria-hidden="true">{formatInt(rank)}</span>
       <span className="plaque__avatar" aria-hidden="true">
         <Avatar species={entry.species} look={{ chapeau: entry.look.chapeau, lunettes: entry.look.lunettes }} crop="tete" />
       </span>
-      <span className="plaque__nom">
-        {me ? "Toi" : entry.pseudo}
-        {entry.kiosk && <span className="invisible">, propriétaire du Kiosque</span>}
+      {/* Le nom d'abord, sur toute la largeur qui reste ; le Standing dessous, la fortune à droite. */}
+      <span className="plaque__qui" aria-hidden="true">
+        <span className="plaque__nom">{me ? t("Toi") : entry.pseudo}</span>
+        <span className="plaque__standing"><Etoile />{formatInt(entry.standing)}</span>
       </span>
-      <span className="plaque__standing"><Etoile />{formatInt(entry.standing)}<span className="invisible"> étoiles</span></span>
-      <span className="plaque__fortune chiffres">{formatEuros(entry.fortune)}</span>
+      <span className="plaque__fortune chiffres" aria-hidden="true">{formatEuros(entry.fortune)}</span>
     </div>
   );
 }
@@ -48,7 +63,7 @@ export function Classement() {
   const load = useCallback(async (asked: boolean) => {
     if (cache && Date.now() - cache.at < MIN_REFRESH_MS) {
       setBoard(cache.board);
-      if (asked) toast("Le classement vient d'être mis à jour.");
+      if (asked) toast(t("Le classement vient d'être mis à jour."));
       return;
     }
     setLoading(true);
@@ -123,41 +138,42 @@ export function Classement() {
   return (
     <main className="ecran ecran--onglets classement">
       <Entete
-        titre="Classement"
+        titre={t("Classement")}
         droite={
-          <button type="button" className="entete__bouton" onClick={() => void load(true)} aria-label="Rafraîchir le classement" disabled={loading}>
+          <button type="button" className="entete__bouton" onClick={() => void load(true)} aria-label={t("Rafraîchir le classement")} disabled={loading}>
             <Icon name="rafraichir" className={loading ? "classement__tourne" : undefined} />
           </button>
         }
       />
       <p className="classement__tirer" style={{ height: pull * 0.5, opacity: pull / 80 }} aria-hidden="true">
-        {pull > 80 ? "Relâche pour rafraîchir" : "Tire pour rafraîchir"}
+        {pull > 80 ? t("Relâche pour rafraîchir") : t("Tire pour rafraîchir")}
       </p>
 
       {failed && entries.length === 0 && (
         <div className="classement__vide" role="alert">
-          <p>Le kiosque ne répond pas. Réessaie dans un instant.</p>
-          <Bouton onClick={() => void load(true)}>Réessayer</Bouton>
+          <p>{t("Le classement ne répond pas.")}</p>
+          <Bouton onClick={() => void load(true)}>{t("Réessayer")}</Bouton>
         </div>
       )}
       {!failed && board && entries.length === 0 && (
-        <p className="classement__vide">Personne encore. La première place est à prendre.</p>
+        <p className="classement__vide">{t("Personne encore. La première place est à prendre.")}</p>
       )}
-      {!board && loading && <p className="classement__vide" role="status">Le classement arrive…</p>}
+      {!board && loading && <p className="classement__vide" role="status">{t("Le classement arrive…")}</p>}
 
       {podium.length > 0 && (
-        <ol className="podium" aria-label="Les trois premiers">
+        <ol className="podium" aria-label={t("Les trois premiers")}>
           {podium.map((entry, i) => {
             const me = entry.id === player?.id;
             return (
               <li key={entry.id} className={cx("podium__place", `podium__place--${i + 1}`, me && "podium__place--toi", entry.kiosk && "podium__place--kiosque")}
                 ref={me ? mine : undefined}>
-                <span className="podium__rang">{i + 1}</span>
+                <span className="invisible">{lecture(entry, i + 1, me)}</span>
+                <span className="podium__rang" aria-hidden="true">{i + 1}</span>
                 <span className="podium__avatar" aria-hidden="true">
                   <Avatar species={entry.species} look={entry.look} />
                 </span>
-                <span className="podium__nom">{me ? "Toi" : entry.pseudo}</span>
-                <span className="podium__fortune chiffres">{formatEuros(entry.fortune)}</span>
+                <span className="podium__nom" aria-hidden="true">{me ? t("Toi") : entry.pseudo}</span>
+                <span className="podium__fortune chiffres" aria-hidden="true">{formatEuros(entry.fortune)}</span>
               </li>
             );
           })}
@@ -165,7 +181,7 @@ export function Classement() {
       )}
 
       {rest.length > 0 && (
-        <ol className="plaques" start={4} aria-label="La suite du classement">
+        <ol className="plaques" start={4} aria-label={t("La suite du classement")}>
           {rest.map((entry, i) => {
             const me = entry.id === player?.id;
             return (
@@ -180,15 +196,18 @@ export function Classement() {
       {board && player && (
         myEntry ? (
           (!mineVisible || myIndex >= BOARD_SHOWN) && (
-            <div className="classement__epingle">
+            // Ma plaque est déjà dans la liste quand je suis parmi les premiers : la copie épinglée ne se relit pas.
+            <div className="classement__epingle" aria-hidden={myIndex < BOARD_SHOWN || undefined}>
               <Plaque entry={myEntry} rank={myIndex + 1} me pinned />
             </div>
           )
         ) : (
           <p className="classement__epingle classement__hors" role="status">
             {lastFortune !== null && player.fortune <= lastFortune
-              ? `Tu n'es pas encore classé. Il te manque ${formatEuros(lastFortune - player.fortune + 1)} pour entrer dans les ${BOARD_SIZE} premiers.`
-              : "Tu n'es pas encore classé. Ta fortune y sera inscrite d'ici une minute."}
+              ? t("Tu n'es pas encore classé. Il te manque {montant} pour entrer dans les {n} premiers.", {
+                montant: formatEuros(lastFortune - player.fortune + 1), n: BOARD_SIZE,
+              })
+              : t("Tu n'es pas encore classé. Ta fortune y sera inscrite d'ici une minute.")}
           </p>
         )
       )}

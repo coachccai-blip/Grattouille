@@ -119,14 +119,18 @@ export const CARD_RANKS = ["7", "8", "9", "10", "V", "D", "R", "A"] as const;
 export const CARD_SUITS = ["pique", "coeur", "carreau", "trefle"] as const;
 export type CardSuit = (typeof CARD_SUITS)[number];
 
-export function cardOf(e: number): { rank: string; suit: CardSuit; red: boolean; name: string } {
+/**
+ * Les noms français des figures et des couleurs. Ce sont des clés de traduction :
+ * l'affichage les passe à `t()` (« valet » devient « jack », « pique » « spades »).
+ */
+export const CARD_RANK_NAMES: Record<string, string> = { V: "valet", D: "dame", R: "roi", A: "as" };
+export const CARD_SUIT_NAMES: Record<CardSuit, string> = {
+  pique: "pique", coeur: "cœur", carreau: "carreau", trefle: "trèfle",
+};
+
+/** `rank` est le rang français (« V », « D », « R ») : l'affichage l'écrit dans la langue du jeu. */
+export function cardOf(e: number): { rank: string; suit: CardSuit; red: boolean } {
   const rank = CARD_RANKS[e % 8]!;
   const suit = CARD_SUITS[Math.floor(e / 8) % 4]!;
-  const rankNames: Record<string, string> = { V: "valet", D: "dame", R: "roi", A: "as" };
-  const suitNames: Record<CardSuit, string> = { pique: "pique", coeur: "cœur", carreau: "carreau", trefle: "trèfle" };
-  return {
-    rank, suit,
-    red: suit === "coeur" || suit === "carreau",
-    name: `${rankNames[rank] ?? rank} de ${suitNames[suit]}`,
-  };
+  return { rank, suit, red: suit === "coeur" || suit === "carreau" };
 }

@@ -1,0 +1,26 @@
+/* Dressing et choix de résidence ou de véhicule : ce que ces deux écrans précisent
+   par rapport à domaine.css, qui porte leur mise en page. */
+
+/* Les quatre emplacements tiennent sur une ligne dès 320 px de large, en français
+   comme en anglais : chaque onglet prend la largeur de son mot, plus sa part du reste. */
+.dressing .dressing__onglets {
+  display: flex;
+  gap: 0;
+}
+
+.dressing .dressing__onglet {
+  flex: 1 0 auto;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* Rien à porter dans cet emplacement : une phrase, et le chemin de la boutique. */
+.dressing__vide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.dressing__vide .bouton--texte { margin-left: -12px; }
+
+.choix-domaine .choix { margin-top: var(--e4); }

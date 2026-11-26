@@ -9,6 +9,7 @@
 // multi) et quatre autres (parcours, coef, mots, camps).
 
 import type { TicketDef } from "../../shared/types";
+import { t } from "../i18n";
 import * as camps from "./camps";
 import * as coef from "./coef";
 import type { Match } from "./common";
@@ -121,42 +122,65 @@ export function resolvePick(def: TicketDef, pick?: string): string | undefined {
   return undefined;
 }
 
-const MORPION_TARGETS: Record<string, string> = { truffe: "truffes", moustache: "moustaches", planete: "planètes" };
+// Les règles, en français : ce sont les clés de traduction de `ruleOf`. Une phrase ou
+// deux, courtes : sur un téléphone, la règle tient sur deux lignes au pied du ticket.
 
-/** La règle affichée sur le ticket, en une phrase. */
-export function ruleOf(def: TicketDef): string {
+const MORPION_RULES: Record<string, string> = {
+  truffe: "Aligne 3 truffes en ligne, en colonne ou en diagonale : tu gagnes le lot.",
+  moustache: "Aligne 3 moustaches en ligne, en colonne ou en diagonale : tu gagnes le lot.",
+  planete: "Aligne 3 planètes en ligne, en colonne ou en diagonale : tu gagnes le lot.",
+};
+
+const DUEL_RULES: Record<string, string> = {
+  foot: "Chaque match gagné rapporte son montant. Match nul : pas de gain.",
+  cartes: "Chaque manche gagnée rapporte son montant. Égalité : pas de gain.",
+  course: "Chaque course gagnée rapporte son montant. Égalité : pas de gain.",
+};
+
+const LIGNES_RULES: Record<string, string> = {
+  cartes: "Une rangée dont les 3 cartes sont sorties au tirage rapporte son montant.",
+  nombres: "Un voilier dont les 3 bouées sont sorties au tirage rapporte son montant.",
+  cocktails: "Un cocktail dont les 3 ingrédients sont sortis rapporte son montant.",
+};
+
+function ruleKey(def: TicketDef): string {
   switch (def.engine) {
     case "trio":
       return def.options.mode === "symboles"
         ? "3 symboles identiques : tu gagnes leur montant."
         : "Trouve 3 montants identiques : tu gagnes ce montant.";
     case "numeros":
-      return "Chaque fois qu'un de tes numéros est aussi un numéro gagnant, tu gagnes le montant inscrit dessous.";
-    case "morpion": {
-      const target = MORPION_TARGETS[optString(def.options, "target", "truffe")] ?? "truffes";
-      return `Aligne 3 ${target} en ligne, en colonne ou en diagonale : tu gagnes le lot.`;
-    }
+      return def.options.skin === "comptes"
+        ? "Chacun de tes comptes qui est aussi gagnant rapporte son montant."
+        : "Chacun de tes numéros qui est aussi gagnant rapporte son montant.";
+    case "morpion":
+      return MORPION_RULES[optString(def.options, "target", "truffe")] ?? MORPION_RULES.truffe!;
     case "duel":
-      return "À chaque manche gagnée, tu remportes son montant. Égalité : pas de gain.";
+      return DUEL_RULES[optString(def.options, "skin", "foot")] ?? DUEL_RULES.cartes!;
     case "etoile":
       return def.options.family === "arcane"
         ? "Chaque fois que ton arcane apparaît, tu gagnes le montant inscrit dessous."
         : "Chaque fois que ton signe apparaît, tu gagnes le montant inscrit dessous.";
     case "lignes":
-      return def.options.skin === "cocktails"
-        ? "Gratte les ingrédients. Un cocktail dont les 3 ingrédients sont sortis rapporte son montant."
-        : "Gratte le tirage. Une rangée dont les 3 éléments sont sortis rapporte son montant.";
+      return LIGNES_RULES[optString(def.options, "skin", "cartes")] ?? LIGNES_RULES.cartes!;
     case "multi":
       return "Trois jeux en un : gratte les trois volets, leurs gains s'additionnent.";
     case "parcours":
-      return "Gratte les 3 dés : ton pion avance du total. Tu gagnes le montant de la case où il s'arrête.";
+      return "Ton pion avance du total des 3 dés : tu gagnes le montant de sa case d'arrivée.";
     case "coef":
-      return "Trouve 3 montants identiques : tu gagnes ce montant, multiplié par le coefficient.";
+      return def.options.skin === "interets"
+        ? "3 montants identiques : tu gagnes ce montant, multiplié par le taux d'intérêt."
+        : "3 montants identiques : tu gagnes ce montant, multiplié par le coefficient.";
     case "mots":
-      return "Gratte tes 10 lettres. Chaque mot entièrement découvert compte : plus il y en a, plus tu gagnes.";
+      return "Chaque mot complété avec tes 10 lettres fait monter le lot.";
     case "camps":
       return "Si ton camp sort au moins 5 fois sur 9, tu gagnes le lot.";
   }
+}
+
+/** La règle affichée sur le ticket, dans la langue du jeu. Se lit au rendu. */
+export function ruleOf(def: TicketDef): string {
+  return t(ruleKey(def));
 }
 
 export type { Match } from "./common";

@@ -11,10 +11,11 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { KIOSK, itemById } from "../../shared/catalog";
-import { formatEuros } from "../../shared/format";
+import { formatEuros, formatInt } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
 import {
-  HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, houseEligible, isPlaceOpen, newlyOpened, normalizeCode,
+  DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, houseEligible, isPlaceOpen, newlyOpened,
+  normalizeCode,
 } from "../../shared/rules";
 import { TICKETS, ticketById } from "../../shared/tickets";
 import type { LookSlot, PendingTicket, PlaceId, PlayerState } from "../../shared/types";
@@ -22,7 +23,9 @@ import { resumeAudio, setSoundEnabled, suspendAudio } from "../fx/audio";
 import { setHapticsEnabled } from "../fx/haptics";
 import { ApiFailure, api, enableSandbox, wantsSandbox, type FailureCode } from "./api";
 import { hostName } from "./dialogues";
-import { setLang } from "../i18n";
+import { capitalize } from "./helpers";
+import { setLang, t } from "../i18n";
+import { placeShort, ticketName } from "../i18n/noms";
 import {
   DEFAULT_SETTINGS, clearAll, clearSession, loadAuth, loadRevealed, loadSettings, saveAuth, saveRevealed, saveSettings,
   type Auth, type Settings,
@@ -187,20 +190,45 @@ export function dismissToast(): void {
   set({ toast: null });
 }
 
-const GENERIC: Partial<Record<FailureCode, string>> = {
+/**
+ * Le texte de chaque échec, choisi par son code. Le serveur n'écrit qu'en français :
+ * c'est l'appareil qui parle la langue du joueur. Ces phrases sont les clés de
+ * traduction ; `{hote}` et `{n}` sont remplis à l'affichage.
+ */
+const FAILURES: Record<FailureCode, string> = {
   NETWORK: "Pas de réponse du kiosque. Vérifie ta connexion, puis réessaie.",
   SERVER_ERROR: "Le kiosque ne répond pas. Réessaie dans un instant.",
   NO_SERVER: "Le kiosque ne répond pas. Réessaie dans un instant.",
   CONFLICT: "Deux demandes en même temps. Réessaie dans un instant.",
   UNAUTHORIZED: "Ce compte n'est plus reconnu. Retrouve-le avec ton pseudo et ton code.",
+  BAD_REQUEST: "Cette demande est illisible. Recharge la page et réessaie.",
+  PSEUDO_INVALID: "Ce pseudo ne convient pas. Il faut 3 à 16 caractères : lettres, chiffres, espace ou tiret.",
+  PLACE_LOCKED: "Ce lieu est encore fermé. Il te faut plus de Standing.",
+  KIOSK_LOCKED: "Le Kiosque n'est à vendre qu'une fois ta collection complète.",
+  NOT_FOUND: "Cette adresse n'existe pas.",
+  PSEUDO_TAKEN: "Ce pseudo est pris. Essaie avec un autre.",
+  INSUFFICIENT_FUNDS: "Il te manque de l'argent pour cet achat.",
+  PENDING_FULL: "Gratte d'abord tes tickets en attente.",
+  ALREADY_OWNED: "Tu possèdes déjà ce bien.",
+  HOUSE_NOT_ELIGIBLE: "Rien ne traîne par terre pour l'instant.",
+  TOO_FAST: "{hote} n'a que deux pattes. Réessaie dans un instant.",
+  DAILY_LIMIT: "{n} tickets aujourd'hui : le guichet rouvre demain.",
 };
 
-/** Le texte à montrer pour un échec : jamais de code technique. */
+/** Les précisions que le serveur donne parfois à la place du message de son code : connues, donc traduites. */
+const SERVER_DETAILS: ReadonlySet<string> = new Set([
+  "Tu ne possèdes pas cet article.",
+  "Rien par terre pour l'instant. Regarde encore dans un instant.",
+]);
+
+/** Le texte à montrer pour un échec, dans la langue du jeu : jamais de code technique. */
 export function failureText(error: unknown): string {
-  if (error instanceof ApiFailure) {
-    return GENERIC[error.code] ?? (error.message && error.message !== error.code ? error.message : GENERIC.SERVER_ERROR!);
-  }
-  return GENERIC.SERVER_ERROR!;
+  if (!(error instanceof ApiFailure)) return t(FAILURES.SERVER_ERROR);
+  if (SERVER_DETAILS.has(error.message)) return t(error.message);
+  const known = (FAILURES as Partial<Record<string, string>>)[error.code];
+  if (known) return t(known, { hote: hostName("gaspard"), n: formatInt(DAILY_TICKET_LIMIT) });
+  // Un code que cet appareil ne connaît pas (serveur plus récent) : à défaut, la phrase du serveur.
+  return error.message && error.message !== error.code ? error.message : t(FAILURES.SERVER_ERROR);
 }
 
 // ---------------------------------------------------------------------------
@@ -346,7 +374,7 @@ export async function boot(): Promise<void> {
   } catch (error) {
     if (error instanceof ApiFailure && (error.code === "UNAUTHORIZED" || error.code === "NOT_FOUND")) {
       dropSession();
-      toast("Ce compte n'est plus reconnu. Retrouve-le avec ton pseudo et ton code.", "erreur");
+      toast(t(FAILURES.UNAUTHORIZED), "erreur");
       return;
     }
     const code = error instanceof ApiFailure ? error.code : "SERVER_ERROR";
@@ -375,7 +403,7 @@ export async function signup(pseudo: string, species: string): Promise<void> {
 
 export async function login(pseudo: string, code: string): Promise<void> {
   const normalized = normalizeCode(code);
-  if (!normalized) throw new ApiFailure("UNAUTHORIZED", 401, "Pseudo ou code incorrect.");
+  if (!normalized) throw new ApiFailure("UNAUTHORIZED", 401);
   const r = await api.openSession(pseudo, normalized);
   enter({ playerId: r.playerId, code: normalized }, r.state, false);
   patchSettings({ codeNote: true });
@@ -391,7 +419,7 @@ export async function deleteAccount(): Promise<void> {
   setSoundEnabled(settings.son);
   setHapticsEnabled(settings.vibrations);
   set({ auth: null, player: null, revealed: [], phase: "bienvenue", settings, openings: [], ending: false, welcome: false });
-  toast("Ton compte est supprimé. Il ne reste rien sur cet appareil.");
+  toast(t("Ton compte est supprimé. Il ne reste rien sur cet appareil."));
 }
 
 export function patchSettings(change: Partial<Settings>): void {
@@ -425,36 +453,58 @@ export function closeEnding(): void {
 // ---------------------------------------------------------------------------
 // Tickets
 
-/** Pourquoi un achat de ticket est impossible, vu de l'appareil. `null` : rien ne s'y oppose. */
-export function ticketBlocker(type: string, qty: number): string | null {
+/** Ce qui empêche un achat : la phrase à montrer, et si c'est faute d'argent (la bourse clignote alors). */
+interface Blocker {
+  text: string;
+  funds: boolean;
+}
+
+const OFFLINE_TICKETS = "Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.";
+const PENDING_FIRST = "Gratte d'abord tes tickets en attente.";
+
+/** « Le Casino ouvre à ★ 130. Il te manque 26 ★ : passe chez Sidonie. » */
+export function lockedText(place: PlaceId, standing: number): string {
+  const needed = placeById(place).standing;
+  return t("{lieu} ouvre à ★ {seuil}. Il te manque {manque} ★ : passe chez Sidonie.", {
+    lieu: capitalize(placeShort(place)),
+    seuil: formatInt(needed),
+    manque: formatInt(needed - standing),
+  });
+}
+
+function ticketBlock(type: string, qty: number): Blocker | null {
   const s = get();
   const def = ticketById(type);
   if (!s.player || !def) return null;
-  if (!s.online) return "Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.";
-  const place = placeById(def.place);
-  if (!isPlaceOpen(def.place, s.player.standing)) {
-    const missing = place.standing - s.player.standing;
-    return `${capitalize(place.short)} ouvre à ★ ${place.standing}. Il te manque ${missing} ★ : passe chez Sidonie.`;
-  }
-  if (toScratch(s).length + qty > MAX_PENDING) return "Gratte d'abord tes tickets en attente.";
+  if (!s.online) return { text: t(OFFLINE_TICKETS), funds: false };
+  if (!isPlaceOpen(def.place, s.player.standing)) return { text: lockedText(def.place, s.player.standing), funds: false };
+  if (toScratch(s).length + qty > MAX_PENDING) return { text: t(PENDING_FIRST), funds: false };
   const balance = displayBalance(s);
   const cost = def.price * qty;
-  if (balance < cost) {
-    const missing = formatEuros(cost - balance);
-    // Le ticket le plus cher encore à portée, parmi les lieux ouverts.
-    const within = TICKETS.filter((t) => t.price <= balance && isPlaceOpen(t.place, s.player!.standing))
-      .sort((a, b) => b.price - a.price)[0];
-    if (qty > 1 && balance >= def.price) return `Il te manque ${missing} pour ce carnet. À l'unité, ça passe.`;
-    if (within) return `Il te manque ${missing}. ${within.name} est à ${formatEuros(within.price)}.`;
+  if (balance >= cost) return null;
+  const montant = formatEuros(cost - balance);
+  // Le ticket le plus cher encore à portée, parmi les lieux ouverts.
+  const within = TICKETS.filter((x) => x.price <= balance && isPlaceOpen(x.place, s.player!.standing))
+    .sort((a, b) => b.price - a.price)[0];
+  let text: string;
+  if (qty > 1 && balance >= def.price) {
+    text = t("Il te manque {montant} pour ce carnet. À l'unité, ça passe.", { montant });
+  } else if (within) {
+    text = t("Il te manque {montant}. {ticket} est à {prix}.", {
+      montant, ticket: ticketName(within.id), prix: formatEuros(within.price),
+    });
+  } else if (toScratch(s).length > 0) {
     // Plus rien à portée : on ne reste pas bloqué pour autant.
-    if (toScratch(s).length > 0) return `Il te manque ${missing}. Gratte d'abord tes tickets en attente.`;
-    return `Il te manque ${missing}. Regarde par terre : un ticket ne va pas tarder.`;
+    text = t("Il te manque {montant}. Gratte d'abord tes tickets en attente.", { montant });
+  } else {
+    text = t("Il te manque {montant}. Regarde par terre : un ticket ne va pas tarder.", { montant });
   }
-  return null;
+  return { text, funds: true };
 }
 
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
+/** Pourquoi un achat de ticket est impossible, vu de l'appareil. `null` : rien ne s'y oppose. */
+export function ticketBlocker(type: string, qty: number): string | null {
+  return ticketBlock(type, qty)?.text ?? null;
 }
 
 /** La bourse clignote : un achat vient d'être refusé faute d'argent. */
@@ -467,10 +517,10 @@ export function flashPurse(): void {
  * lieu (le message est déjà affiché).
  */
 export async function buyTickets(type: string, qty: number): Promise<PendingTicket[] | null> {
-  const blocker = ticketBlocker(type, qty);
+  const blocker = ticketBlock(type, qty);
   if (blocker) {
-    if (blocker.startsWith("Il te manque")) flashPurse();
-    toast(blocker, "erreur");
+    if (blocker.funds) flashPurse();
+    toast(blocker.text, "erreur");
     return null;
   }
   const def = ticketById(type)!;
@@ -483,10 +533,10 @@ export async function buyTickets(type: string, qty: number): Promise<PendingTick
     if (error instanceof ApiFailure) {
       switch (error.code) {
         case "NETWORK":
-          toast("Connexion coupée pendant l'achat. Si le ticket a été vendu, il t'attend dans À gratter.", "erreur");
+          toast(t("Connexion coupée pendant l'achat. Si le ticket a été vendu, il t'attend dans À gratter."), "erreur");
           break;
         case "TOO_FAST":
-          toast(`${hostName(placeById(def.place).host)} n'a que deux pattes. Réessaie dans un instant.`, "erreur");
+          toast(t(FAILURES.TOO_FAST, { hote: hostName(placeById(def.place).host) }), "erreur");
           break;
         case "INSUFFICIENT_FUNDS":
           flashPurse();
@@ -506,15 +556,17 @@ export async function buyTickets(type: string, qty: number): Promise<PendingTick
   }
 }
 
+const NOTHING_FOUND = "Rien par terre pour l'instant. Regarde encore dans un instant.";
+
 /** Ramasse le ticket qui traîne par terre. Rend le ticket, ou `null` s'il n'y avait rien. */
 export async function pickUpTicket(): Promise<PendingTicket | null> {
   const s = get();
   if (!s.online) {
-    toast("Hors connexion. Tu peux gratter tes tickets en attente, pas en ramasser.", "erreur");
+    toast(t("Hors connexion. Tu peux gratter tes tickets en attente, pas en ramasser."), "erreur");
     return null;
   }
   if (!foundKind(s, Date.now())) {
-    toast("Rien par terre pour l'instant. Regarde encore dans un instant.");
+    toast(t(NOTHING_FOUND));
     return null;
   }
   try {
@@ -526,7 +578,7 @@ export async function pickUpTicket(): Promise<PendingTicket | null> {
     if (error instanceof ApiFailure && error.code === "HOUSE_NOT_ELIGIBLE") {
       // Le serveur n'a rien vu par terre : on se recale sur son horloge.
       await refresh().catch(() => undefined);
-      toast("Rien par terre pour l'instant. Regarde encore dans un instant.");
+      toast(t(NOTHING_FOUND));
     } else {
       toast(failureText(error), "erreur");
     }
@@ -537,15 +589,19 @@ export async function pickUpTicket(): Promise<PendingTicket | null> {
 // ---------------------------------------------------------------------------
 // Boutiques et tenue
 
-/** Pourquoi un achat en boutique est impossible, vu de l'appareil. */
-export function itemBlocker(itemId: string): string | null {
+function itemBlock(itemId: string): Blocker | null {
   const s = get();
   const item = itemId === KIOSK.id ? KIOSK : itemById(itemId);
   if (!s.player || !item) return null;
-  if (!s.online) return "Hors connexion. Les boutiques rouvrent dès que le réseau revient.";
+  if (!s.online) return { text: t("Hors connexion. Les boutiques rouvrent dès que le réseau revient."), funds: false };
   const balance = displayBalance(s);
-  if (balance < item.price) return `Il te manque ${formatEuros(item.price - balance)}.`;
-  return null;
+  if (balance >= item.price) return null;
+  return { text: t("Il te manque {montant}.", { montant: formatEuros(item.price - balance) }), funds: true };
+}
+
+/** Pourquoi un achat en boutique est impossible, vu de l'appareil. */
+export function itemBlocker(itemId: string): string | null {
+  return itemBlock(itemId)?.text ?? null;
 }
 
 /**
@@ -553,10 +609,10 @@ export function itemBlocker(itemId: string): string | null {
  * de Standing met le lieu ouvert en file pour sa présentation en plein écran.
  */
 export async function buyItem(itemId: string): Promise<boolean> {
-  const blocker = itemBlocker(itemId);
+  const blocker = itemBlock(itemId);
   if (blocker) {
-    if (blocker.startsWith("Il te manque")) flashPurse();
-    toast(blocker, "erreur");
+    if (blocker.funds) flashPurse();
+    toast(blocker.text, "erreur");
     return false;
   }
   const before = get().player;
@@ -573,7 +629,7 @@ export async function buyItem(itemId: string): Promise<boolean> {
       flashPurse();
       toast(itemBlocker(itemId) ?? failureText(error), "erreur");
     } else if (error instanceof ApiFailure && error.code === "NETWORK") {
-      toast("Connexion coupée pendant l'achat. Regarde ta collection : s'il a été vendu, il y est.", "erreur");
+      toast(t("Connexion coupée pendant l'achat. Regarde ta collection : s'il a été vendu, il y est."), "erreur");
     } else {
       toast(failureText(error), "erreur");
     }

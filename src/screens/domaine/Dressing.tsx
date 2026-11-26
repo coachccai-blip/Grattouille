@@ -4,20 +4,24 @@
 
 import { useState } from "react";
 import { itemsOfSlot } from "../../../shared/catalog";
-import { SPECIES, SPECIES_LABELS } from "../../../shared/rules";
+import { SPECIES } from "../../../shared/rules";
 import { nav } from "../../app/nav";
 import { changeSpecies, useGame, wear } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
+import { t } from "../../i18n";
+import { itemName, keeperName, speciesName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Entete } from "../../ui/Commun";
 import "./domaine.css";
 import "../bienvenue/bienvenue.css";
+import "./dressing.css";
 
 type WearSlot = "chapeau" | "lunettes" | "tenue" | "accessoire";
 
+/** Les libellés restent en français ici : c'est l'affichage qui les traduit. */
 const SLOTS: { id: WearSlot; label: string }[] = [
   { id: "chapeau", label: "Chapeau" },
   { id: "lunettes", label: "Lunettes" },
@@ -34,12 +38,12 @@ export function Dressing() {
 
   return (
     <main className="ecran dressing">
-      <Entete titre="Dressing" retour />
+      <Entete titre={t("Dressing")} retour />
       <div className="dressing__miroir">
-        <Avatar species={player.species} look={player.look} title={`${player.pseudo} dans le miroir`} />
+        <Avatar species={player.species} look={player.look} title={t("{pseudo} dans le miroir", { pseudo: player.pseudo })} />
       </div>
 
-      <div className="dressing__onglets" role="tablist" aria-label="Emplacements">
+      <div className="dressing__onglets" role="tablist" aria-label={t("Emplacements")}>
         {SLOTS.map((s) => (
           <button
             key={s.id}
@@ -49,40 +53,42 @@ export function Dressing() {
             className="dressing__onglet"
             onClick={() => setSlot(s.id)}
           >
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>
 
-      <div className="choix" role="tabpanel">
-        <button type="button" className="choix__article" aria-pressed={worn === null} onClick={() => void wear(slot, null)}>
-          <span className="choix__rien"><Icon name="fermer" /></span>
-          <span>Rien</span>
-        </button>
-        {owned.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="choix__article"
-            aria-pressed={worn === item.id}
-            onClick={() => void wear(slot, item.id)}
-          >
-            <Illustration id={`item:${item.id}`} />
-            <span>{item.name}</span>
+      {owned.length > 0 ? (
+        <div className="choix" role="tabpanel">
+          <button type="button" className="choix__article" aria-pressed={worn === null} onClick={() => void wear(slot, null)}>
+            <span className="choix__rien"><Icon name="fermer" /></span>
+            <span>{t("Rien")}</span>
           </button>
-        ))}
-      </div>
-      {owned.length === 0 && (
-        <div>
-          <p className="note">Rien dans ce rayon pour l'instant. Mlle Sidonie a ce qu'il faut.</p>
+          {owned.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="choix__article"
+              aria-pressed={worn === item.id}
+              onClick={() => void wear(slot, item.id)}
+            >
+              <Illustration id={`item:${item.id}`} />
+              <span>{itemName(item.id)}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        // Rien à choisir : une phrase et le chemin de la boutique, plutôt qu'une case « Rien » toute seule.
+        <div className="dressing__vide" role="tabpanel">
+          <p className="note">{t("Rien à porter ici pour l'instant.")}</p>
           <Bouton variante="texte" onClick={() => nav.reset([{ name: "boutiques" }, { name: "boutique", shop: "sidonie" }])}>
-            Aller chez Sidonie
+            {t("Aller chez {vendeur}", { vendeur: keeperName("sidonie") })}
           </Bouton>
         </div>
       )}
 
-      <section className="rubrique" aria-label="Espèce">
-        <h2 className="rubrique__titre">Espèce : on en change quand on veut, c'est gratuit</h2>
+      <section className="rubrique" aria-labelledby="dressing-espece">
+        <h2 className="rubrique__titre" id="dressing-espece">{t("Changer d'espèce, c'est gratuit")}</h2>
         <div className="especes__grille">
           {SPECIES.map((s) => (
             <button
@@ -93,7 +99,7 @@ export function Dressing() {
               onClick={() => void changeSpecies(s)}
             >
               <Avatar species={s} crop="tete" />
-              <span>{SPECIES_LABELS[s]}</span>
+              <span>{speciesName(s)}</span>
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 // Habillage des trente tickets (BRIEF.md, section 7.10, et les quinze suivants) : papier ivoire teinté de
 // la couleur du ticket, bandeau, zone de jeu, et teinte de l'encre à gratter.
 
+import { t } from "../i18n";
 import type { CellShape, InkKind } from "../scratch/ink";
 
 export interface TicketTheme {
@@ -185,7 +186,18 @@ export function themeOf(ticketId: string): TicketTheme {
   return THEMES[ticketId] ?? FALLBACK;
 }
 
-/** Noms affichés des signes et des symboles, pour les étiquettes et les lecteurs d'écran. */
+/** Vrai pour une couleur sombre (« #14181A ») : ce qui s'imprime dessus doit être clair. */
+export function isDark(hex: string): boolean {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (r * 299 + g * 587 + b * 114) / 1000 < 110;
+}
+
+/**
+ * Noms des signes et des symboles, pour les étiquettes et les lecteurs d'écran.
+ * La table garde les noms français : à l'affichage, passer par `symbolName(clé)`,
+ * ou par `t(SYMBOL_NAMES[clé])`.
+ */
 export const SYMBOL_NAMES: Record<string, string> = {
   "constellation:homard": "Homard", "constellation:chouette": "Chouette", "constellation:tortue": "Tortue",
   "constellation:paon": "Paon", "constellation:hippocampe": "Hippocampe", "constellation:cerf": "Cerf",
@@ -213,6 +225,12 @@ export const SYMBOL_NAMES: Record<string, string> = {
   "roulette:rouge": "Rouge", "roulette:noir": "Noir", "fanal:babord": "Bâbord", "fanal:tribord": "Tribord",
   "astre:soleil": "Le Soleil", "astre:lune": "La Lune",
 };
+
+/** Le nom d'un symbole dans la langue du jeu. Se lit au rendu, jamais à l'import d'un module. */
+export function symbolName(key: string, fallback?: string): string {
+  const fr = SYMBOL_NAMES[key];
+  return fr === undefined ? (fallback ?? key) : t(fr);
+}
 
 /** La famille de symboles d'un ticket : « constellations » donne la clé « constellation ». */
 export function symbolKey(family: unknown, id: string): string {

@@ -3,7 +3,8 @@
 // vaut un vingt-cinquième de sa largeur, il se met donc à l'échelle d'un bloc.
 //
 // De haut en bas : bandeau avec le nom et la pastille de prix, promesse, zone de
-// jeu, règle en une phrase, talon détachable (perforation, numéro de série, microtexte).
+// jeu, règle en une phrase, talon détachable (perforation, numéro de série). C'est
+// sur le talon qu'un ticket gagnant reçoit son tampon « Payé » : il ne recouvre rien.
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { maxGain } from "../../shared/economy";
@@ -12,9 +13,11 @@ import { serialOf } from "../../shared/rules";
 import type { TicketDef } from "../../shared/types";
 import { Illustration } from "../art/Illustration";
 import { buildLayout, ruleOf, type Layout } from "../engines";
+import { t } from "../i18n";
+import { ticketName } from "../i18n/noms";
 import { INKS } from "../scratch/ink";
-import { Ajuste, TicketContext, cx } from "./parts";
-import { themeOf } from "./themes";
+import { TicketContext, cx } from "./parts";
+import { isDark, themeOf } from "./themes";
 import { EngineView } from "./views";
 import "./ticket.css";
 
@@ -29,10 +32,10 @@ interface TicketProps {
   revealed?: ReadonlySet<string>;
   /** Largeur en pixels. */
   width: number;
-  /** Miniature : décorative, sans texte ajusté ni taille minimale. */
+  /** Miniature : décorative, sans taille minimale des textes, sans règle ni numéro de série. */
   mini?: boolean;
   etat?: TicketEtat;
-  /** Ticket trouvé par terre : toujours gagnant. */
+  /** Ticket trouvé par terre : le ticket le dit, et lui seul. */
   house?: boolean;
   /** Volet affiché du ticket multiple. */
   panel?: number;
@@ -73,6 +76,7 @@ export function Ticket({
   const theme = themeOf(def.id);
   const grid = useMemo(() => layout ?? buildLayout(def, 0, 1), [layout, def]);
   const ink = INKS[theme.encre];
+  const name = ticketName(def.id);
   const style = {
     fontSize: `${width / 25}px`,
     "--tk-papier": theme.papier,
@@ -85,6 +89,8 @@ export function Ticket({
     "--tk-case": theme.caseFond,
     "--tk-case-texte": theme.caseTexte,
     "--tk-accent": theme.accent,
+    // Le tampon : rose foncé sur un papier clair, rose clair sur un papier de nuit.
+    "--tk-tampon": isDark(theme.papier) ? "var(--bougainvillier-clair)" : "var(--bougainvillier-fonce)",
     "--tk-encre": `linear-gradient(135deg, ${ink.stops[0]} 0%, ${ink.stops[1]} 40%, ${ink.stops[2]} 60%, ${ink.stops[3]} 100%)`,
     "--tk-guilloche": guilloche(theme.texte),
   } as CSSProperties;
@@ -105,13 +111,15 @@ export function Ticket({
         <span className="ticket__ombre" aria-hidden="true" />
         <div className="ticket__papier">
           <header className="ticket__bandeau">
-            <span className={cx("ticket__nom", def.name.length > 16 && "ticket__nom--long")}>{def.name}</span>
+            <span className={cx("ticket__nom", name.length > 30 ? "ticket__nom--tres-long" : name.length > 16 && "ticket__nom--long")}>
+              {name}
+            </span>
             <span className="ticket__prix">{formatEuros(def.price)}</span>
           </header>
           <div className="ticket__promesse">
             <span className="ticket__jusqua">
-              Jusqu'à {formatEuros(maxGain(def))}
-              {house && <span className="ticket__offert">Trouvé par terre, toujours gagnant</span>}
+              {t("Jusqu'à {montant}", { montant: formatEuros(maxGain(def)) })}
+              {house && <span className="ticket__offert">{t("Trouvé par terre")}</span>}
             </span>
             <span className="ticket__vignette">
               <Illustration id={`ticket:${def.id}`} />
@@ -120,13 +128,14 @@ export function Ticket({
           <div className="ticket__zone">
             <EngineView def={def} layout={grid} revealed={revealed} panel={panel} onPanel={mini ? undefined : onPanel} />
           </div>
-          <p className="ticket__regle">{ruleOf(def)}</p>
+          {/* La miniature n'a ni règle ni numéro : à sa taille, ce ne serait que du bruit. */}
+          {!mini && <p className="ticket__regle">{ruleOf(def)}</p>}
           <footer className="ticket__talon">
-            <span className="ticket__serie">{serialOf(seed)}</span>
-            <Ajuste className="ticket__micro">Jeu de fiction, aucun gain réel</Ajuste>
+            {!mini && <span className="ticket__serie">{serialOf(seed)}</span>}
           </footer>
         </div>
-        {etat === "gagnant" && <span className="ticket__tampon" aria-hidden="true">Payé</span>}
+        {/* Le tampon tombe sur le talon, à côté du numéro de série : aucune case, aucun montant dessous. */}
+        {etat === "gagnant" && <span className="ticket__tampon" aria-hidden="true">{t("Payé")}</span>}
         {children}
       </div>
     </TicketContext.Provider>

@@ -1,9 +1,11 @@
 // Petites aides partagées par les écrans.
 
 import type { CSSProperties } from "react";
+import { oddsLabel } from "../../shared/economy";
 import { placeById } from "../../shared/places";
 import type { PlaceId, PlayerState } from "../../shared/types";
 import { MOTIFS, motifBackground } from "../art/motifs";
+import { lang, t } from "../i18n";
 import { patronLine, say, type Line, type Situation, type Speaker } from "./dialogues";
 
 export function capitalize(text: string): string {
@@ -47,7 +49,31 @@ export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-/** Le pluriel français simple : 1 ticket, 2 tickets. */
+/**
+ * Le pluriel français simple : 1 ticket, 2 tickets. Il ne vaut qu'en français : une
+ * phrase à traduire prend deux clés, choisies par le code (`n > 1`).
+ */
 export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
   return n > 1 ? plurielForme : singulier;
+}
+
+/** Le « 2,6 » de « 1 sur 2,6 », ou le « 2.6 » de « 1 in 2.6 » ; `null` pour un lot qui ne sort jamais. */
+function oddsNumber(weight: number): string | null {
+  // shared/ n'écrit qu'à la française : « 1 sur 6 667 », « 1 sur 2,6 », « jamais ».
+  const label = oddsLabel(weight);
+  if (!label.startsWith("1 sur ")) return null;
+  const n = label.slice(6);
+  // À l'anglaise : le point pour les décimales, la virgule entre les milliers.
+  return lang() === "en" ? n.replace(",", ".").replace(/\s/g, ",") : n;
+}
+
+/** Les chances d'un lot, dans la langue du jeu : « 1 sur 2,6 », « 1 in 2.6 ». */
+export function oddsText(weight: number): string {
+  const n = oddsNumber(weight);
+  return n === null ? t("jamais") : t("1 sur {n}", { n });
+}
+
+/** « 2,6 » : sur combien de tickets un seul gagne. */
+export function oddsOutOf(weight: number): string {
+  return oddsNumber(weight) ?? "∞";
 }

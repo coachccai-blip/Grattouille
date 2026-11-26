@@ -31,11 +31,14 @@ export type MultiLayout =
 
 export const PANEL_COUNT = 3;
 
+// Des noms courts, qui tiennent sur une ligne à côté des trois pastilles, et qui ne
+// répètent aucun libellé du volet lui-même (« Numéros gagnants », « Prime »).
 const NAMES: Record<MultiKind, readonly [string, string, string]> = {
-  classique: ["Trois identiques", "Numéros gagnants", "Le 21"],
-  ciel: ["L'ascenseur", "La prime", "Le toit"],
+  classique: ["Le trio", "Les numéros", "Le 21"],
+  ciel: ["L'ascenseur", "Le bureau", "Le toit"],
 };
 
+/** Les noms français des trois volets : ce sont des clés de traduction, l'affichage les passe à `t()`. */
 export function panelNames(layout: MultiLayout): readonly [string, string, string] {
   return NAMES[layout.kind];
 }

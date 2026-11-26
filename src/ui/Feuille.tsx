@@ -2,6 +2,7 @@
 // poignée. Se ferme en glissant vers le bas, en touchant le voile, ou au clavier.
 
 import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
+import { t } from "../i18n";
 import "./feuille.css";
 
 interface FeuilleProps {
@@ -70,7 +71,7 @@ export function Feuille({ titre, onClose, children, className }: FeuilleProps) {
           <button
             type="button"
             className="feuille__fermer"
-            aria-label="Fermer"
+            aria-label={t("Fermer")}
             onClick={(e) => {
               if (e.detail === 0) onClose();
             }}

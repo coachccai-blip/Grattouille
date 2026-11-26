@@ -2,7 +2,6 @@
 // d'onglets, message bref, bulle de personnage, jauge de tempérament, interrupteur.
 
 import type { ReactNode } from "react";
-import { TEMPERAMENT_LABELS } from "../../shared/economy";
 import type { Temperament } from "../../shared/types";
 import type { Line } from "../app/dialogues";
 import { nav, type Tab } from "../app/nav";
@@ -10,6 +9,8 @@ import { dismissToast, toScratch, useGame } from "../app/store";
 import { Portrait } from "../art/Illustration";
 import { Etoile, Icon, type IconName } from "../art/icons";
 import { playTap, unlockAudio } from "../fx/audio";
+import { t } from "../i18n";
+import { temperamentName } from "../i18n/noms";
 import { cx } from "../ticket/parts";
 import "./commun.css";
 
@@ -24,7 +25,7 @@ export function Phrase({ text }: { text: string }) {
           {i > 0 && (
             <>
               <Etoile />
-              <span className="invisible">étoiles</span>
+              <span className="invisible">{t("étoiles")}</span>
             </>
           )}
           {part}
@@ -52,7 +53,7 @@ export function Entete({ titre, retour = false, gauche, droite, titreDiscret = f
     <header className={cx("entete", grand && "entete--grand")}>
       <div className="entete__barre">
         {retour && (
-          <button type="button" className="entete__bouton entete__retour" onClick={() => nav.back()} aria-label="Retour">
+          <button type="button" className="entete__bouton entete__retour" onClick={() => nav.back()} aria-label={t("Retour")}>
             <Icon name="retour" />
           </button>
         )}
@@ -65,6 +66,7 @@ export function Entete({ titre, retour = false, gauche, droite, titreDiscret = f
   );
 }
 
+// Les mots des onglets, en français : ce sont les clés de traduction, lues à l'affichage.
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "domaine", label: "Domaine", icon: "domaine" },
   { id: "promenade", label: "Jouer", icon: "jouer" },
@@ -76,7 +78,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
 export function Onglets({ actif }: { actif: Tab | null }) {
   const waiting = useGame((s) => toScratch(s).length);
   return (
-    <nav className="onglets" aria-label="Navigation principale">
+    <nav className="onglets" aria-label={t("Navigation principale")}>
       {TABS.map((tab) => {
         const active = tab.id === actif;
         const jouer = tab.id === "promenade";
@@ -97,8 +99,8 @@ export function Onglets({ actif }: { actif: Tab | null }) {
               {jouer && waiting > 0 && <span className="onglet__compte" aria-hidden="true">{waiting}</span>}
             </span>
             <span className="onglet__mot">
-              {tab.label}
-              {jouer && waiting > 0 && <span className="invisible">, {waiting} à gratter</span>}
+              {t(tab.label)}
+              {jouer && waiting > 0 && <span className="invisible">{t(", {n} à gratter", { n: waiting })}</span>}
             </span>
           </button>
         );
@@ -130,7 +132,7 @@ export function HorsLigne() {
   return (
     <div className="hors-ligne" role="status">
       <Icon name="hors-ligne" size={20} />
-      <span>Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.</span>
+      <span>{t("Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.")}</span>
     </div>
   );
 }
@@ -143,7 +145,8 @@ export function Bulle({ line, className }: { line: Line | null; className?: stri
       <Portrait pnj={line.speaker} />
       <p className="bulle__texte">
         <span className="bulle__nom">{line.name}</span>
-        {line.gesture ? <em className="bulle__geste">{line.text}</em> : <>«&nbsp;{line.text}&nbsp;»</>}
+        {/* Une parole entre guillemets, ceux de la langue ; un geste en italique, sans guillemets. */}
+        {line.gesture ? <em className="bulle__geste">{line.text}</em> : t("« {replique} »", { replique: line.text })}
       </p>
     </div>
   );
@@ -164,15 +167,27 @@ export function BulleLibre({ pnj, nom, children, className }: { pnj: string; nom
 
 const GAUGE: Record<Temperament, number> = { pepere: 1, joueur: 2, "casse-cou": 3 };
 
-/** Jauge de tempérament : trois pastilles, dont une, deux ou trois pleines, et le mot à côté. */
-export function Jauge({ temperament }: { temperament: Temperament }) {
+/**
+ * Jauge de tempérament : trois pastilles, dont une, deux ou trois pleines, et le mot à côté.
+ * `court` : le mot seul (« pépère »), là où la place manque ; la phrase entière reste lue.
+ */
+export function Jauge({ temperament, court = false }: { temperament: Temperament; court?: boolean }) {
   const level = GAUGE[temperament];
+  const nom = temperamentName(temperament);
+  const phrase = t("tempérament : {nom}", { nom });
   return (
     <span className="jauge">
       <span className="jauge__pastilles" aria-hidden="true">
         {[1, 2, 3].map((i) => <span key={i} className={cx("jauge__pastille", i <= level && "jauge__pastille--pleine")} />)}
       </span>
-      <span>tempérament : {TEMPERAMENT_LABELS[temperament]}</span>
+      {court ? (
+        <>
+          <span aria-hidden="true">{nom}</span>
+          <span className="invisible">{phrase}</span>
+        </>
+      ) : (
+        <span>{phrase}</span>
+      )}
     </span>
   );
 }

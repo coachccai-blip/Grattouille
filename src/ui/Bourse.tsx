@@ -7,6 +7,7 @@ import { formatEuros, formatInt } from "../../shared/format";
 import { displayBalance, isCalm, useGame } from "../app/store";
 import { Icon } from "../art/icons";
 import { playCoin } from "../fx/audio";
+import { t } from "../i18n";
 import { cx } from "../ticket/parts";
 import "./bourse.css";
 
@@ -81,7 +82,7 @@ export function Bourse({ className }: { className?: string }) {
     <div className={cx("bourse", refus && "bourse--refus", className)} data-bourse>
       <Icon name="piece" plein className="bourse__piece" size={28} />
       <span className="bourse__montant chiffres" aria-hidden="true"><Cases text={formatEuros(shown)} /></span>
-      <span className="invisible" role="status">Solde : {formatEuros(balance)}</span>
+      <span className="invisible" role="status">{t("Solde : {montant}", { montant: formatEuros(balance) })}</span>
     </div>
   );
 }
@@ -103,7 +104,7 @@ export function Standing({ className }: { className?: string }) {
     <div className={cx("standing", pulse && "standing--gagne", className)} data-standing>
       <Icon name="etoile" plein className="standing__etoile" size={24} />
       <span className="standing__nombre chiffres" aria-hidden="true"><Cases text={formatInt(shown)} /></span>
-      <span className="invisible">Standing : {formatInt(standing)} étoiles</span>
+      <span className="invisible">{t("Standing : {n} étoiles", { n: formatInt(standing) })}</span>
     </div>
   );
 }

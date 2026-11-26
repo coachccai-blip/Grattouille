@@ -3,7 +3,7 @@
 // croissant ; les articles possédés passent en fin de liste.
 
 import { useState } from "react";
-import { KIOSK, SLOT_LABELS, itemsOfShop, shopById } from "../../../shared/catalog";
+import { KIOSK, itemsOfShop, shopById } from "../../../shared/catalog";
 import { formatEuros, formatInt } from "../../../shared/format";
 import { collectionComplete } from "../../../shared/rules";
 import type { ItemDef, PlayerState, ShopId, Slot } from "../../../shared/types";
@@ -13,6 +13,8 @@ import { nav } from "../../app/nav";
 import { displayBalance, useGame } from "../../app/store";
 import { Illustration } from "../../art/Illustration";
 import { Etoile } from "../../art/icons";
+import { t } from "../../i18n";
+import { itemName, shopName, slotLabel } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
 import { Bourse, Standing } from "../../ui/Bourse";
 import { Bulle, Entete, HorsLigne } from "../../ui/Commun";
@@ -20,34 +22,37 @@ import "./boutiques.css";
 
 type EtatArticle = "portee" | "cher" | "a-toi" | "porte";
 
-/** Les quatre états d'une étiquette. */
-export function etatOf(item: ItemDef, player: PlayerState, balance: number): { etat: EtatArticle; texte: string } {
+/** Les quatre états d'une étiquette, et le mot qui le dit (à lire au rendu : il suit la langue). */
+function etatOf(item: ItemDef, player: PlayerState, balance: number): { etat: EtatArticle; texte: string } {
   const isKiosk = item.id === KIOSK.id;
   const owned = isKiosk ? player.kiosk : player.owned.includes(item.id);
   if (owned) {
     if (!isKiosk && item.slot !== "tresor" && player.look[item.slot] === item.id) {
-      return { etat: "porte", texte: item.slot === "residence" ? "installé" : item.slot === "vehicule" ? "au volant" : "porté" };
+      return { etat: "porte", texte: item.slot === "residence" ? t("installé") : item.slot === "vehicule" ? t("au volant") : t("porté") };
     }
-    return { etat: "a-toi", texte: "à toi" };
+    return { etat: "a-toi", texte: t("à toi") };
   }
-  if (balance >= item.price) return { etat: "portee", texte: "à ta portée" };
-  return { etat: "cher", texte: `encore ${formatEuros(item.price - balance)}` };
+  if (balance >= item.price) return { etat: "portee", texte: t("à ta portée") };
+  return { etat: "cher", texte: t("encore {montant}", { montant: formatEuros(item.price - balance) }) };
 }
 
 function Etiquette({ item, player, balance }: { item: ItemDef; player: PlayerState; balance: number }) {
   const { etat, texte } = etatOf(item, player, balance);
   const owned = etat === "a-toi" || etat === "porte";
+  const nom = itemName(item.id);
   return (
     <li className="etiquette-rang">
       <button
         type="button"
         className={cx("etiquette papier", `etiquette--${etat}`)}
         onClick={() => nav.push({ name: "fiche-article", item: item.id })}
-        aria-label={`${item.name}, ${formatEuros(item.price)}, plus ${item.standing} étoiles, ${texte}`}
+        aria-label={t("{nom}, {prix}, plus {n} étoiles, {etat}", {
+          nom, prix: formatEuros(item.price), n: formatInt(item.standing), etat: texte,
+        })}
       >
         <span className="etiquette__oeillet" aria-hidden="true" />
         <span className="etiquette__dessin" aria-hidden="true"><Illustration id={`item:${item.id}`} /></span>
-        <span className="etiquette__nom" aria-hidden="true">{item.name}</span>
+        <span className="etiquette__nom" aria-hidden="true">{nom}</span>
         {!owned && (
           <span className="etiquette__prix" aria-hidden="true">
             <span className="chiffres">{formatEuros(item.price)}</span>
@@ -77,14 +82,14 @@ export function Boutique({ shop }: { shop: ShopId }) {
   return (
     <main className="ecran ecran--onglets boutique">
       <HorsLigne />
-      <Entete titre={def.name} grand retour droite={<><Bourse /><Standing /></>} />
+      <Entete titre={shopName(shop)} grand retour droite={<><Bourse /><Standing /></>} />
       <Bulle line={lineFor(player, def.keeper as Speaker, "accueil", seed)} />
 
       {def.slots.length > 1 && (
-        <div className="rayons" role="tablist" aria-label="Rayons">
+        <div className="rayons" role="tablist" aria-label={t("Rayons")}>
           {def.slots.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={s === slot} className="rayons__onglet" onClick={() => setSlot(s)}>
-              {SLOT_LABELS[s]}
+              {slotLabel(s)}
             </button>
           ))}
         </div>
