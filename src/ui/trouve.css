@@ -48,9 +48,6 @@
 
 .par-terre__texte strong { font: 700 16px/20px var(--texte); }
 
-/* « Ramasse-le. » ne se coupe pas au trait d'union. */
-.par-terre__geste { white-space: nowrap; }
-
 .par-terre__eclat {
   flex: none;
   width: 18px;

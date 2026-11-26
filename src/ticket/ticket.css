@@ -104,7 +104,6 @@
 }
 
 .ticket__nom--long { font-size: max(var(--tk-min), 1.38em); }
-.ticket__nom--tres-long { font-size: max(var(--tk-min), 1.2em); }
 
 .ticket__prix {
   flex: none;
@@ -318,6 +317,13 @@
 .case--touche .case__fond {
   box-shadow: inset 0 0 0 .22em var(--mimosa), 0 .3em .5em rgba(14, 47, 58, .35);
   transform: translateY(-.14em) scale(1.03);
+}
+
+/* Une étoile, une assiette sous sa cloche : la forme est découpée, un cercle intérieur
+   ne s'y verrait pas. C'est le contour de la forme elle-même qui s'allume. */
+.case--etoile.case--touche,
+.case--cloche.case--touche {
+  filter: drop-shadow(0 0 .07em var(--mimosa)) drop-shadow(0 0 .07em var(--mimosa)) drop-shadow(0 0 .3em var(--mimosa));
 }
 
 /* Un texte ajusté : une ligne, qui se resserre plutôt que de déborder (parts.tsx). */
@@ -578,15 +584,16 @@
   gap: .3em;
   align-items: baseline;
   font-size: max(var(--tk-min), 1.3em);
+}
+
+.jeu-duel__main {
   text-decoration: line-through;
   text-decoration-thickness: .08em;
 }
 
 .jeu-duel__note {
-  display: inline-block;
   font-weight: 500;
   font-size: max(var(--tk-min), .6em);
-  text-decoration: none;
 }
 
 /* Entre les deux camps : le ballon, le drapeau à damier ou le pique. */

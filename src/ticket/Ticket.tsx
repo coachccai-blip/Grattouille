@@ -119,9 +119,8 @@ export function Ticket({
         <span className="ticket__ombre" aria-hidden="true" />
         <div className="ticket__papier">
           <header className="ticket__bandeau">
-            <span className={cx("ticket__nom", name.length > 30 ? "ticket__nom--tres-long" : name.length > 16 && "ticket__nom--long")}>
-              {name}
-            </span>
+            {/* Un nom long (« Grand Prix de la Corniche ») s'écrit plus petit, sur deux lignes. */}
+            <span className={cx("ticket__nom", name.length > 16 && "ticket__nom--long")}>{name}</span>
             <span className="ticket__prix">{formatEuros(def.price)}</span>
           </header>
           <div className="ticket__promesse">

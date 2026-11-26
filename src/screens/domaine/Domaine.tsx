@@ -56,8 +56,21 @@ interface Avis {
 }
 
 const versBoutiques = () => nav.reset([{ name: "boutiques" }]);
-const versJeu = () => nav.reset([{ name: "promenade" }]);
 const versBoutique = (shop: ShopId) => nav.reset([{ name: "boutiques" }, { name: "boutique", shop }]);
+const versJeu = () => nav.reset([{ name: "promenade" }]);
+const versKiosque = () => nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }]);
+const versPile = () => nav.push({ name: "a-gratter" });
+const versClassement = () => nav.reset([{ name: "classement" }]);
+
+/** Le chemin que Piou indique : un lien sous sa phrase. */
+function Chemin({ vers, attente, children }: { vers: () => void; attente?: boolean; children: ReactNode }) {
+  return <Bouton variante="texte" attente={attente} onClick={vers}>{children}</Bouton>;
+}
+
+/** « Aller chez Mlle Sidonie » : le chemin d'une boutique, au nom de qui la tient. */
+function ChezVendeur({ shop }: { shop: ShopId }) {
+  return <Chemin vers={() => versBoutique(shop)}>{t("Aller chez {vendeur}", { vendeur: keeperName(shop) })}</Chemin>;
+}
 
 /**
  * Un seul conseil à la fois, sans jamais bloquer : Piou guide toute la partie. La
@@ -78,7 +91,7 @@ function Conseil({ player, found, busy, pickUp }: {
       const texte = player.kiosk
         ? PIOU.trouvePatron
         : player.stats.tickets === 0 ? PIOU.premierTrouve : PIOU.trouve(found, player.stats.tickets);
-      return { texte, actions: <Bouton variante="texte" attente={busy} onClick={pickUp}>{t("Ramasser le ticket")}</Bouton> };
+      return { texte, actions: <Chemin vers={pickUp} attente={busy}>{t("Ramasser le ticket")}</Chemin> };
     }
     // Des tickets attendent dans la pile : rien de plus utile que de les gratter. Pour le
     // tout premier (ramassé, donc compté, mais pas encore gagnant), Piou explique le geste.
@@ -86,11 +99,7 @@ function Conseil({ player, found, busy, pickUp }: {
       const premier = player.stats.tickets <= 1 && player.stats.winners === 0;
       return {
         texte: premier ? PIOU.aGratter : PIOU.pile(waiting),
-        actions: (
-          <Bouton variante="texte" onClick={() => nav.push({ name: "a-gratter" })}>
-            {waiting > 1 ? t("Gratter mes tickets") : t("Gratter mon ticket")}
-          </Bouton>
-        ),
+        actions: <Chemin vers={versPile}>{waiting > 1 ? t("Gratter mes tickets") : t("Gratter mon ticket")}</Chemin>,
       };
     }
     // Plus de quoi jouer, et rien par terre pour l'instant : cela ne dure pas vingt secondes.
@@ -101,37 +110,30 @@ function Conseil({ player, found, busy, pickUp }: {
         texte: PIOU.code,
         actions: (
           <span className="conseil__actions">
-            <Bouton variante="texte" onClick={() => nav.push({ name: "reglages" })}>{t("Voir mon code")}</Bouton>
-            <Bouton variante="texte" onClick={() => patchSettings({ codeNote: true })}>{t("Plus tard")}</Bouton>
+            <Chemin vers={() => nav.push({ name: "reglages" })}>{t("Voir mon code")}</Chemin>
+            <Chemin vers={() => patchSettings({ codeNote: true })}>{t("Plus tard")}</Chemin>
           </span>
         ),
       };
     }
     // Après la fin : il reste une fortune à faire grossir.
     if (player.kiosk) {
-      return { texte: PIOU.patron, actions: <Bouton variante="texte" onClick={() => nav.reset([{ name: "classement" }])}>{t("Voir le classement")}</Bouton> };
+      return { texte: PIOU.patron, actions: <Chemin vers={versClassement}>{t("Voir le classement")}</Chemin> };
     }
-
-    const missing = cheapestMissing(player.owned);
-    const canShop = missing !== null && balance >= missing;
-    // Les ★ s'achètent en boutique ; quand la bourse ne suit pas, on retourne d'abord au comptoir.
-    const chemin = canShop
-      ? <Bouton variante="texte" onClick={versBoutiques}>{t("Aller aux boutiques")}</Bouton>
-      : <Bouton variante="texte" onClick={versJeu}>{t("Aller jouer")}</Bouton>;
 
     // Les premiers euros, et encore rien à soi : une ficelle chez Mlle Sidonie, ou d'abord un tour au Kiosque.
     if (player.owned.length === 0) {
-      if (balance >= 3) {
-        return {
-          texte: PIOU.ficelle(formatEuros(balance)),
-          actions: <Bouton variante="texte" onClick={() => versBoutique("sidonie")}>{t("Aller chez {vendeur}", { vendeur: keeperName("sidonie") })}</Bouton>,
-        };
-      }
-      return {
-        texte: PIOU.kiosque,
-        actions: <Bouton variante="texte" onClick={() => nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }])}>{t("Aller au Kiosque")}</Bouton>,
-      };
+      return balance >= 3
+        ? { texte: PIOU.ficelle(formatEuros(balance)), actions: <ChezVendeur shop="sidonie" /> }
+        : { texte: PIOU.kiosque, actions: <Chemin vers={versKiosque}>{t("Aller au Kiosque")}</Chemin> };
     }
+
+    // Les ★ s'achètent en boutique ; quand la bourse ne suit pas, on retourne d'abord au comptoir.
+    const missing = cheapestMissing(player.owned);
+    const canShop = missing !== null && balance >= missing;
+    const chemin = canShop
+      ? <Chemin vers={versBoutiques}>{t("Aller aux boutiques")}</Chemin>
+      : <Chemin vers={versJeu}>{t("Aller jouer")}</Chemin>;
 
     // Le prochain lieu et les ★ qui manquent. Au premier achat, Piou dit ce qu'est le Standing.
     const next = nextPlace(player.standing);
@@ -154,17 +156,11 @@ function Conseil({ player, found, busy, pickUp }: {
         actions: chemin,
       };
     }
-    // Collection complète : le Kiosque est à vendre.
-    if (balance >= KIOSK.price) {
-      return {
-        texte: PIOU.kiosqueAVendre(formatEuros(KIOSK.price)),
-        actions: <Bouton variante="texte" onClick={() => versBoutique("colette")}>{t("Aller chez {vendeur}", { vendeur: keeperName("colette") })}</Bouton>,
-      };
-    }
-    return {
-      texte: PIOU.kiosqueAVendre(formatEuros(KIOSK.price), formatEuros(KIOSK.price - balance)),
-      actions: <Bouton variante="texte" onClick={versJeu}>{t("Aller jouer")}</Bouton>,
-    };
+    // Collection complète : le Kiosque est à vendre. Mme Colette s'en charge, quand la bourse suit.
+    const prix = formatEuros(KIOSK.price);
+    return balance >= KIOSK.price
+      ? { texte: PIOU.kiosqueAVendre(prix), actions: <ChezVendeur shop="colette" /> }
+      : { texte: PIOU.kiosqueAVendre(prix, formatEuros(KIOSK.price - balance)), actions: <Chemin vers={versJeu}>{t("Aller jouer")}</Chemin> };
   })();
 
   return (

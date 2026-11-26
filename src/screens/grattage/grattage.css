@@ -16,6 +16,9 @@
 /* L'en-tête reste au-dessus de la fête en plein écran : la bourse y compte ses pièces. */
 .grattage .entete { z-index: 16; }
 
+/* L'écran ne défile pas : le bandeau « hors connexion » n'a pas à coller en haut, il y est. */
+.grattage .hors-ligne { position: relative; }
+
 /* Dans un carnet : « 3/10 », à côté de la flèche de retour. */
 .grattage__compte {
   flex: none;
@@ -409,13 +412,14 @@
   text-align: center;
 }
 
+/* La roue garde toute sa hauteur : rabotée, ses signes du haut et du bas passeraient sur
+   le titre et sur la note. Sur un écran trop court, c'est la scène qui défile. */
 .roue__cercle {
   --r: min(36vw, 150px);
   position: relative;
   flex: none;
   width: calc(var(--r) * 2 + 56px);
   height: calc(var(--r) * 2 + 56px);
-  max-height: 46vh;
 }
 
 .roue__signe {

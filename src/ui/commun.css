@@ -140,7 +140,7 @@
 
 .message {
   position: fixed;
-  bottom: calc(var(--bas) + 16px);
+  bottom: calc(var(--bas) + 8px);
   left: 50%;
   z-index: 60;
   width: calc(100% - 32px);

@@ -197,8 +197,9 @@ function DuelView({ def, layout, revealed, prefix }: ViewProps<DuelLayout>) {
               <span className={cx("jeu-duel__camp", bust && "jeu-duel__camp--saute")}>
                 <Ajuste className="jeu-duel__nom">{opponent}</Ajuste>
                 {bust ? (
+                  // La main est barrée, pas le mot : « saute » doit se lire.
                   <span className="jeu-duel__score">
-                    {round.them}
+                    <span className="jeu-duel__main">{round.them}</span>
                     <small className="jeu-duel__note">{t("saute")}</small>
                   </span>
                 ) : (

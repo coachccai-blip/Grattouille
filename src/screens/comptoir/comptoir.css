@@ -3,7 +3,8 @@
    le carrousel prend la place qui reste, et ses miniatures s'y ajustent (Comptoir.tsx). */
 
 .comptoir {
-  gap: var(--e3);
+  --ecart: var(--e3);
+  gap: var(--ecart);
   padding-bottom: 0;
   color: var(--nuit);
 }
@@ -20,9 +21,10 @@
   background: var(--nuit);
 }
 
-/* Sous le bandeau « hors connexion », le bandeau nuit n'a plus à remonter jusqu'en haut. */
+/* Sous le bandeau « hors connexion », le bandeau nuit n'a plus à remonter jusqu'en haut :
+   il se colle à lui, par-dessus l'écart qui les sépare. */
 .comptoir--bandeau .hors-ligne + .comptoir__haut {
-  margin-top: calc(var(--e2) * -1);
+  margin-top: calc((var(--e2) + var(--ecart)) * -1);
   padding-top: var(--e2);
 }
 
@@ -90,6 +92,11 @@
      de boîte à défilement (le zinc y perdrait son ancrage). */
   overflow-x: clip;
   touch-action: pan-y;
+}
+
+/* Un navigateur qui ne connaît pas `clip` coupe la piste autrement : aux bords du carrousel. */
+@supports not (overflow: clip) {
+  .carrousel { overflow: hidden; }
 }
 
 .carrousel__piste {
@@ -208,7 +215,7 @@
 /* Écran court (320 × 568) : on resserre tout ce qui n'est pas le carrousel, pour que le
    comptoir tienne dans la fenêtre ou n'en dépasse que de quelques pixels. */
 @media (max-height: 600px) {
-  .comptoir { gap: var(--e2); }
+  .comptoir { --ecart: var(--e2); }
   .comptoir .entete__titre--grand { line-height: 28px; }
   .comptoir__hote .bulle__texte { font-size: 15px; line-height: 20px; }
   .comptoir__zinc {
