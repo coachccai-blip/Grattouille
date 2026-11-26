@@ -80,26 +80,16 @@ function TrioView({ def, layout, revealed, prefix }: ViewProps<TrioLayout>) {
 // ---------------------------------------------------------------------------
 // numeros : numéros gagnants
 
-/** Les deux titres de la grille : les numéros gagnants, puis ceux du joueur. */
-function numerosTitres(comptes: boolean, volet: boolean): readonly [string, string] {
-  // `comptes` : les numéros sont des comptes numérotés.
-  if (comptes) return ["Comptes gagnants", "Tes comptes"];
-  // Dans un volet du ticket multiple, le nom du volet dit déjà « les numéros ».
-  if (volet) return ["Gagnants", "Les tiens"];
-  return ["Numéros gagnants", "Tes numéros"];
-}
-
 function NumerosView({ def, layout, revealed, prefix }: ViewProps<NumerosLayout>) {
   const visibleWinners = new Set<number>();
   layout.winning.forEach((n, i) => {
     if (revealed.has(prefixed(prefix, `w${i}`))) visibleWinners.add(n);
   });
-  // `comptes` : les numéros sont gravés sur des plaques de laiton.
+  // `comptes` : les numéros sont des comptes numérotés, gravés sur des plaques de laiton.
   const comptes = !prefix && def.options.skin === "comptes";
-  const [gagnants, tiens] = numerosTitres(comptes, Boolean(prefix));
   return (
     <div className={cx("jeu-numeros", `jeu-numeros--${layout.cols}`, comptes && "jeu-numeros--comptes")}>
-      <p className="jeu__titre">{t(gagnants)}</p>
+      <p className="jeu__titre">{t(comptes ? "Comptes gagnants" : "Numéros gagnants")}</p>
       <div className="jeu-numeros__gagnants">
         {layout.winning.map((n, i) => {
           const id = prefixed(prefix, `w${i}`);
@@ -111,7 +101,7 @@ function NumerosView({ def, layout, revealed, prefix }: ViewProps<NumerosLayout>
           );
         })}
       </div>
-      <p className="jeu__titre">{t(tiens)}</p>
+      <p className="jeu__titre">{t(comptes ? "Tes comptes" : "Tes numéros")}</p>
       <div className="jeu-numeros__grille" style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}>
         {layout.yours.map((cell, i) => {
           const id = prefixed(prefix, `n${i}`);

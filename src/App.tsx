@@ -1,11 +1,12 @@
 // La coquille de l'application : une seule page, pas de routes d'URL (BRIEF.md, section 12.1).
 
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
 import { nav, resolveScreens, tabOf, useNav, type Screen } from "./app/nav";
 import { boot, isCalm, useGame } from "./app/store";
 import { Icon } from "./art/icons";
 import { ArtDefs } from "./art/kit";
 import { unlockAudio } from "./fx/audio";
+import { t } from "./i18n";
 import { AGratter } from "./screens/a-gratter/AGratter";
 import { Bienvenue } from "./screens/bienvenue/Bienvenue";
 import { Boutique } from "./screens/boutiques/Boutique";
@@ -70,42 +71,59 @@ function Jeu() {
   const { base, baseIndex, sheets } = resolveScreens(stack, index);
   const tabs = WITH_TABS.has(base.name);
   const moment = ending || Boolean(opening) || welcome;
+  const key = screenKey(base, baseIndex);
+
+  // Un nouvel écran s'ouvre en haut de page, quel que soit le défilement de celui qu'on quitte.
+  // (La Promenade se cale ensuite d'elle-même sur le meilleur lieu ouvert.)
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [key]);
+
+  // Bac à sable : le bandeau a sa propre ligne tout en haut, que chaque écran lui laisse (app.css).
+  // Avant le premier affichage, pour que rien ne saute.
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle("bac-a-sable", sandbox);
+    return () => document.documentElement.classList.remove("bac-a-sable");
+  }, [sandbox]);
+
   return (
     <>
       {/* Derrière un grand moment (accueil, ouverture d'un lieu, générique), l'écran ne répond plus. */}
       <div className="jeu__fond" inert={moment}>
-        <ScreenView key={screenKey(base, baseIndex)} screen={base} />
+        <ScreenView key={key} screen={base} />
         {tabs && <Onglets actif={tabOf(base)} />}
         {sheets.map((sheet, i) => <ScreenView key={screenKey(sheet, baseIndex + 1 + i)} screen={sheet} />)}
       </div>
       {ending ? <Fin /> : opening ? <Ouverture key={opening} place={opening} /> : welcome ? <Accueil /> : null}
       <Message onglets={tabs && sheets.length === 0} />
-      {sandbox && <p className="bac-a-sable">Bac à sable : rien n'est enregistré.</p>}
+      {sandbox && <p className="bandeau-bac-a-sable"><span>{t("Bac à sable : rien n'est enregistré.")}</span></p>}
     </>
   );
 }
 
 function Amorce() {
   return (
-    <div className="amorce" role="status" aria-label="Chargement de Grattouille">
+    <div className="amorce" role="status" aria-label={t("Chargement de Grattouille")}>
       <span aria-hidden="true">Grattouille</span>
       <span className="amorce__piece" aria-hidden="true" />
     </div>
   );
 }
 
+// Les pannes, en français : ce sont les clés de traduction, lues à l'affichage.
+// Le texte ne répète pas le bouton qui le suit (« Réessayer », « Jouer dans le bac à sable »).
 const PANNES = {
   reseau: {
     titre: "Pas de réponse du kiosque.",
-    texte: "Vérifie ta connexion, puis réessaie. Ta fortune et tes tickets t'attendent bien au chaud.",
+    texte: "Vérifie ta connexion. Ta fortune et tes tickets t'attendent bien au chaud.",
   },
   serveur: {
     titre: "Le kiosque ne répond pas.",
-    texte: "Réessaie dans un instant. Ta fortune et tes tickets t'attendent bien au chaud.",
+    texte: "Laisse-lui un instant. Ta fortune et tes tickets t'attendent bien au chaud.",
   },
   absent: {
     titre: "Le kiosque n'est pas encore ouvert.",
-    texte: "Cette page a été publiée sans son serveur de jeu. En attendant, le bac à sable permet de jouer sans rien enregistrer.",
+    texte: "Cette page a été publiée sans son serveur de jeu. Tu peux jouer quand même : rien ne sera enregistré.",
   },
 } as const;
 
@@ -116,12 +134,12 @@ function Panne() {
     <main className="ecran panne">
       <p className="panne__logo" aria-hidden="true">Grattouille</p>
       <Icon name="hors-ligne" size={40} />
-      <h1 className="t-titre">{titre}</h1>
-      <p>{texte}</p>
-      <Bouton bloc onClick={() => void boot()}>Réessayer</Bouton>
+      <h1 className="t-titre">{t(titre)}</h1>
+      <p>{t(texte)}</p>
+      <Bouton bloc onClick={() => void boot()}>{t("Réessayer")}</Bouton>
       {kind === "absent" && (
         <a className="bouton bouton--secondaire bouton--bloc" href="?bac-a-sable">
-          <span className="bouton__texte">Jouer dans le bac à sable</span>
+          <span className="bouton__texte">{t("Jouer dans le bac à sable")}</span>
         </a>
       )}
     </main>
@@ -132,7 +150,7 @@ function Paysage() {
   return (
     <div className="paysage" role="status">
       <Icon name="telephone" size={56} />
-      <p className="t-fort">Tourne ton téléphone.</p>
+      <p className="t-fort">{t("Tourne ton téléphone.")}</p>
     </div>
   );
 }

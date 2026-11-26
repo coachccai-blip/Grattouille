@@ -45,7 +45,7 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "Fermer": "Close",
 
   // --- Dressing
-  "Dressing": "Dressing room",
+  "Dressing": "Wardrobe",
   "{pseudo} dans le miroir": "{pseudo} in the mirror",
   "Emplacements": "Categories",
   "Chapeau": "Hat",

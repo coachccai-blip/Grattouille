@@ -23,11 +23,6 @@
   animation: piece-tourne 1s ease-in-out infinite;
 }
 
-.amorce__mention {
-  color: var(--brume);
-  font: 500 12px/16px var(--texte);
-}
-
 .panne {
   gap: var(--e4);
   align-items: center;
@@ -43,19 +38,41 @@
 .panne p { color: var(--brume); }
 .panne .t-titre { color: var(--ecume); }
 
-.bac-a-sable {
+/*
+ * Bac à sable : le bandeau a sa propre ligne, tout en haut, comme une barre d'état.
+ * Chaque écran laisse déjà libre la hauteur de l'encoche du téléphone (--haut). En bac
+ * à sable, cette hauteur grandit d'une ligne : le bandeau s'y pose, et ne recouvre plus
+ * ni l'en-tête ni la bourse. Ce qui défile passe dessous, comme sous une barre d'état.
+ */
+:root.bac-a-sable {
+  --bandeau: 24px;
+  --haut: calc(env(safe-area-inset-top, 0px) + var(--bandeau));
+}
+
+.bandeau-bac-a-sable {
   position: fixed;
-  top: calc(var(--haut) + 2px);
+  top: 0;
   left: 50%;
-  z-index: 70;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--colonne);
+  height: var(--haut);
+  padding-bottom: 2px;
+  background: #06181E;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.bandeau-bac-a-sable span {
   padding: 2px 10px;
   border-radius: 99px;
   background: var(--bougainvillier-fonce);
   color: #fff;
   font: 500 12px/16px var(--texte);
   white-space: nowrap;
-  transform: translateX(-50%);
-  pointer-events: none;
 }
 
 /* Rubrique d'un écran : un titre et son contenu. */

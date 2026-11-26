@@ -8,10 +8,11 @@ import { useState } from "react";
 import type { PendingTicket } from "../../shared/types";
 import { atLeast } from "../app/helpers";
 import { nav } from "../app/nav";
-import { pickUpTicket, useFound } from "../app/store";
+import { pickUpTicket, useFound, useGame } from "../app/store";
 import { Icon } from "../art/icons";
 import { playTicketBought } from "../fx/audio";
 import { haptic } from "../fx/haptics";
+import { t } from "../i18n";
 import "./trouve.css";
 
 /**
@@ -38,26 +39,30 @@ export function usePickUp(then?: (ticket: PendingTicket) => void): { busy: boole
   return { busy, pickUp };
 }
 
-/** Le ticket qui traîne au bas de l'écran, au-dessus des onglets. Rien s'il n'y en a pas. */
+/**
+ * Le ticket qui traîne au bas de l'écran, au-dessus des onglets. Rien s'il n'y en a pas.
+ * Deux lignes, pas plus : ce qu'il y a, et quoi faire. Le pourquoi, c'est Piou qui le raconte.
+ */
 export function TicketParTerre() {
   const found = useFound();
+  // Un message bref s'affiche au même endroit : la pastille lui laisse la place, le temps qu'il passe.
+  const message = useGame((s) => s.toast !== null);
   const { busy, pickUp } = usePickUp();
   if (!found) return null;
   return (
     <>
       {/* La place de la pastille, en bas du défilement : elle ne cache rien de l'écran. */}
       <div className="par-terre__reserve" aria-hidden="true" />
-      <button type="button" className="par-terre" onClick={pickUp} disabled={busy}>
-        <span className="par-terre__ticket" aria-hidden="true"><Icon name="jouer" plein size={24} /></span>
-        <span className="par-terre__texte">
-          <strong>Un ticket par terre !</strong>
-          <span>
-            {found === "fauche" ? "De quoi te refaire." : "C'est ton jour de chance."}{" "}
-            <span className="par-terre__geste">Ramasse-le.</span>
+      {!message && (
+        <button type="button" className="par-terre" onClick={pickUp} disabled={busy}>
+          <span className="par-terre__ticket" aria-hidden="true"><Icon name="jouer" plein size={24} /></span>
+          <span className="par-terre__texte">
+            <strong>{t("Un ticket par terre !")}</strong>
+            <span>{t("Ramasse-le.")}</span>
           </span>
-        </span>
-        <span className="par-terre__eclat" aria-hidden="true" />
-      </button>
+          <span className="par-terre__eclat" aria-hidden="true" />
+        </button>
+      )}
     </>
   );
 }

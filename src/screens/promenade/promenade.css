@@ -33,43 +33,45 @@
   height: 100%;
 }
 
-/* Plaque de rue : fond nuit, texte écume. Aucune couleur de ciel ne gêne la lecture. */
+/* Plaque de rue : fond nuit, texte écume. Aucune couleur de ciel ne gêne la lecture, et
+   rien n'est écrit sur le dessin : l'heure du lieu, son nom, son état, l'un sous l'autre. */
 .lieu__plaque {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 16px 12px;
+  padding: 8px 16px 12px;
   border-top: 3px solid var(--mimosa-fonce);
   background: var(--nuit);
 }
 
-.lieu__nom { font: 400 24px/28px var(--titre); }
+/* L'heure de la journée : chaque lieu est un chapitre, du matin au lever de Terre. */
+.lieu__moment {
+  color: var(--mimosa);
+  font: 500 12px/16px var(--texte);
+}
+
+/* Un nom long passe sur deux lignes équilibrées : jamais coupé. */
+.lieu__nom {
+  font: 400 24px/28px var(--titre);
+  text-wrap: balance;
+}
 
 .lieu__etat {
   display: flex;
   gap: 6px;
   align-items: center;
+  margin-top: 2px;
   color: var(--persienne-clair);
   font: 500 14px/20px var(--texte);
 }
 
-.lieu__moment {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 10px;
-  border-radius: 99px;
-  background: rgba(14, 47, 58, .8);
-  color: var(--ecume);
-  font: 500 12px/16px var(--texte);
-}
+.lieu__etat svg { flex: none; }
 
-/* Fermé : visible mais grisé. Le cadenas et le mot le disent aussi. */
+/* Fermé : visible mais grisé, et le cadenas le dit aussi. */
 .lieu--ferme .lieu__decor {
   filter: grayscale(1) contrast(.85);
   opacity: .55;
 }
 
-.lieu--ferme .lieu__etat { color: var(--brume); }
-.lieu--ferme .lieu__nom { color: var(--brume); }
+.lieu--ferme .lieu__etat,
+.lieu--ferme .lieu__nom,
+.lieu--ferme .lieu__moment { color: var(--brume); }

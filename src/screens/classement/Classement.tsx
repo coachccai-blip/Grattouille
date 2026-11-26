@@ -33,20 +33,22 @@ function lecture(entry: BoardEntry, rank: number, me: boolean): string {
     : t("{rang}. {nom} : {fortune}, {etoiles} étoiles.", vars);
 }
 
-function Plaque({ entry, rank, me, pinned = false }: { entry: BoardEntry; rank: number; me: boolean; pinned?: boolean }) {
+function Plaque({ entry, rank, me }: { entry: BoardEntry; rank: number; me: boolean }) {
   return (
-    <div className={cx("plaque", me && "plaque--toi", entry.kiosk && "plaque--kiosque", pinned && "plaque--epinglee")}>
+    <div className={cx("plaque", me && "plaque--toi", entry.kiosk && "plaque--kiosque")}>
       <span className="invisible">{lecture(entry, rank, me)}</span>
       <span className="plaque__rang chiffres" aria-hidden="true">{formatInt(rank)}</span>
       <span className="plaque__avatar" aria-hidden="true">
         <Avatar species={entry.species} look={{ chapeau: entry.look.chapeau, lunettes: entry.look.lunettes }} crop="tete" />
       </span>
-      {/* Le nom d'abord, sur toute la largeur qui reste ; le Standing dessous, la fortune à droite. */}
+      {/* Le nom d'abord, seul sur sa ligne ; dessous, le Standing et la fortune. */}
       <span className="plaque__qui" aria-hidden="true">
         <span className="plaque__nom">{me ? t("Toi") : entry.pseudo}</span>
-        <span className="plaque__standing"><Etoile />{formatInt(entry.standing)}</span>
+        <span className="plaque__chiffres">
+          <span className="plaque__standing"><Etoile />{formatInt(entry.standing)}</span>
+          <span className="plaque__fortune chiffres">{formatEuros(entry.fortune)}</span>
+        </span>
       </span>
-      <span className="plaque__fortune chiffres" aria-hidden="true">{formatEuros(entry.fortune)}</span>
     </div>
   );
 }
@@ -198,17 +200,19 @@ export function Classement() {
           (!mineVisible || myIndex >= BOARD_SHOWN) && (
             // Ma plaque est déjà dans la liste quand je suis parmi les premiers : la copie épinglée ne se relit pas.
             <div className="classement__epingle" aria-hidden={myIndex < BOARD_SHOWN || undefined}>
-              <Plaque entry={myEntry} rank={myIndex + 1} me pinned />
+              <Plaque entry={myEntry} rank={myIndex + 1} me />
             </div>
           )
         ) : (
-          <p className="classement__epingle classement__hors" role="status">
-            {lastFortune !== null && player.fortune <= lastFortune
-              ? t("Tu n'es pas encore classé. Il te manque {montant} pour entrer dans les {n} premiers.", {
-                montant: formatEuros(lastFortune - player.fortune + 1), n: BOARD_SIZE,
-              })
-              : t("Tu n'es pas encore classé. Ta fortune y sera inscrite d'ici une minute.")}
-          </p>
+          <div className="classement__epingle">
+            <p className="classement__hors" role="status">
+              {lastFortune !== null && player.fortune <= lastFortune
+                ? t("Tu n'es pas encore classé. Il te manque {montant} pour entrer dans les {n} premiers.", {
+                  montant: formatEuros(lastFortune - player.fortune + 1), n: BOARD_SIZE,
+                })
+                : t("Tu n'es pas encore classé. Ta fortune y sera inscrite d'ici une minute.")}
+            </p>
+          </div>
         )
       )}
     </main>

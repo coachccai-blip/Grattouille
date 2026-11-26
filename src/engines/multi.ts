@@ -34,7 +34,7 @@ export const PANEL_COUNT = 3;
 // Des noms courts, qui tiennent sur une ligne à côté des trois pastilles, et qui ne
 // répètent aucun libellé du volet lui-même (« Numéros gagnants », « Prime »).
 const NAMES: Record<MultiKind, readonly [string, string, string]> = {
-  classique: ["Le trio", "Les numéros", "Le 21"],
+  classique: ["Le trio", "Le tirage", "Le 21"],
   ciel: ["L'ascenseur", "Le bureau", "Le toit"],
 };
 

@@ -45,12 +45,13 @@
   mask: radial-gradient(circle 11px at 11px 100%, transparent 98%, #000) 0 0 / 22px 100% repeat-x;
 }
 
+/* Les marges sont comptées pour que « Galerie Archibald » tienne sur une ligne à 360 px. */
 .vitrine__glace {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   min-height: 84px;
-  padding: 12px 12px 12px 16px;
+  padding: 12px 8px 12px 12px;
   border: 3px solid transparent;
   border-top: 0;
   border-radius: 0 0 6px 6px;
@@ -82,6 +83,14 @@
 }
 
 .vitrine__glace > svg { flex: none; color: var(--brume); }
+
+/* Écran étroit : un portrait un peu plus petit laisse leur ligne aux enseignes. */
+@media (max-width: 339px) {
+  .vitrine .portrait {
+    width: 48px;
+    height: 48px;
+  }
+}
 
 /* ---------------------------------------------------------------- Rayons */
 
@@ -285,6 +294,14 @@
   color: var(--ivoire);
   font: 400 24px/36px var(--titre);
   transform: rotate(8deg);
+}
+
+/* Sur l'avatar, le tampon se pose en bas, à côté du buste : il ne mord ni sur les
+   oreilles ni sur un chapeau large. */
+.apercu--avatar .apercu__tampon {
+  top: auto;
+  right: 12px;
+  bottom: 14px;
 }
 
 .apercu__tampon--frais {

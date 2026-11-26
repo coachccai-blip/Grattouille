@@ -135,7 +135,11 @@ export function Ticket({
           </footer>
         </div>
         {/* Le tampon tombe sur le talon, à côté du numéro de série : aucune case, aucun montant dessous. */}
-        {etat === "gagnant" && <span className="ticket__tampon" aria-hidden="true">{t("Payé")}</span>}
+        {etat === "gagnant" && (
+          <span className="ticket__cachet" aria-hidden="true">
+            <span className="ticket__tampon">{t("Payé")}</span>
+          </span>
+        )}
         {children}
       </div>
     </TicketContext.Provider>

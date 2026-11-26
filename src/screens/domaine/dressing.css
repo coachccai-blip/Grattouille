@@ -8,9 +8,12 @@
   gap: 0;
 }
 
+/* La même taille que les rayons d'une boutique : ce sont les mêmes onglets. */
 .dressing .dressing__onglet {
   flex: 1 0 auto;
   padding: 0 4px;
+  font-size: clamp(14px, 4.4vw, 16px);
+  line-height: 24px;
   white-space: nowrap;
 }
 

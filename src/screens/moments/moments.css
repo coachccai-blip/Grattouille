@@ -23,8 +23,19 @@
   background: #06181E;
 }
 
+/*
+ * Le décor : la façade sous son ciel. Sur un petit écran, il cède de sa hauteur au
+ * texte plutôt que de faire défiler : le ciel d'abord, puis le haut du dessin. Le bas
+ * reste en vue, là où le ticket traîne sur le quai.
+ */
 .moment__decor {
-  flex: none;
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 96px;
+  overflow: hidden;
   padding-top: calc(var(--haut) + 24px);
   background-size: 100% 100%;
 }
@@ -32,6 +43,7 @@
 .moment__decor svg,
 .moment__decor img {
   display: block;
+  flex: none;
   width: 100%;
   animation: moment-facade 600ms var(--sortie) both;
 }
@@ -47,7 +59,7 @@
   position: relative;
   z-index: 1;
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: var(--e3);
   padding: var(--e5) var(--e4) calc(var(--bas) + var(--e4));
@@ -55,11 +67,15 @@
   background: linear-gradient(var(--nuit), var(--nuit)) padding-box, var(--laiton) border-box;
 }
 
+/* Le texte d'un nouveau temps reçoit la lecture d'écran, sans cadre autour de lui. */
+.moment__corps:focus-visible { outline: none; }
+
 /* Les boutons restent en bas, à portée de pouce. */
 .moment__corps .bouton--principal { margin-top: auto; }
 .moment__corps .bouton--texte { align-self: center; }
 
-.moment__moment {
+/* « Chapitre 3 · Coucher de soleil » : l'heure de la journée, au-dessus du titre. */
+.moment__chapitre {
   color: var(--mimosa);
   font: 500 14px/20px var(--texte);
 }
@@ -70,15 +86,124 @@
   text-wrap: balance;
 }
 
-.moment__hote {
+.moment--fin .moment__titre { color: var(--mimosa); }
+
+/* Un personnage parle : son portrait une fois, puis une bulle par phrase. */
+.moment__paroles {
   display: flex;
   gap: 12px;
-  align-items: center;
-  margin: var(--e2) 0 var(--e3);
-  color: var(--brume);
+  align-items: flex-start;
 }
 
-.moment--fin .moment__titre { color: var(--mimosa); }
+.moment__bulles {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--e2);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+/* Seule la première bulle pointe vers celui qui parle. */
+.moment__bulles .bulle__texte + .bulle__texte {
+  margin-top: 0;
+  border-radius: 18px;
+}
+
+/* Le prix des tickets du lieu : une ligne, sous la bulle de l'hôte. */
+.moment__prix {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--brume);
+  font: 500 16px/24px var(--texte);
+}
+
+.moment__prix svg {
+  flex: none;
+  color: var(--mimosa);
+  --icone-fond: var(--nuit);
+}
+
+/* Épilogue : ce qui se passe sur le quai, raconté. */
+.moment__recit {
+  font: 400 18px/26px var(--texte);
+  text-wrap: balance;
+}
+
+/*
+ * Le ticket du quai : au pied du Kiosque, à droite, il brille doucement. Le premier
+ * matin, quelqu'un l'a laissé tomber ; à la fin, c'est le joueur qui le laisse tomber.
+ */
+.moment__ticket {
+  position: absolute;
+  bottom: 2px;
+  left: 76%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 38px;
+}
+
+.moment__ticket-papier {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--mimosa);
+  color: var(--nuit);
+  --icone-fond: var(--mimosa);
+  box-shadow: 0 3px 0 var(--mimosa-fonce), 0 6px 8px rgba(14, 47, 58, .4);
+  transform: rotate(-14deg);
+}
+
+/* L'éclat : une étoile à quatre branches qui respire. */
+.moment__ticket-eclat {
+  position: absolute;
+  top: -3px;
+  right: -1px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: moment-brille 1600ms ease-in-out infinite;
+}
+
+@keyframes moment-brille {
+  0%, 100% { opacity: .35; transform: scale(.6) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.1) rotate(20deg); }
+}
+
+/* Le ticket tombe sur le quai, rebondit, et attend. */
+.moment__ticket--tombe { animation: moment-tombe 900ms cubic-bezier(.3, 0, .7, 1) 200ms both; }
+
+@keyframes moment-tombe {
+  0% { opacity: 0; transform: translateY(-140px) rotate(-50deg); }
+  15% { opacity: 1; }
+  70% { transform: translateY(0) rotate(8deg); }
+  85% { transform: translateY(-6px) rotate(-3deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+.calme .moment__ticket--tombe,
+.calme .moment__ticket-eclat { animation: none; }
+
+/*
+ * Générique de fin. Tant que Gaspard parle, le Kiosque doré garde la même hauteur d'un
+ * temps à l'autre, et se rogne par le bas : le dôme et le store restent en vue.
+ */
+.moment--cles .moment__decor,
+.moment--aveu .moment__decor {
+  justify-content: flex-start;
+  max-height: max(96px, 31vh);
+}
+
+/* D'un temps du générique au suivant, le texte se fond ; le cadre ne bouge pas. */
+.moment__temps > * { animation: fondu 280ms linear both; }
 
 .moment__fx {
   position: fixed;
@@ -87,4 +212,10 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* Écran bas : moins de ciel au-dessus de la façade, le texte d'abord. */
+@media (max-height: 600px) {
+  .moment__decor { padding-top: calc(var(--haut) + 8px); }
+  .moment__corps { padding-top: var(--e4); }
 }
