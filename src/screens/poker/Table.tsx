@@ -126,14 +126,16 @@ interface VoixProps {
   replique: Line | null;
   /** La phrase parle d'une carte en double : la petite carte teintée la précède. */
   double?: boolean;
+  /** La place d'une réplique de deux lignes est gardée, qu'elle soit dite ou non. */
+  garde?: boolean;
   children: ReactNode;
 }
 
-function Voix({ refus, replique, double = false, children }: VoixProps) {
-  if (refus) return <p className="poker-voix poker-voix--refus" role="alert">{refus}</p>;
+function Voix({ refus, replique, double = false, garde = false, children }: VoixProps) {
+  if (refus) return <p className={cx("poker-voix poker-voix--refus", garde && "poker-voix--garde")} role="alert">{refus}</p>;
   if (replique) {
     return (
-      <div className="poker-voix poker-voix--replique">
+      <div className={cx("poker-voix poker-voix--replique", garde && "poker-voix--garde")}>
         <Tete who={{ bot: replique.speaker, pseudo: null, species: null, look: null }} className="poker-tete--mini" />
         <p>
           <span className="poker-voix__nom">{replique.name}</span>
@@ -143,7 +145,7 @@ function Voix({ refus, replique, double = false, children }: VoixProps) {
     );
   }
   return (
-    <p className="poker-voix" role="status">
+    <p className={cx("poker-voix", garde && "poker-voix--garde")} role="status">
       <span>
         {double && <span className="poker-voix__double" aria-hidden="true" />}
         {children}
@@ -529,8 +531,11 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
         <BarreTemps deadline={view.deadline} offset={offset} total={phaseTotal(view)} mine={myMove} />
         {outcome ? (
           <>
-            {/* Après un abattage : un mot d'un personnage, s'il y en a un, puis ce que la main rapporte et où va le pot. */}
-            {(notice || replique) && <Voix refus={notice?.text ?? null} replique={replique?.line ?? null}>{null}</Voix>}
+            {/* Après un abattage : un mot d'un personnage, s'il y en a un, puis ce que la main rapporte et où va
+                le pot. Sa place est gardée tout le dénouement : les mains ne bougent pas quand il parle. */}
+            {(outcome.talks || notice || replique) && (
+              <Voix refus={notice?.text ?? null} replique={replique?.line ?? null} garde>{null}</Voix>
+            )}
             <Bilan outcome={outcome} you={you} nom={nom} />
           </>
         ) : (

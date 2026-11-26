@@ -26,6 +26,11 @@ export interface Denouement {
   judged: ReadonlySet<number>;
   /** Les pots sont ramassés : les bilans s'affichent. */
   settled: boolean;
+  /**
+   * Un personnage dira quelque chose pendant ce dénouement : sa place est gardée du début à
+   * la fin, pour que les mains ne bougent pas quand il parle.
+   */
+  talks: boolean;
 }
 
 interface Stage {
@@ -45,6 +50,37 @@ function rowEl(root: HTMLElement | null, seat: number): Element | null {
 }
 
 /**
+ * Ce qui se dira, et à quel battement : une seule réplique par dénouement, décidée d'avance.
+ * L'accusé proteste (une main sur deux) ou réagit à son verdict ; sinon, un beau pot vaut un
+ * mot de son gagnant.
+ */
+function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "botAt" | "big">): { at: number; line: Line } | null {
+  for (let at = 0; at < beats.length; at++) {
+    const b = beats[at]!;
+    let line: Line | null = null;
+    if (b.kind === "accuse") {
+      const bot = stage.botAt(b.seat);
+      if (bot && (result.no + b.seat) % 2 === 0) line = tableLine(bot, "accuse", result.no);
+    } else if (b.kind === "verdict") {
+      const bot = stage.botAt(b.seat);
+      const guilty = result.unmasked.some((u) => u.seat === b.seat);
+      if (bot) line = tableLine(bot, guilty ? "demasque" : "innocent", result.no + b.seat);
+    } else {
+      for (const pot of result.pots) {
+        const top = pot.winners[0];
+        const bot = top ? stage.botAt(top.seat) : null;
+        if (top && bot && stage.big(pot.amount)) {
+          line = tableLine(bot, "gagne", result.no);
+          break;
+        }
+      }
+    }
+    if (line) return { at, line };
+  }
+  return null;
+}
+
+/**
  * Met en scène le dénouement de la main en cours. `live` : il arrive sous les yeux du
  * joueur ; sinon tout est déjà dit. Rend `null` hors d'un dénouement avec abattage.
  */
@@ -56,8 +92,8 @@ export function useDenouement(view: TableView, live: boolean, stage: Stage): Den
     if (!result) return null;
     const beats = beatsOf(result);
     const lines = outcomeLines(result);
-    return { result, beats, lines, lineBeat: lineBeats(lines, beats) };
-    // La clé change avec la main : le résultat d'une même main ne change pas.
+    return { result, beats, lines, lineBeat: lineBeats(lines, beats), talk: talkOf(result, beats, stage) };
+    // La clé change avec la main : le résultat d'une même main ne change pas, ni qui est assis où.
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [beat, setBeat] = useState(0);
   const played = useRef("");
@@ -75,20 +111,14 @@ export function useDenouement(view: TableView, live: boolean, stage: Stage): Den
       return;
     }
     const timers: number[] = [];
-    const spoken = new Set<number>();
     const enter = (index: number) => {
       setBeat(index + 1);
       const b = beats[index]!;
       const s = stageRef.current;
       const res = plan.result;
+      if (plan.talk?.at === index) s.say(plan.talk.line, 3_600);
       if (b.kind === "accuse") {
         playAccuse();
-        // Une main sur deux, l'accusé proteste ; l'autre, il attend le verdict pour parler.
-        const bot = s.botAt(b.seat);
-        if (bot && (res.no + b.seat) % 2 === 0) {
-          spoken.add(b.seat);
-          s.say(tableLine(bot, "accuse", res.no), 3_600);
-        }
       } else if (b.kind === "verdict") {
         const guilty = res.unmasked.some((u) => u.seat === b.seat);
         if (guilty) playUnmasked();
@@ -99,11 +129,6 @@ export function useDenouement(view: TableView, live: boolean, stage: Stage): Den
             if (a.to === b.seat && !a.right && a.paid > 0) flyChips(s.root.current, rowEl(s.root.current, a.from), rowEl(s.root.current, a.to), 3);
           }
         }
-        const bot = s.botAt(b.seat);
-        if (bot && spoken.size === 0) {
-          spoken.add(b.seat);
-          s.say(tableLine(bot, guilty ? "demasque" : "innocent", res.no + b.seat), 3_600);
-        }
       } else {
         const winners = [...winnersOf(res)];
         if (winners.length > 0) {
@@ -111,17 +136,6 @@ export function useDenouement(view: TableView, live: boolean, stage: Stage): Den
           if (!s.calm) {
             const pot = s.root.current?.querySelector("[data-pot]") ?? null;
             for (const seat of winners) flyChips(s.root.current, pot, rowEl(s.root.current, seat), 4);
-          }
-        }
-        // Un beau pot vaut un mot du gagnant, si personne n'a déjà parlé.
-        if (spoken.size === 0) {
-          for (const pot of res.pots) {
-            const top = pot.winners[0];
-            const bot = top ? s.botAt(top.seat) : null;
-            if (top && bot && s.big(pot.amount)) {
-              s.say(tableLine(bot, "gagne", res.no), 3_600);
-              break;
-            }
           }
         }
       }
@@ -157,5 +171,6 @@ export function useDenouement(view: TableView, live: boolean, stage: Stage): Den
     accused,
     judged,
     settled: shown >= plan.beats.length,
+    talks: live && plan.talk !== null,
   };
 }

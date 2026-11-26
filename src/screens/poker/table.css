@@ -399,6 +399,9 @@
 
 .poker-voix--refus { color: var(--cerise-clair); }
 
+/* Au dénouement, la place d'une réplique de deux lignes est gardée d'avance. */
+.poker-voix--garde { min-height: 46px; }
+
 .poker-voix--replique {
   gap: 8px;
   justify-content: flex-start;
@@ -931,6 +934,16 @@
     min-height: 36px;
     font: 500 14px/18px var(--texte);
   }
+
+  .poker-voix--garde { min-height: 44px; }
+  .poker-voix--replique p { padding: 3px 10px 4px; }
+
+  .poker-bilan {
+    min-height: 40px;
+    line-height: 18px;
+  }
+
+  .poker-bilan__titre { font: 700 16px/20px var(--texte); }
 
   .poker-moi { gap: 4px; }
   .poker-moi__infos { min-height: 24px; }

@@ -92,7 +92,7 @@ export function Promenade() {
           return (
             <li
               key={place.id}
-              // Le lieu sur lequel la rue s'ouvre se fond sur place : la page se cale sur lui.
+              // Le lieu sur lequel la rue s'ouvre : la page se cale sur lui pendant qu'il entre (mouvement.css).
               className={place.id === best.id ? "cascade__ancre" : undefined}
               style={{ "--rang": Math.abs(PLACES.indexOf(place) - PLACES.indexOf(best)) } as CSSProperties}
             >

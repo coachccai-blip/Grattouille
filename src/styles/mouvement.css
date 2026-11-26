@@ -210,17 +210,19 @@ html[data-nav-pose] .jeu__fond > .ecran {
 .cascade > :nth-child(n + 13) { animation: none; }
 
 /* L'élément sur lequel la page se cale en s'ouvrant (le meilleur lieu ouvert de la
-   Promenade) ne se déplace pas : il se fond sur place, et les autres entrent autour de
-   lui. Sa boîte est la sienne dès la première image : la page s'ouvre au même endroit,
-   au pixel près, avec ou sans animations. */
-.cascade > .cascade__ancre { animation-name: cascade-fondu; }
+   Promenade, par `scrollIntoView`). La page se cale pendant qu'il entre : sa boîte, à cet
+   instant, décide de l'endroit où la rue s'ouvre. Avant ce lot, c'était l'écran entier qui
+   entrait de 12 px (`ecran-entre`, base.css) ; ce lieu entre donc de 12 px, sans échelle :
+   la Promenade s'ouvre au même endroit qu'avant, au pixel près. (En animations réduites,
+   rien ne bouge, et elle se cale 12 px plus bas : c'était déjà le cas.) */
+.cascade > .cascade__ancre { animation-name: cascade-ancre; }
 
 @keyframes cascade-entre {
   from { opacity: 0; transform: translateY(16px) scale(.97); }
 }
 
-@keyframes cascade-fondu {
-  from { opacity: 0; }
+@keyframes cascade-ancre {
+  from { opacity: 0; transform: translateY(12px); }
 }
 
 .calme .cascade > * { animation: none; }
