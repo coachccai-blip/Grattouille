@@ -4,13 +4,14 @@
 // `usePickUp` ramasse le ticket et part le gratter. `TicketParTerre` est le petit
 // ticket qui brille au bas d'un écran quand il y en a un à ramasser.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PendingTicket } from "../../shared/types";
 import { atLeast } from "../app/helpers";
 import { nav } from "../app/nav";
 import { pickUpTicket, useFound, useGame } from "../app/store";
 import { Icon } from "../art/icons";
-import { playTicketBought } from "../fx/audio";
+import { ticketParTerre, ticketRamasse } from "../fx/ambiance";
+import { playPickUp } from "../fx/audio";
 import { haptic } from "../fx/haptics";
 import { t } from "../i18n";
 import "./trouve.css";
@@ -28,7 +29,9 @@ export function usePickUp(then?: (ticket: PendingTicket) => void): { busy: boole
     void pickUpTicket().then(async (ticket) => {
       if (ticket) {
         await atLeast(t0, 350);
-        playTicketBought();
+        // « Hop » : un ticket ramassé ne sort pas du distributeur.
+        ticketRamasse();
+        playPickUp();
         haptic.buy();
         if (then) then(ticket);
         else nav.push({ name: "grattage", tickets: [ticket] });
@@ -37,6 +40,17 @@ export function usePickUp(then?: (ticket: PendingTicket) => void): { busy: boole
     });
   };
   return { busy, pickUp };
+}
+
+/**
+ * Un ticket par terre scintille (à l'oreille aussi) quand il apparaît : une fois par
+ * ticket, quel que soit l'écran où on le voit d'abord. `shown` : il est à l'écran.
+ */
+export function useFoundSparkle(shown: boolean): void {
+  const present = useFound() !== null;
+  useEffect(() => {
+    ticketParTerre(present, shown);
+  }, [present, shown]);
 }
 
 /**
@@ -49,6 +63,7 @@ export function TicketParTerre() {
   // Un message bref s'affiche au même endroit : la pastille lui laisse la place, le temps qu'il passe.
   const message = useGame((s) => s.toast !== null);
   const { busy, pickUp } = usePickUp();
+  useFoundSparkle(Boolean(found) && !message);
   if (!found) return null;
   return (
     // Le sol sur lequel la pastille est posée : ce qui défile passe dessous, jamais sous elle.

@@ -9,7 +9,7 @@
 // - À 55 % de couverture, la case est révélée : le reste de son encre se dissout en
 //   220 ms à partir du dernier point touché.
 
-import { playReveal, scratchEnd, scratchMove } from "../fx/audio";
+import { playReveal, playSweep, scratchEnd, scratchMove, type RevealKind } from "../fx/audio";
 import { haptic } from "../fx/haptics";
 import type { Fx } from "../fx/particles";
 import { INKS, brushes, cellPath, paintInk, type CellShape, type InkKind } from "./ink";
@@ -338,8 +338,9 @@ export class ScratchSurface {
     if (c.revealed) return;
     c.revealed = true;
     this.revealed.add(c.id);
-    // Un « toc » et une vibration de 10 ms.
-    playReveal();
+    // Un tic et une vibration de 10 ms. La case dit elle-même quel tic est le sien
+    // (`data-revele`) : la carte qui se retourne, le dé qui roule, la lettre qui s'allume.
+    playReveal(c.el.dataset.revele as RevealKind | undefined);
     haptic.reveal();
     if (this.calm) {
       this.wipe(c);
@@ -463,6 +464,8 @@ export class ScratchSurface {
     const box = this.o.canvas.getBoundingClientRect();
     this.offsetX = box.left;
     this.offsetY = box.top;
+    // Le balayage s'annonce.
+    playSweep();
     const stagger = targets.length > 1 ? Math.min(80, (total * 0.6) / (targets.length - 1)) : 0;
     const dur = Math.max(260, total - stagger * (targets.length - 1));
     const start = performance.now();

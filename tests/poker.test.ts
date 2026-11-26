@@ -2582,12 +2582,18 @@ describe("tables de la maison et défis", () => {
     for (let seed = 1; seed <= 60; seed++) {
       const rng = rngOf(8_000 + seed);
       let t = challenge(rng);
-      // Un joueur pressé : il mise ou relance le plus possible, et suit tout.
+      // Un joueur pressé : il mise ou relance autant que la limite le permet, et suit tout.
+      // Une partie sur deux, il est aussi sans scrupule : il se donne la plus belle main possible.
+      const cheater = seed % 2 === 1;
       for (let now = T0; now < T0 + 3_600_000 && t.phase !== "fermee"; now += 1_000) {
         t = advance(t, now, rng);
         if (t.phase === "fermee") break;
-        const o = viewFor(t, "p_a", now).options;
-        if (o.cheat) t = act(t, "p_a", { type: "franc-jeu" }, now, rng);
+        const view = viewFor(t, "p_a", now);
+        const o = view.options;
+        if (o.cheat && cheater) {
+          const best = possibleSwaps(view.hand!.cards).sort((a, b) => b.value.score - a.value.score)[0]!;
+          t = act(t, "p_a", { type: "tricher", ...best.swap }, now, rng);
+        } else if (o.cheat) t = act(t, "p_a", { type: "franc-jeu" }, now, rng);
         else if (o.raise) t = act(t, "p_a", { type: "relancer", amount: o.raise.max }, now, rng);
         else if (o.bet) t = act(t, "p_a", { type: "miser", amount: o.bet.max }, now, rng);
         else if (o.fold) t = act(t, "p_a", o.check ? { type: "parole" } : { type: "suivre" }, now, rng);
@@ -2607,8 +2613,10 @@ describe("tables de la maison et défis", () => {
       if (reason === "defi-perdu") expect(payout).toBe(0);
       expect(["defi-gagne", "defi-perdu", "defi-nul"]).toContain(reason);
     }
-    expect(outcomes.get("defi-gagne")).toBeGreaterThan(5);
-    expect(outcomes.get("defi-perdu")).toBeGreaterThan(5);
+    // Contre un hôte facile, qui accuse rarement, le tricheur gagne presque toujours ;
+    // le joueur honnête qui mise à l'aveugle, presque jamais.
+    expect(outcomes.get("defi-gagne")).toBeGreaterThan(20);
+    expect(outcomes.get("defi-perdu")).toBeGreaterThan(15);
   });
 
   it("une table de la maison : trois robots, la partie part toute seule, un robot à sec recave", () => {

@@ -1,7 +1,10 @@
 // Feuille (BRIEF.md, section 13.5) : panneau ivoire qui monte du bas, avec une
 // poignée. Se ferme en glissant vers le bas, en touchant le voile, ou au clavier.
+// Elle monte sur un glissé montant, et redescend sur un glissé descendant : sa sortie
+// est jouée par un fantôme (src/app/transitions.ts), une fois la feuille démontée.
 
 import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
+import { playSheet } from "../fx/audio";
 import { t } from "../i18n";
 import "./feuille.css";
 
@@ -16,6 +19,13 @@ interface FeuilleProps {
 export function Feuille({ titre, onClose, children, className }: FeuilleProps) {
   const panel = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; id: number } | null>(null);
+
+  // Le son de la feuille : à l'ouverture, puis à la fermeture, d'où qu'elle vienne
+  // (la poignée, le voile, le bouton retour du téléphone).
+  useEffect(() => {
+    playSheet(true);
+    return () => playSheet(false);
+  }, []);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -48,11 +58,22 @@ export function Feuille({ titre, onClose, children, className }: FeuilleProps) {
     if (!drag.current || drag.current.id !== e.pointerId || !panel.current) return;
     const dy = e.clientY - drag.current.y;
     drag.current = null;
-    panel.current.style.transition = "";
-    panel.current.style.transform = "";
+    const el = panel.current;
     // Glissée vers le bas, ou simplement touchée : la feuille se ferme. (La poignée
     // capture le pointeur pour suivre le doigt : le clic du bouton n'arriverait pas.)
-    if (e.type === "pointerup" && (dy > 80 || Math.abs(dy) < 8)) onClose();
+    if (e.type === "pointerup" && (dy > 80 || Math.abs(dy) < 8)) {
+      // Elle reste où le doigt l'a laissée : c'est de là qu'elle finit de descendre.
+      onClose();
+      // Si rien ne l'a refermée (ce qui n'arrive pas), elle reprend sa place.
+      window.setTimeout(() => {
+        if (!el.isConnected) return;
+        el.style.transition = "";
+        el.style.transform = "";
+      }, 600);
+      return;
+    }
+    el.style.transition = "";
+    el.style.transform = "";
   };
 
   return (

@@ -1,14 +1,15 @@
 // Petits composants communs (BRIEF.md, section 13.5) : en-tête d'écran, barre
 // d'onglets, message bref, bulle de personnage, jauge de tempérament, interrupteur.
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { Temperament } from "../../shared/types";
 import type { Line } from "../app/dialogues";
 import { nav, type Tab } from "../app/nav";
 import { dismissToast, toScratch, useGame } from "../app/store";
 import { Portrait } from "../art/Illustration";
 import { Etoile, Icon, type IconName } from "../art/icons";
-import { playTap, unlockAudio } from "../fx/audio";
+import { piouParle } from "../fx/ambiance";
+import { playClick, playToggle } from "../fx/audio";
 import { t } from "../i18n";
 import { temperamentName } from "../i18n/noms";
 import { cx } from "../ticket/parts";
@@ -95,7 +96,18 @@ export function Entete({ titre, retour = false, gauche, droite, titreDiscret = f
     <header className={cx("entete", grand && "entete--grand")}>
       <div className="entete__barre">
         {retour && (
-          <button type="button" className="entete__bouton entete__retour" onClick={() => nav.back()} aria-label={t("Retour")}>
+          <button
+            type="button"
+            className="entete__bouton entete__retour"
+            data-son="retour"
+            onPointerDown={() => playClick(-1)}
+            onClick={(e) => {
+              // Au clavier, pas d'appui : le déclic part à l'activation.
+              if (e.detail === 0) playClick(-1);
+              nav.back();
+            }}
+            aria-label={t("Retour")}
+          >
             <Icon name="retour" />
           </button>
         )}
@@ -121,24 +133,30 @@ export function Onglets({ actif }: { actif: Tab | null }) {
   const waiting = useGame((s) => toScratch(s).length);
   return (
     <nav className="onglets" aria-label={t("Navigation principale")}>
-      {TABS.map((tab) => {
+      {TABS.map((tab, i) => {
         const active = tab.id === actif;
         const jouer = tab.id === "promenade";
+        // Un déclic par changement : rien si l'on est déjà sur cet écran.
+        const declic = () => {
+          if (nav.current().name !== tab.id) playClick(i);
+        };
         return (
           <button
             key={tab.id}
             type="button"
             className={cx("onglet", active && "onglet--actif", jouer && "onglet--jouer")}
             aria-current={active ? "page" : undefined}
-            onPointerDown={() => {
-              unlockAudio();
-              playTap();
+            data-son="onglet"
+            onPointerDown={declic}
+            onClick={(e) => {
+              if (e.detail === 0) declic();
+              nav.tab(tab.id);
             }}
-            onClick={() => nav.tab(tab.id)}
           >
             <span className="onglet__pastille">
               <Icon name={tab.icon} plein={active || jouer} size={jouer ? 30 : 26} />
-              {jouer && waiting > 0 && <span className="onglet__compte" aria-hidden="true">{waiting}</span>}
+              {/* Le compte porte sa valeur en clé : il rebondit chaque fois qu'il change. */}
+              {jouer && waiting > 0 && <span key={waiting} className="onglet__compte" aria-hidden="true">{waiting}</span>}
             </span>
             <span className="onglet__mot">
               {t(tab.label)}
@@ -179,8 +197,16 @@ export function HorsLigne() {
   );
 }
 
-/** Bulle de personnage : portrait rond de l'hôte et une phrase. */
+/** Piou pépie quand il dit quelque chose de nouveau. Les autres personnages parlent sans bruit. */
+function useVoix(pnj: string | undefined, words: string | undefined): void {
+  useEffect(() => {
+    if (pnj === "piou" && words) piouParle(words);
+  }, [pnj, words]);
+}
+
+/** Bulle de personnage : portrait rond de l'hôte et une phrase. Elle pousse en apparaissant. */
 export function Bulle({ line, className }: { line: Line | null; className?: string }) {
+  useVoix(line?.speaker, line?.text);
   if (!line) return null;
   return (
     <div className={cx("bulle", className)}>
@@ -201,10 +227,13 @@ interface BulleLibreProps {
   className?: string;
   /** Le nom n'est dit qu'aux lecteurs d'écran : le portrait suffit, là où la place manque. */
   nomDiscret?: boolean;
+  /** Ce qui est dit, quand `children` n'est pas un simple texte : Piou ne pépie qu'à une phrase nouvelle. */
+  voix?: string;
 }
 
 /** La même bulle, pour un texte libre (Piou). */
-export function BulleLibre({ pnj, nom, children, className, nomDiscret = false }: BulleLibreProps) {
+export function BulleLibre({ pnj, nom, children, className, nomDiscret = false, voix }: BulleLibreProps) {
+  useVoix(pnj, voix ?? (typeof children === "string" ? children : undefined));
   return (
     <div className={cx("bulle", className)}>
       <Portrait pnj={pnj} />
@@ -258,10 +287,17 @@ export function Interrupteur({ label, aide, icon, checked, onChange }: Interrupt
       role="switch"
       aria-checked={checked}
       className={cx("interrupteur", checked && "interrupteur--actif")}
+      data-son="interrupteur"
       onClick={() => {
-        unlockAudio();
-        playTap();
-        onChange(!checked);
+        // Deux notes : montantes quand il s'allume, descendantes quand il s'éteint. L'interrupteur
+        // du son lui-même s'entend dans les deux sens : il sonne avant de se taire, après s'être rallumé.
+        if (checked) {
+          playToggle(false);
+          onChange(false);
+        } else {
+          onChange(true);
+          playToggle(true);
+        }
       }}
     >
       <Icon name={icon} className="interrupteur__icone" />

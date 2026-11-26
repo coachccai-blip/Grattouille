@@ -19,7 +19,7 @@ import {
 } from "../../shared/rules";
 import { TICKETS, ticketById } from "../../shared/tickets";
 import type { LookSlot, PendingTicket, PlaceId, PlayerState } from "../../shared/types";
-import { resumeAudio, setSoundEnabled, suspendAudio } from "../fx/audio";
+import { playCashRegister, playRefuse, playStars, resumeAudio, setSoundEnabled, suspendAudio } from "../fx/audio";
 import { setHapticsEnabled } from "../fx/haptics";
 import { ApiFailure, api, enableSandbox, wantsSandbox, type FailureCode } from "./api";
 import { hostName } from "./dialogues";
@@ -61,6 +61,11 @@ interface GameState {
   welcome: boolean;
   /** Durée du prochain comptage du solde dans la bourse, en millisecondes. */
   countMs: number;
+  /**
+   * Ce que la bourse attend avant de compter un gain, en millisecondes : le temps que le
+   * montant gagné finisse de défiler et que ses pièces arrivent jusqu'à elle.
+   */
+  countDelay: number;
   /** Incrémenté à chaque achat refusé faute d'argent : la bourse clignote. */
   purseFlash: number;
   /**
@@ -85,6 +90,7 @@ export const useGame = create<GameState>(() => ({
   ending: false,
   welcome: false,
   countMs: 800,
+  countDelay: 0,
   purseFlash: 0,
   luckyAt: 0,
 }));
@@ -175,8 +181,12 @@ export function useFound(): "fauche" | "chance" | null {
 let toastId = 0;
 let toastTimer = 0;
 
-/** Message bref : bandeau au-dessus des onglets, 3 secondes. */
+/**
+ * Message bref : bandeau au-dessus des onglets, 3 secondes. Un refus (pas assez
+ * d'argent, lieu fermé) ou une erreur s'entend aussi : un double « non », tout doux.
+ */
 export function toast(text: string, kind: Toast["kind"] = "info"): void {
+  if (kind === "erreur") playRefuse();
   window.clearTimeout(toastTimer);
   const id = ++toastId;
   set({ toast: { id, kind, text } });
@@ -307,13 +317,14 @@ export async function flushAck(): Promise<void> {
 /**
  * Le résultat d'un ticket vient de s'afficher : il rejoint `grattouille.revealed`.
  * `countMs` : la durée pendant laquelle la bourse compte jusqu'à sa nouvelle valeur.
+ * `countDelay` : ce qu'elle attend d'abord (le montant gagné défile, ses pièces arrivent).
  */
-export function markRevealed(ticketId: string, countMs: number): void {
+export function markRevealed(ticketId: string, countMs: number, countDelay = 0): void {
   const { revealed, sandbox } = get();
   if (revealed.includes(ticketId)) return;
   const next = [...revealed, ticketId];
   if (!sandbox) saveRevealed(next);
-  set({ revealed: next, countMs });
+  set({ revealed: next, countMs, countDelay });
   window.clearTimeout(ackTimer);
   ackTimer = window.setTimeout(() => void flushAck(), 3000);
 }
@@ -621,7 +632,11 @@ export async function buyItem(itemId: string): Promise<boolean> {
     applyState(r.state);
     const opened = newlyOpened(before?.standing ?? 0, r.state.standing).map((p) => p.id);
     const ending = !before?.kiosk && r.state.kiosk;
-    set({ openings: [...get().openings, ...opened], ending: get().ending || ending, countMs: 500 });
+    // La caisse, puis une note par étoile de Standing gagnée (huit au plus). Quand l'achat
+    // ouvre un lieu ou conclut l'histoire, c'est la fanfare du grand moment qui prend la suite.
+    playCashRegister();
+    if (opened.length === 0 && !ending) playStars(r.state.standing - (before?.standing ?? 0), 0.42);
+    set({ openings: [...get().openings, ...opened], ending: get().ending || ending, countMs: 500, countDelay: 0 });
     return true;
   } catch (error) {
     await recover(error);

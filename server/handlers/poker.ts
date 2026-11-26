@@ -213,14 +213,22 @@ export async function joinPokerTable(req: Request, deps: Deps): Promise<Response
   if (!code) fail("TABLE_NOT_FOUND");
   const now = deps.now();
   me = await freeFromOtherTable(deps, me, now, code);
-  if (!me.poker && balanceAfter(me, ack) < buyIn) fail("BUYIN_UNAFFORDABLE");
+  if (me.poker) {
+    // Il a déjà une séance à cette table : s'il y est assis, rejoindre ne change rien ;
+    // s'il n'y est plus, elle vient d'être soldée et il se rassoit comme un nouveau venu.
+    const here = await reconcile(deps, me, code, await touchTable(deps, me, code, now), now);
+    if (here.me.poker && here.table && seatIndexOf(here.table, me.id) >= 0) return reply(here, now);
+    if (here.me.poker) fail("CONFLICT");
+    me = here.me;
+  }
+  if (balanceAfter(me, ack) < buyIn) fail("BUYIN_UNAFFORDABLE");
 
   // 1. Réserver un siège. Aucun argent ne bouge encore.
   const fresh = newSessionId(deps.random32);
   const reserved = await touchTable(deps, me, code, now, (t) => {
-    if (t.kind !== "privee") fail("TABLE_NOT_FOUND");
-    if (seatIndexOf(t, me.id) >= 0) return t;
+    if (t.kind !== "privee" || t.phase === "fermee") fail("TABLE_NOT_FOUND");
     if (buyIn < t.minBuyIn || buyIn > t.maxBuyIn) fail("BAD_REQUEST");
+    // Un siège déjà réservé à son nom (une requête interrompue) : on le reprend.
     return sit(t, sitterOf(me, fresh), now, deps.random32);
   });
   const index = reserved ? seatIndexOf(reserved, me.id) : -1;
@@ -231,23 +239,18 @@ export async function joinPokerTable(req: Request, deps: Deps): Promise<Response
   }
   const seat = reserved.seats[index]!;
 
-  // 2. Payer la cave, si elle ne l'est pas déjà (le joueur est peut-être déjà assis ici).
-  let moved = false;
-  if (seat.seq === 0) {
-    try {
-      me = await payBuyIn(deps, me.id, now, ack, { code, sid: seat.sid, amount: buyIn });
-      moved = true;
-    } catch (error) {
-      if (error instanceof ApiError) await reconcile(deps, me, code, await releaseSeat(deps, code, seat.sid, now), now);
-      throw error;
-    }
-  } else if (me.poker?.sid !== seat.sid) {
-    fail("CONFLICT");
+  // 2. Payer la cave. Si une autre requête du même joueur vient de la poser, celle-ci s'efface.
+  if (seat.seq > 0) fail("CONFLICT");
+  try {
+    me = await payBuyIn(deps, me.id, now, ack, { code, sid: seat.sid, amount: buyIn });
+  } catch (error) {
+    if (error instanceof ApiError) await reconcile(deps, me, code, await releaseSeat(deps, code, seat.sid, now), now);
+    throw error;
   }
 
   // 3. La table reçoit la cave.
   const after = await reconcile(deps, me, code, await touchTable(deps, me, code, now), now);
-  return reply({ ...after, moved: moved || after.moved }, now);
+  return reply({ ...after, moved: true }, now);
 }
 
 // ---------------------------------------------------------------------------

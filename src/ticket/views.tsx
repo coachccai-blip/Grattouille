@@ -5,8 +5,11 @@
 //
 // Tous les textes passent par `t()` : les tables gardent leurs mots français, c'est
 // le rendu qui les écrit dans la langue du jeu.
+//
+// Le mouvement : une carte révélée se retourne, un dé roule, une lettre s'allume (c'est
+// la feuille de style qui s'en charge), et le pion saute de case en case (`usePas`).
 
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEuros } from "../../shared/format";
 import type { TicketDef } from "../../shared/types";
 import { Symbole } from "../art/Illustration";
@@ -25,6 +28,7 @@ import { PANEL_COUNT, panelCellIds, panelNames, panelRevealed, type MultiLayout 
 import type { NumerosLayout } from "../engines/numeros";
 import { SQUARES, type ParcoursLayout } from "../engines/parcours";
 import type { TrioLayout } from "../engines/trio";
+import { playClick, playPawnStep } from "../fx/audio";
 import { pick, t } from "../i18n";
 import { Ajuste, Case, Montant, MontantEmpile, cx, prefixed, useTicket } from "./parts";
 import { symbolKey, symbolName } from "./themes";
@@ -186,7 +190,13 @@ function DuelView({ def, layout, revealed, prefix }: ViewProps<DuelLayout>) {
         const bust = layout.skin === "cartes" && round.them > 21;
         return (
           <div className="jeu-duel__manche" key={idM}>
-            <Case id={idM} vue={seen} touche={seen && won && revealed.has(idA)} className="jeu-duel__rencontre">
+            <Case
+              id={idM}
+              vue={seen}
+              touche={seen && won && revealed.has(idA)}
+              son={layout.skin === "cartes" ? "carte" : undefined}
+              className="jeu-duel__rencontre"
+            >
               <span className={cx("jeu-duel__camp", seen && won && "jeu-duel__camp--gagne")}>
                 <Ajuste className="jeu-duel__nom">{t("Toi")}</Ajuste>
                 <Ajuste className="jeu-duel__score">{course ? formatChrono(round.you) : String(round.you)}</Ajuste>
@@ -301,7 +311,7 @@ function LignesView({ layout, revealed }: ViewProps<LignesLayout>) {
           const id = `d${i}`;
           const onLine = layout.lines.some((l) => l.items.includes(e));
           return (
-            <Case key={id} id={id} vue={revealed.has(id)} touche={revealed.has(id) && onLine}>
+            <Case key={id} id={id} vue={revealed.has(id)} touche={revealed.has(id) && onLine} son={layout.skin === "cartes" ? "carte" : undefined}>
               <Element skin={layout.skin} e={e} />
             </Case>
           );
@@ -358,13 +368,81 @@ function pathSpot(square: number): { col: number; row: number } {
   return { col: fromBottom % 2 === 0 ? inRow : PATH_COLS - 1 - inRow, row: PATH_ROWS - 1 - fromBottom };
 }
 
-function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
-  const ids = layout.dice.map((_, i) => prefixed(prefix, `x${i}`));
-  let at = 0;
-  layout.dice.forEach((d, i) => {
-    if (revealed.has(ids[i]!)) at += d;
+/** Vrai quand le jeu se passe de mouvement (réglage ou préférence du système). */
+function calme(): boolean {
+  return typeof document !== "undefined" && document.documentElement.classList.contains("calme");
+}
+
+/**
+ * La case où l'on voit le pion : il rejoint `at` en sautant de case en case, un « toc »
+ * par case. Plus il a de retard (« Tout gratter », la rafale), plus il presse le pas :
+ * il n'est jamais en retard de plus d'une demi-seconde, et ne retient pas le jeu.
+ */
+function usePas(at: number, immediat: boolean): number {
+  const [pas, setPas] = useState(at);
+  const enRoute = useRef(false);
+  useEffect(() => {
+    if (pas === at) {
+      enRoute.current = false;
+      return;
+    }
+    if (immediat || pas > at || calme()) {
+      setPas(at);
+      return;
+    }
+    const wait = enRoute.current ? Math.max(30, Math.min(110, 440 / (at - pas))) : 0;
+    const timer = window.setTimeout(() => {
+      enRoute.current = true;
+      playPawnStep(pas);
+      setPas(pas + 1);
+    }, wait);
+    return () => window.clearTimeout(timer);
+  }, [at, pas, immediat]);
+  return pas;
+}
+
+/**
+ * Le pion saute : il est posé d'emblée sur sa nouvelle case (aucune animation de mise
+ * en page), et c'est une transformation qui le ramène de l'ancienne, en cloche.
+ */
+function useSaut(pas: number) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const last = useRef<{ pas: number; x: number; y: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const now = { pas, x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2, w: el.offsetWidth };
+    const before = last.current;
+    last.current = now;
+    if (!before || before.pas === pas || now.w === 0 || calme() || typeof el.animate !== "function") return;
+    const dx = before.x - now.x;
+    const dy = before.y - now.y;
+    const k = before.w / now.w;
+    const hop = now.w * 0.45;
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${k})`, easing: "ease-out" },
+        { transform: `translate(${dx / 2}px, ${dy / 2 - hop}px) scale(${(k + 1) / 2})`, easing: "ease-in" },
+        { transform: "translate(0, 0) scale(1)" },
+      ],
+      { duration: 120 },
+    );
   });
-  const done = ids.every((id) => revealed.has(id));
+  return ref;
+}
+
+function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
+  const { mini } = useTicket();
+  const ids = layout.dice.map((_, i) => prefixed(prefix, `x${i}`));
+  /** Le total des dés grattés : la case où le pion doit se rendre. */
+  let total = 0;
+  layout.dice.forEach((d, i) => {
+    if (revealed.has(ids[i]!)) total += d;
+  });
+  /** La case où il se trouve : il y va en sautant. */
+  const at = usePas(total, mini);
+  const saut = useSaut(at);
+  const done = ids.every((id) => revealed.has(id)) && at === total;
   const won = done && (layout.squares[at - 1] ?? 0) > 0;
   const spot = at > 0 ? pathSpot(at) : null;
   // Au départ, le pion attend à gauche des dés ; ensuite il se pose au pied de sa case.
@@ -404,17 +482,22 @@ function ParcoursView({ layout, revealed, prefix }: ViewProps<ParcoursLayout>) {
           );
         })}
       </ol>
-      <span className={cx("jeu-parcours__pion", !spot && "jeu-parcours__pion--depart", won && "jeu-parcours__pion--gagne")} style={pawn} aria-hidden="true">
+      <span
+        ref={saut}
+        className={cx("jeu-parcours__pion", !spot && "jeu-parcours__pion--depart", won && "jeu-parcours__pion--gagne")}
+        style={pawn}
+        aria-hidden="true"
+      >
         <Symbole cle={PIONS[layout.skin] ?? "pion:crabe"} />
       </span>
       <div className="jeu-parcours__des">
         {/* Avant le premier dé, le pion attend ici ; ensuite, le total des dés grattés s'y écrit. */}
         <span className="jeu-parcours__depart">
           <Ajuste className="jeu__titre">{t(at > 0 ? "Total" : "Départ")}</Ajuste>
-          <strong className="jeu-parcours__total">{at > 0 ? at : ""}</strong>
+          <strong className="jeu-parcours__total">{at > 0 ? total : ""}</strong>
         </span>
         {layout.dice.map((d, i) => (
-          <Case key={ids[i]} id={ids[i]!} vue={revealed.has(ids[i]!)} touche={won}>
+          <Case key={ids[i]} id={ids[i]!} vue={revealed.has(ids[i]!)} touche={won} son="de">
             <De value={d} />
           </Case>
         ))}
@@ -544,7 +627,7 @@ function MotsView({ layout, revealed }: ViewProps<MotsLayout>) {
         {layout.letters.map((letter, i) => {
           const id = `l${i}`;
           return (
-            <Case key={id} id={id} forme="rond" vue={revealed.has(id)} touche={revealed.has(id) && inGrid.has(letter)}>
+            <Case key={id} id={id} forme="rond" vue={revealed.has(id)} touche={revealed.has(id) && inGrid.has(letter)} son="lettre">
               <span className={cx("jeu-mots__lettre", !inGrid.has(letter) && "jeu-mots__lettre--morte")}>{letter}</span>
             </Case>
           );
@@ -654,7 +737,12 @@ function MultiView({ def, layout, revealed, panel, onPanel }: MultiProps) {
               aria-selected={p === panel}
               className={cx("jeu-multi__pastille", p === panel && "jeu-multi__pastille--active", complete && "jeu-multi__pastille--finie")}
               disabled={!onPanel || !reachable}
-              onClick={() => onPanel?.(p)}
+              data-son="volet"
+              onClick={() => {
+                // Un déclic par changement de volet.
+                if (p !== panel && onPanel) playClick(p);
+                onPanel?.(p);
+              }}
             >
               <span aria-hidden="true">{p + 1}</span>
               <span className="invisible">{t(names[p]!)}</span>

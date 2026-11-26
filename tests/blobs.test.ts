@@ -13,6 +13,7 @@ import { cryptoRandom32 } from "../server/auth";
 import { newPlayer } from "../server/player";
 import { BlobsStorage } from "../server/storage.blobs";
 import { commit } from "../server/storage";
+import { createTable, deposit, sit, type TableState } from "../shared/poker";
 import type { Board } from "../shared/types";
 
 let server: BlobsServer;
@@ -159,6 +160,83 @@ describe("BlobsStorage", () => {
     expect(board.updatedAt).toBe(2);
   });
 
+  it("tables de poker : création sous condition, écriture conditionnelle, relecture après conflit, suppression", async () => {
+    const s = new BlobsStorage("test");
+    const pause = () => new Promise((r) => setTimeout(r, 15));
+    const rng = () => 12345;
+    let table = createTable({ code: "TABLE", kind: "privee", place: null, blind: 10, maxBuyIn: 1000, seats: 3, bots: [], difficulty: "normal" }, 1);
+    table = sit(table, { playerId: "p_aaaaaaaaaaaaaaa7", sid: "s_un", pseudo: "Ada", species: "chat", look: null }, 1, rng);
+    expect(await s.getTable("TABLE")).toBeNull();
+    expect(await s.createTable(table)).toBe(true);
+    expect(await s.createTable(table)).toBe(false); // onlyIfNew
+    expect(await s.getTable("TABLE")).toEqual(table);
+
+    // Le moteur est pur : la mutation rend la table à écrire, ou `null` s'il n'y a rien à écrire.
+    await pause();
+    const funded = await s.mutateTable("TABLE", (t) => {
+      const next = deposit(t, "s_un", 1, 400, 2, rng);
+      return { result: next.seats[0]!.stack, write: next };
+    });
+    expect(funded).toBe(400);
+    expect((await s.getTable("TABLE"))!.seats[0]).toMatchObject({ stack: 400, seq: 1, received: 400 });
+    expect(await s.mutateTable("TABLE", (t) => ({ result: t.version, write: null }))).toBe(table.version + 1);
+
+    // Quelqu'un d'autre écrit entre notre lecture et notre écriture : on relit et on recommence.
+    const realFetch = globalThis.fetch;
+    const intrude = (times: number) => {
+      let left = times;
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        if (left > 0 && String(init?.method).toLowerCase() === "put" && headers["if-match"]) {
+          left--;
+          await pause();
+          const store = getStore({ name: "gr-tables-test", consistency: "strong", fetch: realFetch });
+          const current = (await store.get("TABLE", { type: "json" })) as TableState;
+          await store.setJSON("TABLE", { ...current, activeAt: current.activeAt + 1000 });
+          await pause();
+        }
+        return realFetch(input, init);
+      }) as typeof fetch;
+    };
+    try {
+      let calls = 0;
+      await pause();
+      intrude(1);
+      const raced = await s.mutateTable("TABLE", (t) => {
+        calls++;
+        const next = deposit(t, "s_un", 2, 700, 3, rng);
+        return { result: next.activeAt, write: next };
+      });
+      expect(calls).toBe(2);
+      // L'écriture de l'intruse n'est pas perdue : la nôtre a été rejouée sur la table fraîche.
+      expect((await s.getTable("TABLE"))!.seats[0]).toMatchObject({ stack: 700, seq: 2, received: 700 });
+      expect(raced).toBe(3);
+
+      // Cinq écritures disputées de suite : CONFLICT, et rien de nous n'est écrit.
+      calls = 0;
+      await pause();
+      intrude(5);
+      await expect(s.mutateTable("TABLE", (t) => {
+        calls++;
+        return { result: null, write: deposit(t, "s_un", 3, 900, 4, rng) };
+      })).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(calls).toBe(5);
+      expect((await s.getTable("TABLE"))!.seats[0]).toMatchObject({ stack: 700, seq: 2 });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+
+    await expect(s.mutateTable("TABLE", () => { throw new Error("refus"); })).rejects.toThrow("refus");
+    await expect(s.mutateTable("NULLE", (t) => ({ result: t, write: null }))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await s.deleteTable("TABLE");
+    expect(await s.getTable("TABLE")).toBeNull();
+    await s.deleteTable("TABLE"); // sans erreur
+    // Les tables de `prod` et de `test` ne se voient pas.
+    expect(await s.createTable(table)).toBe(true);
+    expect(await new BlobsStorage("prod").getTable("TABLE")).toBeNull();
+    await s.deleteTable("TABLE");
+  });
+
   it("les stores `prod` et `test` sont séparés", async () => {
     const test = new BlobsStorage("test");
     const prod = new BlobsStorage("prod");
@@ -195,5 +273,60 @@ describe("BlobsStorage", () => {
     expect((await call("DELETE", "/api/me", undefined, auth)).body).toEqual({ ok: true });
     expect((await call("GET", "/api/leaderboard")).body.entries).toEqual([]);
     expect((await call("GET", "/api/me", undefined, auth)).status).toBe(401);
+  });
+
+  it("une table de poker de bout en bout à travers l'API", async () => {
+    const storage = new BlobsStorage("e2e");
+    let now = Date.UTC(2026, 10, 26, 22, 0, 0);
+    const deps: Deps = { storage, context: "test", adminKey: null, now: () => now, random32: cryptoRandom32 };
+    const call = async (method: string, path: string, body?: unknown, auth?: string) => {
+      const headers: Record<string, string> = {};
+      if (auth) headers.authorization = `Bearer ${auth}`;
+      if (body !== undefined) headers["content-type"] = "application/json";
+      const res = await handle(new Request(`https://local.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), deps);
+      return { status: res.status, body: (await res.json()) as any };
+    };
+    const created = await call("POST", "/api/players", { pseudo: "Fine Mouche", species: "chat" });
+    const auth = `${created.body.playerId}.${created.body.code}`;
+    await storage.mutatePlayer(created.body.playerId, (p) => { p.balance = 200; return commit(null); });
+    const lobby = await call("GET", "/api/poker", undefined, auth);
+    expect(lobby.body).toMatchObject({ seat: null, blinds: [1, 2, 5] });
+    expect(lobby.body.houses[0]).toMatchObject({ place: "kiosque", open: true, affordable: true });
+
+    // Une table de la maison : la cave quitte la bourse, la première main est donnée.
+    const table = await call("POST", "/api/poker/tables", { maison: "kiosque", buyIn: 60 }, auth);
+    expect(table.status).toBe(201);
+    const code: string = table.body.view.code;
+    expect(table.body.view).toMatchObject({ kind: "maison", phase: "triche", you: 0 });
+    expect(table.body.state).toMatchObject({ balance: 140, poker: { code } });
+    expect((await storage.getTable(code))!.seats[0]).toMatchObject({ stack: 59, received: 60 });
+    expect((await call("GET", "/api/me", undefined, auth)).body.state.poker).toEqual({ code });
+
+    // Rien n'a changé : la réponse minimale.
+    const v: number = table.body.view.version;
+    expect((await call("GET", `/api/poker/table?code=${code}&v=${v}`, undefined, auth)).body).toEqual({ unchanged: true });
+    const fair = await call("POST", "/api/poker/act", { code, action: { type: "franc-jeu" }, step: table.body.view.step }, auth);
+    expect(fair.status).toBe(200);
+    expect(fair.body.view.hand).toMatchObject({ chosen: true, swap: null });
+    expect(fair.body.view.version).toBeGreaterThan(v);
+
+    // Dix secondes plus tard, les robots ont joué : la table a avancé toute seule.
+    now += 10_000;
+    const later = await call("GET", `/api/poker/table?code=${code}&v=${fair.body.view.version}`, undefined, auth);
+    expect(later.body.view.version).toBeGreaterThan(fair.body.view.version);
+    expect(["encheres", "abattage", "denouement"]).toContain(later.body.view.phase);
+    expect((await storage.getTable(code))!.version).toBe(later.body.view.version);
+
+    // Quitter : le tapis retourne à la bourse, la table sans humain se ferme et son blob disparaît.
+    const stack: number = (await storage.getTable(code))!.seats[0]!.stack;
+    const quit = await call("POST", "/api/poker/act", { code, action: { type: "quitter" } }, auth);
+    expect(quit.status).toBe(200);
+    expect(quit.body.left).toEqual({ reason: "quitte", payout: stack, bonus: 0 });
+    expect(quit.body.state.balance).toBe(140 + stack);
+    expect(quit.body.state.poker).toBeUndefined();
+    expect(await storage.getTable(code)).toBeNull();
+    expect((await call("GET", `/api/poker/table?code=${code}`, undefined, auth)).body.error.code).toBe("TABLE_NOT_FOUND");
+    expect((await call("GET", "/api/poker", undefined, auth)).body.seat).toBeNull();
+    await call("DELETE", "/api/me", undefined, auth);
   });
 });

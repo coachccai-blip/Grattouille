@@ -137,6 +137,8 @@ interface CaseProps {
   vue: boolean;
   /** La case fait partie d'une correspondance visible. */
   touche?: boolean;
+  /** Ce que la case fait entendre quand elle est révélée, si ce n'est pas le tic ordinaire. */
+  son?: "carte" | "de" | "lettre";
   className?: string;
   style?: CSSProperties;
   children: ReactNode;
@@ -147,13 +149,14 @@ interface CaseProps {
  * d'écran qu'une fois révélé. `case__encre` est l'encre provisoire en CSS, visible
  * tant que le canvas n'a pas peint la sienne (et sur les miniatures).
  */
-export function Case({ id, forme = "rect", vue, touche = false, className, style, children }: CaseProps) {
+export function Case({ id, forme = "rect", vue, touche = false, son, className, style, children }: CaseProps) {
   const clip = cellClip(forme);
   return (
     <div
       className={cx("case", `case--${forme}`, vue && "case--vue", touche && "case--touche", className)}
       data-case={id}
       data-forme={forme}
+      data-revele={son}
       style={style}
     >
       <div className="case__fond" style={clip ? { clipPath: clip } : undefined} aria-hidden={!vue}>
