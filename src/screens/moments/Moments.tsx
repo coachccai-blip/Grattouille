@@ -13,7 +13,8 @@ import { nav } from "../../app/nav";
 import { closeEnding, closeOpening, closeWelcome, isCalm, useGame } from "../../app/store";
 import { Illustration, Portrait } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
-import { playOpening, playTicketBought, playTier } from "../../fx/audio";
+import { mouette, piouParle, ticketParTerre } from "../../fx/ambiance";
+import { playChapter, playConfession, playKeys, playOpening, playTicketDrop, playTier } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { Fx } from "../../fx/particles";
 import { t } from "../../i18n";
@@ -34,6 +35,13 @@ function Chapitre({ place }: { place: PlaceId }) {
  * (Piou, lui, parle sans guillemets partout dans le jeu).
  */
 function Paroles({ pnj, lignes, citation = false }: { pnj: string; lignes: readonly string[]; citation?: boolean }) {
+  // Piou pépie quand ses bulles poussent (les autres personnages parlent sans bruit).
+  const premiere = lignes[0] ?? "";
+  useEffect(() => {
+    if (pnj !== "piou") return;
+    const timer = window.setTimeout(() => piouParle(premiere), 700);
+    return () => window.clearTimeout(timer);
+  }, [pnj, premiere]);
   return (
     <div className="moment__paroles">
       <Portrait pnj={pnj} />
@@ -72,6 +80,17 @@ export function Accueil() {
     // Le ticket se gratte devant le Kiosque : c'est là qu'on se retrouve ensuite, les premiers euros en poche.
     nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }, { name: "grattage", tickets: [ticket] }]);
   });
+  // On débarque : une mouette (la signature du jeu), le carton du chapitre, puis le ticket
+  // du quai qui scintille.
+  useEffect(() => {
+    mouette();
+    const carton = window.setTimeout(playChapter, 180);
+    const ticket = window.setTimeout(() => ticketParTerre(true, true), 1300);
+    return () => {
+      window.clearTimeout(carton);
+      window.clearTimeout(ticket);
+    };
+  }, []);
   return (
     <div className="moment moment--accueil" role="dialog" aria-modal="true" aria-label={t("Bienvenue à Grattouille-les-Bains")}>
       <div className="moment__decor" style={{ backgroundImage: skyOf("kiosque") }} aria-hidden="true">
@@ -99,8 +118,10 @@ export function Ouverture({ place }: { place: PlaceId }) {
   const nom = placeName(place);
   const hote = ouverture(place);
   useEffect(() => {
-    playOpening();
     haptic.tier("gros");
+    // Le rideau se lève, puis la fanfare : elle laisse aussi la caisse finir de sonner.
+    const timer = window.setTimeout(playOpening, 300);
+    return () => window.clearTimeout(timer);
   }, []);
   const go = () => {
     closeOpening();
@@ -159,11 +180,28 @@ export function Fin() {
     else corps.current?.focus();
   }, [temps]);
 
+  // Les clés tintent quand on les prend ; puis vient l'aveu.
+  const prendre = () => {
+    playKeys();
+    setTemps("aveu");
+  };
+  useEffect(() => {
+    if (temps !== "aveu") return;
+    const timer = window.setTimeout(playConfession, 450);
+    return () => window.clearTimeout(timer);
+  }, [temps]);
+
+  // Le ticket tombe sur le quai, et le matin recommence pour un autre : la mouette revient.
   const semer = () => {
-    playTicketBought();
+    playTicketDrop();
     haptic.buy();
     setTemps("epilogue");
   };
+  useEffect(() => {
+    if (temps !== "epilogue") return;
+    const timer = window.setTimeout(mouette, 1500);
+    return () => window.clearTimeout(timer);
+  }, [temps]);
 
   return (
     <div className={cx("moment moment--fin", `moment--${temps}`)} role="dialog" aria-modal="true" aria-label={t("Générique de fin")}>
@@ -178,7 +216,7 @@ export function Fin() {
           <>
             <h2 className="moment__titre">{FIN.titre}</h2>
             <Paroles pnj="gaspard" lignes={[FIN.gaspard]} citation />
-            <Bouton bloc onClick={() => setTemps("aveu")}>{t("Prendre les clés")}</Bouton>
+            <Bouton bloc onClick={prendre}>{t("Prendre les clés")}</Bouton>
           </>
         )}
         {temps === "aveu" && (

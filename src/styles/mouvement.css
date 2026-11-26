@@ -1,0 +1,207 @@
+/* Le mouvement du jeu : transitions d'écran, apparitions en cascade, étoiles qui
+   s'envolent. Uniquement des transformations et de l'opacité : rien qui refasse la
+   mise en page, rien qui passe par un filtre. Les animations réduites (classe .calme
+   sur la racine) remplacent tout mouvement par un fondu bref, ou par rien.
+
+   Aucune animation ne retarde un geste : un écran qui glisse, une liste qui entre,
+   un fantôme qui s'en va, tout cela se touche (ou se traverse) dès la première image. */
+
+:root {
+  /* Le dos des cartes : un treillis mimosa sur un bleu de nuit. Le même pour les
+     tickets à cartes et pour la carte retournable (src/ui/Carte.tsx). */
+  --dos-carte:
+    repeating-linear-gradient(45deg, rgba(247, 201, 72, .26) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(247, 201, 72, .26) 0 1px, transparent 1px 6px),
+    linear-gradient(160deg, #1E6470, #0E2F3A);
+  --t-glisse: 260ms;
+}
+
+/* ---------------------------------------------------------------- Transitions d'écran */
+
+/* Un écran est opaque : celui qu'il recouvre en entrant ne se lit pas à travers lui.
+   (Le fond de la page a la même couleur : hors transition, rien ne change.) */
+.ecran { background-color: var(--nuit); }
+
+/* Un écran qui glisse ne déborde jamais de la colonne, et ne fait pas défiler la page de côté. */
+#root { overflow-x: clip; }
+
+/* Le sens de la navigation est posé sur <html> par app/transitions.ts, au moment même
+   où l'écran change. `:where` garde ces règles au poids d'une classe : les animations
+   réduites, et l'écran des réglages qui revient d'un changement de langue, passent devant. */
+
+/* Entrer dans un écran : il glisse depuis la droite, par-dessus celui qu'on quitte. */
+:where(html[data-nav="pousse"] .jeu__fond) > .ecran { animation: ecran-pousse var(--t-glisse) var(--sortie) both; }
+
+/* Revenir : l'écran qu'on quitte repart à droite (c'est son fantôme), et celui-ci l'attendait dessous. */
+:where(html[data-nav="retour"] .jeu__fond) > .ecran { animation: ecran-revient var(--t-glisse) var(--sortie) both; }
+
+/* Changer d'onglet : fondu croisé. L'écran est déjà là ; c'est le fantôme de l'ancien qui s'efface. */
+:where(html[data-nav="fondu"] .jeu__fond) > .ecran { animation: none; }
+
+@keyframes ecran-pousse {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+@keyframes ecran-revient {
+  from { transform: translateX(-9%); }
+  to { transform: none; }
+}
+
+/*
+ * Le fantôme : une copie figée de l'écran qu'on quitte, posée exactement où il était
+ * (même défilement), le temps qu'il sorte. Le vrai écran, lui, est démonté tout de
+ * suite, comme avant : rien n'est monté deux fois, et aucun geste n'est retenu.
+ */
+.fantome {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: var(--colonne);
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--nuit);
+  /* Ce qui est fixe dans la copie (onglets, feuille, fête) se cale sur elle, pas sur la fenêtre. */
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* La copie garde son défilement : ce qui collait en bas de l'écran colle toujours. */
+.fantome__defile {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Tout est figé dans la copie, à l'état où chaque animation se termine. */
+.fantome *,
+.fantome *::before,
+.fantome *::after {
+  animation-delay: -100s !important;
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
+/* On entre plus loin : l'ancien écran recule un peu, sous le nouveau. */
+.fantome--pousse { animation: fantome-recule var(--t-glisse) var(--sortie) both; }
+
+/* On revient : l'ancien écran repart à droite, par-dessus celui qu'on retrouve. */
+.fantome--retour {
+  box-shadow: -10px 0 28px rgba(6, 24, 30, .5);
+  animation: fantome-repart var(--t-glisse) var(--sortie) both;
+}
+
+/* D'un onglet à l'autre : l'ancien écran s'efface. */
+.fantome--fondu { animation: fantome-efface 200ms ease-in both; }
+
+@keyframes fantome-recule {
+  from { opacity: 1; transform: none; }
+  to { opacity: .55; transform: translateX(-12%); }
+}
+
+@keyframes fantome-repart {
+  from { transform: none; }
+  to { transform: translateX(102%); }
+}
+
+@keyframes fantome-efface {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Une feuille qui se referme redescend, et son voile s'efface. Un grand moment qui
+   s'achève se fond. Ce sont leurs copies qui jouent la sortie. */
+.fantome-feuille {
+  pointer-events: none;
+  animation: fantome-descend 220ms cubic-bezier(.4, 0, .8, .4) both !important;
+}
+
+.fantome-voile {
+  pointer-events: none;
+  animation: fantome-efface 220ms linear both !important;
+}
+
+.fantome-moment {
+  pointer-events: none;
+  animation: fantome-efface 220ms linear both !important;
+}
+
+.fantome-moment::after { display: none; }
+
+.fantome-feuille *,
+.fantome-moment *,
+.fantome-moment *::before,
+.fantome-moment *::after {
+  animation-delay: -100s !important;
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
+/* Sans départ écrit : la feuille repart de là où elle est (le doigt a pu la tirer vers le bas). */
+@keyframes fantome-descend {
+  to { transform: translate(-50%, 104%); }
+}
+
+/* ---------------------------------------------------------------- Apparitions en cascade */
+
+/* Une liste entre élément par élément : 40 ms entre deux, douze éléments animés au
+   plus (le reste apparaît d'un bloc). Sans arrivée écrite : chaque élément rejoint son
+   état de repos, quel qu'il soit, et l'animation ne laisse rien derrière elle. Un
+   élément se touche dès qu'il est monté, avant même d'être visible. */
+.cascade > * {
+  animation: cascade-entre 320ms var(--sortie) backwards;
+  animation-delay: calc(var(--rang, 0) * 40ms);
+}
+
+.cascade > :nth-child(2) { --rang: 1; }
+.cascade > :nth-child(3) { --rang: 2; }
+.cascade > :nth-child(4) { --rang: 3; }
+.cascade > :nth-child(5) { --rang: 4; }
+.cascade > :nth-child(6) { --rang: 5; }
+.cascade > :nth-child(7) { --rang: 6; }
+.cascade > :nth-child(8) { --rang: 7; }
+.cascade > :nth-child(9) { --rang: 8; }
+.cascade > :nth-child(10) { --rang: 9; }
+.cascade > :nth-child(11) { --rang: 10; }
+.cascade > :nth-child(12) { --rang: 11; }
+.cascade > :nth-child(n + 13) { animation: none; }
+
+@keyframes cascade-entre {
+  from { opacity: 0; transform: translateY(16px) scale(.97); }
+}
+
+.calme .cascade > * { animation: none; }
+
+/* ---------------------------------------------------------------- Étoiles qui s'envolent */
+
+/* Les ★ gagnées s'envolent vers le compteur de Standing (src/fx/envol.ts). */
+.envol {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.envol__etoile {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: var(--bougainvillier);
+  clip-path: polygon(50% 2%, 61% 36%, 98% 36%, 68% 58%, 79% 93%, 50% 72%, 21% 93%, 32% 58%, 2% 36%, 39% 36%);
+}
+
+/* ---------------------------------------------------------------- Animations réduites */
+
+/* Pas de fantôme en animations réduites (app/transitions.ts n'en fabrique pas) ; s'il en
+   restait un, il ne se verrait pas. */
+.calme .fantome,
+.calme .fantome-feuille,
+.calme .fantome-voile,
+.calme .fantome-moment,
+.calme .envol { display: none; }

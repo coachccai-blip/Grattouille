@@ -7,7 +7,7 @@ import { formatEuros, formatReturn } from "../../../shared/format";
 import { ticketById } from "../../../shared/tickets";
 import { atLeast, oddsOutOf, oddsText, pickNote } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { buyTickets } from "../../app/store";
+import { buyTickets, displayBalance, useGame } from "../../app/store";
 import { ruleOf } from "../../engines";
 import { playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
@@ -20,6 +20,7 @@ import "./comptoir.css";
 
 export function FicheTicket({ ticket }: { ticket: string }) {
   const def = ticketById(ticket);
+  const balance = useGame(displayBalance);
   const [busy, setBusy] = useState(false);
   if (!def) return null;
   const table = prizeTable(def);
@@ -33,7 +34,7 @@ export function FicheTicket({ ticket }: { ticket: string }) {
     const sold = await buyTickets(def.id, 1);
     if (sold) {
       await atLeast(t0, 500);
-      playTicketBought();
+      playTicketBought(1);
       haptic.buy();
       // La fiche laisse sa place à l'écran de grattage : le retour ramène au comptoir.
       nav.replace({ name: "grattage", tickets: sold });
@@ -78,7 +79,9 @@ export function FicheTicket({ ticket }: { ticket: string }) {
       </table>
 
       <div className="fiche-ticket__acheter">
-        <Bouton bloc attente={busy} onClick={() => void buy()}>{t("Acheter {prix}", { prix: formatEuros(def.price) })}</Bouton>
+        <Bouton bloc reflet={balance >= def.price} attente={busy} onClick={() => void buy()}>
+          {t("Acheter {prix}", { prix: formatEuros(def.price) })}
+        </Bouton>
       </div>
     </Feuille>
   );

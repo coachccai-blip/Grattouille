@@ -10,6 +10,7 @@ import { changeSpecies, useGame, wear } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
+import { playClick } from "../../fx/audio";
 import { t } from "../../i18n";
 import { itemName, keeperName, speciesName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
@@ -44,14 +45,18 @@ export function Dressing() {
       </div>
 
       <div className="dressing__onglets" role="tablist" aria-label={t("Emplacements")}>
-        {SLOTS.map((s) => (
+        {SLOTS.map((s, i) => (
           <button
             key={s.id}
             type="button"
             role="tab"
             aria-selected={s.id === slot}
             className="dressing__onglet"
-            onClick={() => setSlot(s.id)}
+            data-son="choix"
+            onClick={() => {
+              if (s.id !== slot) playClick(i);
+              setSlot(s.id);
+            }}
           >
             {t(s.label)}
           </button>
@@ -60,17 +65,30 @@ export function Dressing() {
 
       {owned.length > 0 ? (
         <div className="choix" role="tabpanel">
-          <button type="button" className="choix__article" aria-pressed={worn === null} onClick={() => void wear(slot, null)}>
+          <button
+            type="button"
+            className="choix__article"
+            aria-pressed={worn === null}
+            data-son="choix"
+            onClick={() => {
+              if (worn !== null) playClick(-1);
+              void wear(slot, null);
+            }}
+          >
             <span className="choix__rien"><Icon name="fermer" /></span>
             <span>{t("Rien")}</span>
           </button>
-          {owned.map((item) => (
+          {owned.map((item, i) => (
             <button
               key={item.id}
               type="button"
               className="choix__article"
               aria-pressed={worn === item.id}
-              onClick={() => void wear(slot, item.id)}
+              data-son="choix"
+              onClick={() => {
+                if (worn !== item.id) playClick(i);
+                void wear(slot, item.id);
+              }}
             >
               <Illustration id={`item:${item.id}`} />
               <span>{itemName(item.id)}</span>
@@ -90,13 +108,17 @@ export function Dressing() {
       <section className="rubrique" aria-labelledby="dressing-espece">
         <h2 className="rubrique__titre" id="dressing-espece">{t("Changer d'espèce, c'est gratuit")}</h2>
         <div className="especes__grille">
-          {SPECIES.map((s) => (
+          {SPECIES.map((s, i) => (
             <button
               key={s}
               type="button"
               className={cx("espece", s === player.species && "espece--choisie")}
               aria-pressed={s === player.species}
-              onClick={() => void changeSpecies(s)}
+              data-son="choix"
+              onClick={() => {
+                if (s !== player.species) playClick(i);
+                void changeSpecies(s);
+              }}
             >
               <Avatar species={s} crop="tete" />
               <span>{speciesName(s)}</span>

@@ -290,7 +290,7 @@ export async function pokerTable(req: Request, deps: Deps): Promise<Response> {
 
 const ACTIONS: readonly PokerAction["type"][] = [
   "lancer", "tricher", "franc-jeu", "parole", "miser", "suivre", "relancer", "coucher", "tapis",
-  "accuser", "rien", "retour", "recaver", "quitter",
+  "accuser", "rien", "suite", "retour", "recaver", "quitter",
 ];
 
 function readAction(raw: unknown): PokerAction {
@@ -318,7 +318,8 @@ function readAction(raw: unknown): PokerAction {
 /**
  * POST /api/poker/act { code, action, step?, ack? } → { view, state?, left? }
  * Agir à la table : tricher ou non, parole, miser, suivre, relancer, se coucher, tapis,
- * accuser ou non, lancer la partie, revenir d'une absence, recaver, quitter.
+ * accuser ou non, lancer la partie, demander la main suivante, revenir d'une absence,
+ * recaver, quitter.
  */
 export async function pokerAct(req: Request, deps: Deps): Promise<Response> {
   const body = await readBody(req);

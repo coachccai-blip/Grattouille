@@ -79,7 +79,7 @@ export function createTable(spec: TableSpec, now: number): TableState {
   spec.bots.forEach((bot, k) => {
     seats[spec.seats - spec.bots.length + k] = {
       bot, playerId: "", sid: "", pseudo: "", species: "", look: null,
-      stack: spec.maxBuyIn, reserve: 0, seq: 0, received: 0, since: now, missed: 0, absent: false, idle: 0,
+      stack: spec.maxBuyIn, reserve: 0, seq: 0, received: 0, since: now, missed: 0, absent: false, idle: 0, ready: false,
     };
     bank += spec.maxBuyIn;
   });
@@ -324,6 +324,7 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
   for (let index = 0; index < d.seats.length; index++) {
     const seat = d.seats[index];
     if (!seat) continue;
+    seat.ready = false;
     if (seat.reserve > 0) {
       seat.stack += seat.reserve;
       seat.reserve = 0;
@@ -878,7 +879,7 @@ export function sit(state: TableState, who: Sitter, now: number, rng: Random32):
   if (free < 0) refuse("TABLE_FULL");
   d.seats[free] = {
     bot: null, playerId: who.playerId, sid: who.sid, pseudo: who.pseudo, species: who.species, look: who.look,
-    stack: 0, reserve: 0, seq: 0, received: 0, since: t, missed: 0, absent: false, idle: 0,
+    stack: 0, reserve: 0, seq: 0, received: 0, since: t, missed: 0, absent: false, idle: 0, ready: false,
   };
   if (d.owner === null) d.owner = who.playerId;
   d.clock = t;
@@ -963,6 +964,14 @@ export function act(state: TableState, playerId: string, action: GameAction, now
       break;
     case "retour":
       seat.idle = 0;
+      break;
+    case "suite":
+      if (step !== undefined && step !== d.step) refuse("ACTION_IMPOSSIBLE");
+      if (d.phase !== "denouement" || !isFunded(seat)) refuse("ACTION_IMPOSSIBLE");
+      seat.ready = true;
+      seat.absent = false;
+      // La main suivante part dès que tous les joueurs humains présents l'ont demandée.
+      if (fundedHumans(d).every((i) => d.seats[i]!.ready || d.seats[i]!.absent)) d.nextAt = t;
       break;
     case "tricher":
     case "franc-jeu": {

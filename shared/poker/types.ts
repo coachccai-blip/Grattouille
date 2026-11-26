@@ -201,6 +201,8 @@ export interface SeatState {
   absent: boolean;
   /** Mains de suite sans jouer (absent, ou sans de quoi payer la blinde). */
   idle: number;
+  /** Dénouement : il a demandé la main suivante. */
+  ready: boolean;
 }
 
 /** Un joueur dans la main en cours. */
@@ -334,7 +336,10 @@ export interface SeatView {
   bet: number;
   /** Tout ce qu'il a versé au pot dans cette main, blinde comprise. */
   committed: number;
-  /** Il a fait son choix dans le temps en cours (triche, ou abattage). Jamais lequel. */
+  /**
+   * Il a fait son choix dans le temps en cours : pendant la triche ou l'abattage, il a
+   * choisi (jamais quoi) ; pendant le dénouement, il a demandé la main suivante.
+   */
   done: boolean;
   /** Sa main, seulement quand elle est montrée (abattage). `null` sinon. */
   cards: Card[] | null;
@@ -390,6 +395,11 @@ export interface Options {
   rebuy: Range | null;
   /** `retour` : il est marqué absent. */
   back: boolean;
+  /**
+   * `suite` : pendant le dénouement, demander la main suivante sans attendre la fin de
+   * l'affichage. Elle part dès que tous les joueurs humains présents l'ont demandée.
+   */
+  next: boolean;
 }
 
 export interface TableView {
@@ -450,7 +460,9 @@ export type PokerSeatRef = NonNullable<PlayerState["poker"]>;
  * - `miser.amount` : les jetons posés (personne n'a encore misé) ;
  * - `relancer.amount` : sa mise totale dans le tour après la relance, pas le supplément ;
  * - `tricher` : remplacer la carte à la place `index` (0 à 4) par `card` ;
- * - `accuser.seat` : le siège accusé.
+ * - `accuser.seat` : le siège accusé ;
+ * - `suite` : pendant le dénouement, passer à la main suivante sans attendre ;
+ * - `retour` : revenir d'une absence.
  */
 export type PokerAction =
   | { type: "lancer" }
@@ -464,6 +476,7 @@ export type PokerAction =
   | { type: "tapis" }
   | { type: "accuser"; seat: number }
   | { type: "rien" }
+  | { type: "suite" }
   | { type: "retour" }
   | { type: "recaver"; amount: number }
   | { type: "quitter" };

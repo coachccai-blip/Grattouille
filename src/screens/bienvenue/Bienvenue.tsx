@@ -9,6 +9,7 @@ import { ApiFailure } from "../../app/api";
 import { failureText, login, patchSettings, signup, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
+import { playClick, playRefuse } from "../../fx/audio";
 import { LANGS, t, type Lang } from "../../i18n";
 import { speciesName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
@@ -25,14 +26,19 @@ function Langues() {
   const langue = useGame((s) => s.settings.langue);
   return (
     <div className="bienvenue__langues" role="group" aria-label={t("Langue")}>
-      {LANGS.map((l) => (
+      {LANGS.map((l, i) => (
         <button
           key={l}
           type="button"
           lang={l}
           className={cx("bienvenue__langue", l === langue && "bienvenue__langue--choisie")}
           aria-pressed={l === langue}
-          onClick={() => patchSettings({ langue: l })}
+          data-son="choix"
+          onClick={() => {
+            if (l === langue) return;
+            playClick(i);
+            patchSettings({ langue: l });
+          }}
         >
           {LANGUES[l]}
         </button>
@@ -70,13 +76,18 @@ function Creation({ onBack }: { onBack: () => void }) {
   const [pseudo, setPseudo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Une erreur se lit, et s'entend : un double « non », tout doux. */
+  const refuse = (message: string) => {
+    playRefuse();
+    setError(message);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const check = validatePseudo(pseudo);
     if (!check.ok) {
-      setError(
+      refuse(
         check.reason === "refused"
           ? t("Ce pseudo est réservé. Essaie avec un autre.")
           : t("Il faut 3 à 16 caractères : lettres, chiffres, espace ou tiret."),
@@ -88,9 +99,9 @@ function Creation({ onBack }: { onBack: () => void }) {
     try {
       await signup(check.pseudo, species);
     } catch (err) {
-      if (err instanceof ApiFailure && err.code === "PSEUDO_TAKEN") setError(t("Ce pseudo est pris. Essaie avec un autre."));
-      else if (err instanceof ApiFailure && err.code === "PSEUDO_INVALID") setError(t("Ce pseudo ne convient pas. Essaie avec un autre."));
-      else setError(failureText(err));
+      if (err instanceof ApiFailure && err.code === "PSEUDO_TAKEN") refuse(t("Ce pseudo est pris. Essaie avec un autre."));
+      else if (err instanceof ApiFailure && err.code === "PSEUDO_INVALID") refuse(t("Ce pseudo ne convient pas. Essaie avec un autre."));
+      else refuse(failureText(err));
       setBusy(false);
     }
   };
@@ -102,13 +113,17 @@ function Creation({ onBack }: { onBack: () => void }) {
         <fieldset className="especes">
           <legend className="t-second">{t("Choisis ton espèce. Tu pourras en changer quand tu veux.")}</legend>
           <div className="especes__grille">
-            {SPECIES.map((s) => (
+            {SPECIES.map((s, i) => (
               <button
                 key={s}
                 type="button"
                 className={cx("espece", s === species && "espece--choisie")}
                 aria-pressed={s === species}
-                onClick={() => setSpecies(s)}
+                data-son="choix"
+                onClick={() => {
+                  if (s !== species) playClick(i);
+                  setSpecies(s);
+                }}
               >
                 <Avatar species={s} crop="tete" />
                 <span>{speciesName(s)}</span>
@@ -157,6 +172,7 @@ function Retrouver({ onBack }: { onBack: () => void }) {
     e.preventDefault();
     if (busy) return;
     if (pseudo.trim().length < 3 || !normalizeCode(code)) {
+      playRefuse();
       setError(t("Entre ton pseudo et ton code de 16 caractères, tel que tu l'as noté."));
       return;
     }
@@ -165,6 +181,7 @@ function Retrouver({ onBack }: { onBack: () => void }) {
     try {
       await login(pseudo, code);
     } catch (err) {
+      playRefuse();
       setError(err instanceof ApiFailure && err.code === "UNAUTHORIZED" ? t("Pseudo ou code incorrect.") : failureText(err));
       setBusy(false);
     }

@@ -123,6 +123,11 @@ export function isCalm(s: Pick<GameState, "settings" | "systemCalm">): boolean {
   return s.settings.calme || s.systemCalm;
 }
 
+/** Vrai tant qu'un grand moment (accueil, ouverture d'un lieu, générique) couvre le jeu : l'écran du dessous se tait. */
+export function isCovered(s: Pick<GameState, "welcome" | "ending" | "openings">): boolean {
+  return s.welcome || s.ending || s.openings.length > 0;
+}
+
 type FoundView = Pick<GameState, "player" | "revealed" | "luckyAt">;
 
 /**

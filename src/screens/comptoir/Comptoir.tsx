@@ -14,7 +14,8 @@ import { atLeast, lineFor, placeBackground } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { buyTickets, displayBalance, pickUpTicket, toScratch, useFound, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
-import { playTicketBought } from "../../fx/audio";
+import { ticketRamasse } from "../../fx/ambiance";
+import { playClick, playPickUp, playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { t } from "../../i18n";
 import { placeName, ticketName } from "../../i18n/noms";
@@ -23,6 +24,7 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
 import { Bulle, BulleLibre, Entete, HorsLigne, Jauge } from "../../ui/Commun";
+import { useFoundSparkle } from "../../ui/Trouve";
 import "./comptoir.css";
 
 /** Le dernier ticket regardé dans chaque lieu, le temps de la visite. */
@@ -73,11 +75,12 @@ export function Comptoir({ place }: { place: PlaceId }) {
   // À l'arrivée : le ticket choisi la dernière fois, sinon le moins cher. Jamais de pression.
   const [selected, setSelectedState] = useState(() => lastChoice[place] ?? 0);
   const setSelected = (next: number | ((i: number) => number)) => {
-    setSelectedState((i) => {
-      const value = typeof next === "function" ? next(i) : next;
-      lastChoice[place] = value;
-      return value;
-    });
+    const value = typeof next === "function" ? next(selected) : next;
+    if (value === selected) return;
+    // Un déclic par ticket : chacun a sa note, le long du carrousel.
+    playClick(value);
+    lastChoice[place] = value;
+    setSelectedState(value);
   };
   const [busy, setBusy] = useState<number | "trouve" | null>(null);
   const [seed] = useState(() => Math.floor(Math.random() * 1000));
@@ -85,13 +88,14 @@ export function Comptoir({ place }: { place: PlaceId }) {
   const ratio = Math.max(...tickets.map((x) => ticketHeight(x, 1)));
   const width = useMiniWidth(carousel, ratio);
   const swipe = useRef<{ x: number; id: number } | null>(null);
-
-  if (!player) return null;
   const ticket = tickets[selected]!;
-  const open = player.standing >= def.standing;
   // Sans le sou, un ticket traîne par terre : le comptoir le propose dès que le ticket
   // présenté est hors de portée, quel que soit le lieu.
   const foundHere = found === "fauche" && balance < ticket.price;
+  useFoundSparkle(foundHere);
+
+  if (!player) return null;
+  const open = player.standing >= def.standing;
   const line = lineFor(player, def.host as Speaker, "accueil", seed);
   const prix = (qty: number) => formatEuros(ticket.price * qty);
 
@@ -103,7 +107,8 @@ export function Comptoir({ place }: { place: PlaceId }) {
     if (sold) {
       // Le distributeur tourne jusqu'à la réponse du serveur, 500 ms au moins.
       await atLeast(t0, 500);
-      playTicketBought();
+      // Le distributeur : un carnet s'imprime plus longtemps qu'un ticket.
+      playTicketBought(qty);
       haptic.buy();
       nav.push({ name: "grattage", tickets: sold });
     }
@@ -117,7 +122,8 @@ export function Comptoir({ place }: { place: PlaceId }) {
     const picked = await pickUpTicket();
     if (picked) {
       await atLeast(t0, 500);
-      playTicketBought();
+      ticketRamasse();
+      playPickUp();
       haptic.buy();
       nav.push({ name: "grattage", tickets: [picked] });
     }
@@ -189,6 +195,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
               type="button"
               className={cx("carrousel__ticket", i === selected && "carrousel__ticket--choisi")}
               style={{ width }}
+              data-son="carrousel"
               aria-pressed={i === selected}
               aria-label={t("{ticket}, {prix}, jusqu'à {max}", {
                 ticket: ticketName(x.id), prix: formatEuros(x.price), max: formatEuros(maxGain(x)),
@@ -224,7 +231,8 @@ export function Comptoir({ place }: { place: PlaceId }) {
         ) : (
           <>
             {/* Hors connexion, le bandeau dit déjà qu'on ne peut rien acheter : les boutons s'éteignent. */}
-            <Bouton bloc attente={busy === 1} disabled={busy !== null || !online} onClick={() => void buy(1)}>
+            {/* Un reflet passe sur le bouton quand la bourse suffit. */}
+            <Bouton bloc reflet={balance >= ticket.price} attente={busy === 1} disabled={busy !== null || !online} onClick={() => void buy(1)}>
               {t("Acheter {prix}", { prix: prix(1) })}
             </Bouton>
             <div className="comptoir__carnets">

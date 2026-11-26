@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { Temperament } from "../../shared/types";
 import type { Line } from "../app/dialogues";
 import { nav, type Tab } from "../app/nav";
-import { dismissToast, toScratch, useGame } from "../app/store";
+import { dismissToast, isCovered, toScratch, useGame } from "../app/store";
 import { Portrait } from "../art/Illustration";
 import { Etoile, Icon, type IconName } from "../art/icons";
 import { piouParle } from "../fx/ambiance";
@@ -199,9 +199,11 @@ export function HorsLigne() {
 
 /** Piou pépie quand il dit quelque chose de nouveau. Les autres personnages parlent sans bruit. */
 function useVoix(pnj: string | undefined, words: string | undefined): void {
+  // Sous un grand moment, l'écran attend son tour : Piou y parlera quand le rideau sera levé.
+  const covered = useGame(isCovered);
   useEffect(() => {
-    if (pnj === "piou" && words) piouParle(words);
-  }, [pnj, words]);
+    if (pnj === "piou" && words && !covered) piouParle(words);
+  }, [pnj, words, covered]);
 }
 
 /** Bulle de personnage : portrait rond de l'hôte et une phrase. Elle pousse en apparaissant. */

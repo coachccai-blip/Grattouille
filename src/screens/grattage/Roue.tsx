@@ -9,6 +9,7 @@ import { pickNote } from "../../app/helpers";
 import { Symbole } from "../../art/Illustration";
 import { pickOptions } from "../../engines";
 import { optString } from "../../engines/common";
+import { playClick } from "../../fx/audio";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { symbolKey, symbolName } from "../../ticket/themes";
@@ -41,7 +42,12 @@ function Camps({ def, pick, onPick, onGo }: RoueProps) {
               role="radio"
               aria-checked={camp === pick}
               className={cx("camps__camp", camp === pick && "camps__camp--choisi")}
-              onClick={() => onPick(camp)}
+              data-son="choix"
+              onClick={() => {
+                // Un déclic par changement de camp.
+                if (camp !== pick) playClick(i * 2);
+                onPick(camp);
+              }}
             >
               <Symbole cle={key} />
               <strong>{symbolName(key, camp)}</strong>
@@ -83,7 +89,12 @@ export function Roue(props: RoueProps) {
               aria-label={symbolName(key, sign)}
               className={cx("roue__signe", sign === pick && "roue__signe--choisi")}
               style={{ "--i": i } as React.CSSProperties}
-              onClick={() => onPick(sign)}
+              data-son="choix"
+              onClick={() => {
+                // Un déclic par changement de signe : la roue a ses cinq notes.
+                if (sign !== pick) playClick(i);
+                onPick(sign);
+              }}
             >
               <Symbole cle={key} />
             </button>

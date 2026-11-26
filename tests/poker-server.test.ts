@@ -890,6 +890,27 @@ describe("agir à la table", () => {
     expect(r.body.view!.options.back).toBe(false);
   });
 
+  it("« suite » : sans attendre la fin du dénouement quand tout le monde est prêt", async () => {
+    const w = makeWorld();
+    const [a, b] = [await w.signup("Marcel", 5_000), await w.signup("Lulu", 5_000)];
+    const code = await started(w, [a, b]);
+    for (const action of [{ type: "franc-jeu" }, { type: "parole" }, { type: "rien" }] as PokerAction[]) {
+      await w.poker.act(b, code, action);
+      await w.poker.act(a, code, action);
+    }
+    const done = await w.view(a, code);
+    expect(done).toMatchObject({ phase: "denouement", handNo: 1, deadline: T0 + RESULT_MS });
+    expect(done.options.next).toBe(true);
+    const first = await w.poker.act(a, code, { type: "suite" }, done.step);
+    expect(first.body.view).toMatchObject({ phase: "denouement" });
+    expect(first.body.view!.options.next).toBe(false);
+    expect(first.body.view!.seats[0]).toMatchObject({ done: true });
+    const second = await w.poker.act(b, code, { type: "suite" }, done.step);
+    expect(second.body.view).toMatchObject({ phase: "triche", handNo: 2, deadline: T0 + CHEAT_MS });
+    // Trop tard pour la demander : la main est déjà partie.
+    expect((await w.poker.act(a, code, { type: "suite" }) as Reply).body.error.code).toBe("ACTION_IMPOSSIBLE");
+  });
+
   it("une table sans activité depuis 30 minutes se ferme et rend les tapis", async () => {
     const w = makeWorld();
     const [a, b] = [await w.signup("Marcel", 5_000), await w.signup("Lulu", 5_000)];

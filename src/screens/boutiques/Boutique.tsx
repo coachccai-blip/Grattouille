@@ -13,6 +13,7 @@ import { nav } from "../../app/nav";
 import { displayBalance, useGame } from "../../app/store";
 import { Illustration } from "../../art/Illustration";
 import { Etoile } from "../../art/icons";
+import { playClick } from "../../fx/audio";
 import { t } from "../../i18n";
 import { itemName, shopName, slotLabel } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
@@ -87,8 +88,20 @@ export function Boutique({ shop }: { shop: ShopId }) {
 
       {def.slots.length > 1 && (
         <div className="rayons" role="tablist" aria-label={t("Rayons")}>
-          {def.slots.map((s) => (
-            <button key={s} type="button" role="tab" aria-selected={s === slot} className="rayons__onglet" onClick={() => setSlot(s)}>
+          {def.slots.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={s === slot}
+              className="rayons__onglet"
+              data-son="choix"
+              onClick={() => {
+                // Un déclic par changement de rayon.
+                if (s !== slot) playClick(i);
+                setSlot(s);
+              }}
+            >
               {slotLabel(s)}
             </button>
           ))}

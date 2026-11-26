@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
-import { TIER_DURATION, TIER_RANK, isPlaceOpen, tierOf } from "../../../shared/rules";
+import { TIER_DURATION, TIER_RANK, isPlaceOpen, tierOf, type Tier } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
 import type { PendingTicket, TicketDef } from "../../../shared/types";
 import { PIOU, hostName, type Line, type Speaker } from "../../app/dialogues";
@@ -35,7 +35,7 @@ import { Ticket, useTicketWidth } from "../../ticket/Ticket";
 import { cx } from "../../ticket/parts";
 import { themeOf } from "../../ticket/themes";
 import { Bouton } from "../../ui/Bouton";
-import { Bourse } from "../../ui/Bourse";
+import { Bourse, Compteur } from "../../ui/Bourse";
 import { Bulle, BulleLibre, Entete, HorsLigne } from "../../ui/Commun";
 import { Fete, Resultat, fullScreen, resultText } from "./Fete";
 import { Roue } from "./Roue";
@@ -52,6 +52,18 @@ function centerOf(el: Element | null): Point {
   const r = el?.getBoundingClientRect();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 }
+
+/**
+ * Le temps que met le montant gagné à défiler de 0 à sa valeur, en millisecondes : plus
+ * long pour un gros gain. Toujours plus court que la fête de son palier (`TIER_DURATION`),
+ * dont la durée ne change pas : le défilement se joue dedans.
+ */
+const ROLL_MS: Record<Tier, number> = {
+  perdu: 0, rembourse: 0, petit: 320, joli: 520, gros: 800, enorme: 1100, jackpot: 1500,
+};
+
+/** Le temps que mettent les pièces à sauter du montant gagné jusqu'à la bourse. */
+const COIN_FLIGHT_MS = 600;
 
 /**
  * La hauteur de fenêtre que le ticket ne prend jamais : c'est avec elle que les tickets ont
@@ -133,6 +145,9 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   const [encourage, setEncourage] = useState(first);
   const [ghostAt, setGhostAt] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [totals, setTotals] = useState({ count: 0, winners: 0, gain: 0 });
+  // Le défilement du montant gagné, et la secousse d'un gros gain : décidés quand le résultat tombe.
+  const [rollMs, setRollMs] = useState(0);
+  const [shake, setShake] = useState(false);
 
   const root = useRef<HTMLDivElement>(null);
   const scene = useRef<HTMLDivElement>(null);
@@ -191,6 +206,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     setAuto(false);
     setGone(false);
     setSkippable(false);
+    setShake(false);
     setAnnounce("");
     setPick(asks ? resolvePick(d, useGame.getState().settings.signes[d.id]) : undefined);
     setPhase(asks && !rafaleRef.current ? "choix" : "sortie");
@@ -206,7 +222,8 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   // --- Les correspondances tintent dès que leurs cases sont visibles.
   useEffect(() => {
     const count = matches(layout, cells).length;
-    if (phase === "gratte" && count > seenMatches.current) playMatch();
+    // Un accord par combinaison : il monte d'un cran à chaque nouvelle combinaison du ticket.
+    if (phase === "gratte" && count > seenMatches.current) playMatch(count - 1);
     seenMatches.current = count;
   }, [layout, cells, phase]);
 
@@ -224,23 +241,38 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     // « Trouvé par terre » est imprimé sur le ticket : l'annonce ne le répète pas.
     setAnnounce(resultText(tier, ticket.gain));
     setTotals((sum) => ({ count: sum.count + 1, winners: sum.winners + (ticket.gain > 0 ? 1 : 0), gain: sum.gain + ticket.gain }));
+    // La chorégraphie d'un gain, dans la durée de sa fête, qui ne change pas : le montant
+    // défile de 0 à sa valeur (les pièces sonnent), ses pièces filent vers la bourse, et la
+    // bourse compte à son tour quand elles arrivent. En rafale et en animations réduites,
+    // rien ne défile : la bourse compte tout de suite.
+    const lively = !quick && !calm && ticket.gain > 0;
+    const roll = lively ? ROLL_MS[tier] : 0;
+    // De « remboursé » à « gros gain », des pièces sautent du montant ; au-delà, il en pleut.
+    const coins = tier === "rembourse" ? 3 : tier === "petit" ? 6 : tier === "joli" ? 14 : tier === "gros" ? 24 : 0;
+    const launch = Math.max(0, roll - 420);
+    const purseDelay = !lively ? 0 : coins > 0 ? launch + COIN_FLIGHT_MS : roll;
+    setRollMs(roll);
+    setShake(lively && big);
     // Le ticket rejoint `grattouille.revealed` : la bourse compte jusqu'à sa nouvelle valeur.
-    markRevealed(ticket.id, quick ? 300 : TIER_DURATION[tier]);
-    playTier(tier);
+    markRevealed(ticket.id, quick ? 300 : Math.max(400, TIER_DURATION[tier] - purseDelay), purseDelay);
+    playTier(tier, quick);
     haptic.tier(tier);
     if (ticket.gain > 0) window.setTimeout(playStamp, 120);
 
     const f = fx.current;
     if (f && !calm) {
-      const from = centerOf(root.current);
-      const to = centerOf(document.querySelector("[data-bourse]"));
+      const purse = () => centerOf(document.querySelector("[data-bourse]"));
       if (quick) {
-        if (ticket.gain > 0) f.coinsTo(from, to, 3, 0.6);
-      } else if (tier === "rembourse") f.coinsTo(from, to, 3, 0.6);
-      else if (tier === "petit") f.coinsTo(from, to, 6, 1);
-      else if (tier === "joli") f.coinsTo(from, to, 14, 1.7);
-      else if (tier === "gros") f.coinsTo(from, to, 24, 2.2);
-      else if (tier === "enorme") {
+        if (ticket.gain > 0) f.coinsTo(centerOf(root.current), purse(), 3, 0.6);
+      } else if (coins > 0) {
+        // Les pièces partent du montant gagné, posé sur le plateau ; à défaut, du ticket.
+        const spread = tier === "rembourse" ? 0.6 : tier === "petit" ? 1 : tier === "joli" ? 1.7 : 2.2;
+        window.setTimeout(() => {
+          if (!alive.current) return;
+          const amount = document.querySelector(".grattage__plateau .resultat__montant, .grattage__plateau .resultat");
+          fx.current?.coinsTo(centerOf(amount ?? root.current), purse(), coins, spread);
+        }, launch);
+      } else if (tier === "enorme") {
         f.coinRain(42, 2000);
         f.confetti(80, 2000);
       } else if (tier === "jackpot") {
@@ -362,7 +394,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     const sold = await buyTickets(def.id, 1);
     if (sold && alive.current) {
       await atLeast(t0, 500);
-      playTicketBought();
+      playTicketBought(1);
       haptic.buy();
       setTotals({ count: 0, winners: 0, gain: 0 });
       // Le nouveau ticket sort du distributeur à la place de l'ancien.
@@ -411,7 +443,11 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
 
       {/* En rafale, toucher la scène met en pause : le bouton du plateau le dit et le fait aussi. */}
       <div
-        className={cx("grattage__scene", phase === "choix" && "grattage__scene--choix")}
+        className={cx(
+          "grattage__scene", phase === "choix" && "grattage__scene--choix",
+          // Un gros gain fait trembler la scène d'un cheveu.
+          shake && phase === "resultat" && "grattage__scene--secousse",
+        )}
         ref={scene}
         onClick={rafale ? pause : undefined}
       >
@@ -487,7 +523,10 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
               // Dernier ticket : le compte des gagnants et le total, à la place du dernier résultat.
               <p className="resultat resultat--carnet">
                 <span className="resultat__mot">{recap}</span>
-                <span className="resultat__montant">{formatEuros(totals.gain)}</span>
+                {/* Le bilan du carnet défile aussi, d'autant plus longtemps qu'il y avait de tickets. */}
+                <span className="resultat__montant">
+                  <Compteur valeur={totals.gain} depart={0} ms={calm ? 0 : Math.min(1400, 500 + totals.count * 70)} sonne />
+                </span>
               </p>
             ) : (
               <Resultat tier={tier} gain={ticket.gain} />
@@ -504,17 +543,17 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
             <button type="button" className="grattage__pause" onClick={pause}>
               <span className="grattage__total">
                 <span>{t("Total")}</span>
-                <strong className="chiffres">{formatEuros(totals.gain)}</strong>
+                <strong className="chiffres"><Compteur valeur={totals.gain} ms={calm ? 0 : 260} /></strong>
               </span>
               <span>{t("Touche l'écran pour mettre en pause")}</span>
             </button>
           ) : phase === "resultat" ? (
-            !plein && <Resultat tier={tier} gain={ticket.gain} />
+            !plein && <Resultat tier={tier} gain={ticket.gain} roule={rollMs} />
           ) : phase === "apres" ? (
             last ? (
               <>
                 {canRebuy ? (
-                  <Bouton bloc attente={busy} onClick={() => void rebuy()}>
+                  <Bouton bloc reflet attente={busy} onClick={() => void rebuy()}>
                     {t("Racheter le même {prix}", { prix: formatEuros(def.price) })}
                   </Bouton>
                 ) : (
@@ -550,7 +589,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
       )}
 
       {/* Énorme et jackpot : la fête prend tout l'écran, sur un fond opaque. La bourse reste dessus, et compte. */}
-      {plein && <Fete tier={tier} gain={ticket.gain} skippable={skippable} onSkip={skip} />}
+      {plein && <Fete tier={tier} gain={ticket.gain} skippable={skippable} onSkip={skip} roule={rollMs} />}
 
       {/* Le canvas d'effets, tout en haut : copeaux, pièces, confettis. */}
       <canvas ref={fxCanvas} className="grattage__fx" aria-hidden="true" />

@@ -78,7 +78,9 @@ export async function touchTable(
     return await deps.storage.mutateTable(code, (stored) => {
       const next = engine(() => {
         let t = advance(stored, now, deps.random32);
-        if (session) t = deposit(t, session.sid, session.seq, session.paid, now, deps.random32);
+        // La bourse a sorti de l'argent que la table n'a pas encore vu : elle le rattrape.
+        const seat = session ? t.seats[seatIndexOfSession(t, session.sid)] : null;
+        if (session && seat && seat.seq < session.seq) t = deposit(t, session.sid, session.seq, session.paid, now, deps.random32);
         return step ? step(t) : t;
       });
       return { result: next, write: next === stored ? null : next };

@@ -14,6 +14,7 @@ import { nav } from "../../app/nav";
 import { lockedText, toast, useGame } from "../../app/store";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
+import { mouetteParfois } from "../../fx/ambiance";
 import { t } from "../../i18n";
 import { placeMoment, placeName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
@@ -27,6 +28,9 @@ export function Promenade() {
   const best = bestPlace(standing);
   const next = nextPlace(standing);
   const bestRef = useRef<HTMLButtonElement>(null);
+
+  // Le bord de mer : de temps en temps, une mouette passe.
+  useEffect(() => mouetteParfois(), []);
 
   useEffect(() => {
     // Ouverte sur le meilleur lieu débloqué.

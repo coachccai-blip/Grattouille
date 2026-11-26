@@ -6,13 +6,13 @@
 
 import { betOptions } from "./betting";
 import { evaluate } from "./hands";
-import { canDeal, playerInHand, rebuyRange, seatIndexOf } from "./state";
+import { canDeal, isFunded, playerInHand, rebuyRange, seatIndexOf } from "./state";
 import type { HandResult, Options, OwnHand, SeatView, TableState, TableView } from "./types";
 
 function noOptions(): Options {
   return {
     start: false, cheat: false, check: false, call: 0, bet: null, raise: null, allIn: false, fold: false,
-    accuse: [], rebuy: null, back: false,
+    accuse: [], rebuy: null, back: false, next: false,
   };
 }
 
@@ -39,7 +39,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
       allIn: p !== null && p.allIn && !p.folded,
       bet: p ? p.bet : 0,
       committed: p ? p.committed : 0,
-      done: p !== null && (t.phase === "triche" ? p.chosen : t.phase === "abattage" ? p.spoke : false),
+      done: t.phase === "denouement" ? seat.ready : p !== null && (t.phase === "triche" ? p.chosen : t.phase === "abattage" ? p.spoke : false),
       cards: shown ? [...p.cards] : null,
       category: shown ? evaluate(p.cards).category : null,
     };
@@ -54,6 +54,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     options.start = t.kind === "privee" && !t.started && t.phase === "attente" && t.owner === seat.playerId && canDeal(t);
     options.back = seat.absent;
     options.rebuy = rebuyRange(t, you);
+    options.next = t.phase === "denouement" && isFunded(seat) && !seat.ready;
   }
   if (h && me && you !== null && seat) {
     hand = {

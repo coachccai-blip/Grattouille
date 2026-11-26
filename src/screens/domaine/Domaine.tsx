@@ -17,7 +17,7 @@ import type { PlayerState, ShopId } from "../../../shared/types";
 import { PIOU, hostName } from "../../app/dialogues";
 import { skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { displayBalance, isBroke, patchSettings, toScratch, useFound, useGame } from "../../app/store";
+import { displayBalance, isBroke, isCalm, patchSettings, toScratch, useFound, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
@@ -25,9 +25,9 @@ import { t } from "../../i18n";
 import { itemName, keeperName, placeMoment, placeShort, rankName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
-import { Bourse, Standing } from "../../ui/Bourse";
+import { Bourse, Standing, useCompteSouvenir } from "../../ui/Bourse";
 import { Barre, BulleLibre, Entete, Phrase } from "../../ui/Commun";
-import { usePickUp } from "../../ui/Trouve";
+import { useFoundSparkle, usePickUp } from "../../ui/Trouve";
 import "./domaine.css";
 
 /** Les trois trésors les plus chers, pour la console. */
@@ -164,7 +164,7 @@ function Conseil({ player, found, busy, pickUp }: {
   })();
 
   return (
-    <BulleLibre pnj="piou" nom={hostName("piou")} className="conseil">
+    <BulleLibre pnj="piou" nom={hostName("piou")} className="conseil" voix={avis.texte}>
       <Phrase text={avis.texte} />
       {avis.barre && <Barre value={avis.barre.value} max={avis.barre.max} />}
       {avis.actions}
@@ -176,6 +176,10 @@ export function Domaine() {
   const player = useGame((s) => s.player);
   const found = useFound();
   const { busy, pickUp } = usePickUp();
+  const calm = useGame(isCalm);
+  // Le ticket qui traîne scintille en apparaissant ; la fortune défile quand on revient plus riche.
+  useFoundSparkle(found !== null);
+  const fortune = useCompteSouvenir("domaine:fortune", player?.fortune ?? 0, calm ? 0 : 900);
   if (!player) return null;
   const best = bestPlace(player.standing);
   const residence = player.look.residence;
@@ -194,7 +198,7 @@ export function Domaine() {
             <Icon name="reglages" />
           </button>
         }
-        droite={<><Bourse /><Standing /></>}
+        droite={<><Bourse /><Standing souvenir="domaine:standing" /></>}
       />
 
       <div className={cx("domaine__scene", found && "domaine__scene--trouve")} style={{ backgroundImage: skyOf(best.id) }}>
@@ -244,7 +248,7 @@ export function Domaine() {
         <h2 className="t-titre">{player.pseudo}</h2>
         <p className="domaine__fortune">
           <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron")}>{rankName(player.standing, player.kiosk)}</span>
-          {t("Fortune :")} <strong className="chiffres">{formatEuros(player.fortune)}</strong>
+          {t("Fortune :")} <strong className="chiffres">{formatEuros(fortune)}</strong>
         </p>
       </div>
 

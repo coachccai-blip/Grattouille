@@ -1381,6 +1381,51 @@ describe("le temps", () => {
     expect(viewFor(t, "p_a", at + RESULT_MS).options.cheat).toBe(true);
   });
 
+  it("« suite » : la main suivante part dès que tous les joueurs présents l'ont demandée", () => {
+    const rng = rngOf();
+    let t = allQuiet(checkAround(allFair(dealt({ stacks: [1000, 1000, 1000] }))));
+    expect([t.phase, t.nextAt]).toEqual(["denouement", T0 + RESULT_MS]);
+    expect(viewFor(t, "p_a", T0).options.next).toBe(true);
+    t = play(t, 0, { type: "suite" }, T0 + 1_000);
+    t = play(t, 1, { type: "suite" }, T0 + 1_500);
+    // Il en manque un : on attend encore.
+    expect([t.phase, t.nextAt]).toEqual(["denouement", T0 + RESULT_MS]);
+    expect(viewFor(t, "p_c", T0 + 1_500).seats.map((s) => s!.done)).toEqual([true, true, false]);
+    expect(viewFor(t, "p_a", T0 + 1_500).options.next).toBe(false);
+    t = play(t, 2, { type: "suite" }, T0 + 2_000);
+    expect([t.phase, t.handNo, t.hand!.deadline]).toEqual(["triche", 2, T0 + 2_000 + CHEAT_MS]);
+    expect(t.seats.every((s) => s!.ready === false)).toBe(true);
+    // Hors du dénouement, ce geste n'existe pas.
+    expect(refusal(() => play(t, 0, { type: "suite" }, T0 + 2_000))).toBe("ACTION_IMPOSSIBLE");
+    expect(viewFor(t, "p_a", T0 + 2_000).options.next).toBe(false);
+    // Sans personne pour la demander, la main suivante part à la fin de l'affichage.
+    const waiting = allQuiet(checkAround(allFair(dealt({ stacks: [1000, 1000] }))));
+    expect(advance(waiting, T0 + RESULT_MS - 1, rng)).toBe(waiting);
+    expect(advance(waiting, T0 + RESULT_MS, rng).handNo).toBe(2);
+  });
+
+  it("« suite » n'attend pas un joueur absent, et seul contre des robots elle part aussitôt", () => {
+    const rng = rngOf(33);
+    // Le siège 1 devient absent dès la première main.
+    let t = dealt({ stacks: [1000, 1000] });
+    t = play(t, 0, { type: "franc-jeu" }, T0);
+    t = advance(t, T0 + CHEAT_MS + TURN_MS, rng);
+    expect(t.seats[1]!.absent).toBe(true);
+    const at = T0 + CHEAT_MS + TURN_MS;
+    t = play(t, 0, { type: "parole" }, at);
+    t = play(t, 0, { type: "rien" }, at);
+    expect(t.phase).toBe("denouement");
+    t = play(t, 0, { type: "suite" }, at);
+    expect([t.phase, t.handNo]).toEqual(["triche", 2]);
+    // Contre des robots : ils n'ont rien à demander.
+    let solo = dealt({ stacks: [1000], bots: ["gaspard", "ondine"] }, rng);
+    solo = leaveToShowdown(solo, rng);
+    expect(solo.phase).toBe("denouement");
+    const now = solo.clock;
+    solo = act(solo, "p_a", { type: "suite" }, now, rng);
+    expect([solo.phase, solo.handNo]).toEqual(["triche", 2]);
+  });
+
   it("le temps d'une table ne recule jamais", () => {
     const rng = rngOf();
     let t = allFair(dealt({ stacks: [1000, 1000] }), T0 + 10_000);
@@ -1761,6 +1806,8 @@ function randomGame(seed: number, watch: Watch = {}, options: { bots?: number; s
         action = pick(3) === 0 ? { type: "accuser", seat: o.accuse[pick(o.accuse.length)]! } : { type: "rien" };
       } else if (o.back && pick(2) === 0) {
         action = { type: "retour" };
+      } else if (o.next && pick(4) === 0) {
+        action = { type: "suite" };
       } else if (o.rebuy && pick(3) === 0) {
         const amount = o.rebuy.min + pick(o.rebuy.max - o.rebuy.min + 1);
         purse.seq += 1;
@@ -2033,7 +2080,7 @@ describe("ce que voit un joueur", () => {
       expect([view.you, view.hand]).toEqual([null, null]);
       expect(view.options).toEqual({
         start: false, cheat: false, check: false, call: 0, bet: null, raise: null, allIn: false, fold: false,
-        accuse: [], rebuy: null, back: false,
+        accuse: [], rebuy: null, back: false, next: false,
       });
       expect(view).toMatchObject({ code: "ABCDE", blind: 10, minBuyIn: 200, maxBuyIn: 1000, phase: "encheres", pot: 20, turn: 1 });
     }
@@ -2642,6 +2689,19 @@ describe("tables de la maison et défis", () => {
     expect(chipsOnTable(next)).toBe(next.audit.in - next.audit.out + next.audit.bank);
   });
 });
+
+/** Joue une main contre des robots jusqu'au dénouement : franc jeu, parole ou suivre, rien à dire. */
+function leaveToShowdown(start: TableState, rng: Random32): TableState {
+  let t = start;
+  for (let now = start.clock; now < start.clock + 300_000 && t.phase !== "denouement"; now += 500) {
+    t = advance(t, now, rng);
+    const o = viewFor(t, "p_a", now).options;
+    if (o.cheat) t = act(t, "p_a", { type: "franc-jeu" }, now, rng);
+    else if (o.fold) t = act(t, "p_a", o.check ? { type: "parole" } : { type: "suivre" }, now, rng);
+    else if (o.accuse.length > 0) t = act(t, "p_a", { type: "rien" }, now, rng);
+  }
+  return t;
+}
 
 /** Laisse les robots finir la main : l'humain joue franc jeu, puis dit parole ou suit. */
 function checkAroundWithBots(start: TableState, rng: Random32): TableState {

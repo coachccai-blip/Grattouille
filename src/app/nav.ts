@@ -158,6 +158,29 @@ export function resolveScreens(stack: readonly Screen[], index: number): { base:
   return { base: stack[baseIndex] ?? ROOT, baseIndex, sheets: stack.slice(baseIndex + 1, index + 1) };
 }
 
+/**
+ * La clé d'un écran dans la pile : deux écrans de même clé sont le même écran. La
+ * coquille s'en sert pour monter les écrans, les transitions pour savoir lequel s'en va.
+ */
+export function screenKey(screen: Screen, index: number): string {
+  switch (screen.name) {
+    case "comptoir": return `${index}:comptoir:${screen.place}`;
+    case "boutique": return `${index}:boutique:${screen.shop}`;
+    case "grattage": return `${index}:grattage:${screen.tickets[0]?.id ?? ""}`;
+    case "fiche-ticket": return `${index}:fiche-ticket:${screen.ticket}`;
+    case "fiche-article": return `${index}:fiche-article:${screen.item}`;
+    case "choix-domaine": return `${index}:choix:${screen.slot}`;
+    default: return `${index}:${screen.name}`;
+  }
+}
+
+const WITH_TABS = new Set<string>(["domaine", "promenade", "boutiques", "boutique", "classement"]);
+
+/** Vrai si cet écran porte la barre d'onglets. */
+export function hasTabs(screen: Screen): boolean {
+  return WITH_TABS.has(screen.name);
+}
+
 /** L'onglet auquel appartient un écran, pour la barre d'onglets. */
 export function tabOf(screen: Screen): Tab | null {
   switch (screen.name) {

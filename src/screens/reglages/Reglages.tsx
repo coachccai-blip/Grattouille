@@ -7,7 +7,7 @@ import { formatCode, pseudoKey } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
 import { deleteAccount, failureText, patchSettings, toast, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
-import { playTap, unlockAudio } from "../../fx/audio";
+import { playClick, playRefuse } from "../../fx/audio";
 import { hapticsAvailable } from "../../fx/haptics";
 import { LANGS, t, type Lang } from "../../i18n";
 import { ticketName } from "../../i18n/noms";
@@ -64,8 +64,8 @@ export function Reglages() {
 
   const choisirLangue = (langue: Lang) => {
     if (langue === settings.langue) return;
-    unlockAudio();
-    playTap();
+    // Un déclic par changement, chaque langue sa note.
+    playClick(LANGS.indexOf(langue));
     reprise = { y: window.scrollY, codeShown, deleting, confirm };
     patchSettings({ langue });
   };
@@ -93,6 +93,7 @@ export function Reglages() {
     e.preventDefault();
     if (busy) return;
     if (pseudoKey(confirm) !== pseudoKey(player.pseudo)) {
+      playRefuse();
       setError(t("Ce n'est pas ton pseudo. Rien n'a été supprimé."));
       return;
     }
@@ -101,6 +102,7 @@ export function Reglages() {
       // Le magasin d'état annonce lui-même que le compte est supprimé.
       await deleteAccount();
     } catch (err) {
+      playRefuse();
       setError(failureText(err));
       setBusy(false);
     }
@@ -131,6 +133,7 @@ export function Reglages() {
                 tabIndex={choisie ? 0 : -1}
                 lang={langue}
                 className="langue__choix"
+                data-son="choix"
                 onClick={() => choisirLangue(langue)}
               >
                 {choisie && <Icon name="coche" size={20} />}

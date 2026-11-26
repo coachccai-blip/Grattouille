@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { PendingTicket } from "../../shared/types";
 import { atLeast } from "../app/helpers";
 import { nav } from "../app/nav";
-import { pickUpTicket, useFound, useGame } from "../app/store";
+import { isCovered, pickUpTicket, useFound, useGame } from "../app/store";
 import { Icon } from "../art/icons";
 import { ticketParTerre, ticketRamasse } from "../fx/ambiance";
 import { playPickUp } from "../fx/audio";
@@ -48,9 +48,11 @@ export function usePickUp(then?: (ticket: PendingTicket) => void): { busy: boole
  */
 export function useFoundSparkle(shown: boolean): void {
   const present = useFound() !== null;
+  // Sous un grand moment, l'écran est caché : son ticket ne scintille pas encore.
+  const covered = useGame(isCovered);
   useEffect(() => {
-    ticketParTerre(present, shown);
-  }, [present, shown]);
+    ticketParTerre(present, shown && !covered);
+  }, [present, shown, covered]);
 }
 
 /**

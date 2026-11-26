@@ -5,6 +5,7 @@ import { nav } from "../../app/nav";
 import { useGame, wear } from "../../app/store";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
+import { playClick } from "../../fx/audio";
 import { t } from "../../i18n";
 import { itemName } from "../../i18n/noms";
 import { Feuille } from "../../ui/Feuille";
@@ -17,6 +18,8 @@ export function ChoixDomaine({ slot }: { slot: "residence" | "vehicule" }) {
   const owned = itemsOfSlot(slot).filter((i) => player.owned.includes(i.id));
   const current = player.look[slot];
   const choose = (id: string | null) => {
+    // Un déclic si le choix change ; la feuille, elle, se referme sur son glissé.
+    if (id !== current) playClick(id === null ? -1 : 2);
     void wear(slot, id);
     nav.back();
   };
@@ -25,12 +28,12 @@ export function ChoixDomaine({ slot }: { slot: "residence" | "vehicule" }) {
     <Feuille titre={titre} onClose={() => nav.back()} className="choix-domaine">
       <h2 className="t-titre">{titre}</h2>
       <div className="choix">
-        <button type="button" className="choix__article" aria-pressed={current === null} onClick={() => choose(null)}>
+        <button type="button" className="choix__article" aria-pressed={current === null} data-son="choix" onClick={() => choose(null)}>
           {slot === "residence" ? <Illustration id="decor:banc" /> : <span className="choix__rien"><Icon name="fermer" /></span>}
           <span>{slot === "residence" ? t("Le banc du port") : t("À pied")}</span>
         </button>
         {owned.map((item) => (
-          <button key={item.id} type="button" className="choix__article" aria-pressed={current === item.id} onClick={() => choose(item.id)}>
+          <button key={item.id} type="button" className="choix__article" aria-pressed={current === item.id} data-son="choix" onClick={() => choose(item.id)}>
             <Illustration id={`item:${item.id}`} />
             <span>{itemName(item.id)}</span>
           </button>

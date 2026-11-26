@@ -1,11 +1,11 @@
 // La coquille de l'application : une seule page, pas de routes d'URL (BRIEF.md, section 12.1).
 
 import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
-import { nav, resolveScreens, tabOf, useNav, type Screen } from "./app/nav";
+import { hasTabs, nav, resolveScreens, screenKey, tabOf, useNav, type Screen } from "./app/nav";
 import { boot, isCalm, useGame } from "./app/store";
 import { Icon } from "./art/icons";
 import { ArtDefs } from "./art/kit";
-import { unlockAudio } from "./fx/audio";
+import { installGestes } from "./fx/gestes";
 import { t } from "./i18n";
 import { AGratter } from "./screens/a-gratter/AGratter";
 import { Bienvenue } from "./screens/bienvenue/Bienvenue";
@@ -47,20 +47,6 @@ function ScreenView({ screen }: { screen: Screen }) {
   }
 }
 
-function screenKey(screen: Screen, index: number): string {
-  switch (screen.name) {
-    case "comptoir": return `${index}:comptoir:${screen.place}`;
-    case "boutique": return `${index}:boutique:${screen.shop}`;
-    case "grattage": return `${index}:grattage:${screen.tickets[0]?.id ?? ""}`;
-    case "fiche-ticket": return `${index}:fiche-ticket:${screen.ticket}`;
-    case "fiche-article": return `${index}:fiche-article:${screen.item}`;
-    case "choix-domaine": return `${index}:choix:${screen.slot}`;
-    default: return `${index}:${screen.name}`;
-  }
-}
-
-const WITH_TABS = new Set(["domaine", "promenade", "boutiques", "boutique", "classement"]);
-
 function Jeu() {
   const stack = useNav((s) => s.stack);
   const index = useNav((s) => s.index);
@@ -69,7 +55,7 @@ function Jeu() {
   const ending = useGame((s) => s.ending);
   const sandbox = useGame((s) => s.sandbox);
   const { base, baseIndex, sheets } = resolveScreens(stack, index);
-  const tabs = WITH_TABS.has(base.name);
+  const tabs = hasTabs(base);
   const moment = ending || Boolean(opening) || welcome;
   const key = screenKey(base, baseIndex);
 
@@ -164,16 +150,8 @@ export function App() {
     document.documentElement.classList.toggle("calme", calm);
   }, [calm]);
 
-  useEffect(() => {
-    // Le contexte audio démarre au premier toucher.
-    const unlock = () => unlockAudio();
-    window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
-    window.addEventListener("keydown", unlock, { capture: true });
-    return () => {
-      window.removeEventListener("pointerdown", unlock, { capture: true });
-      window.removeEventListener("keydown", unlock, { capture: true });
-    };
-  }, []);
+  // Le contexte audio démarre au premier toucher, et tout ce qui se touche a son appui.
+  useEffect(() => installGestes(), []);
 
   if (planche) {
     return (

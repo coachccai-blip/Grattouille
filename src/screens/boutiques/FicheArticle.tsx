@@ -16,7 +16,8 @@ import { nav } from "../../app/nav";
 import { buyItem, displayBalance, useGame, wear } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
-import { playCashRegister, playStamp } from "../../fx/audio";
+import { playStamp } from "../../fx/audio";
+import { envolEtoiles } from "../../fx/envol";
 import { haptic } from "../../fx/haptics";
 import { t } from "../../i18n";
 import { itemName, placeShort, rankName } from "../../i18n/noms";
@@ -62,10 +63,15 @@ export function FicheArticle({ item: id }: { item: string }) {
     setBusy(true);
     const ok = await buyItem(item.id);
     if (ok) {
-      // Tampon « Vendu », bruit de caisse, les ★ s'envolent vers le compteur.
-      playCashRegister();
+      // La caisse a sonné (c'est l'achat lui-même qui la fait sonner) ; le tampon « Vendu »
+      // tombe, et les ★ s'envolent vers le compteur, une par note.
       window.setTimeout(playStamp, 260);
       haptic.buy();
+      envolEtoiles(
+        document.querySelector(".fiche-article__etoiles"),
+        document.querySelector("[data-standing] .standing__etoile"),
+        item.standing,
+      );
       setBought(true);
       // Le Kiosque lance le générique de fin : la fiche s'efface.
       if (isKiosk) nav.back();
@@ -108,7 +114,7 @@ export function FicheArticle({ item: id }: { item: string }) {
         {!owned && missing <= 0 && (
           item.price > balance / 2 ? (
             <>
-              <BoutonMaintenir bloc attente={busy} disabled={!online} onConfirm={() => void buy()}>
+              <BoutonMaintenir bloc reflet attente={busy} disabled={!online} onConfirm={() => void buy()}>
                 {/* Au clavier ou au lecteur d'écran, une activation suffit : la consigne ne leur est pas lue. */}
                 <span className="maintenir__titre">{acheter}</span>
                 <span className="maintenir__geste" aria-hidden="true">{t("garde le doigt posé")}</span>
@@ -116,7 +122,7 @@ export function FicheArticle({ item: id }: { item: string }) {
               {online && <p className="note">{t("C'est plus de la moitié de ta bourse.")}</p>}
             </>
           ) : (
-            <Bouton bloc attente={busy} disabled={!online} onClick={() => void buy()}>{acheter}</Bouton>
+            <Bouton bloc reflet attente={busy} disabled={!online} onClick={() => void buy()}>{acheter}</Bouton>
           )
         )}
         {!owned && !online && <p className="note">{t("Hors connexion. Les boutiques rouvrent dès que le réseau revient.")}</p>}

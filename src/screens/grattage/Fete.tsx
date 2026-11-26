@@ -16,6 +16,7 @@ import { formatEuros } from "../../../shared/format";
 import { TIER_RANK, type Tier } from "../../../shared/rules";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
+import { Compteur } from "../../ui/Bourse";
 
 // Les mots des paliers, en français : ce sont les clés de traduction, lues à l'affichage.
 const MOTS: Record<Tier, string> = {
@@ -54,17 +55,26 @@ interface ResultatProps {
   gain: number;
   /** En grand, pour la fête en plein écran. */
   grand?: boolean;
+  /**
+   * Le montant défile de 0 à sa valeur en autant de millisecondes, et les pièces sonnent.
+   * 0 : il s'affiche d'un coup (le bilan, une fois le ticket parti ; les animations réduites).
+   */
+  roule?: number;
 }
 
 /**
  * Le mot du palier et le montant gagné, en Abril Fatface. Décoratif pour les lecteurs
  * d'écran : la phrase entière est annoncée à part, une fois.
  */
-export function Resultat({ tier, gain, grand = false }: ResultatProps) {
+export function Resultat({ tier, gain, grand = false, roule = 0 }: ResultatProps) {
   return (
     <p className={cx("resultat", `resultat--${tier}`, grand && "resultat--grand")} aria-hidden="true">
       <span className="resultat__mot">{t(MOTS[tier])}</span>
-      {TIER_RANK[tier] >= TIER_RANK.petit && <span className="resultat__montant">{formatEuros(gain)}</span>}
+      {TIER_RANK[tier] >= TIER_RANK.petit && (
+        <span className="resultat__montant">
+          {roule > 0 ? <Compteur valeur={gain} depart={0} ms={roule} sonne /> : formatEuros(gain)}
+        </span>
+      )}
     </p>
   );
 }
@@ -75,10 +85,12 @@ interface FeteProps {
   /** Vrai une seconde après le début du jackpot : un toucher passe la fête. */
   skippable: boolean;
   onSkip: () => void;
+  /** La durée du défilement du montant, en millisecondes (voir `Resultat`). */
+  roule?: number;
 }
 
 /** Énorme et jackpot : plein écran. Le jackpot ajoute l'éclair, l'écran d'or et le montant qui grossit. */
-export function Fete({ tier, gain, skippable, onSkip }: FeteProps) {
+export function Fete({ tier, gain, skippable, onSkip, roule = 0 }: FeteProps) {
   return (
     <div
       className={cx("fete", tier === "jackpot" ? "fete--jackpot" : "fete--enorme")}
@@ -86,7 +98,7 @@ export function Fete({ tier, gain, skippable, onSkip }: FeteProps) {
       role="presentation"
     >
       {tier === "jackpot" && <span className="fete__eclair" aria-hidden="true" />}
-      <Resultat tier={tier} gain={gain} grand />
+      <Resultat tier={tier} gain={gain} grand roule={roule} />
       {skippable && <p className="fete__passer">{t("Touche l'écran pour continuer")}</p>}
     </div>
   );
