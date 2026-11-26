@@ -93,11 +93,18 @@ html[data-nav-pose] .jeu__fond > .ecran {
   width: 100%;
   max-width: var(--colonne);
   margin: 0 auto;
+  /* Le cadre ne bouge pas, et rogne : sur un écran large, rien ne sort de la colonne. */
   overflow: hidden;
+  pointer-events: none;
+}
+
+/* Le corps du fantôme : c'est lui qui recule, repart ou s'efface. */
+.fantome__corps {
+  position: absolute;
+  inset: 0;
   background: var(--nuit);
   /* Ce qui est fixe dans la copie (onglets, feuille, fête) se cale sur elle, pas sur la fenêtre. */
   will-change: transform, opacity;
-  pointer-events: none;
 }
 
 /* La copie garde son défilement : ce qui collait en bas de l'écran colle toujours. */
@@ -110,25 +117,25 @@ html[data-nav-pose] .jeu__fond > .ecran {
 }
 
 /* Tout est figé dans la copie, à l'état où chaque animation se termine. */
-.fantome *,
-.fantome *::before,
-.fantome *::after {
+.fantome__corps *,
+.fantome__corps *::before,
+.fantome__corps *::after {
   animation-delay: -100s !important;
   animation-play-state: paused !important;
   transition: none !important;
 }
 
 /* On entre plus loin : l'ancien écran recule un peu, sous le nouveau. */
-.fantome--pousse { animation: fantome-recule var(--t-glisse) var(--sortie) both; }
+.fantome--pousse .fantome__corps { animation: fantome-recule var(--t-glisse) var(--sortie) both; }
 
 /* On revient : l'ancien écran repart à droite, par-dessus celui qu'on retrouve. */
-.fantome--retour {
+.fantome--retour .fantome__corps {
   box-shadow: -10px 0 28px rgba(6, 24, 30, .5);
   animation: fantome-repart var(--t-glisse) var(--sortie) both;
 }
 
 /* D'un onglet à l'autre : l'ancien écran s'efface. */
-.fantome--fondu { animation: fantome-efface 200ms ease-in both; }
+.fantome--fondu .fantome__corps { animation: fantome-efface 200ms ease-in both; }
 
 @keyframes fantome-recule {
   from { opacity: 1; transform: none; }

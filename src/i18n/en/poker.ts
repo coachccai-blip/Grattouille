@@ -194,7 +194,7 @@ export const EN_POKER: Record<string, string> = {
   "Rien à dire": "Nothing to say",
   "Main suivante": "Next hand",
   "On attend les autres…": "Waiting for the others…",
-  "Fin du défi": "End of the challenge",
+  "Fin du défi": "See the outcome",
   "Recaver": "Top up",
 
   // --- La triche
@@ -219,7 +219,7 @@ export const EN_POKER: Record<string, string> = {
   "Si {nom} a triché, sa main ne compte plus ; sinon, rien à payer : ton tapis est vide.":
     "If {nom} cheated, their hand no longer counts; if not, nothing to pay: your stack is empty.",
   "Tricheur !": "Cheater!",
-  "Finalement, non": "On second thoughts, no",
+  "Finalement, non": "Actually, no",
 
   // --- Le dénouement
   "toi": "you",

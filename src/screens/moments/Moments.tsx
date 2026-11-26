@@ -39,7 +39,7 @@ function Paroles({ pnj, lignes, citation = false }: { pnj: string; lignes: reado
   const premiere = lignes[0] ?? "";
   useEffect(() => {
     if (pnj !== "piou") return;
-    const timer = window.setTimeout(() => piouParle(premiere), 700);
+    const timer = window.setTimeout(() => piouParle(premiere), 400);
     return () => window.clearTimeout(timer);
   }, [pnj, premiere]);
   return (

@@ -191,6 +191,48 @@ export function outcomeLines(result: HandResult): OutcomeLine[] {
   return out;
 }
 
+/** Un battement du dénouement, tel que l'écran le met en scène. */
+export interface Beat {
+  /** `accuse` : « Tricheur ! » ; `verdict` : démasqué ou innocent ; `pots` : le pot est ramassé. */
+  kind: "accuse" | "verdict" | "pots";
+  /** Le siège accusé (pour `accuse` et `verdict`) ; -1 pour les pots. */
+  seat: number;
+  /** Ce que dure le battement avant le suivant, en millisecondes. */
+  ms: number;
+}
+
+/** Le temps laissé à toutes les accusations d'une main, quel que soit leur nombre. */
+const ACCUSATIONS_MS = 4_500;
+
+/**
+ * Les battements d'un dénouement : les accusations, un accusé après l'autre, puis les
+ * pots. Une accusation seule a droit à son moment (le cri, puis le verdict) ; à
+ * plusieurs, les verdicts s'enchaînent, et le tout tient en quatre secondes et demie.
+ */
+export function beatsOf(result: HandResult): Beat[] {
+  const targets = [...new Set(result.accusations.map((a) => a.to))];
+  const beats: Beat[] = [];
+  if (targets.length === 1) {
+    beats.push({ kind: "accuse", seat: targets[0]!, ms: 1_300 }, { kind: "verdict", seat: targets[0]!, ms: 2_000 });
+  } else {
+    const each = targets.length > 0 ? Math.min(1_500, Math.round(ACCUSATIONS_MS / targets.length)) : 0;
+    for (const seat of targets) beats.push({ kind: "verdict", seat, ms: each });
+  }
+  beats.push({ kind: "pots", seat: -1, ms: 0 });
+  return beats;
+}
+
+/** À quel battement chaque ligne du récit se lit : avec le verdict de son accusé, ou avec les pots. */
+export function lineBeats(lines: readonly OutcomeLine[], beats: readonly Beat[]): number[] {
+  const verdictAt = (seat: number) => beats.findIndex((b) => b.kind === "verdict" && b.seat === seat);
+  const pots = beats.findIndex((b) => b.kind === "pots");
+  return lines.map((line) => {
+    if (line.kind === "demasque") return Math.max(0, verdictAt(line.seat));
+    if (line.kind === "tort") return Math.max(0, verdictAt(line.to));
+    return pots;
+  });
+}
+
 /** Le bilan de la main pour un siège : ce qu'il a reçu moins ce qu'il a versé. `null` s'il n'était pas servi. */
 export function netOf(result: HandResult, seat: number | null): number | null {
   if (seat === null) return null;

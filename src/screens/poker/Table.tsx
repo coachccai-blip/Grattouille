@@ -280,13 +280,13 @@ function Encheres({ view, off }: { view: TableView; off: boolean }) {
         </div>
       )}
       <div className="poker-actions__rang poker-actions__rang--parole">
-        <Bouton variante="secondaire" disabled={off || busy !== null} attente={busy === "coucher"} onClick={() => void play({ type: "coucher" })}>
+        <Bouton variante="secondaire" data-geste="coucher" disabled={off || busy !== null} attente={busy === "coucher"} onClick={() => void play({ type: "coucher" })}>
           {t("Se coucher")}
         </Bouton>
         {o.check ? (
-          <Bouton disabled={off || busy !== null} attente={busy === "parole"} onClick={() => void play({ type: "parole" })}>{t("Parole")}</Bouton>
+          <Bouton data-geste="parole" disabled={off || busy !== null} attente={busy === "parole"} onClick={() => void play({ type: "parole" })}>{t("Parole")}</Bouton>
         ) : (
-          <Bouton disabled={off || busy !== null} attente={busy === "suivre"} onClick={() => void play({ type: "suivre" })}>
+          <Bouton data-geste="suivre" disabled={off || busy !== null} attente={busy === "suivre"} onClick={() => void play({ type: "suivre" })}>
             {allIn ? t("Tapis : {montant}", { montant: formatEuros(o.call) }) : t("Suivre : {montant}", { montant: formatEuros(o.call) })}
           </Bouton>
         )}
@@ -303,20 +303,20 @@ function Actions({ view }: { view: TableView }) {
   const recave = () => nav.push({ name: "poker-feuille", feuille: "recave" });
   // Le tapis ne couvre plus la blinde : sans recave, la main suivante part sans le joueur.
   const dry = me.stack + me.reserve < view.blind;
-  // Recaver se propose quand le tapis est passé sous la cave minimale de la table : avant, rien ne presse.
-  const low = o.rebuy !== null && me.stack + me.reserve < view.minBuyIn;
+  // Recaver se propose quand le tapis passe sous dix blindes (ou la moitié de la cave minimale) : avant, rien ne presse.
+  const low = o.rebuy !== null && me.stack + me.reserve < Math.max(view.blind * 10, Math.floor(view.minBuyIn / 2));
 
   if (o.back) {
     return (
       <div className="poker-actions">
-        <Bouton bloc attente={busy === "retour"} disabled={off} onClick={() => void play({ type: "retour" })}>{t("Je suis là")}</Bouton>
+        <Bouton bloc data-geste="retour" attente={busy === "retour"} disabled={off} onClick={() => void play({ type: "retour" })}>{t("Je suis là")}</Bouton>
       </div>
     );
   }
   if (view.phase === "triche" && o.cheat) {
     return (
       <div className="poker-actions">
-        <Bouton variante="secondaire" bloc attente={busy === "franc-jeu"} disabled={off} onClick={() => void play({ type: "franc-jeu" })}>
+        <Bouton variante="secondaire" bloc data-geste="franc-jeu" attente={busy === "franc-jeu"} disabled={off} onClick={() => void play({ type: "franc-jeu" })}>
           {t("Jouer franc jeu")}
         </Bouton>
       </div>
@@ -326,7 +326,7 @@ function Actions({ view }: { view: TableView }) {
   if (view.phase === "abattage" && o.accuse.length > 0) {
     return (
       <div className="poker-actions">
-        <Bouton variante="secondaire" bloc attente={busy === "rien"} disabled={off} onClick={() => void play({ type: "rien" })}>
+        <Bouton variante="secondaire" bloc data-geste="rien" attente={busy === "rien"} disabled={off} onClick={() => void play({ type: "rien" })}>
           {t("Rien à dire")}
         </Bouton>
       </div>
@@ -339,6 +339,7 @@ function Actions({ view }: { view: TableView }) {
     const next = (
       <Bouton
         variante={dry && low ? "secondaire" : "principal"}
+        data-geste="suite"
         attente={busy === "suite"}
         disabled={off || !o.next}
         onClick={() => void play({ type: "suite" })}
@@ -349,9 +350,9 @@ function Actions({ view }: { view: TableView }) {
     return (
       <div className="poker-actions">
         <div className={cx("poker-actions__rang", !low && "poker-actions__rang--seul")}>
-          {low && !dry && <Bouton variante="secondaire" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+          {low && !dry && <Bouton variante="secondaire" data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
           {next}
-          {low && dry && <Bouton disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
+          {low && dry && <Bouton data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>}
         </div>
       </div>
     );
@@ -359,7 +360,7 @@ function Actions({ view }: { view: TableView }) {
   if (low && (dry || view.phase === "attente")) {
     return (
       <div className="poker-actions">
-        <Bouton variante={dry ? "principal" : "secondaire"} bloc disabled={off} onClick={recave}>{t("Recaver")}</Bouton>
+        <Bouton variante={dry ? "principal" : "secondaire"} bloc data-geste="recave" disabled={off} onClick={recave}>{t("Recaver")}</Bouton>
       </div>
     );
   }
@@ -567,11 +568,11 @@ function Attente({ view, offline }: { view: TableView; offline: boolean }) {
           <div className={cx("poker-actions__rang", !canShare && "poker-actions__rang--seul")}>
             {canShare && <Bouton variante="secondaire" onClick={() => void share()}>{t("Partager")}</Bouton>}
             <Bouton variante="secondaire" onClick={() => void copy()}>
-              <Icon name="copier" size={20} /> {t("Copier le code")}
+              <Icon name="copier" size={20} />{t("Copier le code")}
             </Bouton>
           </div>
           {owner && (
-            <Bouton bloc disabled={!view.options.start || busy !== null} attente={busy === "lancer"} onClick={() => void play({ type: "lancer" })}>
+            <Bouton bloc data-geste="lancer" disabled={!view.options.start || busy !== null} attente={busy === "lancer"} onClick={() => void play({ type: "lancer" })}>
               {t("Lancer la partie")}
             </Bouton>
           )}

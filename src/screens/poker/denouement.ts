@@ -9,17 +9,9 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { HandResult, TableView } from "../../../shared/poker/types";
 import type { Line } from "../../app/dialogues";
 import { playAccuse, playInnocent, playPot, playUnmasked } from "../../fx/audio";
-import { outcomeLines, winnersOf, type OutcomeLine } from "./calcul";
+import { beatsOf, lineBeats, outcomeLines, winnersOf, type Beat, type OutcomeLine } from "./calcul";
 import { flyChips } from "./evenements";
 import { tableLine } from "./repliques";
-
-export interface Beat {
-  /** `accuse` : « Tricheur ! » ; `verdict` : démasqué ou innocent ; `pots` : le pot est ramassé. */
-  kind: "accuse" | "verdict" | "pots";
-  /** Le siège accusé (pour `accuse` et `verdict`). */
-  seat: number;
-  ms: number;
-}
 
 export interface Denouement {
   result: HandResult;
@@ -34,35 +26,6 @@ export interface Denouement {
   judged: ReadonlySet<number>;
   /** Les pots sont ramassés : les bilans s'affichent. */
   settled: boolean;
-}
-
-/** Le temps laissé à toutes les accusations d'une main, quel que soit leur nombre. */
-const ACCUSATIONS_MS = 4_500;
-
-/** Les battements d'un dénouement : une accusation (ou plusieurs), puis les pots. */
-export function beatsOf(result: HandResult): Beat[] {
-  const targets = [...new Set(result.accusations.map((a) => a.to))];
-  const beats: Beat[] = [];
-  if (targets.length === 1) {
-    // Une seule accusation : elle a droit à son moment, le cri puis le verdict.
-    beats.push({ kind: "accuse", seat: targets[0]!, ms: 1_300 }, { kind: "verdict", seat: targets[0]!, ms: 2_000 });
-  } else {
-    const each = targets.length > 0 ? Math.min(1_500, Math.round(ACCUSATIONS_MS / targets.length)) : 0;
-    for (const seat of targets) beats.push({ kind: "verdict", seat, ms: each });
-  }
-  beats.push({ kind: "pots", seat: -1, ms: 0 });
-  return beats;
-}
-
-/** À quel battement chaque ligne du récit se lit. */
-export function lineBeats(lines: readonly OutcomeLine[], beats: readonly Beat[]): number[] {
-  const verdictAt = (seat: number) => beats.findIndex((b) => b.kind === "verdict" && b.seat === seat);
-  const pots = beats.findIndex((b) => b.kind === "pots");
-  return lines.map((line) => {
-    if (line.kind === "demasque") return Math.max(0, verdictAt(line.seat));
-    if (line.kind === "tort") return Math.max(0, verdictAt(line.to));
-    return pots;
-  });
 }
 
 interface Stage {

@@ -534,6 +534,13 @@
 
 .poker-actions .bouton--principal { font-size: clamp(16px, 5vw, 19px); }
 
+/* Une icône et son mot, côte à côte. */
+.poker-actions .bouton__texte {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .poker-actions__rang {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -628,11 +635,14 @@
   height: 0;
 }
 
+/* Les mains se tiennent au milieu du tapis ; s'il y en a trop, elles reprennent du haut et le tapis défile. */
 .poker-abattage__mains {
   display: flex;
   flex: none;
   flex-direction: column;
   gap: 6px;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .poker-rangee {
@@ -740,11 +750,20 @@
 
 .poker-rangee__cartes .carte + .carte { margin-left: calc(var(--pas) - var(--carte)); }
 
-/* Une carte montrée deux fois à la table : un indice. */
-.poker-carte--double .carte__face { box-shadow: 0 0 0 3px var(--bougainvillier); }
+/* Une carte montrée deux fois à la table : un indice. Elle se teinte : ce qu'on en voit
+   (son coin, sous la carte voisine) suffit à la reconnaître. */
+.poker-carte--double .carte__carton {
+  fill: #FBD0DF;
+  stroke: var(--bougainvillier);
+  stroke-width: 2.4;
+}
 
 /* La fausse carte d'un tricheur démasqué. */
-.poker-carte--fausse .carte__face { box-shadow: 0 0 0 3px var(--cerise); }
+.poker-carte--fausse .carte__carton {
+  fill: #FFD3D5;
+  stroke: var(--cerise);
+  stroke-width: 2.4;
+}
 
 .poker-abattage__indice {
   display: flex;
@@ -760,10 +779,10 @@
 .poker-abattage__pastille {
   flex: none;
   width: 12px;
-  height: 12px;
-  border: 3px solid var(--bougainvillier);
+  height: 14px;
+  border: 2px solid var(--bougainvillier);
   border-radius: 3px;
-  background: #fff;
+  background: #FBD0DF;
 }
 
 /* Le dénouement, côté joueur : ce que la main lui rapporte, puis où va le pot. Chaque

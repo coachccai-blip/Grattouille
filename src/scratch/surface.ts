@@ -9,7 +9,7 @@
 // - À 55 % de couverture, la case est révélée : le reste de son encre se dissout en
 //   220 ms à partir du dernier point touché.
 
-import { playReveal, playSweep, scratchEnd, scratchMove, type RevealKind } from "../fx/audio";
+import { playReveal, scratchEnd, scratchMove, type RevealKind } from "../fx/audio";
 import { haptic } from "../fx/haptics";
 import type { Fx } from "../fx/particles";
 import { INKS, brushes, cellPath, paintInk, type CellShape, type InkKind } from "./ink";
@@ -464,8 +464,6 @@ export class ScratchSurface {
     const box = this.o.canvas.getBoundingClientRect();
     this.offsetX = box.left;
     this.offsetY = box.top;
-    // Le balayage s'annonce.
-    playSweep();
     const stagger = targets.length > 1 ? Math.min(80, (total * 0.6) / (targets.length - 1)) : 0;
     const dur = Math.max(260, total - stagger * (targets.length - 1));
     const start = performance.now();

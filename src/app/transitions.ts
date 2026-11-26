@@ -98,7 +98,8 @@ function dismissAll(): void {
 function release(ghost: HTMLElement): void {
   ghosts.add(ghost);
   const done = (e?: Event) => {
-    if ((e && e.target !== ghost) || held.has(ghost)) return;
+    // L'animation est celle du fantôme lui-même, ou de son corps : pas celle d'un de leurs enfants.
+    if ((e && e.target !== ghost && e.target !== ghost.firstElementChild) || held.has(ghost)) return;
     dismiss(ghost);
   };
   ghost.addEventListener("animationend", done);
@@ -186,10 +187,15 @@ function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null; scr
   const rect = screen.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) return null;
 
+  // Le fantôme : un cadre immobile, de la taille de la colonne, qui rogne ; dedans, le
+  // corps, qui bouge. Sur un écran large, rien ne dépasse de la colonne.
   const ghost = document.createElement("div");
   ghost.className = "fantome";
   ghost.setAttribute("aria-hidden", "true");
   ghost.inert = true;
+  const body = document.createElement("div");
+  body.className = "fantome__corps";
+  ghost.appendChild(body);
 
   const scroller = document.createElement("div");
   scroller.className = "fantome__defile";
@@ -200,10 +206,10 @@ function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null; scr
   copy.style.height = `${screen.offsetHeight}px`;
   copy.style.minHeight = "0";
   scroller.appendChild(copy);
-  ghost.appendChild(scroller);
+  body.appendChild(scroller);
 
   // Les feuilles ouvertes par-dessus l'écran partent avec lui.
-  fond.querySelectorAll(":scope > .feuille__voile, :scope > .feuille").forEach((el) => ghost.appendChild(cloneOf(el)));
+  fond.querySelectorAll(":scope > .feuille__voile, :scope > .feuille").forEach((el) => body.appendChild(cloneOf(el)));
 
   // La barre d'onglets : copiée à part, et gardée seulement si elle s'en va avec l'écran.
   const bar = fond.querySelector(":scope > .onglets");
@@ -212,7 +218,7 @@ function buildScreenGhost(): { ghost: HTMLElement; tabs: HTMLElement | null; scr
   // Le défilement de la page devient celui de la copie.
   const scrolls: Scroll[] = [[scroller, Math.max(0, -rect.top), 0], ...readScroll(screen, copy)];
   const sheets = fond.querySelectorAll(":scope > .feuille");
-  const copies = ghost.querySelectorAll(":scope > .feuille");
+  const copies = body.querySelectorAll(":scope > .feuille");
   sheets.forEach((sheet, i) => {
     if (copies[i]) scrolls.push(...readScroll(sheet, copies[i]!));
   });
@@ -227,8 +233,9 @@ function stage(p: Pending, kind: Kind, to: View): void {
   ghost.className = `fantome fantome--${kind}`;
   // Les onglets partent avec l'écran quand le suivant n'en a pas ; sinon la vraie barre reste en place.
   const leaving = p.from.tabs && !to.tabs;
-  if (p.tabsClone) {
-    if (leaving && p.tabsClone.parentNode !== ghost) ghost.appendChild(p.tabsClone);
+  const body = ghost.firstElementChild;
+  if (p.tabsClone && body) {
+    if (leaving && p.tabsClone.parentNode !== body) body.appendChild(p.tabsClone);
     else if (!leaving) p.tabsClone.remove();
   }
   if (kind === "pousse") {

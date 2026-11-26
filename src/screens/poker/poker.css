@@ -311,6 +311,11 @@
   min-height: 52px;
 }
 
+.poker-pas--fixe {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 36px;
+}
+
 .poker-pas__nom { font: 700 16px/20px var(--texte); }
 
 .poker-pas__aide {

@@ -66,8 +66,8 @@ export const usePoker = create<PokerState>(() => ({ lobby: null, lobbyBusy: fals
 const get = usePoker.getState;
 const set = usePoker.setState;
 
-// En bac à sable, la recette peut lire l'état de la table depuis la console du navigateur.
-if (typeof window !== "undefined" && window.location.search.includes("bac-a-sable")) {
+// En bac à sable et en développement, la recette peut lire l'état de la table depuis la console du navigateur.
+if (typeof window !== "undefined" && (import.meta.env.DEV || window.location.search.includes("bac-a-sable"))) {
   (window as unknown as { __poker: typeof usePoker }).__poker = usePoker;
 }
 

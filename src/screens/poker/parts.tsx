@@ -93,6 +93,15 @@ interface PasProps {
 
 /** Un réglage : son nom, sa valeur, et deux boutons pour la baisser ou la monter. */
 export function Pas({ label, value, aide, onMinus, onPlus }: PasProps) {
+  // Rien à choisir (une seule valeur possible) : le réglage se lit, sans boutons éteints.
+  if (!onMinus && !onPlus) {
+    return (
+      <div className="poker-pas poker-pas--fixe">
+        <span className="poker-pas__nom">{label}</span>
+        <span className="poker-pas__valeur chiffres">{value}</span>
+      </div>
+    );
+  }
   return (
     <div className="poker-pas" role="group" aria-label={label}>
       <span className="poker-pas__nom">{label}</span>

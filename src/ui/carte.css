@@ -19,7 +19,8 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform 250ms var(--sortie);
+  /* Elle prend son élan, passe par la tranche, et se pose. */
+  transition: transform 250ms cubic-bezier(.45, .05, .25, 1);
 }
 
 .carte--cachee .carte__pivot { transform: rotateY(180deg); }

@@ -25,7 +25,7 @@ import { buyTickets, displayBalance, flushAck, isCalm, markRevealed, rememberSig
 import { Icon } from "../../art/icons";
 import { buildLayout, cellIds, matches, needsPick, resolvePick } from "../../engines";
 import { PANEL_COUNT, panelCellIds } from "../../engines/multi";
-import { playMatch, playStamp, playTicketBought, playTier, scratchEnd } from "../../fx/audio";
+import { playMatch, playStamp, playSweep, playTicketBought, playTier, scratchEnd } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { Fx, type Point } from "../../fx/particles";
 import { t } from "../../i18n";
@@ -310,12 +310,14 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     }
   }, [cells, phase, panel, multi, layout, ids, auto, rafale, calm, finish]);
 
-  // --- « Tout gratter » : aussi l'alternative d'accessibilité au geste.
-  const sweep = useCallback(async (total: number) => {
+  // --- « Tout gratter » : aussi l'alternative d'accessibilité au geste. `annonce` : le
+  // balayage s'entend (le bouton) ; en rafale, le frottement et les tics suffisent.
+  const sweep = useCallback(async (total: number, annonce = false) => {
     if (sweeping.current) return;
     sweeping.current = true;
     setAuto(true);
     setGhost(false);
+    if (annonce) playSweep();
     try {
       const began = performance.now();
       while (alive.current && performance.now() - began < 12_000) {
@@ -573,7 +575,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
             )
           ) : (
             <>
-              <Bouton bloc disabled={phase !== "gratte" || auto} onClick={() => void sweep(900)}>{t("Tout gratter")}</Bouton>
+              <Bouton bloc disabled={phase !== "gratte" || auto} onClick={() => void sweep(900, true)}>{t("Tout gratter")}</Bouton>
               {carnet && index >= 1 && (
                 <Bouton variante="secondaire" bloc disabled={phase !== "gratte" || auto} onClick={() => setRafale(true)}>
                   {t("Gratter en rafale")}

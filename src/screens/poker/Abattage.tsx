@@ -62,7 +62,8 @@ function useCardFit(rows: number): { width: number; step: number } {
   // rangée (16), la tête (40), deux écarts (16), la retenue des cartes (3), et la colonne du nom.
   const text = screen < 350 ? 98 : 108;
   const room = screen - 16 - 20 - 16 - 40 - 16 - 3 - text;
-  const width = rows <= 3 && screen >= 380 ? 48 : rows <= 4 && screen >= 350 ? 44 : 40;
+  // Peu de mains et un écran large : les cartes prennent leurs aises.
+  const width = screen >= 380 ? (rows <= 3 ? 56 : rows <= 5 ? 48 : 44) : screen >= 350 ? (rows <= 3 ? 48 : rows <= 4 ? 44 : 40) : 40;
   // Chaque carte montre au moins son coin : la valeur et l'enseigne.
   const step = Math.max(17, Math.min(width + 4, Math.floor((room - width) / 4)));
   return { width, step };
