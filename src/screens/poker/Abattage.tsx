@@ -205,7 +205,9 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
           const judged = verdict !== null && (outcome?.judged.has(row.seat) ?? false);
           const guilty = judged && verdict !== null && verdict.guilty;
           const fake = guilty ? result?.unmasked.find((u) => u.seat === row.seat)?.index ?? -1 : -1;
-          const net = result && outcome?.settled ? netOf(result, row.seat) : null;
+          // Le bilan de chacun s'écrit quand les pots sont ramassés ; sa place est gardée d'ici là.
+          const net = result ? netOf(result, row.seat) : null;
+          const settled = outcome?.settled ?? false;
           // Pendant l'abattage, l'accusation du joueur est un secret : lui seul la voit sur la rangée.
           const chosen = showdown && mine?.accuse === row.seat;
           const spoke = showdown && (view.seats[row.seat]?.done ?? false);
@@ -233,7 +235,12 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
                 <span className="poker-rangee__nom">{name}</span>
                 <span className={cx("poker-rangee__combi", guilty && "poker-rangee__combi--nulle")}>{categoryName(row.category)}</span>
                 {net !== null && (
-                  <span className={cx("poker-rangee__bilan chiffres", net > 0 && "poker-rangee__bilan--plus", net < 0 && "poker-rangee__bilan--moins")}>
+                  <span
+                    className={cx(
+                      "poker-rangee__bilan chiffres", net > 0 && "poker-rangee__bilan--plus", net < 0 && "poker-rangee__bilan--moins",
+                      !settled && "poker-rangee__bilan--attend",
+                    )}
+                  >
                     {net > 0 ? `+${formatEuros(net)}` : net < 0 ? `−${formatEuros(-net)}` : formatEuros(0)}
                   </span>
                 )}

@@ -821,6 +821,12 @@
 .poker-rangee__bilan--plus { color: var(--persienne-clair); }
 .poker-rangee__bilan--moins { color: var(--cerise-clair); }
 
+/* Pas encore dit : la ligne garde sa place, la rangée ne grandit pas quand le bilan tombe. */
+.poker-rangee__bilan--attend {
+  visibility: hidden;
+  animation: none;
+}
+
 /* Les cartes se chevauchent : chacune montre au moins son coin, la valeur et l'enseigne. */
 .poker-rangee__cartes {
   display: flex;

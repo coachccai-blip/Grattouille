@@ -19,27 +19,31 @@ function silentOrOwn(target: EventTarget | null): boolean {
 }
 
 /**
- * À poser une fois, au lancement. Le contexte audio démarre au premier toucher (les
- * navigateurs n'autorisent le son qu'après un geste), puis chaque appui obtient sa
- * réponse sonore en moins de 100 ms. Rend la fonction qui retire les écoutes.
+ * À poser une fois, au lancement. Rend la fonction qui retire les écoutes.
+ *
+ * Le contexte audio démarre au premier geste : les navigateurs n'autorisent le son qu'après
+ * un geste, et selon le navigateur c'est le doigt qui se pose ou le doigt qui se lève qui
+ * compte. On essaie donc aux deux : au pire, le tout premier son part quand le doigt se lève.
+ *
+ * L'appui léger part quand le geste est bien un appui (au « click », doigt levé, ou à
+ * l'activation au clavier) : ces grandes surfaces sont aussi celles qu'on attrape pour faire
+ * défiler la page, et un doigt posé sur un lieu de la Promenade pour remonter la rue ne doit
+ * pas sonner. (Les boutons, eux, sonnent dès qu'on les enfonce : voir ui/Bouton.tsx.)
  */
 export function installGestes(): () => void {
-  const onDown = (e: PointerEvent) => {
+  const unlock = () => unlockAudio();
+  const onClick = (e: MouseEvent) => {
     unlockAudio();
     if (!silentOrOwn(e.target)) playTap("secondaire");
   };
-  const onKey = () => unlockAudio();
-  // Au clavier ou avec une technologie d'assistance, il n'y a pas d'appui : le son part
-  // à l'activation (`detail` vaut alors 0).
-  const onClick = (e: MouseEvent) => {
-    if (e.detail === 0 && !silentOrOwn(e.target)) playTap("secondaire");
-  };
-  window.addEventListener("pointerdown", onDown, { capture: true, passive: true });
-  window.addEventListener("keydown", onKey, { capture: true });
+  window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
+  window.addEventListener("pointerup", unlock, { capture: true, passive: true });
+  window.addEventListener("keydown", unlock, { capture: true });
   window.addEventListener("click", onClick, { capture: true });
   return () => {
-    window.removeEventListener("pointerdown", onDown, { capture: true });
-    window.removeEventListener("keydown", onKey, { capture: true });
+    window.removeEventListener("pointerdown", unlock, { capture: true });
+    window.removeEventListener("pointerup", unlock, { capture: true });
+    window.removeEventListener("keydown", unlock, { capture: true });
     window.removeEventListener("click", onClick, { capture: true });
   };
 }
