@@ -17,7 +17,7 @@ import { placeById } from "../../../shared/places";
 import { TIER_DURATION, TIER_RANK, isPlaceOpen, tierOf } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
 import type { PendingTicket, TicketDef } from "../../../shared/types";
-import type { Line, Speaker } from "../../app/dialogues";
+import { PIOU, hostName, type Line, type Speaker } from "../../app/dialogues";
 import { atLeast, lineFor, nextFrame } from "../../app/helpers";
 import { nav, useNav } from "../../app/nav";
 import { buyTickets, displayBalance, flushAck, isCalm, markRevealed, rememberSign, useGame } from "../../app/store";
@@ -35,7 +35,7 @@ import { cx } from "../../ticket/parts";
 import { themeOf } from "../../ticket/themes";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
-import { Bulle, Entete, HorsLigne } from "../../ui/Commun";
+import { Bulle, BulleLibre, Entete, HorsLigne } from "../../ui/Commun";
 import { Fete, Resultat, fullScreen, resultText } from "./Fete";
 import { Roue } from "./Roue";
 import "./grattage.css";
@@ -125,8 +125,11 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
   const [skippable, setSkippable] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [seed] = useState(() => Math.floor(Math.random() * 1000));
-  // Le doigt fantôme : seulement pour le tout premier ticket d'un compte.
-  const [ghost, setGhost] = useState(() => (player?.stats.tickets ?? 9) <= 1 && (player?.stats.winners ?? 1) === 0 && !startRafale);
+  // Le tout premier ticket d'un compte, pas encore gratté : le doigt fantôme montre le geste,
+  // et Piou encourage. L'un et l'autre s'en vont dès que le joueur s'y met.
+  const [first] = useState(() => (player?.stats.tickets ?? 9) <= 1 && (player?.stats.winners ?? 1) === 0 && !startRafale);
+  const [ghost, setGhost] = useState(first);
+  const [encourage, setEncourage] = useState(first);
   const [ghostAt, setGhostAt] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [totals, setTotals] = useState({ count: 0, winners: 0, gain: 0 });
 
@@ -184,6 +187,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     finished.current = false;
     seenMatches.current = 0;
     anchor.current = null;
+    setEncourage(false);
     setQueue(q);
     setIndex(i);
     setCells(new Set());
@@ -219,6 +223,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
     const quick = rafaleRef.current && !big;
     if (rafaleRef.current && big) setRafale(false);
     const duration = quick ? 420 : calm ? Math.min(TIER_DURATION[tier], 900) : TIER_DURATION[tier];
+    setEncourage(false);
     setPhase("resultat");
     // « Trouvé par terre » est imprimé sur le ticket : l'annonce ne le répète pas.
     setAnnounce(resultText(tier, ticket.gain));
@@ -347,6 +352,7 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
 
   const onReveal = useCallback((id: string) => {
     setGhost(false);
+    setEncourage(false);
     setCells((prev) => {
       if (prev.has(id)) return prev;
       const next = new Set(prev);
@@ -542,6 +548,10 @@ export function Grattage({ tickets, rafale: startRafale }: Props) {
                 <Bouton variante="secondaire" bloc disabled={phase !== "gratte" || auto} onClick={() => setRafale(true)}>
                   {t("Gratter en rafale")}
                 </Bouton>
+              )}
+              {/* Premier grattage : Piou encourage, dans la bande libre sous le bouton. Il se tait à la première case grattée. */}
+              {encourage && (
+                <BulleLibre pnj="piou" nom={hostName("piou")} nomDiscret className="grattage__piou">{PIOU.premierTicket}</BulleLibre>
               )}
             </>
           )}

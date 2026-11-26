@@ -663,8 +663,8 @@ describe("mots, en anglais", () => {
         else expect(used).toBe(GRILLES[lexique]);
         expect(used.length).toBeGreaterThan(0);
       }
-      // Un lexique sans grille anglaise garde ses grilles françaises.
-      if (!GRILLES_EN.inconnu) expect(grillesOf("inconnu")).toBe((GRILLES_EN.terrasse ?? []).some(grilleValide) ? grillesOf("terrasse") : GRILLES.terrasse);
+      // Un lexique inconnu retombe sur celui de la terrasse, dans la langue du jeu.
+      expect(grillesOf("inconnu")).toBe(grillesOf("terrasse"));
     });
   });
 
@@ -803,6 +803,10 @@ describe("textes des tickets", () => {
     }
     for (const name of Object.values(SYMBOL_NAMES)) out.add(name);
     for (const name of [...Object.values(CARD_RANK_NAMES), ...Object.values(CARD_SUIT_NAMES)]) out.add(name);
+    // Les libellés que les vues tiennent dans des tables : adversaires des duels, coefficients.
+    for (const label of ["Hector", "Croupier", "Rival", "Coefficient de marée", "Taux d'intérêt", "Prime", "Coefficient"]) {
+      out.add(label);
+    }
     return [...out];
   }
 

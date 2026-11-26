@@ -49,14 +49,6 @@ export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-/**
- * Le pluriel français simple : 1 ticket, 2 tickets. Il ne vaut qu'en français : une
- * phrase à traduire prend deux clés, choisies par le code (`n > 1`).
- */
-export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
-  return n > 1 ? plurielForme : singulier;
-}
-
 /** Le « 2,6 » de « 1 sur 2,6 », ou le « 2.6 » de « 1 in 2.6 » ; `null` pour un lot qui ne sort jamais. */
 function oddsNumber(weight: number): string | null {
   // shared/ n'écrit qu'à la française : « 1 sur 6 667 », « 1 sur 2,6 », « jamais ».

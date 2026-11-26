@@ -1,7 +1,7 @@
 # Grattouille
 
-Un jeu de tickets à gratter où la chance sourit au joueur. Jeu de fiction : aucun argent
-réel, rien à acheter, rien à retirer. Réservé aux adultes.
+Un jeu de tickets à gratter où la chance sourit au joueur. Tout s'y joue avec la monnaie
+du jeu : rien à acheter, rien à retirer.
 
 On débarque sans un sou, on ramasse un ticket par terre, et une dizaine d'heures plus
 tard on rachète le kiosque : 30 tickets, 8 lieux du port jusqu'à la Lune, 110 biens à

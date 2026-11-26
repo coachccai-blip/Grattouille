@@ -149,6 +149,50 @@
   justify-content: center;
 }
 
+/* Le tout premier grattage d'un compte : Piou encourage, dans la bande que le plateau garde
+   libre sous « Tout gratter ». Une petite bulle de deux lignes, posée par-dessus le plateau :
+   elle ne déplace rien, ni en arrivant ni en partant, même si son texte s'allongeait. Le
+   portrait dit qui parle : le nom reste pour les lecteurs d'écran. */
+.grattage__piou {
+  position: absolute;
+  /* Sous le bouton (56 px) et son ombre (4 px), à un écart de 8 px. */
+  top: 68px;
+  right: 0;
+  left: 0;
+  gap: var(--e2);
+  align-items: center;
+  animation: fondu 200ms linear both;
+}
+
+.grattage__piou .portrait {
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 0 0 2px var(--ivoire);
+}
+
+.grattage__piou .bulle__texte {
+  margin: 0;
+  padding: 6px 12px;
+  font: 400 14px/18px var(--texte);
+  text-wrap: balance;
+}
+
+/* Écran étroit : la bulle se resserre pour garder ses deux lignes. */
+@media (max-width: 340px) {
+  .grattage__piou { gap: 6px; }
+
+  .grattage__piou .portrait {
+    width: 32px;
+    height: 32px;
+  }
+
+  .grattage__piou .bulle__texte {
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 17px;
+  }
+}
+
 /* Le canvas d'effets, au-dessus de tout, transparent aux gestes. */
 .grattage__fx {
   position: fixed;

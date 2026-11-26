@@ -194,13 +194,22 @@ export function Bulle({ line, className }: { line: Line | null; className?: stri
   );
 }
 
+interface BulleLibreProps {
+  pnj: string;
+  nom: string;
+  children: ReactNode;
+  className?: string;
+  /** Le nom n'est dit qu'aux lecteurs d'écran : le portrait suffit, là où la place manque. */
+  nomDiscret?: boolean;
+}
+
 /** La même bulle, pour un texte libre (Piou). */
-export function BulleLibre({ pnj, nom, children, className }: { pnj: string; nom: string; children: ReactNode; className?: string }) {
+export function BulleLibre({ pnj, nom, children, className, nomDiscret = false }: BulleLibreProps) {
   return (
     <div className={cx("bulle", className)}>
       <Portrait pnj={pnj} />
       <p className="bulle__texte">
-        <span className="bulle__nom">{nom}</span>
+        <span className={nomDiscret ? "invisible" : "bulle__nom"}>{nom}</span>
         {children}
       </p>
     </div>
