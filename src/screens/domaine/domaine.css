@@ -144,10 +144,7 @@
   background: #0A242D;
 }
 
-.objectif--kiosque .objectif__titre,
-.objectif--patron .objectif__titre { color: var(--mimosa); }
-
-.objectif--patron { border-color: var(--mimosa); }
+.objectif--kiosque .objectif__titre { color: var(--mimosa); }
 
 /* Le conseil de Piou : sa phrase, la barre de l'objectif dont il parle, et le chemin. */
 .conseil .bulle__texte { flex: 1 1 auto; }

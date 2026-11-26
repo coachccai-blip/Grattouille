@@ -174,7 +174,7 @@ const GASPARD: Deux<Script> = {
       ],
     },
     gagne: {
-      familier: ["Et voilà le travail !", "Qu'est-ce que je disais !", "Ça rentre, mon grand, ça rentre !"],
+      familier: ["Et voilà le travail !", "Ha ! Le port te réussit, on dirait.", "Ça rentre, mon grand, ça rentre !"],
       poli: ["Félicitations, {pseudo}.", "Voilà qui fait plaisir à voir, {pseudo}.", "Bien joué, {pseudo}. Vraiment."],
       deferent: [
         "La chance reconnaît les siens.",
@@ -308,7 +308,7 @@ const GASPARD: Deux<Script> = {
       ],
     },
     gagne: {
-      familier: ["And that's how it's done!", "What did I tell you!", "It's rolling in, sunshine, it's rolling in!"],
+      familier: ["And that's how it's done!", "Ha! The harbour agrees with you, it seems.", "It's rolling in, sunshine, it's rolling in!"],
       poli: ["Congratulations, {pseudo}.", "Now that's a pleasure to see, {pseudo}.", "Well played, {pseudo}. Truly."],
       deferent: [
         "Luck knows its own.",
@@ -2342,8 +2342,8 @@ const P = {
     en: "Standing opens doors. {n} more ★ for {lieu}.",
   },
   premieresEtoiles: {
-    fr: "Voilà du Standing ! Les ★ ouvrent les portes : encore {n} pour {lieu}.",
-    en: "That's Standing! The ★ open doors: {n} more for {lieu}.",
+    fr: "Du Standing ! Chaque achat en rapporte, pour toujours. Encore {n} ★ pour {lieu}.",
+    en: "Standing! Every purchase earns some, for good. {n} more ★ for {lieu}.",
   },
   prochainBoutiques: {
     fr: [
@@ -2475,7 +2475,10 @@ export const PIOU = {
   standing(stars: number, place: string): string {
     return fill(pick(P.standing), { n: formatInt(stars), lieu: place });
   },
-  /** Le premier achat : ce qu'est le Standing, dit une fois. */
+  /**
+   * Le premier achat : ce qu'est le Standing, dit une fois. La fiche de l'article vient de
+   * dire qu'il ouvre les portes (`standing`) ; ici, d'où il vient, et qu'il ne se perd pas.
+   */
   premieresEtoiles(stars: number, place: string): string {
     return fill(pick(P.premieresEtoiles), { n: formatInt(stars), lieu: place });
   },

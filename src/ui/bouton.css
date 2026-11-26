@@ -7,10 +7,12 @@
   align-items: center;
   justify-content: center;
   min-height: 56px;
-  padding: 0 24px;
+  /* Sur un écran étroit, la marge et le corps se resserrent un peu : le plus long des
+     boutons (« Racheter le même 250 000 € ») tient sur une ligne dès 320 px. */
+  padding: 0 clamp(14px, 5vw, 24px);
   overflow: hidden;
   border-radius: 99px;
-  font: 700 20px/24px var(--texte);
+  font: 700 clamp(18px, 5.6vw, 20px)/24px var(--texte);
   text-align: center;
   text-decoration: none;
   transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear, opacity var(--t-bascule) linear;
