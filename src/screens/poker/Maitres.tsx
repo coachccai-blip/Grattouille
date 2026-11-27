@@ -17,7 +17,7 @@ import { Bouton } from "../../ui/Bouton";
 import { Bourse, useCompte } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
 import { neighbours } from "./calcul";
-import { Tete } from "./parts";
+import { Tete, unbroken } from "./parts";
 import { mastersLine } from "./repliques";
 import { identityOf, mastersEnding, playerName, tableTitle, type MastersEnd } from "./textes";
 
@@ -157,7 +157,7 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
           </ul>
         )}
         {host && <Bulle line={mastersLine(host.bot, "defaite")} className="poker-sortie__hote" />}
-        {!won && <p>{ending.texte}</p>}
+        {!won && <p>{unbroken(ending.texte)}</p>}
         <Bouton bloc onClick={onBack}>{t("Retour au hall")}</Bouton>
       </div>
       {won && <canvas ref={canvas} className="poker-fete__fx" aria-hidden="true" />}

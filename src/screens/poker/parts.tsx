@@ -92,7 +92,7 @@ interface PasProps {
 }
 
 /** Un mot composé ne se coupe pas à son trait d'union (« buy-in ») : un liant invisible le tient d'un seul tenant. */
-const unbroken = (text: string) => text.replace(/(\p{L})-(\p{L})/gu, "$1-\u2060$2");
+export const unbroken = (text: string) => text.replace(/(\p{L})-(\p{L})/gu, "$1-\u2060$2");
 
 /** Un réglage : son nom, sa valeur, et deux boutons pour la baisser ou la monter. */
 export function Pas({ label, value, aide, onMinus, onPlus }: PasProps) {

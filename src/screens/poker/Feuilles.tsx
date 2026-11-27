@@ -28,7 +28,7 @@ import {
   RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, isFullCode, mastersCard, maxBuyInChoices, rankTaken,
   suitTaken, swapped, tournamentDecided,
 } from "./calcul";
-import { Alerte, BarreTemps, Pas, Tete, steps } from "./parts";
+import { Alerte, BarreTemps, Pas, Tete, steps, unbroken } from "./parts";
 import { categoriesFromTop, categoryName, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity } from "./textes";
 import "./poker.css";
 
@@ -241,7 +241,7 @@ function Maitres() {
         {REGLES_MAITRES.map((regle, i) => (
           <li key={regle}>
             <span className="poker-regles__numero" aria-hidden="true">{i + 1}</span>
-            <span>{t(regle, sommes)}</span>
+            <span>{unbroken(t(regle, sommes))}</span>
           </li>
         ))}
       </ol>
