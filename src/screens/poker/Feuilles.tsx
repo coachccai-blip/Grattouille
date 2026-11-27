@@ -333,7 +333,7 @@ function Creer() {
   );
 
   return (
-    <Feuille titre={t("Créer une table")} onClose={fermer} className="poker-feuille">
+    <Feuille titre={t("Créer une table")} onClose={fermer} className="poker-feuille poker-creer">
       <h2 className="t-titre">{t("Créer une table")}</h2>
       {/* Le mode d'abord : il décide de tout le reste. Sa règle se lit dessous, en une phrase. */}
       <div className="poker-niveaux poker-modes" role="radiogroup" aria-label={t("Façon de jouer")}>

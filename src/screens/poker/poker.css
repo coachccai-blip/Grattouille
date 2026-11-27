@@ -482,10 +482,23 @@
 .poker-feuille__gain { font-weight: 700; }
 
 /* Entre amis, deux façons de jouer : deux boutons côte à côte, et la règle du mode choisi dessous. */
+.poker-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .poker-modes .poker-niveau {
   padding-right: 4px;
   padding-left: 4px;
   font-size: clamp(13px, 4.1vw, 15px);
+}
+
+/* La feuille de création est longue : son bouton reste en bas, quoi qu'on fasse défiler. */
+.poker-creer .feuille__corps { padding-bottom: 0; }
+
+.poker-creer .poker-feuille__action {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -20px;
+  padding: 8px 20px 24px;
+  background: var(--ivoire);
 }
 
 .poker-modes__regle {

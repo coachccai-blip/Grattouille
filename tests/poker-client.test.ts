@@ -21,8 +21,8 @@ import { PLACES } from "../shared/places";
 import { HOST_STORY_WINS, hostStoryOpen } from "../shared/rules";
 import type { PlaceId } from "../shared/types";
 import {
-  ACCUSE_MS, BOT_PERSONAS, CHALLENGE_ROUNDS, CHEAT_MS, DECK, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, RESULT_MS, TURN_MS,
-  WALKOVER_MS, betOptions, challengeOf, evaluate,
+  ACCUSE_MS, BOT_PERSONAS, CHALLENGE_ROUNDS, CHEAT_MS, DECK, MASTERS_BLIND, MASTERS_BLINDS, MASTERS_BUYIN, MASTERS_SEATS,
+  RESULT_MS, TURN_MS, WALKOVER_MS, betOptions, challengeOf, evaluate,
   type HandResult, type LobbyMasters, type PokerAction, type PokerLobbyResponse, type PokerTableResponse, type SeatView,
   type TableView,
 } from "../shared/poker";
@@ -35,19 +35,19 @@ import { EN_RECIT } from "../src/i18n/en/recit";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
 import {
   MAX_DIGITS, RANKS, SUITS, UNITS, accusationCost, beatsOf, betChoices, boundBet, buyInSteps, challengesWon, cleanCode,
-  decimalsFor, defaultBuyIn, doubles, duelOf, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, leadShift, lineBeats,
-  mastersCard, mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, playedStage, potSized, pressKey,
-  rankTaken, remainingMs, sidesFor, stageOf, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitOf, unitsFor,
-  winnersOf, type DuelStage, type Unit,
+  decimalsFor, defaultBuyIn, doubles, duelOf, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, isTournament,
+  leadShift, lineBeats, mastersCard, mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, playedStage,
+  playersLeft, potSized, pressKey, quitMeans, rankTaken, remainingMs, sidesFor, stageOf, suitTaken, swapped,
+  tournamentDecided, tournamentStake, typedAmount, typedBet, unitOf, unitsFor, winnersOf, type DuelStage, type Unit,
 } from "../src/screens/poker/calcul";
 import {
   DUEL_TALK, KITTY_TALK, MASTERS_TALK, PIOU_HALL, TABLE_TALK, duelLine, kittyLine, mastersLine, piouHall, tableLine,
   type Bot, type DuelMoment, type Host, type MastersMoment, type TableMoment,
 } from "../src/screens/poker/repliques";
 import {
-  boundsText, decimalMark, duelLost, duelProgressText, duelStakesText, duelStoryText, duelWon, fieldAround, isMastersEnd,
-  mastersEnding, mastersLeftText, seatStateText, stageText, storyOpenedText, tableTitle, typedBetLabel, typedBetText, typedText,
-  unitLabel, unitName, type MastersEnd,
+  FRIENDS_MODES, boundsText, decimalMark, duelLost, duelProgressText, duelStakesText, duelStoryText, duelWon, fieldAround,
+  isMastersEnd, mastersEnding, mastersLeftText, modeName, modeRule, playersLeftText, seatStateText, stageText,
+  storyOpenedText, tableTitle, typedBetLabel, typedBetText, typedText, unitLabel, unitName, type MastersEnd,
 } from "../src/screens/poker/textes";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
@@ -1479,6 +1479,137 @@ describe("le défi, en trois manches : la mise double, et la troisième victoire
 
 // ---------------------------------------------------------------------------
 
+describe("entre amis, deux façons de jouer : la table classique et la Table des Maîtres", () => {
+  /** Une table entre amis en tournoi : le joueur au siège 0, une amie, un robot. */
+  const friends = (over: Partial<Record<number, Partial<SeatView>>> = {}) => [
+    seat(0, { stack: 300, ...over[0] }),
+    seat(1, { pseudo: "Léa", stack: 300, ...over[1] }),
+    seat(2, { pseudo: null, bot: "baron", species: null, stack: 300, ...over[2] }),
+  ];
+
+  it("le format tournoi : la Table des Maîtres, et une table entre amis créée à ses règles", () => {
+    expect(isTournament({ kind: "maitres" })).toBe(true);
+    expect(isTournament({ kind: "maitres", format: "tournoi" })).toBe(true);
+    expect(isTournament({ kind: "privee", format: "tournoi" })).toBe(true);
+    // Une table classique, et toutes celles d'avant (un serveur plus ancien ne dit pas le format).
+    expect(isTournament({ kind: "privee", format: "classique" })).toBe(false);
+    expect(isTournament({ kind: "privee" })).toBe(false);
+    expect(isTournament({ kind: "maison", format: "classique" })).toBe(false);
+    expect(isTournament({ kind: "defi", format: "classique" })).toBe(false);
+  });
+
+  it("la cagnotte d'un tournoi : trente blindes de départ, la même pour tous, comme à la Table des Maîtres", () => {
+    expect(MASTERS_BLINDS).toBe(30);
+    expect(tournamentStake(1)).toBe(30);
+    expect(tournamentStake(500)).toBe(15_000);
+    expect(tournamentStake(MASTERS_BLIND)).toBe(MASTERS_BUYIN);
+    expect(tournamentStake(-5)).toBe(0);
+  });
+
+  it("combien de joueurs sont encore en jeu, le joueur compris", () => {
+    expect(playersLeft({ seats: friends() })).toEqual({ left: 3, of: 3 });
+    expect(playersLeft({ seats: friends({ 2: { out: true, stack: 0 } }) })).toEqual({ left: 2, of: 3 });
+    // Un siège libre ne compte pas.
+    expect(playersLeft({ seats: [...friends({ 1: { out: true, stack: 0 } }), null] })).toEqual({ left: 2, of: 3 });
+    expect(playersLeftText(3)).toBe("3 joueurs en jeu");
+    expect(playersLeftText(1)).toBe("");
+    setLang("en");
+    expect(playersLeftText(2)).toBe("2 players in");
+  });
+
+  it("ce que partir veut dire, à dire avant : rien à une table classique, son tapis laissé si un ami joue encore", () => {
+    const table = (over: object = {}) => ({ kind: "privee" as const, format: "tournoi", you: 0, started: true, seats: friends(), ...over });
+    // Un autre humain joue encore : partir, c'est abandonner. Le tapis reste sur la table.
+    expect(quitMeans(table())).toBe("abandon");
+    // L'amie est éliminée, ou partie : seul face au robot, on reprend son tapis, sans la victoire.
+    expect(quitMeans(table({ seats: friends({ 1: { out: true, stack: 0 } }) }))).toBe("seul");
+    expect(quitMeans(table({ seats: [friends()[0]!, null, friends()[2]!] }))).toBe("seul");
+    // Avant le lancement, rien n'est encore en jeu : on se lève avec sa cagnotte.
+    expect(quitMeans(table({ started: false }))).toBe("libre");
+    // Une table classique : on part quand on veut, avec son tapis.
+    expect(quitMeans(table({ format: "classique" }))).toBe("libre");
+    expect(quitMeans(table({ format: undefined }))).toBe("libre");
+    // LA Table des Maîtres : le joueur y est le seul humain.
+    expect(quitMeans({ kind: "maitres", format: "tournoi", you: 0, started: true, seats: [seat(0), seat(1, { pseudo: null, bot: "hector" })] })).toBe("seul");
+  });
+
+  it("un tournoi entre amis est joué quand, au dénouement, plus personne d'autre n'a de jetons, ou que le joueur n'a plus rien", () => {
+    const at = (seats: (SeatView | null)[], phase: TableView["phase"] = "denouement") => ({ kind: "privee" as const, format: "tournoi", phase, you: 0, seats });
+    expect(tournamentDecided(at(friends()))).toBe(false);
+    // L'amie n'a plus rien, le robot non : la partie continue.
+    expect(tournamentDecided(at(friends({ 1: { stack: 0 } })))).toBe(false);
+    // Plus aucun adversaire, humain ou robot : c'est gagné.
+    expect(tournamentDecided(at(friends({ 0: { stack: 900 }, 1: { stack: 0 }, 2: { stack: 0 } })))).toBe(true);
+    // Le joueur n'a plus rien : c'est fini pour lui, même si la table continue pour les autres.
+    expect(tournamentDecided(at(friends({ 0: { stack: 0 } })))).toBe(true);
+    // Pendant une main, rien n'est décidé : un joueur à tapis joue encore.
+    expect(tournamentDecided(at(friends({ 0: { stack: 0 } }), "encheres"))).toBe(false);
+    // Une table classique ne finit jamais d'elle-même.
+    expect(tournamentDecided({ ...at(friends({ 0: { stack: 0 } })), format: "classique" })).toBe(false);
+  });
+
+  it("les deux modes ont un nom et une règle en une phrase, dans les deux langues", () => {
+    expect([...FRIENDS_MODES]).toEqual(["classique", "tournoi"]);
+    expect(FRIENDS_MODES.map(modeName)).toEqual(["Table classique", "Table des Maîtres"]);
+    // Classique : sa cave, la recave, on part quand on veut avec son tapis.
+    expect(modeRule("classique")).toMatch(/choisit sa cave/);
+    expect(modeRule("classique")).toMatch(/recaver/);
+    expect(modeRule("classique")).toMatch(/avec son tapis/);
+    // Table des Maîtres : la même cagnotte, pas de recave, la blinde monte, on est éliminé, le dernier remporte tout.
+    for (const mot of [/même cagnotte/, /sans recave/, /blinde monte/, /éliminé/, /dernier assis remporte tout/]) expect(modeRule("tournoi")).toMatch(mot);
+    setLang("en");
+    expect(FRIENDS_MODES.map(modeName)).toEqual(["Classic table", "Masters' Table"]);
+    for (const mot of [/same kitty/, /no topping up/, /blind goes up/, /knocked out/, /last one seated takes it all/]) expect(modeRule("tournoi")).toMatch(mot);
+    expect(modeRule("classique")).toMatch(/buy-in/);
+    // Une phrase, pas un paragraphe : elle tient sous son bouton, sur un téléphone de 320 px.
+    for (const lang of LANGUES) {
+      setLang(lang);
+      for (const mode of FRIENDS_MODES) expect([lang, mode, len(modeRule(mode)) <= 150]).toEqual([lang, mode, true]);
+    }
+  });
+
+  it("LA Table des Maîtres du hall ne se confond pas avec le mode du même nom : elle se joue contre quatre maîtres des lieux", () => {
+    // Dans le hall : « La Table des Maîtres », contre quatre hôtes ; entre amis, le mode n'en parle pas.
+    expect(t("Contre quatre maîtres des lieux, tirés au sort")).toMatch(/maîtres des lieux/);
+    expect(modeRule("tournoi")).not.toMatch(/maîtres des lieux|tirés au sort/);
+    expect(t("Une table classique, ou aux règles de la Table des Maîtres : tu choisis en la créant.")).toMatch(/aux règles de la Table des Maîtres/);
+    // À la table : celle des hôtes s'appelle « Table des Maîtres » ; celle des amis garde son code.
+    expect(tableTitle({ kind: "maitres", place: null, code: "QR24F" })).toBe("Table des Maîtres");
+    expect(tableTitle({ kind: "privee", place: null, code: "QR24F" })).toBe("Table QR24F");
+    setLang("en");
+    expect(t("Contre quatre maîtres des lieux, tirés au sort")).toBe("Against four of your hosts, drawn by lot");
+    expect(t("La Table des Maîtres du hall se joue ainsi, contre quatre maîtres des lieux : elle seule compte pour le trophée.")).toMatch(/it alone counts towards the trophy/);
+    expect(tableTitle({ kind: "privee", place: null, code: "QR24F" })).toBe("Table QR24F");
+  });
+
+  it("les fins d'un tournoi entre amis : il remporte la table, il est éliminé, il abandonne, ou il se lève seul face aux robots", () => {
+    // Gagné : les mêmes mots qu'à la Table des Maîtres, et tout ce qu'il y avait sur la table.
+    expect(mastersEnding("maitres-gagne", 45_000, true)).toEqual({ titre: "La table est à toi !", texte: `Tu remportes 45${THIN}000${NBSP}€.`, somme: "Tu remportes" });
+    // Éliminé : sa cagnotte reste aux autres. Pas de maître tiré au sort ici, pas de table qui rouvre.
+    const lost = mastersEnding("maitres-perdu", 0, true);
+    expect(lost).toEqual({ titre: "Le tournoi s'arrête là pour toi", texte: "Ta cagnotte reste sur la table : le dernier assis remportera tout.", somme: null });
+    expect(lost.texte).not.toMatch(/tirés au sort|rouvre/);
+    // Abandon (un ami jouait encore) : rien ne revient à la bourse, et le panneau le redit.
+    expect(mastersEnding("quitte", 0, true)).toEqual({
+      titre: "Tu abandonnes le tournoi", texte: "Ton tapis est resté sur la table : le dernier assis le remportera.", somme: null,
+    });
+    // Seul face aux robots : il reprend son tapis, sans la victoire.
+    expect(mastersEnding("quitte", 14_500, true)).toEqual({
+      titre: "Tu te lèves de table", texte: `Tu repars avec ton tapis, 14${THIN}500${NBSP}€, sans la victoire.`, somme: null,
+    });
+    // La Table des Maîtres du hall garde ses propres mots.
+    expect(mastersEnding("maitres-perdu", 0).titre).toBe("Les maîtres gardent la table");
+    setLang("en");
+    expect(mastersEnding("maitres-perdu", 0, true).titre).toBe("The tournament ends here for you");
+    expect(mastersEnding("quitte", 0, true)).toEqual({
+      titre: "You abandon the tournament", texte: "Your stack stayed on the table: the last one seated will win it.", somme: null,
+    });
+    expect(mastersEnding("quitte", 14_500, true).texte).toBe("You leave with your stack, €14,500, but without the win.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 describe("le dictionnaire anglais du poker", () => {
   const entries = Object.entries(EN_POKER).map(([fr, en]) => ({ fr, en }));
   const OTHERS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS };
@@ -1933,6 +2064,143 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
     expect(end.duel).toEqual({ stage: "revanche", rounds: 3, won: 3, stake: 400, prize: 800 });
     // Dans ce monde-là, le chemin est passé par des défaites : elles ont coûté leur mise, et rien d'autre.
     expect(lost).toBeGreaterThan(0);
+  });
+
+  it("un tournoi entre amis contre le vrai serveur : la cagnotte exacte, on n'entre plus une fois lancé, l'abandon laisse son tapis", async () => {
+    const w = makeWorld(606);
+    const mk = async (pseudo: string) => {
+      const created = await w.call<{ playerId: string; code: string }>("POST", "/api/players", { pseudo, species: "renard" });
+      w.storage.poke(created.body.playerId, (p) => {
+        p.balance = 100_000;
+      });
+      return `${created.body.playerId}.${created.body.code}`;
+    };
+    const [alice, bob, carl] = [await mk("Alice"), await mk("Bob"), await mk("Carl")];
+    const see = async (auth: string, code: string) => (await w.call<PokerTableResponse>("GET", `/api/poker/table?code=${code}`, undefined, auth)).body;
+
+    // Ce que la feuille de création envoie en mode Table des Maîtres : la blinde, et la cagnotte qui en découle.
+    const stake = tournamentStake(10);
+    const made = await w.call<PokerTableResponse>("POST", "/api/poker/tables", { blind: 10, maxBuyIn: stake, seats: 4, bots: 1, difficulty: "facile", format: "tournoi" }, alice);
+    expect(made.status).toBe(201);
+    const view = made.body.view!;
+    expect([view.kind, view.format, isTournament(view), view.started]).toEqual(["privee", "tournoi", true, false]);
+    // Chacun pose la même cagnotte : trente blindes, ni plus ni moins.
+    expect([view.minBuyIn, view.maxBuyIn]).toEqual([stake, stake]);
+    expect(view.seats.filter((s) => s !== null).map((s) => s!.stack)).toEqual([stake, stake]);
+    expect(view.options.rebuy).toBeNull();
+    // Avant le lancement, rien n'est encore en jeu : se lever ne coûte rien.
+    expect(quitMeans(view)).toBe("libre");
+
+    // Bob voit la table avant de s'asseoir : la feuille « rejoindre » lui annonce le mode et la cagnotte.
+    const preview = (await see(bob, view.code)).view!;
+    expect([preview.you, isTournament(preview), preview.started, preview.maxBuyIn]).toEqual([null, true, false, stake]);
+    // La cagnotte exacte : c'est celle que la feuille propose. Toute autre somme est refusée.
+    const wrong = await w.call<{ error?: { code: string } }>("POST", "/api/poker/join", { code: view.code, buyIn: stake - 100 }, bob);
+    expect(wrong.status).toBe(400);
+    const joined = await w.call<PokerTableResponse>("POST", "/api/poker/join", { code: view.code, buyIn: preview.maxBuyIn }, bob);
+    expect(joined.status).toBe(200);
+    expect(playersLeft(joined.body.view!)).toEqual({ left: 3, of: 3 });
+
+    // Alice lance : la blinde montera, et plus personne n'entre.
+    const go = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action: { type: "lancer" } }, alice);
+    expect(go.status).toBe(200);
+    expect(go.body.view!.started).toBe(true);
+    expect(go.body.view!.rise).not.toBeNull();
+    const late = (await see(carl, view.code)).view!;
+    // La feuille de Carl le sait avant qu'il n'essaie : la table est lancée.
+    expect([late.you, isTournament(late), late.started]).toEqual([null, true, true]);
+    const refused = await w.call<{ error?: { code: string } }>("POST", "/api/poker/join", { code: view.code, buyIn: stake }, carl);
+    expect(refused.status).toBe(409);
+
+    // Alice se lève alors que Bob joue encore : la feuille « quitter » l'a prévenue, son tapis reste sur la table.
+    const mine = (await see(alice, view.code)).view!;
+    expect(quitMeans(mine)).toBe("abandon");
+    const before = mine.seats[mine.you!]!.stack;
+    expect(before).toBeGreaterThan(0);
+    const quit = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action: { type: "quitter" } }, alice);
+    expect(quit.body.left).toEqual({ reason: "quitte", payout: 0, bonus: 0 });
+    expect(quit.body.state?.balance).toBe(100_000 - stake);
+    expect(mastersEnding("quitte", quit.body.left!.payout, true).titre).toBe("Tu abandonnes le tournoi");
+
+    // Bob reste seul humain face au robot : s'il se lève, il reprend son tapis, sans la victoire.
+    const his = (await see(bob, view.code)).view!;
+    expect(quitMeans(his)).toBe("seul");
+    const stack = his.seats[his.you!]!.stack;
+    const leave = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action: { type: "quitter" } }, bob);
+    expect(leave.body.left?.reason).toBe("quitte");
+    expect(leave.body.left!.payout).toBeGreaterThanOrEqual(stack);
+    expect(mastersEnding("quitte", leave.body.left!.payout, true).titre).toBe("Tu te lèves de table");
+  });
+
+  it("un tournoi entre amis joué jusqu'au bout avec des robots : pas de recave, des éliminés, et le dernier assis remporte tout", async () => {
+    const ends = new Set<string>();
+    for (const seed of [41, 4_242, 77_041, 9_001, 123_457, 31]) {
+      const w = makeWorld(seed);
+      const created = await w.call<{ playerId: string; code: string }>("POST", "/api/players", { pseudo: `Amis${seed}`, species: "renard" });
+      const auth = `${created.body.playerId}.${created.body.code}`;
+      w.storage.poke(created.body.playerId, (p) => {
+        p.balance = 50_000;
+      });
+      const stake = tournamentStake(20);
+      const opened = await w.call<PokerTableResponse>("POST", "/api/poker/tables", { blind: 20, maxBuyIn: stake, seats: 3, bots: 2, difficulty: "facile", format: "tournoi" }, auth);
+      expect(opened.status).toBe(201);
+      expect(opened.body.view!.options.start).toBe(true);
+      const started = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: opened.body.view!.code, action: { type: "lancer" } }, auth);
+      let view = started.body.view!;
+      let left: PokerTableResponse["left"];
+      let state: PokerTableResponse["state"];
+      const refused: string[] = [];
+      const out = new Set<number>();
+      let lastBlind = 0;
+      // Une fois sur deux le joueur connaît la table, une fois sur deux il tape au hasard : les deux fins se jouent.
+      const policy = seed % 2 === 1 ? sleuth : (v: TableView) => tap(v, w.pick);
+      for (let step = 0; step < 40_000 && !left; step++) {
+        if (view.phase !== "fermee") {
+          expect([view.kind, view.format]).toEqual(["privee", "tournoi"]);
+          // Personne ne recave, la blinde ne fait que monter, un siège éliminé ne revient pas.
+          expect(view.options.rebuy).toBeNull();
+          expect(view.blind).toBeGreaterThanOrEqual(lastBlind);
+          lastBlind = view.blind;
+          for (const s of view.seats) {
+            if (!s) continue;
+            if (s.out) {
+              out.add(s.seat);
+              expect(seatStateText(s, view)).toBe("éliminé");
+            } else expect([s.seat, out.has(s.seat)]).toEqual([s.seat, false]);
+          }
+          expect(playersLeft(view).left).toBe(3 - out.size);
+          // Seul humain : se lever, c'est reprendre son tapis, jamais l'abandonner aux robots.
+          expect(quitMeans(view)).toBe("seul");
+        }
+        const action = policy(view);
+        if (action) {
+          const r = await w.call<PokerTableResponse & { error?: { code: string } }>("POST", "/api/poker/act", { code: view.code, action, step: view.step }, auth);
+          if (r.status !== 200) refused.push(`main ${view.handNo}, ${view.phase} : ${JSON.stringify(action)} → ${r.body.error?.code}`);
+          else if (r.body.view) view = r.body.view;
+          left = r.body.left;
+          state = r.body.state ?? state;
+          continue;
+        }
+        w.tick(1_000);
+        const r = await w.call<PokerTableResponse | { unchanged: true }>("GET", `/api/poker/table?code=${view.code}&v=${view.version}`, undefined, auth);
+        if ("unchanged" in r.body) continue;
+        if (r.body.view) view = r.body.view;
+        left = r.body.left;
+        state = r.body.state ?? state;
+      }
+      expect(refused).toEqual([]);
+      // Les mêmes fins qu'à la Table des Maîtres : c'est le même panneau qui les dit.
+      expect(left && isMastersEnd(left.reason)).toBe(true);
+      expect([seed, ["maitres-gagne", "maitres-perdu"].includes(left!.reason)]).toEqual([seed, true]);
+      // Le dernier assis remporte tout : les trois cagnottes. Éliminé : rien.
+      expect(left!.payout).toBe(left!.reason === "maitres-gagne" ? stake * 3 : 0);
+      expect(state?.balance).toBe(50_000 - stake + left!.payout);
+      // Un tournoi entre amis ne compte ni pour la Table des Maîtres du hall, ni contre les hôtes.
+      expect(state?.masters).toBe(0);
+      expect(Object.values(state!.hostWins).every((n) => n === 0)).toBe(true);
+      ends.add(left!.reason);
+    }
+    expect([...ends].sort()).toEqual(["maitres-gagne", "maitres-perdu"]);
   });
 
   it("le hall d'un vrai serveur : la Table des Maîtres fermée, puis ouverte, puis trop chère", async () => {
