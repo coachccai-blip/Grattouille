@@ -166,7 +166,7 @@ export const TEXTES: Record<string, TexteExperience> = {
     legende: { fr: "L'Amérique est toujours à sa place.", en: "America is right where they left it." },
   },
   "tour-du-monde": {
-    nom: "A trip around the world",
+    nom: "Round the world",
     boniment: {
       fr: "Tous les fuseaux horaires dans la même semaine. Tu reviens au point de départ, mais plus du tout pareil.",
       en: "Every time zone in a single week. You end up where you started, only not the same at all.",
@@ -258,7 +258,7 @@ export const TEXTES: Record<string, TexteExperience> = {
     legende: { fr: "Même la Lune a fait « oh ».", en: "Even the Moon went “ooh”." },
   },
   "tour-de-lune": {
-    nom: "A trip around the Moon",
+    nom: "Round the Moon",
     boniment: {
       fr: "On la contourne par la gauche, on salue la face cachée, et on rentre. Elle est timide : n'insiste pas.",
       en: "We go round by the left, wave at the far side, and head home. She's shy: don't push it.",
@@ -344,7 +344,7 @@ export const DIEM = {
   },
   /** De une à neuf expériences vécues. */
   debut: {
-    fr: "On dit « muet comme une carpe ». On ne m'avait pas rencontrée. Alors, on part où ?",
+    fr: "On dit “muette comme une carpe”. On ne m'avait pas rencontrée. Alors, on part où ?",
     en: "They say fish can't talk. They hadn't met me. So, where are we off to?",
   },
   /** De dix à dix-neuf. */
