@@ -113,11 +113,11 @@ export function Vignette({ ticket, rang, qty }: { ticket: string; rang: number; 
               <div className="semis__foule">
                 {venus.length > 5 && (
                   <div className="semis__rang semis__rang--fond">
-                    {venus.slice(5).map((venu, i) => <span key={venu.rang} className="semis__tete" style={{ animationDelay: `${420 + i * 70}ms` }}><Tete venu={venu} /><PetitTicket /></span>)}
+                    {venus.slice(5).map((venu, i) => <span key={venu.rang} className="semis__tete" style={{ animationDelay: `${420 + i * 70}ms` }}><Avatar species={venu.espece} look={venu.hardes} /><PetitTicket /></span>)}
                   </div>
                 )}
                 <div className="semis__rang">
-                  {venus.slice(0, 5).map((venu, i) => <span key={venu.rang} className="semis__tete" style={{ animationDelay: `${180 + i * 70}ms` }}><Tete venu={venu} /><PetitTicket /></span>)}
+                  {venus.slice(0, 5).map((venu, i) => <span key={venu.rang} className="semis__tete" style={{ animationDelay: `${180 + i * 70}ms` }}><Avatar species={venu.espece} look={venu.hardes} /><PetitTicket /></span>)}
                 </div>
               </div>
             )}

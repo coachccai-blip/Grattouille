@@ -123,13 +123,9 @@
   animation: semis-leve 460ms var(--rebond) both;
 }
 
-.semis__tete .portrait {
+.semis__tete svg {
+  display: block;
   width: 100%;
-  height: auto;
-  overflow: visible;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
 }
 
 @keyframes semis-leve {
