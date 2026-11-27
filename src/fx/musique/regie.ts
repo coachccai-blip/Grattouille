@@ -115,7 +115,8 @@ function applique(): void {
     const sortie = partage.sortie();
     if (!sortie) return;
     contexte = sortie.ctx;
-    moteur = creeMoteur(sortie);
+    // Les improvisations ne sont pas les mêmes d'une visite à l'autre.
+    moteur = creeMoteur(sortie, Date.now());
     if (!visible()) moteur.pause();
     // En bac à sable, la recette peut interroger le moteur : `window.__musique.etat()`.
     if (typeof window !== "undefined" && window.location.search.includes("bac-a-sable")) {

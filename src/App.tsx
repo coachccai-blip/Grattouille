@@ -57,6 +57,8 @@ const VraieFin = lazy(() => ouAbsent(import("./screens/moments/VraieFin")));
 const Semis = lazy(() => ouAbsent(import("./screens/semis")));
 // Les Souvenirs aussi : les deux fins à revoir, et l'histoire de chaque hôte battu trois fois.
 const Souvenirs = lazy(() => ouAbsent(import("./screens/souvenirs")));
+// L'Agence Carpe Diem de même : ses trente expériences de vie n'arrivent qu'en poussant sa porte.
+const Agence = lazy(() => ouAbsent(import("./screens/agence")));
 
 function ScreenView({ screen }: { screen: Screen }) {
   switch (screen.name) {
@@ -83,6 +85,12 @@ function ScreenView({ screen }: { screen: Screen }) {
       return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Souvenirs screen={screen} /></Suspense>;
     case "histoire":
       return <Suspense fallback={null}><Souvenirs screen={screen} /></Suspense>;
+    // L'Agence Carpe Diem, la fiche d'une expérience de vie, et le film de celle qu'on vit.
+    case "agence":
+      return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Agence screen={screen} /></Suspense>;
+    case "fiche-experience":
+    case "experience":
+      return <Suspense fallback={null}><Agence screen={screen} /></Suspense>;
     // Le temps que le morceau du poker arrive : un écran vide à sa place, ou pas encore de feuille.
     case "poker":
     case "poker-table":

@@ -1,10 +1,11 @@
 // Le tour d'enchères : ce qu'un joueur a le droit de faire quand c'est à lui de parler
-// (POKER.md, section 1). Un seul tour, à la limite du pot :
+// (POKER.md, section 1). Un seul tour, sans limite :
 // - parole si personne n'a misé ;
-// - mise : d'une blinde au moins, du pot au plus ;
-// - relance : d'une blinde au moins au-dessus de la mise à égaler, et au plus du pot une
-//   fois cette mise suivie ; trois relances au plus dans le tour ;
-// - un tapis plus petit que la mise minimale est toujours permis : on mise ce qu'on a.
+// - mise : d'une blinde au moins, et jusqu'à tout son tapis ;
+// - relance : d'une blinde au moins au-dessus de la mise à égaler, et jusqu'à tout son
+//   tapis ; trois relances au plus dans le tour (ensuite on suit ou on se couche) ;
+// - tapis : permis dès qu'on peut miser ou relancer, et toujours pour suivre quand on n'a
+//   pas de quoi suivre ; un tapis plus petit que la mise minimale reste permis.
 
 import { MAX_RAISES } from "./rules";
 import type { Range } from "./types";
@@ -22,7 +23,7 @@ export interface BetOptions {
 }
 
 export interface BetContext {
-  /** Tout l'argent au milieu. */
+  /** Tout l'argent au milieu. Ne borne plus rien depuis que les enchères sont sans limite. */
   pot: number;
   /** La mise à égaler dans le tour. */
   bet: number;
@@ -53,16 +54,15 @@ export function betOptions(c: BetContext): BetOptions {
   // Miser ou relancer n'a de sens que si quelqu'un peut répondre.
   if (c.rivals <= 0) return options;
   if (c.bet === 0) {
-    const max = Math.min(c.pot, c.stack);
-    options.bet = { min: Math.min(c.blind, c.stack), max };
-    options.allIn = c.stack <= c.pot;
+    // Sans limite : d'une blinde à tout le tapis.
+    options.bet = { min: Math.min(c.blind, c.stack), max: c.stack };
+    options.allIn = true;
     return options;
   }
+  // Après la troisième relance, on ne peut plus que suivre ou se coucher.
   if (c.raises >= MAX_RAISES) return options;
-  // La relance maximale vaut le pot une fois la mise suivie.
-  const limit = c.bet + c.pot + owe;
   const all = c.mine + c.stack;
-  options.raise = { min: Math.min(c.bet + c.blind, all), max: Math.min(limit, all) };
-  options.allIn = all <= limit;
+  options.raise = { min: Math.min(c.bet + c.blind, all), max: all };
+  options.allIn = true;
   return options;
 }

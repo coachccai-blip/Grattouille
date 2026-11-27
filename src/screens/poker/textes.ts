@@ -2,7 +2,7 @@
 // carte en deux signes. Tout se lit à l'affichage, dans la langue du jeu : les tables de
 // ce fichier gardent leurs phrases françaises, qui sont les clés de traduction.
 
-import { formatEuros } from "../../../shared/format";
+import { NBSP, formatEuros, formatInt } from "../../../shared/format";
 import { cardRank, cardSuit, type Card } from "../../../shared/poker/cards";
 import { placeById } from "../../../shared/places";
 import type { HandCategory } from "../../../shared/poker/hands";
@@ -11,7 +11,7 @@ import { hostName } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { pick, t } from "../../i18n";
 import { placeShort } from "../../i18n/noms";
-import type { HostStory } from "./calcul";
+import type { HostStory, TypedBet, Unit } from "./calcul";
 
 const CATEGORIES: Record<HandCategory, string> = {
   "carte-haute": "Carte haute",
@@ -240,3 +240,102 @@ export function storyAfterWin(story: HostStory, host: string): StoryNews | null 
   const texte = storyLeftText(story, host);
   return texte === null ? null : { texte, ouverte: false };
 }
+
+// ---------------------------------------------------------------------------
+// La mise saisie à la main (LOT4.md, section 14)
+
+// Les unités, comme `formatEuros` les écrit : « M€ », « Md€ », « Bn€ » ; en anglais « M », « B »
+// (billion, le milliard), « T » (trillion, le billion français). Le millier n'a pas d'écriture
+// dans les montants du jeu : c'est une touche, rien de plus.
+const UNIT_LABELS: Record<"fr" | "en", Record<Unit, string>> = {
+  fr: { 1: "€", 1000: "k€", 1000000: "M€", 1000000000: "Md€", 1000000000000: "Bn€" },
+  en: { 1: "€", 1000: "K", 1000000: "M", 1000000000: "B", 1000000000000: "T" },
+};
+
+/** Ce qui s'écrit sur la touche d'une unité : « M€ », ou « M » en anglais. */
+export function unitLabel(unit: Unit): string {
+  return pick(UNIT_LABELS)[unit];
+}
+
+// Le nom d'une unité, dit par un lecteur d'écran : des clés de traduction.
+const UNIT_NAMES: Record<Unit, string> = {
+  1: "euros", 1000: "milliers d'euros", 1000000: "millions d'euros", 1000000000: "milliards d'euros",
+  1000000000000: "billions d'euros",
+};
+
+export function unitName(unit: Unit): string {
+  return t(UNIT_NAMES[unit]);
+}
+
+/**
+ * Ce qui entoure le nombre dans le champ, pour qu'il se lise comme un montant du jeu :
+ * « 150 M€ » en français (l'unité derrière), « €150M » en anglais (l'euro devant).
+ */
+export function fieldAround(unit: Unit): { avant: string; apres: string } {
+  return pick({
+    fr: { avant: "", apres: `${NBSP}${UNIT_LABELS.fr[unit]}` },
+    en: { avant: "€", apres: unit === 1 ? "" : UNIT_LABELS.en[unit] },
+  });
+}
+
+/** La virgule de la saisie, comme elle s'écrit dans la langue du jeu : « , », ou « . » en anglais. */
+export function decimalMark(): string {
+  return pick({ fr: ",", en: "." });
+}
+
+/**
+ * La saisie telle qu'elle s'affiche dans le champ : ses milliers séparés, sa virgule dans la
+ * langue du jeu. « 150000 » donne « 150 000 » ; « 1,5 » donne « 1.5 » en anglais.
+ */
+export function typedText(text: string): string {
+  if (text === "") return "";
+  const comma = text.indexOf(",");
+  const whole = comma < 0 ? text : text.slice(0, comma);
+  const shown = formatInt(Number(whole === "" ? "0" : whole));
+  return comma < 0 ? shown : `${shown}${decimalMark()}${text.slice(comma + 1)}`;
+}
+
+/** Ce qui s'écrit sous le champ. `ramene` : c'est une explication, le montant a été ramené à une borne. */
+export interface BoundsNote {
+  texte: string;
+  ramene: boolean;
+}
+
+/**
+ * Sous le champ : la fourchette permise, ou le mot qui explique pourquoi le montant a été ramené
+ * à une borne. `typed` : ce que le joueur a tapé, en euros. Un montant qui s'écrit comme la borne
+ * (« 122,46 Bn€ » pour un minimum de 122 464 000 000 000 €) n'appelle aucune explication : il part
+ * à la borne, et rien à l'écran ne le contredit.
+ */
+export function boundsText(
+  bet: Pick<TypedBet, "amount" | "moved" | "allIn"> | null, range: { min: number; max: number }, typed: number | null = null,
+): BoundsNote {
+  const plain = { texte: t("Entre {min} et {max}", { min: formatEuros(range.min), max: formatEuros(range.max) }), ramene: false };
+  if (!bet || bet.moved === null) return plain;
+  if (typed !== null && formatEuros(typed) === formatEuros(bet.amount)) return plain;
+  if (bet.moved === "min") return { texte: t("Moins que le minimum : ce sera {montant}.", { montant: formatEuros(bet.amount) }), ramene: true };
+  return {
+    texte: bet.allIn
+      ? t("Plus que ton tapis : ce sera tout ton tapis.")
+      : t("Plus que le maximum : ce sera {montant}.", { montant: formatEuros(bet.amount) }),
+    ramene: true,
+  };
+}
+
+/** Ce que la mise saisie engage, en une phrase : ce que le joueur pose, et ce qu'il lui restera. */
+export function typedBetText(bet: TypedBet, first: boolean): string {
+  if (bet.allIn) return t("Tu poses {montant} : c'est tout ton tapis.", { montant: formatEuros(bet.added) });
+  const vars = { montant: formatEuros(bet.added), reste: formatEuros(bet.left) };
+  // Une relance s'annonce par sa mise totale dans le tour : ce qu'on y ajoute est moindre quand on a déjà misé.
+  return !first && bet.added !== bet.amount
+    ? t("Tu ajoutes {montant} à ta mise : il te restera {reste}.", vars)
+    : t("Tu poses {montant} : il te restera {reste}.", vars);
+}
+
+/** Ce qui s'écrit sur le bouton qui envoie la mise saisie : le geste, et son montant tel qu'il partira. */
+export function typedBetLabel(bet: TypedBet | null, first: boolean, stack: number): string {
+  if (!bet) return first ? t("Miser") : t("Relancer");
+  if (bet.allIn) return t("Tapis : {montant}", { montant: formatEuros(stack) });
+  return first ? t("Miser {montant}", { montant: formatEuros(bet.amount) }) : t("Relancer à {montant}", { montant: formatEuros(bet.amount) });
+}
+

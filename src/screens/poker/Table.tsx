@@ -26,7 +26,7 @@ import { Bulle, Entete } from "../../ui/Commun";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Abattage } from "./Abattage";
 import {
-  betChoices, doubles, fallenSeats, hostStory, mastersLeft, netOf, phaseTotal, tournamentDecided, type BetChoice,
+  betChoices, doubles, fallenSeats, hostStory, mastersLeft, netOf, phaseTotal, potSized, tournamentDecided, type BetChoice,
   type OutcomeLine,
 } from "./calcul";
 import { useDenouement, type Denouement } from "./denouement";
@@ -336,24 +336,42 @@ function Encheres({ view, off }: { view: TableView; off: boolean }) {
   const busy = usePoker((s) => s.busy);
   const o = view.options;
   const me = view.seats[view.you as number]!;
-  const choices = betChoices(o);
+  // Les tailles proposées : la plus petite, la hauteur du pot (ou le milieu), et le tapis quand il est permis.
+  const choices = betChoices(o, { pot: potSized(view, me.bet), stack: me.stack });
   // Suivre engage tout ce qui reste : c'est un tapis, et on le dit.
   const allIn = o.call > 0 && o.call >= me.stack;
   const titre = o.bet ? t("Miser") : t("Relancer à");
-  // Des sommes à rallonge (« 137,05 Bn€ ») : le titre passe au-dessus, et chaque mise garde la largeur de sa somme.
+  // Des sommes à rallonge (« 137,05 Bn€ ») : chaque mise garde la largeur de sa somme.
   const longues = choices.some((choice) => formatEuros(choice.amount).length >= LONG_AMOUNT);
+  const locked = off || busy !== null;
+  // Un tapis engage tout : il se confirme sur sa feuille, qui redit le montant. Les autres gestes partent d'un appui.
+  const shove = () => nav.push({ name: "poker-feuille", feuille: "tapis" });
   return (
     <div className="poker-actions">
       {choices.length > 0 && (
         <div className={cx("poker-mises", longues && "poker-mises--longues")} role="group" aria-label={titre}>
-          <span className="poker-mises__titre" aria-hidden="true">{titre}</span>
+          <div className="poker-mises__tete">
+            <span className="poker-mises__titre" aria-hidden="true">{titre}</span>
+            {/* Le montant de son choix, saisi sur sa feuille : entre les bornes que le serveur donne. */}
+            <button
+              type="button"
+              className="poker-mises__autre"
+              data-geste="autre"
+              disabled={locked}
+              onClick={() => nav.push({ name: "poker-feuille", feuille: "mise" })}
+            >
+              <span>{t("Autre montant")}</span>
+              <Icon name="chevron" size={14} />
+            </button>
+          </div>
           {choices.map((choice) => (
             <button
               key={choice.size}
               type="button"
               className={cx("poker-mise", choice.size === "tapis" && "poker-mise--tapis")}
-              disabled={off || busy !== null}
-              onClick={() => void play(choice.action)}
+              data-taille={choice.size}
+              disabled={locked}
+              onClick={() => (choice.action.type === "tapis" ? shove() : void play(choice.action))}
             >
               <span className="poker-mise__taille">{t(SIZES[choice.size])}</span>
               <span className="poker-mise__somme chiffres">{formatEuros(choice.amount)}</span>
@@ -362,14 +380,18 @@ function Encheres({ view, off }: { view: TableView; off: boolean }) {
         </div>
       )}
       <div className="poker-actions__rang poker-actions__rang--parole">
-        <Bouton variante="secondaire" data-geste="coucher" disabled={off || busy !== null} attente={busy === "coucher"} onClick={() => void play({ type: "coucher" })}>
+        <Bouton variante="secondaire" data-geste="coucher" disabled={locked} attente={busy === "coucher"} onClick={() => void play({ type: "coucher" })}>
           {t("Se coucher")}
         </Bouton>
         {o.check ? (
-          <Bouton data-geste="parole" disabled={off || busy !== null} attente={busy === "parole"} onClick={() => void play({ type: "parole" })}>{t("Parole")}</Bouton>
+          <Bouton data-geste="parole" disabled={locked} attente={busy === "parole"} onClick={() => void play({ type: "parole" })}>{t("Parole")}</Bouton>
+        ) : allIn ? (
+          <Bouton data-geste="tapis" disabled={locked} attente={busy === "suivre" || busy === "tapis"} onClick={shove}>
+            {t("Tapis : {montant}", { montant: formatEuros(o.call) })}
+          </Bouton>
         ) : (
-          <Bouton data-geste="suivre" disabled={off || busy !== null} attente={busy === "suivre"} onClick={() => void play({ type: "suivre" })}>
-            {allIn ? t("Tapis : {montant}", { montant: formatEuros(o.call) }) : t("Suivre : {montant}", { montant: formatEuros(o.call) })}
+          <Bouton data-geste="suivre" disabled={locked} attente={busy === "suivre"} onClick={() => void play({ type: "suivre" })}>
+            {t("Suivre : {montant}", { montant: formatEuros(o.call) })}
           </Bouton>
         )}
       </div>

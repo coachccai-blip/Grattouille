@@ -429,11 +429,17 @@ export interface Options {
   check: boolean;
   /** `suivre` : ce qu'il doit ajouter pour suivre (0 : rien à suivre, ou pas son tour). */
   call: number;
-  /** `miser` : fourchette de `amount`. `null` : pas possible. */
+  /** `miser` : fourchette de `amount`, d'une blinde à tout son tapis. `null` : pas possible. */
   bet: Range | null;
-  /** `relancer` : fourchette de `amount`, sa mise totale dans le tour après la relance. */
+  /**
+   * `relancer` : fourchette de `amount`, sa mise totale dans le tour après la relance : d'une
+   * blinde au-dessus de la mise à égaler jusqu'à tout son tapis. `null` après trois relances.
+   */
   raise: Range | null;
-  /** `tapis` : il peut pousser tout son tapis (la limite du pot le permet). */
+  /**
+   * `tapis` : il peut pousser tout son tapis. Vrai dès qu'il peut miser ou relancer (les
+   * enchères sont sans limite), et quand il doit suivre sans avoir de quoi suivre.
+   */
   allIn: boolean;
   /** `coucher` : c'est son tour. */
   fold: boolean;

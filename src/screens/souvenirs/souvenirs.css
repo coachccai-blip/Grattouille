@@ -199,7 +199,8 @@ button.souvenir:active { transform: translateY(2px); }
   position: relative;
   z-index: 1;
   flex: none;
-  width: min(100%, 280px);
+  /* Sans unités de conteneur (navigateurs anciens) : une largeur prudente, d'après la hauteur de l'écran. */
+  width: max(120px, min(100%, 280px, (100vh - 430px) * 1.43));
   margin: 0;
   padding: 6px 6px 0;
   border-radius: 3px;

@@ -9,6 +9,12 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "Chez {vendeur}, pour {prix}.": "At {vendeur}'s, for {prix}.",
   "{n} sur {total}": "{n} of {total}",
   "{boutique}, {rayon}, par {vendeur}. {compte}.": "{boutique}, {rayon}, run by {vendeur}. {compte}.",
+  // La cinquième enseigne : l'Agence Carpe Diem (src/screens/agence/Enseigne.tsx). Le reste de
+  // l'agence est traduit dans src/i18n/en/experiences.ts, qui n'arrive qu'avec elle.
+  "Agence Carpe Diem": "Carpe Diem Agency",
+  "Expériences de vie": "Life experiences",
+  "{n} vécue sur {total}": "{n} of {total} lived",
+  "{n} vécues sur {total}": "{n} of {total} lived",
 
   // --- Une boutique : rayons et étiquettes
   "Rayons": "Departments",

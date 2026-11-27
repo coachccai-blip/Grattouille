@@ -719,6 +719,108 @@
 
 .poker-touche:disabled svg { opacity: .3; }
 
+/* La mise saisie à la main : le champ où elle s'écrit, la fourchette permise, un pavé de
+   chiffres (pas de clavier du téléphone : rien ne vient cacher le bouton) et, à sa droite,
+   les unités de la table. En bas, ce qu'elle engage, et le bouton qui l'envoie. */
+.poker-saisie .feuille__corps {
+  gap: 8px;
+  /* La marge du bas appartient à la zone du bouton : elle reste collée au bas de la feuille. */
+  padding-bottom: 0;
+}
+
+.poker-saisie .poker-temps,
+.poker-pousse .poker-temps { background: rgba(14, 47, 58, .14); }
+
+.poker-saisie__tete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.poker-saisie__titre { font: 700 18px/24px var(--texte); }
+
+.poker-saisie__champ {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  min-height: 48px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--nuit);
+  font: 400 clamp(26px, 8.5vw, 32px)/40px var(--titre);
+  white-space: nowrap;
+}
+
+/* Rien de tapé : un zéro pâle, qui dit où le montant s'écrira. */
+.poker-saisie__champ--vide { color: rgba(14, 47, 58, .32); }
+
+.poker-saisie__bornes {
+  min-height: 20px;
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
+  text-align: center;
+}
+
+/* Le montant a été ramené à une borne : la ligne le dit, en cerise. */
+.poker-saisie__bornes--ramene { color: var(--cerise); }
+
+.poker-pave {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.poker-pave__chiffres {
+  flex: 3 1 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.poker-pave__unites {
+  flex: 1 1 0;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.poker-pave .poker-touche { height: 46px; }
+
+.poker-pave__unites .poker-touche {
+  height: auto;
+  min-height: 46px;
+  font-size: 17px;
+}
+
+.poker-pave .poker-touche svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* Si la feuille est plus haute que l'écran, elle défile ; le bouton, qui dit le montant, reste en bas. */
+.poker-saisie__action {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -20px;
+  padding: 0 20px 24px;
+  background: var(--ivoire);
+}
+
+.poker-saisie__effet {
+  min-height: 40px;
+  font: 500 15px/20px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Le tapis : son montant en grand, et ce qu'il engage. */
+.poker-pousse__somme {
+  font: 400 clamp(30px, 10vw, 40px)/1.15 var(--titre);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.poker-pousse__risque { font: 500 16px/22px var(--texte); }
+
 /* L'accusation : la main de l'accusé, le risque en une phrase, et le cri. */
 .poker-accuse__main {
   display: flex;

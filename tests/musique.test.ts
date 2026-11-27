@@ -934,6 +934,22 @@ describe("le moteur", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("une note que le navigateur refuse est passée, sans faire taire les autres", () => {
+    const creer = ctx.createOscillator.bind(ctx);
+    let appels = 0;
+    ctx.createOscillator = () => {
+      if (++appels % 5 === 0) throw new Error("InvalidStateError");
+      return creer();
+    };
+    moteur.jouer("kiosque");
+    expect(() => passe(20)).not.toThrow();
+    expect(moteur.etat().passees).toBeGreaterThan(0);
+    expect(ctx.sources.length).toBeGreaterThan(50);
+    expect(moteur.etat().theme).toBe("kiosque");
+    // La musique a continué jusqu'au bout.
+    expect(Math.max(...ctx.sources.map((s) => s.startAt!))).toBeGreaterThan(ctx.currentTime - 1);
+  });
+
   it("sans réverbération ni panoramique (un vieux navigateur), la musique joue quand même", () => {
     const vieux = new FakeContext() as unknown as Record<string, unknown>;
     vieux.createConvolver = undefined;
@@ -1064,9 +1080,10 @@ describe("le thème selon l'écran", () => {
       expect(theme([...comptoir, { name: "fiche-ticket", ticket: TICKET_DU(place.id) }, { name: "semis", ticket: TICKET_DU(place.id), rang: 1, qty: 1 }])).toBe(place.id);
     }
     // L'histoire d'un hôte, dans les Souvenirs : sur l'air de chez lui.
-    const souvenirs = [{ name: "domaine" }, { name: "reglages" }, { name: "souvenirs" }] as Screen[];
+    // (Ces deux écrans sont ceux d'un autre lot : on ne dépend ici que de leur nom.)
+    const souvenirs = [{ name: "domaine" }, { name: "reglages" }, { name: "souvenirs" }] as unknown as Screen[];
     expect(theme(souvenirs)).toBe("ville");
-    for (const place of PLACES) expect(theme([...souvenirs, { name: "histoire", lieu: place.id } as Screen])).toBe(place.id);
+    for (const place of PLACES) expect(theme([...souvenirs, { name: "histoire", lieu: place.id } as unknown as Screen])).toBe(place.id);
     // Tous les tickets du jeu mènent à un thème qui existe.
     for (const t of TICKETS) expect(THEME_IDS).toContain(theme([{ name: "promenade" }, { name: "fiche-ticket", ticket: t.id }]));
   });

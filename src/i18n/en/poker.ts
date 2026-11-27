@@ -67,8 +67,8 @@ export const EN_POKER: Record<string, string> = {
   "Chacun paie la blinde, puis reçoit cinq cartes.": "Everyone pays the blind, then gets five cards.",
   "En secret, tu peux remplacer une de tes cartes par celle de ton choix, ou jouer franc jeu.":
     "In secret, you may swap one of your cards for any card you like, or play fair.",
-  "Un seul tour d'enchères : parole, mise, relance jusqu'à la hauteur du pot, ou tu te couches.":
-    "One round of betting: check, bet, raise up to the size of the pot, or fold.",
+  "Un seul tour d'enchères, sans limite : parole, mise, relance, jusqu'à faire tapis, ou tu te couches.":
+    "One round of betting, no limit: check, bet, raise, all the way to all in, or fold.",
   "À l'abattage, les mains se montrent et chacun peut accuser un joueur : un tricheur démasqué perd sa mise, et sa main ne compte plus.":
     "At the showdown, hands are shown and each player may accuse another: a cheat who is caught loses their stake, and their hand no longer counts.",
   "Accuser à tort coûte la mise de l'accusé, que tu lui verses ; puis la meilleure main encore en jeu prend le pot.":
@@ -195,6 +195,7 @@ export const EN_POKER: Record<string, string> = {
   "Se coucher": "Fold",
   "Suivre : {montant}": "Call: {montant}",
   "Tapis : {montant}": "All in: {montant}",
+  "Autre montant": "Other amount",
   "Rien à dire": "Nothing to say",
   "Main suivante": "Next hand",
   "On attend les autres…": "Waiting for the others…",
@@ -330,6 +331,33 @@ export const EN_POKER: Record<string, string> = {
   "Tu repars avec ton tapis, {montant}, sans la victoire. La table rouvre quand tu veux.":
     "You leave with your stack, {montant}, but without the win. The table reopens whenever you like.",
   "Tu repars sans la victoire. La table rouvre quand tu veux.": "You leave without the win. The table reopens whenever you like.",
+
+  // --- La mise saisie à la main, et le tapis qui se confirme. Les enchères sont sans limite
+  // (« no limit ») ; « stack » est le tapis du joueur, « all in » le geste de tout pousser.
+  "À suivre : {montant}": "To call: {montant}",
+  "Le montant, chiffre à chiffre": "The amount, digit by digit",
+  "virgule": "decimal point",
+  "Effacer": "Delete",
+  "Unité": "Unit",
+  "euros": "euros",
+  "milliers d'euros": "thousands of euros",
+  "millions d'euros": "millions of euros",
+  "milliards d'euros": "billions of euros",
+  "billions d'euros": "trillions of euros",
+  "Entre {min} et {max}": "Between {min} and {max}",
+  "Moins que le minimum : ce sera {montant}.": "Below the minimum: it will be {montant}.",
+  "Plus que le maximum : ce sera {montant}.": "Above the maximum: it will be {montant}.",
+  "Plus que ton tapis : ce sera tout ton tapis.": "More than your stack: it will be your whole stack.",
+  "Tape un montant.": "Type an amount.",
+  "Tu poses {montant} : il te restera {reste}.": "You put in {montant}: you'll have {reste} left.",
+  "Tu ajoutes {montant} à ta mise : il te restera {reste}.": "You add {montant} to your bet: you'll have {reste} left.",
+  "Tu poses {montant} : c'est tout ton tapis.": "You put in {montant}: that's your whole stack.",
+  "Relancer": "Raise",
+  "Miser {montant}": "Bet {montant}",
+  "Relancer à {montant}": "Raise to {montant}",
+  "Faire tapis ?": "Go all in?",
+  "C'est tout ton tapis : si tu perds cette main, il ne te restera rien devant toi.":
+    "That's your whole stack: lose this hand and you'll have nothing left in front of you.",
 
   // --- L'histoire de chaque hôte : le battre trois fois au poker l'ouvre, dans les Souvenirs
   // (« Memories », comme aux Réglages). Ni « his » ni « her » : chaque phrase vaut pour les huit.

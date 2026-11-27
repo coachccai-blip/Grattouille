@@ -77,33 +77,172 @@ export function sidesFor(count: number): Side[] {
 // Les enchères
 
 export interface BetChoice {
-  /** `min` : la plus petite mise permise ; `milieu` : entre les deux ; `pot` : la plus grosse (la limite du pot) ; `tapis` : tout le tapis. */
+  /**
+   * `min` : la plus petite mise permise ; `pot` : la hauteur du pot (ou, à la limite du pot, la plus
+   * grosse permise) ; `milieu` : entre la plus petite et la plus grosse ; `tapis` : tout le tapis.
+   */
   size: "min" | "milieu" | "pot" | "tapis";
-  /** Ce que la mise du joueur vaudra dans le tour (pour une relance), ou les jetons posés (pour une première mise). */
+  /**
+   * Ce que la mise du joueur vaudra dans le tour (pour une relance), ou les jetons posés (pour une
+   * première mise). Pour un tapis : ce qu'il pousse, tout ce qu'il a devant lui.
+   */
   amount: number;
   action: PokerAction;
 }
 
+/** Ce que l'écran sait de la table pour tailler ses mises : la mise « du pot », et le tapis du joueur. */
+export interface BetTable {
+  /** La mise de la hauteur du pot (`potSized`). Absente : on propose le milieu de la fourchette. */
+  pot?: number;
+  /** Le tapis du joueur : c'est lui qui s'écrit sur un tapis. Absent : la plus grosse mise de la fourchette. */
+  stack?: number;
+}
+
 /**
- * Les mises à proposer : la plus petite, une moyenne, la plus grosse. Trois au plus, toutes
- * permises (les bornes de `options.bet` ou `options.raise`, comprises). Quand la plus grosse
- * engage tout le tapis, c'est un tapis.
+ * La mise « du pot » : pour une première mise, ce qu'il y a au milieu ; pour une relance (sa mise
+ * totale dans le tour), la mise à égaler plus le pot une fois cette mise suivie.
  */
-export function betChoices(o: Pick<Options, "bet" | "raise" | "allIn">): BetChoice[] {
+export function potSized(view: Pick<TableView, "pot" | "bet">, mine: number): number {
+  if (view.bet <= 0) return view.pot;
+  return view.bet + view.pot + Math.max(0, view.bet - mine);
+}
+
+/**
+ * Les mises à proposer : trois au plus, toutes permises (les bornes de `options.bet` ou
+ * `options.raise`, comprises). La plus petite ; entre les deux, la hauteur du pot quand elle tient
+ * dans la fourchette, sinon son milieu ; la plus grosse, qui est un tapis quand elle engage tout.
+ */
+export function betChoices(o: Pick<Options, "bet" | "raise" | "allIn">, table: BetTable = {}): BetChoice[] {
   const first = o.bet !== null;
   const range: Range | null = o.bet ?? o.raise;
   if (!range || range.max < range.min) return [];
   const make = (amount: number): PokerAction => (first ? { type: "miser", amount } : { type: "relancer", amount });
   const out: BetChoice[] = [{ size: "min", amount: range.min, action: make(range.min) }];
+  const inside = (amount: number) => amount > range.min && amount < range.max;
+  const pot = table.pot === undefined ? null : Math.round(table.pot);
   const middle = Math.round((range.min + range.max) / 2);
-  if (middle > range.min && middle < range.max) out.push({ size: "milieu", amount: middle, action: make(middle) });
+  if (pot !== null && inside(pot)) out.push({ size: "pot", amount: pot, action: make(pot) });
+  else if (inside(middle)) out.push({ size: "milieu", amount: middle, action: make(middle) });
   if (range.max > range.min) out.push({ size: "pot", amount: range.max, action: make(range.max) });
-  // La limite du pot laisse pousser tout le tapis : la plus grosse mise est un tapis.
-  if (o.allIn) {
-    const last = out[out.length - 1]!;
-    out[out.length - 1] = { size: "tapis", amount: last.amount, action: { type: "tapis" } };
-  }
+  // La plus grosse mise engage tout le tapis : c'est un tapis, et c'est lui qui s'écrit dessus.
+  if (o.allIn) out[out.length - 1] = { size: "tapis", amount: table.stack ?? range.max, action: { type: "tapis" } };
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// La mise saisie à la main (LOT4.md, section 14)
+
+/** Les unités de saisie : l'euro, le millier, le million, le milliard, le billion. */
+export const UNITS = [1, 1_000, 1_000_000, 1_000_000_000, 1_000_000_000_000] as const;
+export type Unit = (typeof UNITS)[number];
+
+/** Avant la virgule, six chiffres au plus : « 999 999 », puis on change d'unité. */
+export const MAX_DIGITS = 6;
+
+/** La plus grosse unité qui tient dans un montant ; l'euro pour moins de mille euros. */
+export function unitOf(amount: number): Unit {
+  let unit: Unit = 1;
+  for (const u of UNITS) if (amount >= u) unit = u;
+  return unit;
+}
+
+/**
+ * Les unités utiles pour une fourchette : de celle de sa plus petite mise à celle de sa plus
+ * grosse. À la table du Kiosque, l'euro seul ; à la Table des Maîtres, le billion seul.
+ */
+export function unitsFor(range: Range): Unit[] {
+  const low = unitOf(range.min);
+  const high = unitOf(Math.max(range.min, range.max));
+  return UNITS.filter((u) => u >= low && u <= high);
+}
+
+/** Les décimales qu'une unité laisse taper : aucune en euros (une mise est un nombre entier d'euros), deux au-delà. */
+export function decimalsFor(unit: Unit): number {
+  return unit === 1 ? 0 : 2;
+}
+
+/**
+ * Ce que devient la saisie après une touche. La saisie s'écrit en chiffres, avec au plus une
+ * virgule (« , », quelle que soit la langue : c'est l'affichage qui la traduit). `key` : un chiffre,
+ * « , », ou « effacer ». Une touche qui ne mène à rien ne change rien.
+ */
+export function pressKey(text: string, key: string, unit: Unit): string {
+  if (key === "effacer") return text.slice(0, -1);
+  const comma = text.indexOf(",");
+  if (key === ",") {
+    if (decimalsFor(unit) === 0 || comma >= 0) return text;
+    return text === "" ? "0," : `${text},`;
+  }
+  if (!/^[0-9]$/.test(key)) return text;
+  if (comma >= 0) return text.length - comma - 1 < decimalsFor(unit) ? text + key : text;
+  // Pas de zéro devant un nombre : « 0 » puis « 5 » donne « 5 ».
+  if (text === "0") return key;
+  return text.length < MAX_DIGITS ? text + key : text;
+}
+
+/** La saisie relue quand on change d'unité : en euros, plus de virgule ; ailleurs, elle ne bouge pas. */
+export function fitUnit(text: string, unit: Unit): string {
+  const comma = text.indexOf(",");
+  if (comma < 0) return text;
+  const kept = text.slice(0, comma + 1 + decimalsFor(unit));
+  return decimalsFor(unit) === 0 ? text.slice(0, comma) : kept;
+}
+
+/** La saisie en euros entiers : « 1,5 » en millions donne 1 500 000. `null` : rien de tapé. */
+export function typedAmount(text: string, unit: Unit): number | null {
+  const m = /^(\d*)(?:,(\d*))?$/.exec(text);
+  if (!m || (m[1] === "" && (m[2] ?? "") === "")) return null;
+  const whole = m[1] === "" ? 0 : Number(m[1]);
+  const digits = (m[2] ?? "").slice(0, decimalsFor(unit));
+  // Des entiers d'un bout à l'autre : l'unité se divise par 10 ou 100 sans reste.
+  const frac = digits === "" ? 0 : Number(digits) * (unit / 10 ** digits.length);
+  return whole * unit + frac;
+}
+
+export interface BoundedBet {
+  /** Le montant qui partira : entier, et dans la fourchette. */
+  amount: number;
+  /** La borne à laquelle il a fallu le ramener ; `null` s'il y tenait déjà. */
+  moved: "min" | "max" | null;
+}
+
+/** Un montant ramené dans la fourchette que le serveur donne : jamais une mise qu'il refuserait. */
+export function boundBet(amount: number, range: Range): BoundedBet {
+  // Un nombre de travers ne part pas : c'est la plus petite mise qui le remplace.
+  if (Number.isNaN(amount)) return { amount: range.min, moved: "min" };
+  const whole = Math.round(amount);
+  if (whole < range.min) return { amount: range.min, moved: "min" };
+  if (whole > range.max) return { amount: range.max, moved: "max" };
+  return { amount: whole, moved: null };
+}
+
+/** Ce qu'une mise saisie engage : le geste à envoyer, ce qui quitte le tapis, et ce qu'il en reste. */
+export interface TypedBet extends BoundedBet {
+  action: PokerAction;
+  /** Elle engage tout le tapis : c'est un tapis. */
+  allIn: boolean;
+  /** Ce que le joueur pose maintenant (pour une relance : le supplément à ce qu'il a déjà misé dans le tour). */
+  added: number;
+  /** Ce qu'il lui restera devant lui. */
+  left: number;
+}
+
+/**
+ * La mise saisie, telle qu'elle partira. `amount` : ce que le joueur a tapé (les jetons d'une
+ * première mise ; pour une relance, sa mise totale dans le tour). `mine` : ce qu'il a déjà misé
+ * dans le tour ; `stack` : son tapis. `null` : il n'y a ni mise ni relance à faire.
+ */
+export function typedBet(amount: number, o: Pick<Options, "bet" | "raise" | "allIn">, mine: number, stack: number): TypedBet | null {
+  const first = o.bet !== null;
+  const range = o.bet ?? o.raise;
+  if (!range || range.max < range.min) return null;
+  const bounded = boundBet(amount, range);
+  const allIn = o.allIn && bounded.amount >= range.max;
+  const added = allIn ? stack : first ? bounded.amount : bounded.amount - mine;
+  const action: PokerAction = allIn
+    ? { type: "tapis" }
+    : first ? { type: "miser", amount: bounded.amount } : { type: "relancer", amount: bounded.amount };
+  return { ...bounded, action, allIn, added, left: Math.max(0, stack - added) };
 }
 
 // ---------------------------------------------------------------------------

@@ -127,13 +127,13 @@ export const CHALLENGE_BLINDS = 30;
 /** La cagnotte de l'hôte : 100 blindes de base de son lieu, versées une seule fois. */
 export const CHALLENGE_BONUS_BLINDS = 100;
 /**
- * Un défi est un duel court : une quinzaine de mains. La blinde y double de palier en
- * palier, alors que les caves ne bougent pas. Les trois premiers paliers durent quatre
- * mains (la blinde de base, puis 2 fois, puis 4 fois), les suivants deux mains seulement
- * (8, 16, 32, 64 fois) : passé la douzième main, tout l'argent part vite au milieu.
- * Le dernier nombre de la liste vaut pour tous les paliers suivants.
+ * Un défi est un duel court : une dizaine de mains. La blinde y double de palier en palier,
+ * alors que les caves ne bougent pas. Le premier palier dure trois mains (la blinde de
+ * base), les suivants deux mains seulement (2, 4, 8, 16, 32 fois, puis 64 fois à partir de
+ * la quatorzième main, où elle s'arrête) : passé la septième main, tout l'argent part vite
+ * au milieu. Le dernier nombre de la liste vaut pour tous les paliers suivants.
  */
-export const CHALLENGE_LEVEL_HANDS: readonly number[] = [4, 4, 4, 2];
+export const CHALLENGE_LEVEL_HANDS: readonly number[] = [3, 2];
 
 /**
  * Le palier de la main `handNo` (la première porte le numéro 1) : 0, puis 1, 2…
@@ -264,16 +264,15 @@ export function pickMasters(rng: Random32): string[] {
 
 /**
  * La Table des Maîtres est un tournoi : personne ne recave, et la blinde double de palier en
- * palier jusqu'à dépasser tout l'argent en jeu (les cinq caves). Les paliers raccourcissent :
- * douze mains à la blinde de base, dix à 2 fois, huit à 4 fois, six à 8 fois, puis quatre
- * mains par palier (16, 32, 64, 128 fois ; 256 fois à partir de la 53e main, où elle s'arrête).
- * Le dernier nombre de la liste vaut pour tous les paliers suivants.
+ * palier jusqu'à dépasser tout l'argent en jeu (les cinq caves). Seize mains à la blinde de
+ * base, le temps que la table s'éclaircisse, puis elle double toutes les quatre mains
+ * (2, 4, 8 fois), puis toutes les deux mains (16, 32, 64, 128 fois ; 256 fois à partir de la
+ * 37e main, où elle s'arrête). Le dernier nombre de la liste vaut pour tous les paliers suivants.
  *
- * Réglé par simulation, le joueur tenu par un robot difficile (deux séries de 3 000 tables) :
- * la table se dénoue pour lui en 30 à 31 mains en médiane (10 au 10e centile, 45 au 90e) ;
- * il la gagne une fois sur cinq, en 42 mains en médiane.
+ * Réglé par simulation, le joueur tenu par un robot difficile : la table se dénoue pour lui
+ * en 19 mains en médiane, et il lui faut une trentaine de mains pour la gagner (une fois sur cinq).
  */
-export const MASTERS_LEVEL_HANDS: readonly number[] = [12, 10, 8, 6, 4];
+export const MASTERS_LEVEL_HANDS: readonly number[] = [16, 4, 4, 4, 2];
 
 /** La blinde de la Table des Maîtres à la main `handNo`, à partir de sa blinde de base. */
 export function mastersBlind(base: number, handNo: number): number {

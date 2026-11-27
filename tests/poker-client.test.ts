@@ -34,17 +34,20 @@ import { EN_POKER } from "../src/i18n/en/poker";
 import { EN_RECIT } from "../src/i18n/en/recit";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
 import {
-  RANKS, SUITS, accusationCost, beatsOf, betChoices, buyInSteps, challengesWon, cleanCode, defaultBuyIn, doubles, fallenSeats,
-  freshEntries, hostStory, isFullCode, lineBeats, mastersCard, mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines,
-  phaseTotal, placeOfHost, rankTaken, remainingMs, sidesFor, storiesJustOpened, suitTaken, swapped, tournamentDecided, winnersOf,
+  MAX_DIGITS, RANKS, SUITS, UNITS, accusationCost, beatsOf, betChoices, boundBet, buyInSteps, challengesWon, cleanCode,
+  decimalsFor, defaultBuyIn, doubles, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, lineBeats, mastersCard,
+  mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, placeOfHost, potSized, pressKey, rankTaken,
+  remainingMs, sidesFor, storiesJustOpened, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitOf, unitsFor,
+  winnersOf, type Unit,
 } from "../src/screens/poker/calcul";
 import {
   HOST_TALK, MASTERS_TALK, PIOU_HALL, TABLE_TALK, hostLine, mastersLine, piouHall, tableLine,
   type Bot, type Host, type HostMoment, type MastersMoment, type TableMoment,
 } from "../src/screens/poker/repliques";
 import {
-  isMastersEnd, mastersEnding, mastersLeftText, seatStateText, storiesOpenedText, storyAfterWin, storyLeftText,
-  storyProgressText, tableTitle, type MastersEnd,
+  boundsText, decimalMark, fieldAround, isMastersEnd, mastersEnding, mastersLeftText, seatStateText, storiesOpenedText,
+  storyAfterWin, storyLeftText, storyProgressText, tableTitle, typedBetLabel, typedBetText, typedText, unitLabel, unitName,
+  type MastersEnd,
 } from "../src/screens/poker/textes";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
@@ -200,6 +203,327 @@ describe("les mises proposées", () => {
       }
     }
     expect(checked).toBeGreaterThan(150);
+  });
+});
+
+describe("les mises proposées, sans limite : la plus petite, le pot, le tapis", () => {
+  it("la mise du pot : ce qu'il y a au milieu ; pour une relance, la mise à égaler plus le pot une fois suivie", () => {
+    // Personne n'a misé : le pot, tel quel.
+    expect(potSized({ pot: 50, bet: 0 }, 0)).toBe(50);
+    // Une mise de 20 à suivre, 70 au milieu : suivre (20) porte le pot à 90, et relancer du pot fait une mise de 110.
+    expect(potSized({ pot: 70, bet: 20 }, 0)).toBe(110);
+    // Le joueur avait déjà misé 5 : il lui manque 15 pour suivre.
+    expect(potSized({ pot: 70, bet: 20 }, 5)).toBe(105);
+  });
+
+  it("un tapis profond : la plus petite, la hauteur du pot, et le tapis, qui s'écrit de ce qu'on pousse", () => {
+    const o = { bet: { min: 10, max: 290 }, raise: null, allIn: true };
+    const choices = betChoices(o, { pot: 50, stack: 290 });
+    expect(choices.map((c) => [c.size, c.amount])).toEqual([["min", 10], ["pot", 50], ["tapis", 290]]);
+    expect(choices.map((c) => c.action)).toEqual([{ type: "miser", amount: 10 }, { type: "miser", amount: 50 }, { type: "tapis" }]);
+    // Une relance : la fourchette compte la mise totale dans le tour ; le tapis, lui, s'écrit de ce qui reste devant soi.
+    const raise = betChoices({ bet: null, raise: { min: 30, max: 205 }, allIn: true }, { pot: 110, stack: 200 });
+    expect(raise.map((c) => [c.size, c.amount])).toEqual([["min", 30], ["pot", 110], ["tapis", 200]]);
+    expect(raise[1]!.action).toEqual({ type: "relancer", amount: 110 });
+  });
+
+  it("le pot ne tient pas dans la fourchette (tapis court) : le milieu prend sa place", () => {
+    const o = { bet: null, raise: { min: 122, max: 260 }, allIn: true };
+    expect(betChoices(o, { pot: 500, stack: 260 }).map((c) => [c.size, c.amount])).toEqual([["min", 122], ["milieu", 191], ["tapis", 260]]);
+    // Le pot vaut la plus petite mise, ou la plus grosse : pas de doublon.
+    expect(betChoices({ bet: { min: 4, max: 60 }, raise: null, allIn: true }, { pot: 4, stack: 60 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
+    expect(betChoices({ bet: { min: 1, max: 6 }, raise: null, allIn: true }, { pot: 6, stack: 6 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
+    // Un tapis plus petit que la mise minimale : il n'y a que lui.
+    expect(betChoices({ bet: { min: 3, max: 3 }, raise: null, allIn: true }, { pot: 9, stack: 3 })).toEqual([
+      { size: "tapis", amount: 3, action: { type: "tapis" } },
+    ]);
+  });
+
+  it("un serveur qui s'arrête encore au pot : l'écran suit ses bornes, comme avant", () => {
+    // La plus grosse mise permise est le pot, et le tapis n'est pas offert.
+    const o = { bet: { min: 1, max: 8 }, raise: null, allIn: false };
+    expect(betChoices(o, { pot: 8, stack: 100 }).map((c) => [c.size, c.amount])).toEqual([["min", 1], ["milieu", 5], ["pot", 8]]);
+    expect(betChoices(o, { pot: 8, stack: 100 }).map((c) => c.action.type)).toEqual(["miser", "miser", "miser"]);
+  });
+
+  it("sur toutes les situations du moteur, les tailles proposées sont permises, et le tapis vaut le tapis", () => {
+    let checked = 0;
+    let withPot = 0;
+    for (const pot of [2, 4, 9, 30, 200]) {
+      for (const bet of [0, 1, 4, 20]) {
+        for (const mine of [0, 1, 4]) {
+          for (const stack of [1, 3, 10, 80, 1000]) {
+            for (const raises of [0, 3]) {
+              if (mine > bet) continue;
+              const o = betOptions({ pot, bet, raises, blind: 1, mine, stack, rivals: 1 });
+              const range = o.bet ?? o.raise;
+              const choices = betChoices(o, { pot: potSized({ pot, bet }, mine), stack });
+              if (!range) {
+                expect(choices).toEqual([]);
+                continue;
+              }
+              expect(choices.length).toBeGreaterThan(0);
+              expect(choices.length).toBeLessThanOrEqual(3);
+              const sizes = choices.map((c) => c.size);
+              expect(new Set(sizes).size).toBe(sizes.length);
+              for (const c of choices) {
+                if (c.action.type === "tapis") {
+                  expect(o.allIn).toBe(true);
+                  expect(c.amount).toBe(stack);
+                } else {
+                  expect(c.action.type).toBe(o.bet ? "miser" : "relancer");
+                  expect(c.action).toEqual({ type: c.action.type, amount: c.amount });
+                  expect(Number.isInteger(c.amount)).toBe(true);
+                  expect(c.amount).toBeGreaterThanOrEqual(range.min);
+                  expect(c.amount).toBeLessThanOrEqual(range.max);
+                }
+              }
+              // Le tapis, quand il est permis, est toujours le dernier ; la plus petite mise, toujours la première.
+              if (o.allIn) expect(sizes[sizes.length - 1]).toBe("tapis");
+              if (choices.length > 1) expect(sizes[0]).toBe("min");
+              if (sizes.includes("pot") && o.allIn) withPot++;
+              checked++;
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(150);
+    // Sans limite, la hauteur du pot tient souvent entre la plus petite mise et le tapis.
+    expect(withPot).toBeGreaterThan(20);
+  });
+});
+
+describe("la mise saisie à la main", () => {
+  const BN = 1_000_000_000_000;
+
+  it("les unités d'une table : de celle de sa plus petite mise à celle de sa plus grosse", () => {
+    expect([...UNITS]).toEqual([1, 1_000, 1_000_000, 1_000_000_000, BN]);
+    expect([0, 1, 999, 1_000, 999_999, 1_000_000, 2_500_000_000, 300 * BN].map(unitOf)).toEqual([1, 1, 1, 1_000, 1_000, 1_000_000, 1_000_000_000, BN]);
+    // Au Kiosque (une blinde d'un euro, soixante euros de tapis) : l'euro seul, pas de touche d'unité.
+    expect(unitsFor({ min: 1, max: 60 })).toEqual([1]);
+    // À la Table des Maîtres : le billion seul. On ne tape pas quinze chiffres.
+    expect(unitsFor({ min: 10 * BN, max: 290 * BN })).toEqual([BN]);
+    // Entre deux : celles qui servent, dans l'ordre.
+    expect(unitsFor({ min: 2, max: 5_000 })).toEqual([1, 1_000]);
+    expect(unitsFor({ min: 500_000, max: 80_000_000 })).toEqual([1_000, 1_000_000]);
+    expect(unitsFor({ min: 1, max: 3 * BN })).toEqual([...UNITS]);
+    // Une fourchette d'un seul montant (le tapis ne couvre pas la mise minimale) : son unité.
+    expect(unitsFor({ min: 3_000_000, max: 3_000_000 })).toEqual([1_000_000]);
+  });
+
+  it("les touches : des chiffres, une seule virgule, deux décimales au plus, jamais de virgule en euros", () => {
+    const type = (keys: string, unit: Unit, from = "") => [...keys].reduce((text, k) => pressKey(text, k === "<" ? "effacer" : k, unit), from);
+    expect(type("150", 1)).toBe("150");
+    // Pas de zéro devant un nombre.
+    expect(type("007", 1)).toBe("7");
+    expect(type("0", 1)).toBe("0");
+    // Six chiffres avant la virgule, pas un de plus : au-delà, on change d'unité.
+    expect(MAX_DIGITS).toBe(6);
+    expect(type("1234567890", 1)).toBe("123456");
+    // En euros, une mise est un nombre entier : la virgule ne fait rien.
+    expect(decimalsFor(1)).toBe(0);
+    expect(type("12,5", 1)).toBe("125");
+    // Ailleurs : une virgule, deux décimales.
+    for (const unit of [1_000, 1_000_000, 1_000_000_000, BN] as const) expect(decimalsFor(unit)).toBe(2);
+    expect(type("1,5", 1_000_000)).toBe("1,5");
+    expect(type("1,,5,2", 1_000_000)).toBe("1,52");
+    expect(type("1,2345", BN)).toBe("1,23");
+    // La virgule d'abord : « 0, ».
+    expect(type(",5", BN)).toBe("0,5");
+    // Effacer retire le dernier signe ; sur un champ vide, rien.
+    expect(type("12,5<", BN)).toBe("12,");
+    expect(type("12,5<<<<", BN)).toBe("");
+    expect(type("<", BN)).toBe("");
+    // Une touche inconnue ne change rien.
+    expect(pressKey("12", "a", 1)).toBe("12");
+    expect(pressKey("12", "10", 1)).toBe("12");
+    expect(pressKey("12", ".", 1_000)).toBe("12");
+  });
+
+  it("changer d'unité garde ce qui est tapé ; en euros, la virgule s'en va", () => {
+    expect(fitUnit("12,5", 1_000_000)).toBe("12,5");
+    expect(fitUnit("12,5", 1)).toBe("12");
+    expect(fitUnit("12,", 1)).toBe("12");
+    expect(fitUnit("0,75", 1)).toBe("0");
+    expect(fitUnit("150", 1)).toBe("150");
+    expect(fitUnit("", 1_000)).toBe("");
+  });
+
+  it("le montant tapé, en euros entiers : « 1,5 » en millions donne 1 500 000", () => {
+    expect(typedAmount("150", 1)).toBe(150);
+    expect(typedAmount("1,5", 1_000_000)).toBe(1_500_000);
+    expect(typedAmount("1,25", 1_000)).toBe(1_250);
+    expect(typedAmount("0,01", BN)).toBe(10_000_000_000);
+    expect(typedAmount("137,05", BN)).toBe(137_050_000_000_000);
+    expect(typedAmount("12,", 1_000_000_000)).toBe(12_000_000_000);
+    expect(typedAmount("0,", BN)).toBe(0);
+    expect(typedAmount("0", 1)).toBe(0);
+    // Rien de tapé : rien à miser.
+    expect(typedAmount("", 1)).toBeNull();
+    expect(typedAmount(",", BN)).toBeNull();
+    // Ce qui ne vient pas des touches ne se lit pas.
+    expect(typedAmount("12a", 1)).toBeNull();
+    expect(typedAmount("1.5", 1_000)).toBeNull();
+    expect(typedAmount("-3", 1)).toBeNull();
+    // Des décimales en trop sont ignorées (les touches n'en laissent pas passer).
+    expect(typedAmount("1,239", 1_000_000)).toBe(1_230_000);
+    expect(typedAmount("7,9", 1)).toBe(7);
+  });
+
+  it("toujours un nombre entier d'euros, quoi qu'on tape : aucune décimale ne survit à l'unité", () => {
+    let x = 12_345;
+    const next = (n: number) => {
+      x = (x * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return x % n;
+    };
+    const KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "effacer"];
+    let typed = 0;
+    for (let round = 0; round < 4_000; round++) {
+      const unit = UNITS[next(UNITS.length)]!;
+      let text = "";
+      for (let i = 0, n = 1 + next(9); i < n; i++) text = pressKey(text, KEYS[next(KEYS.length)]!, unit);
+      // La saisie reste une saisie : des chiffres, une virgule au plus, dans les limites des touches.
+      expect(text).toMatch(/^\d{0,6}(,\d{0,2})?$/);
+      if (unit === 1) expect(text).not.toContain(",");
+      const amount = typedAmount(text, unit);
+      if (amount === null) {
+        expect(text).toBe("");
+        continue;
+      }
+      typed++;
+      expect([text, unit, Number.isInteger(amount), amount >= 0]).toEqual([text, unit, true, true]);
+      // Le montant est bien celui qu'on lit : à un centième d'unité près, rien d'autre.
+      expect(Math.abs(amount - Number(text.replace(",", ".")) * unit)).toBeLessThan(unit / 100 + 1);
+    }
+    expect(typed).toBeGreaterThan(3_000);
+  });
+
+  it("un montant hors de la fourchette est ramené à sa borne, sans jamais sortir des entiers", () => {
+    const range = { min: 20, max: 500 };
+    expect(boundBet(20, range)).toEqual({ amount: 20, moved: null });
+    expect(boundBet(137, range)).toEqual({ amount: 137, moved: null });
+    expect(boundBet(500, range)).toEqual({ amount: 500, moved: null });
+    expect(boundBet(0, range)).toEqual({ amount: 20, moved: "min" });
+    expect(boundBet(19, range)).toEqual({ amount: 20, moved: "min" });
+    expect(boundBet(501, range)).toEqual({ amount: 500, moved: "max" });
+    expect(boundBet(999_999 * BN, range)).toEqual({ amount: 500, moved: "max" });
+    // Rien d'autre qu'un entier ne part : un demi s'arrondit, un nombre de travers vaut le minimum.
+    expect(boundBet(137.5, range)).toEqual({ amount: 138, moved: null });
+    expect(boundBet(Number.NaN, range)).toEqual({ amount: 20, moved: "min" });
+    expect(boundBet(Number.POSITIVE_INFINITY, range)).toEqual({ amount: 500, moved: "max" });
+    expect(boundBet(-5, range)).toEqual({ amount: 20, moved: "min" });
+  });
+
+  it("une première mise : les jetons posés, et ce qu'il reste devant soi", () => {
+    const o = { bet: { min: 10, max: 290 }, raise: null, allIn: true };
+    expect(typedBet(40, o, 0, 290)).toEqual({ amount: 40, moved: null, action: { type: "miser", amount: 40 }, allIn: false, added: 40, left: 250 });
+    expect(typedBet(3, o, 0, 290)).toMatchObject({ amount: 10, moved: "min", action: { type: "miser", amount: 10 }, added: 10, left: 280 });
+    // Tout le tapis, ou davantage : c'est un tapis, et c'est le geste « tapis » qui part.
+    expect(typedBet(290, o, 0, 290)).toEqual({ amount: 290, moved: null, action: { type: "tapis" }, allIn: true, added: 290, left: 0 });
+    expect(typedBet(5_000, o, 0, 290)).toEqual({ amount: 290, moved: "max", action: { type: "tapis" }, allIn: true, added: 290, left: 0 });
+  });
+
+  it("une relance s'annonce par sa mise totale dans le tour : ce qu'on pose, c'est le supplément", () => {
+    // Le joueur a déjà misé 20 ; on l'a relancé à 60. Il peut relancer de 70 à 220 (ses 20, plus les 200 qu'il a devant lui).
+    const o = { bet: null, raise: { min: 70, max: 220 }, allIn: true };
+    expect(typedBet(100, o, 20, 200)).toEqual({ amount: 100, moved: null, action: { type: "relancer", amount: 100 }, allIn: false, added: 80, left: 120 });
+    expect(typedBet(65, o, 20, 200)).toMatchObject({ amount: 70, moved: "min", action: { type: "relancer", amount: 70 }, added: 50, left: 150 });
+    // Sa mise totale au maximum : il pousse tout ce qu'il a devant lui, pas un euro de plus.
+    expect(typedBet(220, o, 20, 200)).toEqual({ amount: 220, moved: null, action: { type: "tapis" }, allIn: true, added: 200, left: 0 });
+    expect(typedBet(900, o, 20, 200)).toMatchObject({ amount: 220, moved: "max", action: { type: "tapis" }, added: 200, left: 0 });
+  });
+
+  it("quand le serveur plafonne sans offrir le tapis, la plus grosse mise reste une mise ; sans fourchette, rien", () => {
+    const limited = { bet: null, raise: { min: 8, max: 26 }, allIn: false };
+    expect(typedBet(999, limited, 0, 500)).toEqual({ amount: 26, moved: "max", action: { type: "relancer", amount: 26 }, allIn: false, added: 26, left: 474 });
+    expect(typedBet(40, { bet: null, raise: null, allIn: true }, 0, 30)).toBeNull();
+    expect(typedBet(40, { bet: null, raise: null, allIn: false }, 0, 30)).toBeNull();
+  });
+
+  it("les touches d'unité : « M€ », « Md€ », « Bn€ » ; en anglais K, M, B, T", () => {
+    expect(UNITS.map(unitLabel)).toEqual(["€", "k€", "M€", "Md€", "Bn€"]);
+    expect(UNITS.map(unitName)).toEqual(["euros", "milliers d'euros", "millions d'euros", "milliards d'euros", "billions d'euros"]);
+    expect(decimalMark()).toBe(",");
+    expect(fieldAround(1)).toEqual({ avant: "", apres: `${NBSP}€` });
+    expect(fieldAround(BN)).toEqual({ avant: "", apres: `${NBSP}Bn€` });
+    setLang("en");
+    expect(UNITS.map(unitLabel)).toEqual(["€", "K", "M", "B", "T"]);
+    // Le « billion » anglais est le milliard, le « trillion » le billion français : comme `formatEuros`.
+    expect(UNITS.map(unitName)).toEqual(["euros", "thousands of euros", "millions of euros", "billions of euros", "trillions of euros"]);
+    expect(decimalMark()).toBe(".");
+    expect(fieldAround(1)).toEqual({ avant: "€", apres: "" });
+    expect(fieldAround(BN)).toEqual({ avant: "€", apres: "T" });
+    // Le champ et le montant relu s'écrivent pareil : « €150M ».
+    expect(`${fieldAround(1_000_000).avant}${typedText("150")}${fieldAround(1_000_000).apres}`).toBe(formatEuros(150_000_000));
+    setLang("fr");
+    expect(`${fieldAround(1_000_000).avant}${typedText("150")}${fieldAround(1_000_000).apres}`).toBe(formatEuros(150_000_000));
+    expect(`${fieldAround(BN).avant}${typedText("137,05")}${fieldAround(BN).apres}`).toBe(formatEuros(137_050_000_000_000));
+  });
+
+  it("le champ : les milliers séparés, la virgule dans la langue du jeu", () => {
+    expect(typedText("")).toBe("");
+    expect(typedText("150000")).toBe(`150${THIN}000`);
+    expect(typedText("1,5")).toBe("1,5");
+    expect(typedText("12,")).toBe("12,");
+    expect(typedText("0,05")).toBe("0,05");
+    setLang("en");
+    expect(typedText("150000")).toBe("150,000");
+    expect(typedText("1,5")).toBe("1.5");
+    expect(typedText("12,")).toBe("12.");
+  });
+
+  it("sous le champ : la fourchette, ou pourquoi le montant a été ramené à une borne", () => {
+    const o = { bet: { min: 10 * BN, max: 290 * BN }, raise: null, allIn: true };
+    const range = o.bet;
+    expect(boundsText(null, range)).toEqual({ texte: `Entre 10${NBSP}Bn€ et 290${NBSP}Bn€`, ramene: false });
+    expect(boundsText(typedBet(40 * BN, o, 0, 290 * BN), range, 40 * BN)).toEqual({ texte: `Entre 10${NBSP}Bn€ et 290${NBSP}Bn€`, ramene: false });
+    expect(boundsText(typedBet(3 * BN, o, 0, 290 * BN), range, 3 * BN)).toEqual({ texte: `Moins que le minimum : ce sera 10${NBSP}Bn€.`, ramene: true });
+    expect(boundsText(typedBet(900 * BN, o, 0, 290 * BN), range, 900 * BN)).toEqual({ texte: "Plus que ton tapis : ce sera tout ton tapis.", ramene: true });
+    // Un serveur qui plafonne sans offrir le tapis : la borne se dit par son montant.
+    const limited = { bet: { min: 2, max: 26 }, raise: null, allIn: false };
+    expect(boundsText(typedBet(99, limited, 0, 500), limited.bet, 99)).toEqual({ texte: `Plus que le maximum : ce sera 26${NBSP}€.`, ramene: true });
+    // Un minimum qui ne tombe pas rond (122 464 000 000 000 €) s'écrit « 122,46 Bn€ » : taper 122,46 part au
+    // minimum, sans qu'on explique au joueur qu'il a tapé « moins » que ce qu'il lit.
+    const odd = { bet: null, raise: { min: 122_464_000_000_000, max: 260 * BN }, allIn: true };
+    const typed = typedAmount("122,46", BN)!;
+    const bet = typedBet(typed, odd, 0, 260 * BN)!;
+    expect(bet).toMatchObject({ amount: 122_464_000_000_000, moved: "min", action: { type: "relancer", amount: 122_464_000_000_000 } });
+    expect(boundsText(bet, odd.raise, typed).ramene).toBe(false);
+    expect(typedBetLabel(bet, false, 260 * BN)).toBe(`Relancer à 122,46${NBSP}Bn€`);
+    setLang("en");
+    expect(boundsText(null, range).texte).toBe("Between €10T and €290T");
+    expect(boundsText(typedBet(3 * BN, o, 0, 290 * BN), range, 3 * BN).texte).toBe("Below the minimum: it will be €10T.");
+    expect(boundsText(typedBet(900 * BN, o, 0, 290 * BN), range, 900 * BN).texte).toBe("More than your stack: it will be your whole stack.");
+    expect(boundsText(typedBet(99, limited, 0, 500), limited.bet, 99).texte).toBe("Above the maximum: it will be €26.");
+  });
+
+  it("ce que la mise engage, et ce qui s'écrit sur le bouton : le montant tel qu'il partira", () => {
+    const bet = { bet: { min: 10, max: 290 }, raise: null, allIn: true };
+    const raise = { bet: null, raise: { min: 70, max: 220 }, allIn: true };
+    // Rien de tapé : le bouton attend, et dit son geste.
+    expect(typedBetLabel(null, true, 290)).toBe("Miser");
+    expect(typedBetLabel(null, false, 200)).toBe("Relancer");
+    // Une mise.
+    expect(typedBetLabel(typedBet(40, bet, 0, 290), true, 290)).toBe(`Miser 40${NBSP}€`);
+    expect(typedBetText(typedBet(40, bet, 0, 290)!, true)).toBe(`Tu poses 40${NBSP}€ : il te restera 250${NBSP}€.`);
+    // Une relance : le bouton dit la mise totale (« relancer à »), la phrase dit ce qu'on pose en plus.
+    expect(typedBetLabel(typedBet(100, raise, 20, 200), false, 200)).toBe(`Relancer à 100${NBSP}€`);
+    expect(typedBetText(typedBet(100, raise, 20, 200)!, false)).toBe(`Tu ajoutes 80${NBSP}€ à ta mise : il te restera 120${NBSP}€.`);
+    // Une relance sans avoir encore misé dans le tour : ce qu'on pose est la mise elle-même.
+    expect(typedBetText(typedBet(100, raise, 0, 220)!, false)).toBe(`Tu poses 100${NBSP}€ : il te restera 120${NBSP}€.`);
+    // Un tapis : son montant est celui du tapis, pas de la mise totale.
+    expect(typedBetLabel(typedBet(900, raise, 20, 200), false, 200)).toBe(`Tapis : 200${NBSP}€`);
+    expect(typedBetText(typedBet(900, raise, 20, 200)!, false)).toBe(`Tu poses 200${NBSP}€ : c'est tout ton tapis.`);
+    setLang("en");
+    expect(typedBetLabel(null, true, 290)).toBe("Bet");
+    expect(typedBetLabel(null, false, 200)).toBe("Raise");
+    expect(typedBetLabel(typedBet(40, bet, 0, 290), true, 290)).toBe("Bet €40");
+    expect(typedBetLabel(typedBet(100, raise, 20, 200), false, 200)).toBe("Raise to €100");
+    expect(typedBetLabel(typedBet(900, raise, 20, 200), false, 200)).toBe("All in: €200");
+    expect(typedBetText(typedBet(40, bet, 0, 290)!, true)).toBe("You put in €40: you'll have €250 left.");
+    expect(typedBetText(typedBet(100, raise, 20, 200)!, false)).toBe("You add €80 to your bet: you'll have €120 left.");
+    expect(typedBetText(typedBet(900, raise, 20, 200)!, false)).toBe("You put in €200: that's your whole stack.");
   });
 });
 
@@ -1008,7 +1332,7 @@ describe("le dictionnaire anglais du poker", () => {
     keys.push(
       "Chacun paie la blinde, puis reçoit cinq cartes.",
       "En secret, tu peux remplacer une de tes cartes par celle de ton choix, ou jouer franc jeu.",
-      "Un seul tour d'enchères : parole, mise, relance jusqu'à la hauteur du pot, ou tu te couches.",
+      "Un seul tour d'enchères, sans limite : parole, mise, relance, jusqu'à faire tapis, ou tu te couches.",
       "À l'abattage, les mains se montrent et chacun peut accuser un joueur : un tricheur démasqué perd sa mise, et sa main ne compte plus.",
       "Accuser à tort coûte la mise de l'accusé, que tu lui verses ; puis la meilleure main encore en jeu prend le pot.",
       "Carte haute", "Paire", "Deux paires", "Brelan", "Suite", "Couleur", "Full", "Carré", "Quinte flush",
@@ -1019,6 +1343,8 @@ describe("le dictionnaire anglais du poker", () => {
       "La table s'est endormie : trente minutes sans un geste, elle a fermé.",
       "La table a fermé : il y avait trop d'argent sur le tapis pour compter juste.",
       "Match nul : plus personne n'a de quoi continuer.",
+      // Les noms des unités de la mise saisie, dits par un lecteur d'écran (textes.ts).
+      "euros", "milliers d'euros", "millions d'euros", "milliards d'euros", "billions d'euros",
       // Les règles de la Table des Maîtres, en trois lignes (Feuilles.tsx).
       "Chacun pose {cave}, et personne ne recave : à zéro, on quitte la table.",
       "La blinde part de {blinde} et monte au fil des mains.",
@@ -1237,6 +1563,92 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       expect(left && ["defi-gagne", "defi-perdu", "defi-nul"].includes(left.reason)).toBe(true);
       expect(view.phase).toBe("fermee");
     }
+  });
+
+  it("la mise saisie : quoi qu'on tape, le montant part dans la fourchette, et le vrai serveur l'accepte", async () => {
+    const KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "effacer"];
+    const seen = { sent: 0, min: 0, max: 0, inside: 0, tapis: 0, raises: 0, added: 0, decimals: 0 };
+    const tables: readonly (readonly ["maison" | "defi" | "maitres", number])[] = [
+      ["maison", 31], ["maison", 2_031], ["defi", 32], ["defi", 4_032], ["maitres", 33], ["maitres", 9_033],
+    ];
+    for (const [kind, seed] of tables) {
+      const w = makeWorld(seed);
+      const created = await w.call<{ playerId: string; code: string }>("POST", "/api/players", { pseudo: `Tape${seed}`, species: "renard" });
+      const auth = `${created.body.playerId}.${created.body.code}`;
+      w.storage.poke(created.body.playerId, (p) => {
+        p.balance = kind === "maitres" ? MASTERS_BUYIN * 2 : 50_000;
+        if (kind === "maitres") p.pokerWins = PLACES.map((place) => place.id);
+      });
+      const body = kind === "maison" ? { maison: "kiosque", buyIn: 100 } : kind === "defi" ? { defi: "kiosque" } : { maitres: true };
+      const opened = await w.call<PokerTableResponse>("POST", "/api/poker/tables", body, auth);
+      expect(opened.status).toBe(201);
+      let view = opened.body.view!;
+      let left: PokerTableResponse["left"];
+      const refused: string[] = [];
+      for (let step = 0; step < 6_000 && view.handNo <= 40 && !left; step++) {
+        const o = view.options;
+        const range = o.bet ?? o.raise;
+        let action: PokerAction | null = null;
+        let expected: { stack: number } | null = null;
+        if (view.phase === "encheres" && o.fold && range && w.pick(4) !== 0) {
+          // Ce que la feuille laisse faire : une unité de la table, des touches au hasard (ou « 0 », ou « 999999 »).
+          const units = unitsFor(range);
+          const unit = units[w.pick(units.length)]!;
+          const mode = w.pick(6);
+          let text = mode === 0 ? "0" : mode === 1 ? "999999" : "";
+          if (text === "") for (let i = 0, n = 1 + w.pick(5); i < n; i++) text = pressKey(text, KEYS[w.pick(KEYS.length)]!, unit);
+          // Une fois sur trois, un montant plausible : autour de la plus petite mise.
+          if (mode >= 4) text = String(Math.floor((range.min / unit) * (1 + w.pick(4)))) + (decimalsFor(unit) > 0 && w.pick(2) === 0 ? `,${w.pick(10)}` : "");
+          const amount = typedAmount(text, unit);
+          const me = view.seats[view.you!]!;
+          const bet = amount === null ? null : typedBet(amount, o, me.bet, me.stack);
+          if (bet) {
+            action = bet.action;
+            expected = { stack: bet.left };
+            // Ce qui part est un entier, dans la fourchette que le serveur vient de donner.
+            expect(Number.isInteger(bet.amount)).toBe(true);
+            expect(bet.amount).toBeGreaterThanOrEqual(range.min);
+            expect(bet.amount).toBeLessThanOrEqual(range.max);
+            if (bet.action.type !== "tapis") expect(bet.action).toEqual({ type: o.bet ? "miser" : "relancer", amount: bet.amount });
+            seen.sent++;
+            if (bet.moved === "min") seen.min++;
+            else if (bet.moved === "max") seen.max++;
+            else seen.inside++;
+            if (bet.allIn) seen.tapis++;
+            if (!o.bet) seen.raises++;
+            if (!o.bet && bet.added !== bet.amount) seen.added++;
+            if (text.includes(",")) seen.decimals++;
+          }
+        }
+        action ??= tap(view, w.pick);
+        if (action) {
+          const hand = view.handNo;
+          const r = await w.call<PokerTableResponse & { error?: { code: string } }>("POST", "/api/poker/act", { code: view.code, action, step: view.step }, auth);
+          if (r.status !== 200) refused.push(`${kind} ${seed}, main ${view.handNo}, ${view.phase} : ${JSON.stringify(action)} sur ${JSON.stringify(range)} → ${r.body.error?.code}`);
+          else if (r.body.view) view = r.body.view;
+          left = r.body.left;
+          // Le serveur a compté ce que la feuille annonçait : il reste devant le joueur ce qu'elle disait.
+          if (expected && r.status === 200 && !left && view.handNo === hand && (view.phase === "encheres" || view.phase === "abattage")) {
+            expect(view.seats[view.you!]!.stack).toBe(expected.stack);
+          }
+          if (!left && view.options.rebuy && view.seats[view.you!]!.stack < view.blind) {
+            const rebuy = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action: { type: "recaver", amount: view.options.rebuy.max } }, auth);
+            if (rebuy.status === 200) view = rebuy.body.view!;
+          }
+          continue;
+        }
+        w.tick(1_000);
+        const r = await w.call<PokerTableResponse | { unchanged: true }>("GET", `/api/poker/table?code=${view.code}&v=${view.version}`, undefined, auth);
+        if ("unchanged" in r.body) continue;
+        if (r.body.view) view = r.body.view;
+        left = r.body.left;
+      }
+      // Jamais une erreur du serveur : ni montant hors bornes, ni montant non entier.
+      expect(refused).toEqual([]);
+    }
+    // Tout a été essayé : des montants trop petits, trop gros (des tapis), justes, des relances, des virgules.
+    expect(seen.sent).toBeGreaterThan(60);
+    for (const key of ["min", "max", "inside", "tapis", "raises", "decimals"] as const) expect([key, seen[key] > 0]).toEqual([key, true]);
   });
 
   it("un hôte battu trois fois : le compte arrive avec la fin du défi, la troisième victoire ouvre son histoire", async () => {

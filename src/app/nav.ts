@@ -30,6 +30,11 @@ export type Screen =
   | { name: "semis"; ticket: string; rang: number; qty: number }
   // L'histoire d'un hôte, racontée par lui : posée par-dessus les Souvenirs.
   | { name: "histoire"; lieu: PlaceId }
+  // L'Agence Carpe Diem : les expériences de vie, la fiche de l'une d'elles, et son film
+  // (`premiere` : elle vient d'être payée ; sinon on la revit). Chargés à la demande.
+  | { name: "agence" }
+  | { name: "fiche-experience"; experience: string }
+  | { name: "experience"; experience: string; premiere?: boolean }
   // Le Poker Tricheur : le hall, une table (par son code), et leurs feuilles.
   | { name: "poker" }
   | { name: "poker-table"; code: string }
@@ -50,7 +55,9 @@ export type PokerSheet =
   // Aux enchères : saisir le montant de sa mise ou de sa relance, et confirmer un tapis.
   | { feuille: "mise" | "tapis" };
 
-const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis", "histoire"]);
+const SHEETS = new Set([
+  "fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis", "histoire", "fiche-experience", "experience",
+]);
 const TABS = new Set<string>(["domaine", "promenade", "boutiques", "classement"]);
 
 export function isSheet(screen: Screen): boolean {
@@ -201,13 +208,15 @@ export function screenKey(screen: Screen, index: number): string {
     case "choix-domaine": return `${index}:choix:${screen.slot}`;
     case "semis": return `${index}:semis:${screen.rang}`;
     case "histoire": return `${index}:histoire:${screen.lieu}`;
+    case "fiche-experience": return `${index}:fiche-experience:${screen.experience}`;
+    case "experience": return `${index}:experience:${screen.experience}`;
     case "poker-table": return `${index}:poker-table:${screen.code}`;
     case "poker-feuille": return `${index}:poker-feuille:${screen.feuille}`;
     default: return `${index}:${screen.name}`;
   }
 }
 
-const WITH_TABS = new Set<string>(["domaine", "promenade", "boutiques", "boutique", "classement"]);
+const WITH_TABS = new Set<string>(["domaine", "promenade", "boutiques", "boutique", "agence", "classement"]);
 
 /** Vrai si cet écran porte la barre d'onglets. */
 export function hasTabs(screen: Screen): boolean {
@@ -224,6 +233,7 @@ export function tabOf(screen: Screen): Tab | null {
       return "promenade";
     case "boutiques":
     case "boutique":
+    case "agence":
       return "boutiques";
     case "classement":
       return "classement";

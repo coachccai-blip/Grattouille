@@ -141,12 +141,9 @@ function Conseil({ player, found, busy, pickUp }: {
       const { stats, defis, story } = player;
       const tour = (stats.tickets + stats.sown + player.pokerStats.hands) % 4;
       const carnet = <Chemin vers={versCarnet}>{t("Ouvrir le Carnet du Patron")}</Chemin>;
+      // Le compte est dans la phrase (« 3 sur huit ») : pas de barre en plus, la bulle reste courte.
       const indice = defis.length < PLACES.length
-        ? {
-          texte: PIOU.maitres(defis.length),
-          barre: { value: defis.length, max: PLACES.length },
-          actions: <Chemin vers={versPoker}>{t("Aller au Poker Tricheur")}</Chemin>,
-        }
+        ? { texte: PIOU.maitres(defis.length), actions: <Chemin vers={versPoker}>{t("Aller au Poker Tricheur")}</Chemin> }
         : null;
       if (tour === 3) return { texte: PIOU.patron, actions: <Chemin vers={versClassement}>{t("Voir le classement")}</Chemin> };
       // Tant qu'il n'a presque rien semé, Piou dit d'abord comment on s'y prend.

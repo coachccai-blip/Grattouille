@@ -28,8 +28,9 @@ export interface Sortie {
 export const VOIX_MAX = 10;
 /**
  * Le volume de la musique à la sortie : ce que vaut, là, une voix écrite à pleine force
- * sur une piste à plein volume. Les bruitages culminent entre 0,04 et 0,18 : la musique
- * entière reste en dessous d'un seul appui de bouton.
+ * sur une piste à plein volume. Réglé à la mesure, dans le navigateur : chaque thème sonne
+ * autour de -44 dB (valeur efficace) et ne dépasse pas 0,06 en crête, quand un simple appui
+ * de bouton culmine à 0,09 et un jackpot à 0,26. Les bruitages passent toujours devant.
  */
 export const NIVEAU = 0.02;
 /** La durée d'un fondu enchaîné, en secondes. */
@@ -39,7 +40,10 @@ const AVANCE = 0.6;
 const BATTEMENT = 150;
 /** Le temps laissé avant la première note d'un thème, en secondes. */
 const DEPART = 0.12;
-/** Ce que la salle renvoie, pour une part de 1 : réglé à la mesure (une salle entière sonne 9 dB sous le son direct). */
+/**
+ * Ce que la salle renvoie, pour une part de 1. Réglé à la mesure : la Lune, qui en use le
+ * plus, a sa salle 7 dB sous le son direct ; la ville, 13 dB.
+ */
 const SALLE = 1.6;
 
 type Source = OscillatorNode | AudioBufferSourceNode;
@@ -126,6 +130,10 @@ export interface Moteur {
   bus: GainNode;
 }
 
+/**
+ * `graine` : d'où part le hasard des improvisations. La même graine rejoue la même musique
+ * (les tests s'en servent) ; le jeu en prend une nouvelle à chaque visite.
+ */
 export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
   const { ctx } = sortie;
   const alea = suite(graine);
@@ -490,7 +498,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
 
   function regle(): void {
     const utile = !enPause && (courante !== null || sortantes.length > 0);
-    if (utile && minuterie === undefined) minuterie = setInterval(avance, BATTEMENT);
+    if (utile && minuterie === undefined) minuterie = setInterval(() => avance(), BATTEMENT);
     else if (!utile && minuterie !== undefined) {
       clearInterval(minuterie);
       minuterie = undefined;

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import type { Card } from "../../../shared/poker/cards";
-import { CHEAT_MS, MASTERS_SEATS, MAX_BUYIN_BLINDS, MAX_SEATS, MIN_SEATS } from "../../../shared/poker/rules";
+import { CHEAT_MS, MASTERS_SEATS, MAX_BUYIN_BLINDS, MAX_SEATS, MIN_SEATS, TURN_MS } from "../../../shared/poker/rules";
 import type { Difficulty, TableView } from "../../../shared/poker/types";
 import type { PlaceId } from "../../../shared/types";
 import { capitalize } from "../../app/helpers";
@@ -25,12 +25,13 @@ import { Bouton } from "../../ui/Bouton";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
-  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, hostStory, isFullCode, mastersCard, maxBuyInChoices,
-  rankTaken, suitTaken, swapped, tournamentDecided,
+  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, decimalsFor, defaultBuyIn, fitUnit, hostStory, isFullCode, mastersCard,
+  maxBuyInChoices, pressKey, rankTaken, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitsFor, type Unit,
 } from "./calcul";
 import { Alerte, BarreTemps, Pas, Tete, steps, unbroken } from "./parts";
 import {
-  categoriesFromTop, categoryName, character, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity,
+  boundsText, categoriesFromTop, categoryName, character, decimalMark, difficultyName, fieldAround, identityOf, nameInSentence,
+  playerName, rankLabel, typedBetLabel, typedBetText, typedText, unitLabel, unitName, type Identity,
 } from "./textes";
 import "./poker.css";
 
@@ -66,7 +67,7 @@ function Tetiere({ who, titre, children }: { who: Identity; titre: string; child
 const REGLES = [
   "Chacun paie la blinde, puis reçoit cinq cartes.",
   "En secret, tu peux remplacer une de tes cartes par celle de ton choix, ou jouer franc jeu.",
-  "Un seul tour d'enchères : parole, mise, relance jusqu'à la hauteur du pot, ou tu te couches.",
+  "Un seul tour d'enchères, sans limite : parole, mise, relance, jusqu'à faire tapis, ou tu te couches.",
   "À l'abattage, les mains se montrent et chacun peut accuser un joueur : un tricheur démasqué perd sa mise, et sa main ne compte plus.",
   "Accuser à tort coûte la mise de l'accusé, que tu lui verses ; puis la meilleure main encore en jeu prend le pot.",
 ] as const;
@@ -619,6 +620,188 @@ function Accuser({ seat }: { seat: number }) {
 }
 
 // ---------------------------------------------------------------------------
+// La mise de son choix, saisie à la main ; et le tapis, qui se confirme
+
+/** Les chiffres, rangés comme sur un téléphone. Dessous : la virgule, le zéro, et la touche qui efface. */
+const CHIFFRES = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
+
+/** La touche qui efface : une flèche pleine barrée d'une croix, au trait des icônes du jeu. */
+function Efface() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 6h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-6-6zM12.500 9.500l5 5M17.500 9.500l-5 5" />
+    </svg>
+  );
+}
+
+/** C'est au joueur de parler, et le serveur lui donne une fourchette : il peut miser, ou relancer. */
+function bettingOf(view: TableView | null) {
+  if (!view || view.phase !== "encheres" || view.you === null || view.turn !== view.you || !view.options.fold) return null;
+  const me = view.seats[view.you] ?? null;
+  return me ? { o: view.options, me } : null;
+}
+
+/**
+ * Le montant de son choix. Pas de clavier du téléphone : un pavé de chiffres dans la feuille,
+ * et les unités de la table à côté (on ne tape pas quinze chiffres pour 150 Bn€). Le bouton dit
+ * le montant tel qu'il partira ; hors de la fourchette du serveur, il est ramené à sa borne,
+ * et la feuille dit pourquoi.
+ */
+function Mise() {
+  const fermer = useFermer();
+  const view = usePoker((s) => s.view);
+  const offset = usePoker((s) => s.offset);
+  const busy = usePoker((s) => s.busy);
+  const [text, setText] = useState("");
+  const [chosen, setChosen] = useState<Unit | null>(null);
+  const betting = bettingOf(view);
+  const range = betting ? betting.o.bet ?? betting.o.raise : null;
+  const open = betting !== null && range !== null;
+
+  // Son tour est passé (le temps, ou un autre geste) : la feuille se referme.
+  useEffect(() => {
+    if (!open) fermer();
+  }, [open, fermer]);
+
+  const units = range ? unitsFor(range) : [];
+  const unit: Unit = chosen !== null && units.includes(chosen) ? chosen : units[0] ?? 1;
+  const typed = typedAmount(text, unit);
+  const bet = betting && typed !== null ? typedBet(typed, betting.o, betting.me.bet, betting.me.stack) : null;
+
+  const press = (key: string) => setText((prev) => pressKey(prev, key, unit));
+  const choose = (next: Unit) => {
+    setChosen(next);
+    setText((prev) => fitUnit(prev, next));
+  };
+  const send = async () => {
+    if (!bet || busy !== null) return;
+    await play(bet.action);
+    fermer();
+  };
+
+  // Au clavier d'un ordinateur : les chiffres, la virgule ou le point, effacer, et Entrée pour envoyer.
+  const keys = useRef({ press, send });
+  keys.current = { press, send };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[0-9]$/.test(e.key)) keys.current.press(e.key);
+      else if (e.key === "," || e.key === ".") keys.current.press(",");
+      else if (e.key === "Backspace") keys.current.press("effacer");
+      // Sur un bouton, Entrée est déjà son appui.
+      else if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement)) void keys.current.send();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (!view || !betting || !range) return null;
+  const { o, me } = betting;
+  const first = o.bet !== null;
+  const titre = first ? t("Miser") : t("Relancer à");
+  const around = fieldAround(unit);
+  const bounds = boundsText(bet, range, typed);
+
+  return (
+    <Feuille titre={titre} onClose={fermer} className="poker-feuille poker-saisie">
+      <BarreTemps deadline={view.deadline} offset={offset} total={TURN_MS} mine />
+      <div className="poker-saisie__tete">
+        <h2 className="poker-saisie__titre">{titre}</h2>
+        {/* Une relance s'annonce par sa mise totale dans le tour : on rappelle ce qu'il y a à suivre. */}
+        {!first && <p className="note">{t("À suivre : {montant}", { montant: formatEuros(o.call) })}</p>}
+      </div>
+      <p className={cx("poker-saisie__champ chiffres", text === "" && "poker-saisie__champ--vide")} aria-hidden="true">
+        {around.avant}
+        <span>{typedText(text) || "0"}</span>
+        {around.apres}
+      </p>
+      <p className={cx("poker-saisie__bornes", bounds.ramene && "poker-saisie__bornes--ramene")}>{bounds.texte}</p>
+      <div className="poker-pave">
+        <div className="poker-touches poker-pave__chiffres" role="group" aria-label={t("Le montant, chiffre à chiffre")}>
+          {CHIFFRES.map((digit) => (
+            <button key={digit} type="button" className="poker-touche" onClick={() => press(digit)}>{digit}</button>
+          ))}
+          <button type="button" className="poker-touche" aria-label={t("virgule")} disabled={decimalsFor(unit) === 0} onClick={() => press(",")}>
+            {decimalMark()}
+          </button>
+          <button type="button" className="poker-touche" onClick={() => press("0")}>0</button>
+          <button type="button" className="poker-touche" aria-label={t("Effacer")} disabled={text === ""} onClick={() => press("effacer")}>
+            <Efface />
+          </button>
+        </div>
+        {units.length > 1 && (
+          <div className="poker-touches poker-pave__unites" role="radiogroup" aria-label={t("Unité")}>
+            {units.map((u) => (
+              <button
+                key={u}
+                type="button"
+                role="radio"
+                aria-checked={u === unit}
+                aria-label={unitName(u)}
+                className={cx("poker-touche", u === unit && "poker-touche--choisie")}
+                onClick={() => choose(u)}
+              >
+                {unitLabel(u)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="poker-feuille__action poker-saisie__action">
+        {/* Ce que la mise engage, relu à chaque touche : ce qu'on pose, ce qu'il restera. */}
+        <p className="poker-saisie__effet" role="status">{bet ? typedBetText(bet, first) : t("Tape un montant.")}</p>
+        <Bouton bloc data-geste="envoyer" disabled={!bet} attente={busy === "miser" || busy === "relancer" || busy === "tapis"} onClick={() => void send()}>
+          {typedBetLabel(bet, first, me.stack)}
+        </Bouton>
+      </div>
+    </Feuille>
+  );
+}
+
+/**
+ * Le tapis : tout ce qu'on a devant soi. Il engage tout, alors il se confirme : la feuille
+ * redit le montant, et ce qu'il en coûte de perdre la main.
+ */
+function Tapis() {
+  const fermer = useFermer();
+  const view = usePoker((s) => s.view);
+  const offset = usePoker((s) => s.offset);
+  const busy = usePoker((s) => s.busy);
+  const betting = bettingOf(view);
+  const open = betting !== null && betting.o.allIn;
+
+  // Son tour est passé, ou le tapis n'est plus permis : la feuille se referme.
+  useEffect(() => {
+    if (!open) fermer();
+  }, [open, fermer]);
+  if (!view || !betting || !open) return null;
+
+  const montant = formatEuros(betting.me.stack);
+  const push = async () => {
+    if (busy !== null) return;
+    await play({ type: "tapis" });
+    fermer();
+  };
+
+  return (
+    <Feuille titre={t("Faire tapis ?")} onClose={fermer} className="poker-feuille poker-pousse">
+      <BarreTemps deadline={view.deadline} offset={offset} total={TURN_MS} mine />
+      <h2 className="t-titre">{t("Faire tapis ?")}</h2>
+      <p className="poker-pousse__somme chiffres">{montant}</p>
+      <p className="poker-pousse__risque">{unbroken(t("C'est tout ton tapis : si tu perds cette main, il ne te restera rien devant toi."))}</p>
+      <div className="poker-feuille__action">
+        <Bouton bloc data-geste="tapis" attente={busy === "tapis"} onClick={() => void push()}>
+          {t("Tapis : {montant}", { montant })}
+        </Bouton>
+        <Bouton variante="texte" bloc onClick={fermer}>{t("Finalement, non")}</Bouton>
+      </div>
+    </Feuille>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Recaver
 
 function Recave() {
@@ -730,6 +913,8 @@ export function FeuillePoker({ screen }: { screen: SheetScreen }) {
     case "maitres": return <Maitres />;
     case "triche": return <Triche index={screen.index} />;
     case "accuser": return <Accuser seat={screen.seat} />;
+    case "mise": return <Mise />;
+    case "tapis": return <Tapis />;
     case "recave": return <Recave />;
     case "quitter": return <Quitter />;
   }

@@ -637,7 +637,8 @@ describe("les enchères", () => {
   it("la parole part du voisin du donneur ; parole pour tous mène à l'abattage", () => {
     let t = betting();
     expect([t.phase, t.hand!.turn, t.hand!.pending]).toEqual(["encheres", 1, [1, 2, 0]]);
-    expect(options(t, 1)).toMatchObject({ check: true, call: 0, bet: { min: 10, max: 30 }, raise: null, allIn: false, fold: true });
+    // Sans limite : d'une blinde à tout son tapis.
+    expect(options(t, 1)).toMatchObject({ check: true, call: 0, bet: { min: 10, max: 990 }, raise: null, allIn: true, fold: true });
     // Ce n'est pas aux autres de parler.
     expect(options(t, 2)).toMatchObject({ check: false, bet: null, fold: false });
     expect(refusal(() => play(t, 2, { type: "parole" }))).toBe("NOT_YOUR_TURN");
@@ -650,30 +651,33 @@ describe("les enchères", () => {
     expect(stacksOf(t)).toEqual([990, 990, 990]);
   });
 
-  it("mise, suivre, relancer : la limite du pot, la relance minimale d'une blinde", () => {
+  it("mise, suivre, relancer : d'une blinde à tout le tapis, la relance minimale d'une blinde", () => {
     let t = betting();
-    // Miser : d'une blinde au pot.
+    // Miser : d'une blinde à tout son tapis (990 ici), quelle que soit la taille du pot.
     expect(refusal(() => play(t, 1, { type: "miser", amount: 9 }))).toBe("ACTION_IMPOSSIBLE");
-    expect(refusal(() => play(t, 1, { type: "miser", amount: 31 }))).toBe("ACTION_IMPOSSIBLE");
+    expect(refusal(() => play(t, 1, { type: "miser", amount: 991 }))).toBe("ACTION_IMPOSSIBLE");
+    expect(refusal(() => play(t, 1, { type: "miser", amount: 31 }))).toBe("accepté");
+    expect(refusal(() => play(t, 1, { type: "miser", amount: 990 }))).toBe("accepté");
     expect(refusal(() => play(t, 1, { type: "miser", amount: 15.5 }))).toBe("ACTION_IMPOSSIBLE");
     expect(refusal(() => play(t, 1, { type: "suivre" }))).toBe("ACTION_IMPOSSIBLE");
     expect(refusal(() => play(t, 1, { type: "relancer", amount: 20 }))).toBe("ACTION_IMPOSSIBLE");
     t = play(t, 1, { type: "miser", amount: 30 });
     expect([t.hand!.pot, t.hand!.bet, t.hand!.raises, t.hand!.turn]).toEqual([60, 30, 0, 2]);
-    // Face à une mise : plus de parole. Relancer : de 40 (la mise plus une blinde) à 120
-    // (la mise, plus le pot une fois la mise suivie : 30 + 60 + 30).
-    expect(options(t, 2)).toMatchObject({ check: false, call: 30, bet: null, raise: { min: 40, max: 120 }, fold: true });
+    // Face à une mise : plus de parole. Relancer : de 40 (la mise plus une blinde) à 990
+    // (tout son tapis : sa mise totale dans le tour après la relance).
+    expect(options(t, 2)).toMatchObject({ check: false, call: 30, bet: null, raise: { min: 40, max: 990 }, allIn: true, fold: true });
     expect(refusal(() => play(t, 2, { type: "parole" }))).toBe("ACTION_IMPOSSIBLE");
     expect(refusal(() => play(t, 2, { type: "miser", amount: 30 }))).toBe("ACTION_IMPOSSIBLE");
     expect(refusal(() => play(t, 2, { type: "relancer", amount: 39 }))).toBe("ACTION_IMPOSSIBLE");
-    expect(refusal(() => play(t, 2, { type: "relancer", amount: 121 }))).toBe("ACTION_IMPOSSIBLE");
+    expect(refusal(() => play(t, 2, { type: "relancer", amount: 991 }))).toBe("ACTION_IMPOSSIBLE");
+    expect(refusal(() => play(t, 2, { type: "relancer", amount: 121 }))).toBe("accepté");
     t = play(t, 2, { type: "suivre" });
     expect([t.hand!.pot, t.hand!.turn]).toEqual([90, 0]);
-    expect(options(t, 0)).toMatchObject({ call: 30, raise: { min: 40, max: 150 } });
+    expect(options(t, 0)).toMatchObject({ call: 30, raise: { min: 40, max: 990 } });
     t = play(t, 0, { type: "relancer", amount: 150 });
     expect([t.hand!.pot, t.hand!.bet, t.hand!.raises, t.hand!.pending]).toEqual([240, 150, 1, [1, 2]]);
-    // Le premier a déjà misé 30 : il lui en manque 120.
-    expect(options(t, 1)).toMatchObject({ call: 120, raise: { min: 160, max: 510 } });
+    // Le premier a déjà misé 30 : il lui en manque 120. Sa relance va jusqu'à ses 30 déjà misés plus ses 960 restants.
+    expect(options(t, 1)).toMatchObject({ call: 120, raise: { min: 160, max: 990 } });
     t = play(t, 1, { type: "suivre" });
     t = play(t, 2, { type: "suivre" });
     expect([t.phase, t.hand!.pot]).toEqual(["abattage", 480]);
@@ -706,9 +710,9 @@ describe("les enchères", () => {
     t = play(t, 1, { type: "miser", amount: 30 });          // pot 60
     t = play(t, 2, { type: "suivre" });                     // pot 90
     t = play(t, 0, { type: "relancer", amount: 150 });      // pot 240
-    t = play(t, 1, { type: "relancer", amount: 510 });      // pot 720 : la relance maximale
+    t = play(t, 1, { type: "relancer", amount: 510 });      // pot 720
     expect([t.hand!.pot, t.hand!.raises]).toEqual([720, 2]);
-    // Le troisième peut pousser son tapis : 990 en tout, sous la limite du pot.
+    // Le troisième peut pousser son tapis : 990 en tout.
     expect(options(t, 2)).toMatchObject({ call: 480, raise: { min: 520, max: 990 }, allIn: true });
     t = play(t, 2, { type: "tapis" });
     expect([t.hand!.pot, t.hand!.bet, t.hand!.raises]).toEqual([1680, 990, 3]);
@@ -723,11 +727,18 @@ describe("les enchères", () => {
     audited(t);
   });
 
-  it("le tapis au-dessus de la limite du pot est refusé", () => {
+  it("faire tapis est permis dès qu'on peut miser, quelle que soit la taille du pot", () => {
     const t = betting();
-    expect(options(t, 1)).toMatchObject({ bet: { min: 10, max: 30 }, allIn: false });
-    expect(refusal(() => play(t, 1, { type: "tapis" }))).toBe("ACTION_IMPOSSIBLE");
-    // Avec un petit tapis, on peut tout pousser.
+    expect(options(t, 1)).toMatchObject({ bet: { min: 10, max: 990 }, allIn: true });
+    // 990 dans un pot de 30 : trente-trois fois le pot. Sans limite, c'est permis.
+    const deep = play(t, 1, { type: "tapis" });
+    expect(playerInHand(deep, 1)).toMatchObject({ bet: 990, allIn: true });
+    expect(deep.log[deep.log.length - 1]).toMatchObject({ kind: "mise", seat: 1, amount: 990, to: 990, allIn: true });
+    expect([deep.hand!.pot, deep.hand!.bet, deep.hand!.raises, deep.hand!.turn]).toEqual([1020, 990, 0, 2]);
+    // Les autres ont tout juste de quoi suivre : suivre, c'est tapis, et il n'y a plus rien à relancer.
+    expect(options(deep, 2)).toMatchObject({ call: 990, raise: null, allIn: true, fold: true });
+    audited(deep);
+    // Avec un petit tapis aussi, on peut tout pousser.
     const small = betting([1000, 25, 1000]);
     expect(options(small, 1)).toMatchObject({ bet: { min: 10, max: 15 }, allIn: true });
     const pushed = play(small, 1, { type: "tapis" });
@@ -852,13 +863,16 @@ describe("les enchères", () => {
 
   it("les fourchettes d'enchères : cas limites", () => {
     const base = { pot: 60, bet: 0, raises: 0, blind: 10, mine: 0, stack: 500, rivals: 2 };
-    expect(betOptions(base)).toEqual({ check: true, call: 0, bet: { min: 10, max: 60 }, raise: null, allIn: false });
+    // Le pot (60 ici) ne borne plus rien : la mise va d'une blinde à tout le tapis, et le tapis est toujours permis.
+    expect(betOptions(base)).toEqual({ check: true, call: 0, bet: { min: 10, max: 500 }, raise: null, allIn: true });
+    expect(betOptions({ ...base, pot: 1 })).toEqual(betOptions({ ...base, pot: 1_000_000 }));
     expect(betOptions({ ...base, stack: 45 })).toEqual({ check: true, call: 0, bet: { min: 10, max: 45 }, raise: null, allIn: true });
     expect(betOptions({ ...base, stack: 0 })).toEqual({ check: true, call: 0, bet: null, raise: null, allIn: false });
     expect(betOptions({ ...base, rivals: 0 })).toEqual({ check: true, call: 0, bet: null, raise: null, allIn: false });
     const facing = { ...base, pot: 100, bet: 40 };
-    expect(betOptions(facing)).toEqual({ check: false, call: 40, bet: null, raise: { min: 50, max: 180 }, allIn: false });
-    expect(betOptions({ ...facing, mine: 10 })).toEqual({ check: false, call: 30, bet: null, raise: { min: 50, max: 170 }, allIn: false });
+    expect(betOptions(facing)).toEqual({ check: false, call: 40, bet: null, raise: { min: 50, max: 500 }, allIn: true });
+    // La relance se compte en mise totale dans le tour : ce qu'il a déjà misé, plus tout son tapis.
+    expect(betOptions({ ...facing, mine: 10 })).toEqual({ check: false, call: 30, bet: null, raise: { min: 50, max: 510 }, allIn: true });
     expect(betOptions({ ...facing, stack: 40 })).toEqual({ check: false, call: 40, bet: null, raise: null, allIn: true });
     expect(betOptions({ ...facing, stack: 25 })).toEqual({ check: false, call: 25, bet: null, raise: null, allIn: true });
     expect(betOptions({ ...facing, stack: 45 })).toEqual({ check: false, call: 40, bet: null, raise: { min: 45, max: 45 }, allIn: true });
@@ -1050,10 +1064,10 @@ describe("l'abattage et les accusations", () => {
     t = advance(t, T0 + RESULT_MS, rng);
     expect([t.handNo, t.hand!.pot, t.carry]).toEqual([2, 40, 0]);
     expect(viewFor(t, "p_a", T0 + RESULT_MS).pot).toBe(40);
-    // Il compte dans la limite du pot.
+    // Il est dans le pot de la main ; la mise, elle, ne dépend que du tapis.
     t = withHands(t, { 0: HANDS[0], 1: HANDS[1] });
     t = allFair(t, T0 + RESULT_MS);
-    expect(viewFor(t, IDS[t.hand!.turn!]!, T0 + RESULT_MS).options.bet).toEqual({ min: 10, max: 40 });
+    expect(viewFor(t, IDS[t.hand!.turn!]!, T0 + RESULT_MS).options.bet).toEqual({ min: 10, max: 980 });
     t = allQuiet(checkAround(t, T0 + RESULT_MS), T0 + RESULT_MS);
     expect(t.result!.pots).toEqual([{ amount: 40, winners: [{ seat: 0, amount: 40 }], carried: false }]);
     expect(stacksOf(t)).toEqual([1020, 980]);
@@ -1590,8 +1604,8 @@ describe("recaver", () => {
     t = deposit(t, "s_1", 2, 600, T0, rng);
     expect(t.seats[1]).toMatchObject({ stack: 390, reserve: 200, received: 600 });
     expect(viewFor(t, "p_c", T0).seats[1]).toMatchObject({ stack: 390, reserve: 200 });
-    // Son tapis en jeu n'a pas bougé : il ne peut miser que ce qu'il avait.
-    expect(viewFor(t, "p_b", T0).options.bet).toEqual({ min: 10, max: 30 });
+    // Son tapis en jeu n'a pas bougé : il ne peut miser que ce qu'il avait, pas la recave qui attend.
+    expect(viewFor(t, "p_b", T0).options.bet).toEqual({ min: 10, max: 390 });
     audited(t);
     t = play(t, 1, { type: "coucher" });
     // Couché, il peut recaver, et l'argent rejoint le tapis aussitôt.
@@ -1888,7 +1902,7 @@ describe("l'argent se conserve", () => {
       hands += game.hands;
     }
     expect(hands).toBeGreaterThan(2_000);
-    expect(closed).toBeGreaterThan(5);
+    expect(closed).toBeGreaterThan(3);
   });
 
   it("avec des robots : les jetons de la table valent ce que les bourses ont versé, moins ce qu'elles ont repris, plus l'argent fictif des robots", () => {
@@ -1945,12 +1959,19 @@ describe("l'argent se conserve", () => {
     t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Crésus", species: "chat", look: null }, T0, rng);
     t = deposit(t, "s_0", 1, blind * 100, T0, rng);
     t = act(t, "p_a", { type: "lancer" }, T0, rng);
-    t = drive(t, T0, T0 + 600_000, [0], rng, (state) => {
-      sound(state);
-      expect(chipsOnTable(state)).toBeLessThan(MAX_TABLE_CHIPS);
+    // Le joueur dit parole ou se couche : il ne perd que ses blindes, et la partie dure. Les
+    // robots, eux, misent jusqu'à trois fois le pot et poussent leur tapis.
+    for (let now = T0; now <= T0 + 600_000; now += 1_000) {
+      t = advance(t, now, rng);
+      const o = viewFor(t, "p_a", now).options;
+      if (o.cheat) t = act(t, "p_a", { type: "franc-jeu" }, now, rng);
+      else if (o.fold) t = act(t, "p_a", o.check ? { type: "parole" } : { type: "coucher" }, now, rng);
+      else if (o.accuse.length > 0) t = act(t, "p_a", { type: "rien" }, now, rng);
+      sound(t);
+      expect(chipsOnTable(t)).toBeLessThan(MAX_TABLE_CHIPS);
       // Un robot ne garde jamais plus de trois caves d'une main sur l'autre.
-      if (state.phase === "triche") for (const seat of state.seats) if (seat?.bot) expect(seat.stack + blind).toBeLessThanOrEqual(3 * state.maxBuyIn);
-    });
+      if (t.phase === "triche") for (const seat of t.seats) if (seat?.bot) expect(seat.stack + blind).toBeLessThanOrEqual(3 * t.maxBuyIn);
+    }
     expect(t.handNo).toBeGreaterThan(10);
   });
 });

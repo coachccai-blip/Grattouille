@@ -11,6 +11,7 @@ import { t } from "../../i18n";
 import { keeperName, shopBlurb, shopName } from "../../i18n/noms";
 import { Bourse, Standing } from "../../ui/Bourse";
 import { Barre, Entete } from "../../ui/Commun";
+import { Enseigne as EnseigneAgence } from "../agence/Enseigne";
 import "./boutiques.css";
 
 export function Boutiques() {
@@ -68,6 +69,8 @@ export function Boutiques() {
             </li>
           );
         })}
+        {/* La cinquième enseigne : l'Agence Carpe Diem. On y vend des souvenirs, pas des biens. */}
+        <EnseigneAgence />
       </ul>
     </main>
   );

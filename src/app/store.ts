@@ -62,7 +62,7 @@ interface GameState {
   welcome: boolean;
   /** La vraie fin, « Huit as de cœur », est à l'écran. */
   trueEnding: boolean;
-  /** Le générique à l'écran est un souvenir, revu depuis les Réglages : il ne dit rien au serveur et ne sème rien. */
+  /** Le générique à l'écran est un souvenir, revu depuis les Souvenirs : il ne dit rien au serveur et ne sème rien. */
   replay: boolean;
   /** Bac à sable : les histoires des hôtes déjà regardées, en mémoire seulement (ailleurs : `settings.histoires`). */
   sandboxStories: Settings["histoires"];
@@ -721,7 +721,7 @@ export function closeTrueEnding(seen = true): void {
   set({ trueEnding: false, replay: false });
 }
 
-/** Les Souvenirs des Réglages : revoir le premier générique ou la vraie fin, sans rien changer au compte. */
+/** Les Souvenirs (src/screens/souvenirs) : revoir le premier générique ou la vraie fin, sans rien changer au compte. */
 export function replayMemory(memory: "fin" | "vraie-fin"): void {
   set(memory === "fin" ? { ending: true, replay: true } : { trueEnding: true, replay: true });
 }

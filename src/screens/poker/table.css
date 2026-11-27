@@ -638,20 +638,57 @@
 /* Se coucher à gauche, la parole (ou suivre) à droite, plus large : c'est le geste attendu. */
 .poker-actions__rang--parole { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 
-/* Les mises : « Miser », puis trois tailles au plus, du plus petit au plus gros. */
+/* Les mises. En tête : « Miser » ou « Relancer à », et à droite « Autre montant », qui ouvre la
+   saisie. Dessous, trois tailles au plus, de la plus petite au tapis. */
 .poker-mises {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 2px 6px;
   align-items: stretch;
+}
+
+.poker-mises__tete {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .poker-mises__titre {
   flex: none;
-  align-self: center;
-  max-width: 78px;
   color: var(--brume);
   font: 500 14px/18px var(--texte);
 }
+
+/* « Autre montant » : une ligne de texte, soulignée comme un lien. Sa cible fait 44 px de haut :
+   elle déborde vers le haut, sur le tapis et la mise du joueur, qui ne se touchent pas. */
+.poker-mises__autre {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+  min-width: 44px;
+  margin-top: -26px;
+  padding: 26px 0 0 20px;
+  color: var(--ecume);
+  font: 500 14px/18px var(--texte);
+  transition: opacity var(--t-bascule) linear;
+}
+
+.poker-mises__autre span {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.poker-mises__autre svg { flex: none; }
+.poker-mises__autre:disabled { opacity: .4; }
+.poker-mises__autre:focus-visible { outline: none; }
+.poker-mises__autre:focus-visible span { outline: 2px solid var(--mimosa); outline-offset: 3px; }
 
 .poker-mise {
   display: flex;
@@ -686,19 +723,6 @@
 
 .poker-mise--tapis { border-color: var(--mimosa); }
 .poker-mise--tapis .poker-mise__taille { color: var(--mimosa); }
-
-/* Des sommes à rallonge (« 137,05 Bn€ », à la Table des Maîtres) : « Miser » ou « Relancer à »
-   passe au-dessus de ses trois mises, comme sur un écran étroit, et aucune somme n'est coupée. */
-.poker-mises--longues {
-  flex-wrap: wrap;
-  row-gap: 2px;
-}
-
-.poker-mises--longues .poker-mises__titre {
-  flex-basis: 100%;
-  max-width: none;
-  font: 500 12px/14px var(--texte);
-}
 
 /* ---------------------------------------------------------------- L'abattage */
 
@@ -1332,18 +1356,15 @@
 
 /* ---------------------------------------------------------------- Écrans étroits */
 
-/* Sur un écran étroit (320 px), « Miser » ou « Relancer à » passe au-dessus de ses trois
-   mises : chacune garde la largeur d'une somme à rallonge, jamais coupée. */
+/* Sur un écran étroit (320 px), chaque mise garde la largeur d'une somme à rallonge, jamais coupée. */
 @media (max-width: 359px) {
-  .poker-mises {
-    flex-wrap: wrap;
-    row-gap: 2px;
-  }
+  /* La tête des mises se fait plus petite : la ligne reste fine, et sa cible garde ses 44 px. */
+  .poker-mises__titre { font: 500 12px/14px var(--texte); }
 
-  .poker-mises__titre {
-    flex-basis: 100%;
-    max-width: none;
-    font: 500 12px/14px var(--texte);
+  .poker-mises__autre {
+    margin-top: -30px;
+    padding-top: 30px;
+    font: 500 13px/14px var(--texte);
   }
 
   .poker-moi__combi {

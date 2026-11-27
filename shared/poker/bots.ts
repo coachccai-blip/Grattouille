@@ -4,15 +4,20 @@
 // Chacune est une fonction pure de ce que le robot voit (la vue de son siège, la même
 // qu'un joueur humain) et du hasard injecté. Un robot ne lit jamais l'état de la table.
 //
+// Aux enchères (sans limite), tous misent gros quand ils sont confiants : jusqu'à trois
+// fois le pot, et parfois tout leur tapis sur une très belle main. Ce qui les distingue :
 // - Facile : triche rarement (une main sur six) et grossièrement (la plus belle main
-//   possible : il se fait un carré), mise selon sa main, suit trop, accuse rarement et au hasard.
-// - Normal : triche une fois sur trois quand cela améliore sa combinaison ; mise selon sa
-//   force, bluffe un peu ; accuse une main trop belle (full ou mieux) une fois sur deux, et
-//   toujours quand un adversaire montre une carte qu'il a lui-même reçue.
+//   possible : il se fait un carré) ; sa mise dit sa main ; il bluffe rarement et mal
+//   (toujours trop gros) ; il suit trop ; il accuse rarement et au hasard.
+// - Normal : triche une fois sur trois quand cela améliore sa combinaison ; bluffe un peu,
+//   avec la mise d'une belle main ; face à une mise, pèse la cote du pot ; accuse une main
+//   trop belle (full ou mieux) une fois sur deux, et toujours quand un adversaire montre
+//   une carte qu'il a lui-même reçue.
 // - Difficile : triche une fois sur deux, discrètement (un brelan, une suite, une couleur,
-//   jamais plus ; s'il n'y a rien de discret à gagner, il s'abstient) ; relance et bluffe
-//   avec mesure ; accuse d'après la vraisemblance de la main montrée, et tient une carte en
-//   double pour une preuve quand il en détient l'autre.
+//   jamais plus ; s'il n'y a rien de discret à gagner, il s'abstient) ; dose ses bluffs
+//   (ils ont la taille de ses belles mains) et tend des pièges ; pèse la cote du pot ;
+//   accuse d'après la vraisemblance de la main montrée, et tient une carte en double pour
+//   une preuve quand il en détient l'autre.
 
 import { uniformInt } from "../economy";
 import { DECK, type Card, type Random32 } from "./cards";
@@ -112,10 +117,57 @@ export function botCheat(view: TableView, level: Difficulty, rng: Random32): Swa
 
 // ---------------------------------------------------------------------------
 // Les enchères
+//
+// Les enchères sont sans limite, et les robots s'en servent : une main confiante mise
+// gros, jusqu'à trois fois le pot, d'autant plus gros qu'elle est belle. Ils bluffent
+// aussi, chacun à sa mesure, si bien qu'une grosse mise ne dit pas à coup sûr une belle
+// main. Et face à une grosse mise, ils pèsent la cote du pot au lieu de se coucher par
+// principe : pousser son tapis à chaque main ne rapporte rien contre eux.
+
+/** Un robot ne mise jamais plus de trois fois le pot, sauf à pousser son tapis sur une très belle main. */
+export const BOT_MAX_POTS = 3;
 
 function clamp(amount: number, range: Range): number {
   return Math.max(range.min, Math.min(range.max, Math.round(amount)));
 }
+
+/** La valeur d'une courbe en segments de droite, donnée par ses points (abscisses croissantes). */
+function along(points: readonly (readonly [number, number])[], x: number): number {
+  if (x <= points[0]![0]) return points[0]![1];
+  for (let i = 1; i < points.length; i++) {
+    const [x1, y1] = points[i]!;
+    if (x > x1) continue;
+    const [x0, y0] = points[i - 1]!;
+    return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+  }
+  return points[points.length - 1]![1];
+}
+
+/**
+ * Ce qu'une main confiante mise, en parts du pot : un demi-pot avec deux paires, le pot
+ * avec un brelan, près de deux fois le pot avec une suite ou une couleur, deux fois et
+ * demie à trois fois avec un full ou mieux. Plus il est confiant, plus il mise gros.
+ */
+const BOLDNESS: readonly (readonly [strength: number, pots: number])[] = [
+  [0.40, 0.5], [0.55, 1], [0.70, 1.6], [0.86, 2.4], [0.94, BOT_MAX_POTS],
+];
+
+/** La part du pot que vaut une main de cette force, à un cinquième près selon l'humeur. */
+function boldness(strength: number, size: number): number {
+  return Math.min(BOT_MAX_POTS, along(BOLDNESS, strength) * (0.8 + 0.4 * size));
+}
+
+/**
+ * La force qu'il faut pour suivre, selon le prix : la part du pot final qu'il faut y mettre
+ * (un tiers pour une mise du pot, trois septièmes pour trois fois le pot, presque la moitié
+ * pour un gros tapis). Une petite mise se suit avec une paire ; le pot, avec une paire de
+ * six ; trois fois le pot, avec une paire de valets ; un tapis de cinq fois le pot, avec
+ * deux paires ; au-delà, avec un brelan. C'est assez souvent pour que miser gros sans rien
+ * ne rapporte pas (mesuré : un joueur qui pousse son tapis à chaque main y perd).
+ */
+const CALLING: readonly (readonly [price: number, strength: number])[] = [
+  [0.20, 0.15], [1 / 3, 0.20], [3 / 7, 0.30], [5 / 11, 0.40], [9 / 19, 0.55], [0.49, 0.64],
+];
 
 /** Parole si elle est permise, sinon se coucher : ce que fait aussi un joueur qui laisse passer son tour. */
 function pass(view: TableView): BetMove {
@@ -129,6 +181,29 @@ function push(view: TableView, share: number): BetMove {
   if (o.raise) return { type: "relancer", amount: clamp(view.bet + (view.pot + o.call) * share, o.raise) };
   if (o.call > 0) return { type: "suivre" };
   return pass(view);
+}
+
+/** Pousser tout son tapis. Si le geste n'est pas permis : suivre, ou parole. */
+function shove(view: TableView): BetMove {
+  const o = view.options;
+  if (o.bet) return { type: "miser", amount: o.bet.max };
+  if (o.raise) return { type: "relancer", amount: o.raise.max };
+  if (o.call > 0) return { type: "suivre" };
+  return pass(view);
+}
+
+/** Une main très belle (un full ou mieux) pousse parfois tout son tapis : une fois sur quatre. */
+const SHOVE_FROM = 0.86;
+
+/** Miser selon sa confiance ; avec une très belle main, tout le tapis une fois sur quatre. */
+function bold(view: TableView, strength: number, size: number): BetMove {
+  if (strength >= SHOVE_FROM && size >= 0.75) return shove(view);
+  return push(view, boldness(strength, size));
+}
+
+/** Un bluff : la mise d'une belle main qu'il n'a pas, du pot à trois fois le pot. */
+function bluff(view: TableView, size: number): BetMove {
+  return push(view, boldness(0.55 + 0.4 * size, size));
 }
 
 /** Que faire quand c'est à lui de parler. */
@@ -146,11 +221,13 @@ export function botBet(view: TableView, level: Difficulty, rng: Random32): BetMo
 
   if (level === "facile") {
     if (!facing) {
-      // Il mise selon sa main, sans jamais bluffer.
-      if (strength >= 0.40) return push(view, 0.25 + 0.5 * strength);
+      // Il mise selon sa main, et cela se voit : plus elle est belle, plus il mise gros.
+      if (strength >= 0.40) return bold(view, strength, size);
+      // Il bluffe rarement, et mal : toujours trop gros, avec rien du tout.
+      if (strength < 0.15 && mood < 0.04) return push(view, 2 + size);
       return pass(view);
     }
-    if (strength >= 0.86 && mood < 0.5) return push(view, 0.5);
+    if (strength >= 0.86 && mood < 0.5) return bold(view, strength, size);
     // Il suit trop : toute paire, et une fois sur deux sans rien.
     if (strength >= 0.15 || mood < 0.5) return { type: "suivre" };
     return { type: "coucher" };
@@ -158,28 +235,32 @@ export function botBet(view: TableView, level: Difficulty, rng: Random32): BetMo
 
   if (level === "normal") {
     if (!facing) {
-      if (strength >= 0.55) return push(view, 0.5 + 0.25 * size);
-      if (strength >= 0.40) return mood < 0.5 ? push(view, 0.33) : pass(view);
-      // Il bluffe un peu.
-      if (strength < 0.30 && mood < 0.10) return push(view, 0.5);
+      if (strength >= 0.55) return bold(view, strength, size);
+      if (strength >= 0.40) return mood < 0.5 ? bold(view, strength, size) : pass(view);
+      // Il bluffe un peu : une main sur dix quand il n'a rien, avec la mise d'une belle main.
+      if (strength < 0.30 && mood < 0.10) return bluff(view, size);
       return pass(view);
     }
-    if (strength >= 0.78 && mood < 0.6) return push(view, 0.5 + 0.4 * size);
-    if (strength >= 0.25 + 0.9 * price) return { type: "suivre" };
+    if (strength >= 0.78 && mood < 0.6) return bold(view, strength, size);
+    // Il relance pour rien une fois sur cinquante : assez pour qu'on ne le lise pas à coup sûr.
+    if (strength < 0.25 && mood >= 0.98 && o.raise) return bluff(view, size);
+    if (strength >= along(CALLING, price)) return { type: "suivre" };
     return { type: "coucher" };
   }
 
-  // Difficile : il relance et bluffe avec mesure.
+  // Difficile : il mise gros quand il est confiant, bluffe avec mesure, et tend des pièges.
   if (!facing) {
-    if (strength >= 0.70) return mood < 0.85 ? push(view, 0.6 + 0.3 * size) : pass(view);
-    if (strength >= 0.55) return mood < 0.75 ? push(view, 0.5 + 0.16 * size) : pass(view);
-    if (strength >= 0.40) return mood < 0.40 ? push(view, 0.33) : pass(view);
-    if (strength < 0.30 && mood < 0.15) return push(view, 0.66);
+    if (strength >= 0.70) return mood < 0.85 ? bold(view, strength, size) : pass(view);
+    if (strength >= 0.55) return mood < 0.75 ? bold(view, strength, size) : pass(view);
+    if (strength >= 0.40) return mood < 0.40 ? bold(view, strength, size) : pass(view);
+    // Ses bluffs ont la taille de ses belles mains : rien ne les en distingue.
+    if (strength < 0.30 && mood < 0.15) return bluff(view, size);
     return pass(view);
   }
-  if (strength >= 0.70 && mood < 0.5) return push(view, 0.5 + 0.5 * size);
-  if (strength < 0.25 && mood >= 0.95 && o.raise) return push(view, 0.75);
-  if (strength >= 0.30 + 0.9 * price) return { type: "suivre" };
+  if (strength >= 0.70 && mood < 0.5) return bold(view, strength, size);
+  if (strength < 0.25 && mood >= 0.95 && o.raise) return bluff(view, size);
+  // Il pèse le prix un peu plus sévèrement que le robot normal.
+  if (strength >= along(CALLING, price) + 0.03) return { type: "suivre" };
   return { type: "coucher" };
 }
 
