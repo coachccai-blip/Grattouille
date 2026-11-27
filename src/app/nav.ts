@@ -46,7 +46,9 @@ export type PokerSheet =
   | { feuille: "triche"; index: number }
   | { feuille: "accuser"; seat: number }
   // La Table des Maîtres : ses règles en trois lignes, avant de s'y asseoir.
-  | { feuille: "maitres" };
+  | { feuille: "maitres" }
+  // Aux enchères : saisir le montant de sa mise ou de sa relance, et confirmer un tapis.
+  | { feuille: "mise" | "tapis" };
 
 const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis", "histoire"]);
 const TABS = new Set<string>(["domaine", "promenade", "boutiques", "classement"]);
