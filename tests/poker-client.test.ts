@@ -37,7 +37,7 @@ import {
   MAX_DIGITS, RANKS, SUITS, UNITS, accusationCost, beatsOf, betChoices, boundBet, buyInSteps, challengesWon, cleanCode,
   decimalsFor, defaultBuyIn, doubles, duelOf, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, isTournament,
   leadShift, lineBeats, mastersCard, mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, playedStage,
-  playersLeft, potSized, pressKey, quitMeans, rankTaken, remainingMs, sidesFor, stageOf, suitTaken, swapped,
+  playersLeft, potSized, pressKey, quitMeans, rankTaken, remainingMs, sidesFor, stageOf, startedSaidBy, suitTaken, swapped,
   tournamentDecided, tournamentStake, typedAmount, typedBet, unitOf, unitsFor, winnersOf, type DuelStage, type Unit,
 } from "../src/screens/poker/calcul";
 import {
@@ -1115,7 +1115,7 @@ describe("la Table des Maîtres, à la table", () => {
 
   it("ses trois fins : gagnée, perdue, quittée", () => {
     const ENDS: readonly MastersEnd[] = ["maitres-gagne", "maitres-perdu", "quitte"];
-    for (const reason of ENDS) expect(isMastersEnd(reason)).toBe(true);
+    for (const reason of [...ENDS, "maitres-nul"] as const) expect(isMastersEnd(reason)).toBe(true);
     for (const reason of ["defi-gagne", "defi-perdu", "absent", "inactive", "banque", null, undefined] as const) expect(isMastersEnd(reason)).toBe(false);
 
     const all = MASTERS_BUYIN * MASTERS_SEATS;
@@ -1518,19 +1518,48 @@ describe("entre amis, deux façons de jouer : la table classique et la Table des
   });
 
   it("ce que partir veut dire, à dire avant : rien à une table classique, son tapis laissé si un ami joue encore", () => {
-    const table = (over: object = {}) => ({ kind: "privee" as const, format: "tournoi", you: 0, started: true, seats: friends(), ...over });
-    // Un autre humain joue encore : partir, c'est abandonner. Le tapis reste sur la table.
+    const table = (over: object = {}) => ({ kind: "privee" as const, format: "tournoi", you: 0, handNo: 3, seats: friends(), ...over });
+    // Un autre humain est là et joue encore : partir, c'est abandonner. Le tapis reste sur la table.
     expect(quitMeans(table())).toBe("abandon");
+    // À tapis, l'amie n'a plus rien devant elle mais joue encore la main : c'est toujours un abandon.
+    expect(quitMeans(table({ seats: friends({ 1: { stack: 0, allIn: true, inHand: true } }) }))).toBe("abandon");
+    // Sa cave attend encore la main suivante : elle est en jeu.
+    expect(quitMeans(table({ seats: friends({ 1: { stack: 0, reserve: 300, inHand: false } }) }))).toBe("abandon");
     // L'amie est éliminée, ou partie : seul face au robot, on reprend son tapis, sans la victoire.
-    expect(quitMeans(table({ seats: friends({ 1: { out: true, stack: 0 } }) }))).toBe("seul");
+    expect(quitMeans(table({ seats: friends({ 1: { out: true, stack: 0, inHand: false } }) }))).toBe("seul");
     expect(quitMeans(table({ seats: [friends()[0]!, null, friends()[2]!] }))).toBe("seul");
+    // On ne dispute rien à une absente : si les seuls autres humains sont absents, on repart avec son tapis.
+    expect(quitMeans(table({ seats: friends({ 1: { absent: true } }) }))).toBe("seul");
+    // Une cave qui n'est pas encore arrivée ne fait pas un adversaire.
+    expect(quitMeans(table({ seats: friends({ 1: { funded: false } }) }))).toBe("seul");
+    // Deux amies, dont une absente : l'autre joue, c'est un abandon.
+    expect(quitMeans(table({ seats: [...friends({ 1: { absent: true } }), seat(3, { pseudo: "Max" })] }))).toBe("abandon");
     // Avant le lancement, rien n'est encore en jeu : on se lève avec sa cagnotte.
-    expect(quitMeans(table({ started: false }))).toBe("libre");
+    expect(quitMeans(table({ handNo: 0 }))).toBe("libre");
     // Une table classique : on part quand on veut, avec son tapis.
     expect(quitMeans(table({ format: "classique" }))).toBe("libre");
     expect(quitMeans(table({ format: undefined }))).toBe("libre");
     // LA Table des Maîtres : le joueur y est le seul humain.
-    expect(quitMeans({ kind: "maitres", format: "tournoi", you: 0, started: true, seats: [seat(0), seat(1, { pseudo: null, bot: "hector" })] })).toBe("seul");
+    expect(quitMeans({ kind: "maitres", format: "tournoi", you: 0, handNo: 5, seats: [seat(0), seat(1, { pseudo: null, bot: "hector" })] })).toBe("seul");
+  });
+
+  it("rejoindre une partie déjà lancée : la raison se dit une fois, par le serveur s'il vient de refuser, sinon par la feuille", () => {
+    // L'aperçu montre un tournoi lancé : la feuille l'explique avant qu'on n'essaie.
+    expect(startedSaidBy(true, null)).toBe("feuille");
+    // On a essayé quand même (la partie a été lancée entre-temps) : le serveur répond `TABLE_STARTED`, et sa phrase suffit.
+    expect(startedSaidBy(true, "TABLE_STARTED")).toBe("serveur");
+    // Un serveur plus ancien dit seulement que la table est « complète » : la feuille reste la mieux placée pour expliquer.
+    expect(startedSaidBy(true, "TABLE_FULL")).toBe("feuille");
+    expect(startedSaidBy(true, "NETWORK")).toBe("feuille");
+    // Une table qui n'est pas un tournoi lancé n'a rien de tel à dire : ses refus s'affichent tels quels.
+    expect(startedSaidBy(false, null)).toBeNull();
+    expect(startedSaidBy(false, "TABLE_FULL")).toBeNull();
+    expect(startedSaidBy(false, "TABLE_STARTED")).toBeNull();
+    // La phrase de la feuille, dans les deux langues : pourquoi on n'entre plus.
+    const why = "La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.";
+    expect(t(why)).toBe(why);
+    setLang("en");
+    expect(t(why)).toBe("The game has started: nobody joins a tournament in progress. The kitties are on the table, and no one can add another.");
   });
 
   it("un tournoi entre amis est joué quand, au dénouement, plus personne d'autre n'a de jetons, ou que le joueur n'a plus rien", () => {
@@ -1599,7 +1628,20 @@ describe("entre amis, deux façons de jouer : la table classique et la Table des
     });
     // La Table des Maîtres du hall garde ses propres mots.
     expect(mastersEnding("maitres-perdu", 0).titre).toBe("Les maîtres gardent la table");
+    // Match nul (tous ceux de la dernière main à tapis et démasqués) : ni gagné ni perdu, le pot est partagé,
+    // et le panneau dit ce qu'on en reprend. C'est une fin de tournoi comme les autres, avec son panneau.
+    expect(isMastersEnd("maitres-nul")).toBe(true);
+    expect(mastersEnding("maitres-nul", 15_000, true)).toEqual({
+      titre: "Match nul", texte: `Plus personne n'a de jetons : le pot est partagé, et tu en reprends 15${THIN}000${NBSP}€.`, somme: null,
+    });
+    expect(mastersEnding("maitres-nul", 0, true)).toEqual({ titre: "Match nul", texte: "Plus personne n'a de jetons : le pot est partagé.", somme: null });
+    // Pas de somme à fêter, pas de reproche non plus.
+    expect(mastersEnding("maitres-nul", 15_000, true).texte).not.toMatch(/perdu|éliminé|abandon/);
     setLang("en");
+    expect(mastersEnding("maitres-nul", 15_000, true)).toEqual({
+      titre: "A draw", texte: "Nobody has any chips left: the pot is split, and you take back €15,000.", somme: null,
+    });
+    expect(mastersEnding("maitres-nul", 0, true).texte).toBe("Nobody has any chips left: the pot is split.");
     expect(mastersEnding("maitres-perdu", 0, true).titre).toBe("The tournament ends here for you");
     expect(mastersEnding("quitte", 0, true)).toEqual({
       titre: "You abandon the tournament", texte: "Your stack stayed on the table: the last one seated will win it.", somme: null,

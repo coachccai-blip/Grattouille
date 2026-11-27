@@ -27,8 +27,8 @@ import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
   RANKS, SUITS, accusationCost, buyInSteps, cleanCode, decimalsFor, defaultBuyIn, duelOf, fitUnit, isFullCode, isTournament,
-  mastersCard, maxBuyInChoices, pressKey, quitMeans, rankTaken, suitTaken, swapped, tournamentDecided, tournamentStake,
-  typedAmount, typedBet, unitsFor, type Unit,
+  mastersCard, maxBuyInChoices, pressKey, quitMeans, rankTaken, startedSaidBy, suitTaken, swapped, tournamentDecided,
+  tournamentStake, typedAmount, typedBet, unitsFor, type Unit,
 } from "./calcul";
 import { Alerte, BarreTemps, Pas, Reperes, Tete, steps, unbroken } from "./parts";
 import {
@@ -111,25 +111,30 @@ function Regles() {
 // S'asseoir à la table d'un lieu
 
 /** Ce qui se passe quand on s'assoit : le geste, son attente, son refus. */
-function useSeating(): { busy: boolean; error: string | null; run: (seat: () => Promise<string>) => Promise<void> } {
+function useSeating(): { busy: boolean; error: string | null; refusal: string | null; run: (seat: () => Promise<string>) => Promise<void> } {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Le code du refus, quand le serveur en donne un : une feuille peut avoir mieux à dire que sa phrase.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const run = async (seat: () => Promise<string>) => {
     if (busy) return;
     setBusy(true);
     setError(null);
+    setRefusal(null);
     try {
       const code = await seat();
       // La feuille laisse sa place à la table : le retour ramène au hall.
       nav.replace({ name: "poker-table", code });
     } catch (failure) {
       playRefuse();
+      const code = (failure as { code?: unknown } | null)?.code;
+      setRefusal(typeof code === "string" ? code : null);
       setError(failureText(failure));
       setBusy(false);
       await afterSitFailure(failure);
     }
   };
-  return { busy, error, run };
+  return { busy, error, refusal, run };
 }
 
 function Maison({ place }: { place: PlaceId }) {
@@ -424,7 +429,7 @@ function Rejoindre() {
   const [wanted, setWanted] = useState<number | null>(null);
   const [looking, setLooking] = useState(false);
   const [lookError, setLookError] = useState<string | null>(null);
-  const { busy, error, run } = useSeating();
+  const { busy, error, refusal, run } = useSeating();
 
   const look = async (e: FormEvent) => {
     e.preventDefault();
@@ -491,6 +496,10 @@ function Rejoindre() {
   const buyIn = wanted !== null && values.includes(wanted) ? wanted : tournament ? values[0] ?? null : defaultBuyIn(values, table.blind);
   const { minus, plus } = buyIn === null ? { minus: null, plus: null } : steps(values, buyIn, setWanted);
   const mode: FriendsMode = tournament ? "tournoi" : "classique";
+  // Une partie lancée se dit une fois : par le serveur s'il vient de refuser pour cela, sinon par la feuille.
+  const teller = startedSaidBy(closed, refusal);
+  const said = teller === "serveur";
+  const shown = teller === "feuille" ? null : error;
 
   return (
     <Feuille titre={t("Rejoindre une table")} onClose={fermer} className="poker-feuille">
@@ -514,7 +523,8 @@ function Rejoindre() {
         ))}
       </ul>
       {closed ? (
-        <Alerte>{t("La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.")}</Alerte>
+        // Le serveur le dit lui-même à qui s'y essaie quand même (« Cette partie est déjà lancée… ») : une seule des deux phrases.
+        said ? null : <Alerte>{t("La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.")}</Alerte>
       ) : free === 0 ? (
         <Alerte>{t("Cette table est complète. Attends qu'un siège se libère.")}</Alerte>
       ) : buyIn === null ? (
@@ -530,14 +540,23 @@ function Rejoindre() {
           onPlus={plus}
         />
       )}
-      <Alerte>{error}</Alerte>
+      <Alerte>{shown}</Alerte>
       <div className="poker-feuille__action">
         <Bouton
           bloc
           disabled={buyIn === null || free === 0 || closed}
           attente={busy}
           onClick={() => {
-            if (buyIn !== null) void run(() => joinTable(table.code, buyIn));
+            if (buyIn === null) return;
+            // Refusé (la partie vient d'être lancée, un siège vient d'être pris) : la table se relit, et la feuille suit.
+            void run(() => joinTable(table.code, buyIn)).then(async () => {
+              if (nav.current().name !== "poker-feuille") return;
+              try {
+                setTable(await previewTable(table.code));
+              } catch {
+                // La table a disparu : le refus affiché le dit déjà.
+              }
+            });
           }}
         >
           {buyIn === null ? t("S'asseoir") : t("S'asseoir avec {montant}", { montant: formatEuros(buyIn) })}

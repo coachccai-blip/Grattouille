@@ -381,6 +381,10 @@ export const EN_POKER: Record<string, string> = {
   "Ta cagnotte reste sur la table : le dernier assis remportera tout.": "Your kitty stays on the table: the last one seated will take it all.",
   "Tu repars avec ton tapis, {montant}, sans la victoire.": "You leave with your stack, {montant}, but without the win.",
   "Tu abandonnes le tournoi": "You abandon the tournament",
+  "Match nul": "A draw",
+  "Plus personne n'a de jetons : le pot est partagé, et tu en reprends {montant}.":
+    "Nobody has any chips left: the pot is split, and you take back {montant}.",
+  "Plus personne n'a de jetons : le pot est partagé.": "Nobody has any chips left: the pot is split.",
   "Ton tapis est resté sur la table : le dernier assis le remportera.": "Your stack stayed on the table: the last one seated will win it.",
   "La manche s'arrête là : il faudra la reprendre du début.": "The round ends here: you'll have to start it again from scratch.",
 

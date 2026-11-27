@@ -506,16 +506,34 @@ export function playersLeft(view: Pick<TableView, "seats">): { left: number; of:
 }
 
 /**
- * Ce que partir veut dire, à dire AVANT de partir. `libre` : une table classique, on s'en va
- * avec son tapis. `seul` : un tournoi où il ne reste aucun autre joueur humain (la Table des
- * Maîtres, ou des amis déjà éliminés ou partis) : il reprend son tapis, sans la victoire, et la
- * table ferme. `abandon` : un tournoi entre amis où un autre humain joue encore : son tapis
- * reste sur la table, et le gagnant le prendra. Avant le lancement, rien n'est encore en jeu.
+ * Ce que partir veut dire, à dire AVANT de partir. `libre` : une table classique, ou un tournoi
+ * pas encore lancé : on s'en va avec son tapis. `seul` : un tournoi où aucun autre joueur humain
+ * n'est là et en jeu (la Table des Maîtres ; ou des amis éliminés, partis ou absents) : il reprend
+ * son tapis, sans la victoire. `abandon` : un tournoi entre amis où un autre humain joue encore :
+ * son tapis reste sur la table, et le gagnant le prendra.
+ *
+ * C'est le critère du serveur (API-POKER.md, section 13) : la partie est lancée, et un autre
+ * siège est tenu par un joueur humain, cave posée, pas absent, et encore en jeu (il a des jetons,
+ * ou il est dans la main : à tapis, on n'a plus rien devant soi mais on joue encore). On ne
+ * dispute rien à un absent.
  */
-export function quitMeans(view: Pick<TableView, "kind" | "seats" | "you" | "started"> & { format?: string }): "libre" | "seul" | "abandon" {
-  if (!isTournament(view) || !view.started) return "libre";
-  const others = view.seats.some((seat) => seat !== null && seat.seat !== view.you && seat.bot === null && !seat.out && seat.funded);
+export function quitMeans(view: Pick<TableView, "kind" | "seats" | "you" | "handNo"> & { format?: string }): "libre" | "seul" | "abandon" {
+  if (!isTournament(view) || view.handNo <= 0) return "libre";
+  const others = view.seats.some((seat) => seat !== null && seat.seat !== view.you && seat.bot === null
+    && seat.funded && !seat.absent && (seat.stack + seat.reserve > 0 || seat.inHand));
   return others ? "abandon" : "seul";
+}
+
+/**
+ * Sur la feuille « rejoindre », une partie déjà lancée se dit une fois, et une seule. `closed` :
+ * la table est un tournoi lancé ; `refusal` : le code du refus que le serveur vient d'opposer à
+ * qui a voulu s'asseoir quand même. S'il vient de le dire lui-même (`TABLE_STARTED`), sa phrase
+ * suffit ; sinon c'est la feuille qui l'explique, et un refus moins précis (la table « complète »
+ * d'un serveur plus ancien) s'efface devant elle. `null` : la table n'est pas un tournoi lancé.
+ */
+export function startedSaidBy(closed: boolean, refusal: string | null): "serveur" | "feuille" | null {
+  if (!closed) return null;
+  return refusal === "TABLE_STARTED" ? "serveur" : "feuille";
 }
 
 /** Les maîtres encore assis à la Table des Maîtres, et combien ils étaient au départ. */

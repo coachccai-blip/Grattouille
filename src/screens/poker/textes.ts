@@ -143,10 +143,10 @@ export function mastersLeftText(left: number): string {
 }
 
 /** Les trois façons de sortir de la Table des Maîtres : elle est gagnée, elle est perdue, ou le joueur s'est levé. */
-export type MastersEnd = Extract<LeaveReason, "maitres-gagne" | "maitres-perdu" | "quitte">;
+export type MastersEnd = Extract<LeaveReason, "maitres-gagne" | "maitres-perdu" | "maitres-nul" | "quitte">;
 
 export function isMastersEnd(reason: LeaveReason | null | undefined): reason is MastersEnd {
-  return reason === "maitres-gagne" || reason === "maitres-perdu" || reason === "quitte";
+  return reason === "maitres-gagne" || reason === "maitres-perdu" || reason === "maitres-nul" || reason === "quitte";
 }
 
 /** Ce que dit le panneau de fin : un titre, une phrase, et ce qui s'écrit au-dessus de la somme quand il y en a une à fêter. */
@@ -166,6 +166,17 @@ export interface MastersEnding {
  * victoire, le tapis pour un départ, rien pour une défaite).
  */
 export function mastersEnding(reason: MastersEnd, payout: number, friends = false): MastersEnding {
+  // Le match nul d'un tournoi entre amis : tous ceux de la dernière main à tapis et démasqués, plus personne
+  // n'a de jetons. Ni gagné ni perdu : les joueurs de cette main se partagent le pot. `payout` : sa part.
+  if (reason === "maitres-nul") {
+    return {
+      titre: t("Match nul"),
+      texte: payout > 0
+        ? t("Plus personne n'a de jetons : le pot est partagé, et tu en reprends {montant}.", { montant: formatEuros(payout) })
+        : t("Plus personne n'a de jetons : le pot est partagé."),
+      somme: null,
+    };
+  }
   // Entre amis, le tournoi a les mêmes fins ; mais la table ne rouvre pas, et aucun maître n'y sera tiré au sort.
   if (friends && reason === "maitres-perdu") {
     return {

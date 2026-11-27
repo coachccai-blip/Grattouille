@@ -93,7 +93,7 @@ function leaveTable(view: TableView): void {
     return;
   }
   // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi, un tournoi lancé.
-  if (live || leftOver || view.kind === "defi" || (isTournament(view) && view.started)) nav.push({ name: "poker-feuille", feuille: "quitter" });
+  if (live || leftOver || view.kind === "defi" || (isTournament(view) && view.handNo > 0)) nav.push({ name: "poker-feuille", feuille: "quitter" });
   else void play({ type: "quitter" });
 }
 
