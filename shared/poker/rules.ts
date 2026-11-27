@@ -222,6 +222,17 @@ export function challengeOf(place: PlaceId): ChallengeDef {
 }
 
 // ---------------------------------------------------------------------------
+// La Table des Maîtres : le joueur contre quatre hôtes tirés au sort, en tournoi
+
+/** Cinq sièges : le joueur et quatre des huit hôtes. */
+export const MASTERS_SEATS = 5;
+/** La blinde de base : dix billions (10 Bn€). Elle monte au fil des mains. */
+export const MASTERS_BLIND = 10_000_000_000_000;
+/** La cave de chacun : trente blindes de base, soit 300 Bn€. Pas de recave. */
+export const MASTERS_BLINDS = 30;
+export const MASTERS_BUYIN = MASTERS_BLIND * MASTERS_BLINDS;
+
+// ---------------------------------------------------------------------------
 // Le code d'une table
 
 export function newTableCode(rng: Random32): string {

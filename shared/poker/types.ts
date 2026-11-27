@@ -13,8 +13,11 @@ import type { HandCategory } from "./hands";
 
 export type Difficulty = "facile" | "normal" | "difficile";
 
-/** Une table créée par un joueur, une table de la maison, ou un défi de la campagne. */
-export type TableKind = "privee" | "maison" | "defi";
+/**
+ * Une table créée par un joueur, une table de la maison, un défi de la campagne, ou la
+ * Table des Maîtres : le joueur contre quatre hôtes tirés au sort, en tournoi.
+ */
+export type TableKind = "privee" | "maison" | "defi" | "maitres";
 
 /**
  * Les temps d'une table.
@@ -153,10 +156,12 @@ export type LeaveReason =
   | "banque"       // la table a fermé : trop d'argent sur le tapis pour compter juste
   | "defi-gagne"   // défi : l'hôte n'a plus rien
   | "defi-perdu"   // défi : le joueur n'a plus rien
-  | "defi-nul";    // défi : plus personne n'a rien (tous deux démasqués, tout est resté au pot)
+  | "defi-nul"     // défi : plus personne n'a rien (tous deux démasqués, tout est resté au pot)
+  | "maitres-gagne"  // Table des Maîtres : il est le dernier assis, tout l'argent de la table est à lui
+  | "maitres-perdu"; // Table des Maîtres : son tapis est à zéro
 
 /** Pourquoi une table est fermée. `vide` : plus aucun joueur humain. */
-export type CloseReason = "vide" | "inactive" | "defi" | "banque";
+export type CloseReason = "vide" | "inactive" | "defi" | "banque" | "maitres";
 
 export interface Departure {
   playerId: string;
@@ -353,6 +358,8 @@ export interface SeatView {
   /** Sa main, seulement quand elle est montrée (abattage). `null` sinon. */
   cards: Card[] | null;
   category: HandCategory | null;
+  /** Table des Maîtres : éliminé. Il n'a plus rien et regarde la fin de la partie ; son siège reste dessiné. */
+  out?: true;
 }
 
 /** La main du joueur qui regarde. */
@@ -537,6 +544,21 @@ export interface LobbyChallenge {
   affordable: boolean;
 }
 
+/** La Table des Maîtres, dans le hall. */
+export interface LobbyMasters {
+  /** Les huit défis sont relevés : la table est ouverte. */
+  open: boolean;
+  /** Les défis relevés, de 0 à 8. */
+  defis: number;
+  /** La blinde de base : dix billions. Elle monte au fil des mains, comme dans un défi. */
+  blind: number;
+  /** La cave, la même pour les cinq joueurs : trente blindes de base. Pas de recave. */
+  buyIn: number;
+  /** Combien de fois le joueur l'a remportée. */
+  won: number;
+  affordable: boolean;
+}
+
 /** GET /api/poker → le hall. */
 export interface PokerLobbyResponse {
   /** La table où le joueur est assis, s'il y en a une. */
@@ -545,6 +567,8 @@ export interface PokerLobbyResponse {
   blinds: number[];
   houses: LobbyHouse[];
   challenges: LobbyChallenge[];
+  /** La Table des Maîtres. Absente de la réponse d'un serveur plus ancien : l'écran lit `masters ?? null`. */
+  masters: LobbyMasters;
   state: PlayerState;
 }
 
@@ -568,7 +592,8 @@ export type CreateTableBody =
     ack?: string[];
   }
   | { maison: PlaceId; buyIn?: number; ack?: string[] }
-  | { defi: PlaceId; ack?: string[] };
+  | { defi: PlaceId; ack?: string[] }
+  | { maitres: true; ack?: string[] };
 
 /** POST /api/poker/join */
 export interface JoinTableBody {

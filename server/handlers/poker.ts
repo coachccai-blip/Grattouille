@@ -8,7 +8,7 @@
 
 import { PLACES, isPlaceId } from "../../shared/places";
 import {
-  BLIND_SHARE, HOUSE_SEATS, MAX_SEATS, MIN_SEATS,
+  BLIND_SHARE, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MAX_SEATS, MIN_SEATS,
   act, allowedBlinds, challengeOf, createTable, houseOf, isBlind, isCard, isDifficulty, leave, maxBuyIn, minBuyIn,
   newTableCode, normalizeTableCode, pickPersonas, rebuyRange, seatIndexOf, sit, viewFor,
   type GameAction, type PokerAction, type PokerLobbyResponse, type PokerPollResponse, type PokerTableResponse,
@@ -18,7 +18,7 @@ import { isPlaceOpen, standingOf } from "../../shared/rules";
 import type { PlaceId } from "../../shared/types";
 import { ApiError, fail } from "../errors";
 import { json, readAck, readBody, readPlayer, type Body, type Deps } from "../http";
-import { toState, type PlayerRecord } from "../player";
+import { allChallengesWon, countOf, defisOf, toState, type PlayerRecord } from "../player";
 import {
   departureOf, engine, newSessionId, payBuyIn, payRebuy, reconcile, releaseSeat, sitterOf, touchTable,
   type Reconciled,
@@ -88,6 +88,10 @@ export async function pokerLobby(req: Request, deps: Deps): Promise<Response> {
         ...def, open: isPlaceOpen(place.id, standing), won: wins.includes(place.id), affordable: me.balance >= def.buyIn,
       };
     }),
+    masters: {
+      open: allChallengesWon(me), defis: defisOf(me).length, blind: MASTERS_BLIND, buyIn: MASTERS_BUYIN,
+      won: countOf(me.masters), affordable: me.balance >= MASTERS_BUYIN,
+    },
     state: toState(me, now),
   };
   return json(lobby);
