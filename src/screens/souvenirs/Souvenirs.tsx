@@ -1,5 +1,6 @@
 // Les Souvenirs (LOT4.md, section 12) : ce que le joueur a vécu, et ce que les maîtres des
-// lieux veulent bien lui raconter. On y arrive par les Réglages.
+// lieux veulent bien lui raconter. C'est le second rayon de la section Trophées, qu'on ouvre
+// depuis le Domaine : on passe des médailles aux souvenirs par le sélecteur du haut.
 //
 // - Les deux fins, à revoir une fois vues. Avant, un mystère : on ne dit pas ce qu'elles sont,
 //   et la deuxième ne se devine qu'après la première.
@@ -31,6 +32,7 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Carte } from "../../ui/Carte";
 import { Entete } from "../../ui/Commun";
+import { Rayons, titreDesTrophees } from "../../ui/Rayons";
 import "../reglages/reglages.css";
 import "./souvenirs.css";
 
@@ -159,7 +161,8 @@ export function Souvenirs() {
 
   return (
     <main className="ecran souvenirs cascade">
-      <Entete titre={t("Souvenirs")} retour />
+      <Entete titre={titreDesTrophees()} retour />
+      <Rayons actif="souvenirs" />
       <p className="souvenirs__chapeau">
         {t("Ce que tu as vécu à Grattouille, et ce que les maîtres des lieux veulent bien te raconter.")}
       </p>

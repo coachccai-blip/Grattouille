@@ -1275,11 +1275,22 @@ describe("les écrans de la suite et leurs dictionnaires anglais", () => {
     expect(lire("src/app/suite/mots.ts")).toMatch(/addEnglish\(EN_ECRANS\)/);
   });
 
-  it("les Souvenirs : on y entre par les Réglages, Piou y mène, et une histoire ne dit rien au serveur", () => {
+  it("les Souvenirs : un rayon de la section Trophées, Piou y mène, et une histoire ne dit rien au serveur", () => {
+    // Ils ne sont plus dans les Réglages (trop cachés) : on y entre par la plaque des trophées,
+    // sur le Domaine, et l'on passe des médailles aux souvenirs par le sélecteur du haut.
     const reglages = lire("src/screens/reglages/Reglages.tsx");
-    expect(reglages).toMatch(/nav\.push\(\{ name: "souvenirs" \}\)/);
-    expect(reglages).toMatch(/storiesWaiting/);
-    expect(reglages).not.toMatch(/replayMemory/);
+    expect(reglages).not.toMatch(/souvenirs|storiesWaiting|replayMemory/i);
+    const rayons = lire("src/ui/Rayons.tsx");
+    expect(rayons).toMatch(/nav\.replace\(\{ name \}\)/);
+    expect(rayons).toMatch(/storiesWaiting/);
+    for (const [ecran, rayon] of [["src/screens/trophees/Trophees.tsx", "trophees"], ["src/screens/souvenirs/Souvenirs.tsx", "souvenirs"]]) {
+      expect([ecran, lire(ecran!).includes(`<Rayons actif="${rayon}" />`)]).toEqual([ecran, true]);
+    }
+    // La plaque du Domaine compte les histoires à écouter avec les médailles neuves, et mène
+    // droit aux souvenirs quand il n'y a de neuf que des histoires.
+    const entree = lire("src/screens/trophees/Entree.tsx");
+    expect(entree).toMatch(/const neuves = medailles \+ histoires;/);
+    expect(entree).toMatch(/medailles === 0 && histoires > 0 \? "souvenirs" : "trophees"/);
     const domaine = lire("src/screens/domaine/Domaine.tsx");
     expect(domaine).toMatch(/PIOU\.histoire\(/);
     expect(domaine).toMatch(/useGame\(storiesWaiting\)/);

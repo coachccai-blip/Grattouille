@@ -23,7 +23,8 @@ les huit défis. Chaque hôte battu trois fois au poker raconte son histoire, da
 
 Aux Boutiques, l'**Agence Carpe Diem** vend ce qui ne se range dans aucun placard : trente
 expériences de vie, de la glace face à la mer à la soirée sur la Lune, chacune avec sa
-scène animée. Quarante-deux **trophées** jalonnent le tout.
+scène animée. Quarante-deux **trophées** jalonnent le tout ; leur section, ouverte depuis
+le Domaine, range côte à côte les médailles et les Souvenirs.
 
 Le jeu se joue en français ou en anglais (Réglages, ou l'écran de bienvenue), avec le son,
 une musique d'ambiance par lieu et des animations partout, que les réglages permettent de

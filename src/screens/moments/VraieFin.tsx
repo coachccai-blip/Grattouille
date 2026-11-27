@@ -10,8 +10,8 @@
 //
 // Ce qui s'y dit est dans src/app/suite/vraie-fin.ts ; ce module n'en est que la mise en
 // scène. Il n'est chargé qu'à la demande (App.tsx). Le serveur n'est appelé qu'une fois,
-// à la toute fin, pour noter que la fin a été vue ; revue depuis les Souvenirs des
-// Réglages, la cinématique ne lui dit rien.
+// à la toute fin, pour noter que la fin a été vue ; revue depuis les Souvenirs, la
+// cinématique ne lui dit rien.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { hostName } from "../../app/dialogues";

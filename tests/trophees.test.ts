@@ -697,7 +697,9 @@ describe("les dictionnaires anglais des trophées", () => {
   const dir = `${root}src/screens/trophees/`;
   const OTHERS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER };
   /** Ce qui est chargé au démarrage : la file des annonces, l'entrée du Domaine, le crieur. */
-  const AU_DEMARRAGE = [`${root}src/app/trophees.ts`, `${dir}Entree.tsx`, `${dir}Crieur.tsx`];
+  // Chargés au démarrage : la plaque du Domaine, le crieur, et le sélecteur des deux rayons de la
+  // section (médailles, souvenirs), qui coiffe deux écrans chargés chacun à la demande.
+  const AU_DEMARRAGE = [`${root}src/app/trophees.ts`, `${dir}Entree.tsx`, `${dir}Crieur.tsx`, `${root}src/ui/Rayons.tsx`];
   /** Ce qui arrive avec la vitrine : tout le reste du dossier. */
   const A_LA_DEMANDE = readdirSync(dir).filter((f) => /\.tsx?$/.test(f)).map((f) => dir + f).filter((f) => !AU_DEMARRAGE.includes(f));
   const entries = Object.entries({ ...EN_TROPHEES, ...EN_VITRINE }).map(([fr, en]) => ({ fr, en }));
@@ -709,12 +711,15 @@ describe("les dictionnaires anglais des trophées", () => {
       [...source.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string)))];
   }
 
-  it("au démarrage : les quatre phrases de l'entrée du Domaine, et pas une de plus", () => {
+  it("au démarrage : les phrases de l'entrée du Domaine et du sélecteur des rayons, et pas une de plus", () => {
     const keys = keysOf(AU_DEMARRAGE);
     expect(keys).toContain("Trophées : {n} sur {total}");
     expect(keys.filter((key) => !(key in EN_TROPHEES))).toEqual([]);
     expect(Object.keys(EN_TROPHEES).filter((key) => !keys.includes(key))).toEqual([]);
-    expect(Object.keys(EN_TROPHEES)).toHaveLength(4);
+    // Quatre pour la plaque, cinq pour le sélecteur « Médailles | Souvenirs ».
+    expect(Object.keys(EN_TROPHEES)).toHaveLength(9);
+    expect(EN_TROPHEES["Médailles"]).toBe("Medals");
+    expect(EN_TROPHEES["Souvenirs"]).toBe("Memories");
   });
 
   it("à la demande : chaque phrase de la vitrine et de l'annonce a sa traduction, apportée par leur morceau", () => {
@@ -723,7 +728,8 @@ describe("les dictionnaires anglais des trophées", () => {
     expect(keys.length).toBeGreaterThan(15);
     expect(keys).toContain("Trophées");
     expect(keys).toContain("Nouvelle médaille");
-    expect(keys.filter((key) => !(key in EN_VITRINE))).toEqual([]);
+    // Le titre de la section et le mot « Médailles » sont aussi ceux du sélecteur : ils sont traduits dès le démarrage.
+    expect(keys.filter((key) => !(key in EN_VITRINE) && !(key in EN_TROPHEES))).toEqual([]);
     // Ni phrase que les écrans n'emploient plus, ni phrase rangée dans les deux dictionnaires.
     expect(Object.keys(EN_VITRINE).filter((key) => !keys.includes(key))).toEqual([]);
     expect(Object.keys(EN_VITRINE).filter((key) => key in EN_TROPHEES)).toEqual([]);

@@ -1,5 +1,5 @@
 // Anglais — la suite de l'histoire, pour ce que les écrans du démarrage en affichent : les
-// refus du magasin d'état, les entrées du Domaine, l'entrée des Souvenirs dans les Réglages.
+// refus du magasin d'état, les entrées du Domaine, le rayon des Souvenirs dans la section Trophées.
 // Clé : la phrase française telle qu'elle est passée à `t()`. Valeur : sa traduction.
 //
 // Ce fichier est chargé au démarrage : il reste court. Les phrases des écrans chargés à la
@@ -27,10 +27,6 @@ export const EN_SUITE: Record<string, string> = {
   // --- Le Domaine : un hôte a une histoire à raconter (src/screens/domaine/Domaine.tsx)
   "Ouvrir mes Souvenirs": "Open my Memories",
 
-  // --- Réglages : l'entrée des Souvenirs (src/screens/reglages/Reglages.tsx), et le générique revu (Moments.tsx)
-  "Souvenirs": "Memories",
-  "Les fins de l'histoire, et ce que les maîtres des lieux racontent à qui les bat trois fois au poker.":
-    "The endings of the story, and what the hosts tell anyone who beats them three times at poker.",
-  "Ouvrir mes Souvenirs ({n})": "Open my Memories ({n})",
+  // --- Le générique revu depuis les Souvenirs (Moments.tsx)
   "Refermer le souvenir": "Close the memory",
 };

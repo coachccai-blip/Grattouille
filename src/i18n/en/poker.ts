@@ -391,7 +391,7 @@ export const EN_POKER: Record<string, string> = {
   "La manche s'arrête là : il faudra la reprendre du début.": "The round ends here: you'll have to start it again from scratch.",
 
   // --- Le défi, en trois manches (« rounds »). La mise (« stake ») double de l'une à l'autre ; la
-  // troisième gagnée ouvre l'histoire de l'hôte dans les Souvenirs (« Memories », comme aux Réglages),
+  // troisième gagnée ouvre l'histoire de l'hôte dans les Souvenirs (« Memories », comme dans la section Trophées),
   // puis le défi se rejoue en revanche (« rematch »). Ni « his » ni « her » : chaque phrase vaut pour les huit.
   "Manche {n} sur {total}": "Round {n} of {total}",
   "Revanche": "Rematch",

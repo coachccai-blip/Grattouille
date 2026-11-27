@@ -161,7 +161,7 @@ type Temps = "cles" | "aveu" | "epilogue";
  * vrai (La Tirelire de Piou), quand sa bourse le permet. L'histoire recommence pour un
  * autre, le jeu continue.
  *
- * Revu depuis les Souvenirs des Réglages, le générique ne dit rien au serveur et ne sème rien.
+ * Revu depuis les Souvenirs, le générique ne dit rien au serveur et ne sème rien.
  */
 export function Fin() {
   const calm = useGame(isCalm);

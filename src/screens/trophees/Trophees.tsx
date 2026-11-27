@@ -17,6 +17,7 @@ import { Icon } from "../../art/icons";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Barre, Entete } from "../../ui/Commun";
+import { Rayons } from "../../ui/Rayons";
 import { Medaille, Objet } from "./art";
 import { marquerVues } from "./file";
 import { compteDe, ecrire, ficheDe } from "./textes";
@@ -129,6 +130,8 @@ export function Trophees() {
   return (
     <main className="ecran trophees">
       <Entete titre={t("Trophées")} retour />
+      {/* Les deux rayons de la section : les médailles ici, les souvenirs à côté. */}
+      <Rayons actif="trophees" />
 
       <div className="palmares">
         <p className="invisible">{t("Médailles gagnées : {n} sur {total}", { n: gagnees, total: MEDAL_COUNT })}</p>

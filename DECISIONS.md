@@ -272,7 +272,8 @@ des musiques d'ambiance, le droit de laisser tomber des tickets à son tour, des
 une table de poker contre quatre hôtes « avec des montants astronomiques » ; puis
 l'histoire de chaque hôte dans les Souvenirs, un magasin d'« expériences de vie », la mise
 libre et le tapis au poker, des robots qui misent gros, des défis en trois manches, deux
-modes de table entre amis, des robots plus forts. Et, dès la première : « attention à ne
+modes de table entre amis, des robots plus forts ; enfin les Souvenirs rangés « dans la
+section trophées pour améliorer leur visibilité ». Et, dès la première : « attention à ne
 pas impacter l'avancée des joueurs actuels ».
 
 ### La règle d'or : rien ne bouge pour les joueurs déjà là
@@ -329,9 +330,18 @@ pas impacter l'avancée des joueurs actuels ».
 - Elle débloque le rang « Légende » à la place de « Patron », le tout premier ticket exposé
   sous cloche sur le Domaine, un dos de cartes doré au poker, de nouvelles répliques, la
   marque au classement et une médaille. Rien qui se vende.
-- **Les Souvenirs** sont un écran, ouvert depuis les Réglages : les deux fins à revoir, et
+- **Les Souvenirs** sont le second rayon de la section Trophées : les deux fins à revoir, et
   l'histoire de chacun des huit hôtes. Une relecture ne rappelle pas le serveur et ne sème
   rien.
+- **Rangés avec les trophées, pas dans les Réglages.** Ils y étaient d'abord, et le
+  propriétaire les a voulus « dans la section trophées pour améliorer leur visibilité » :
+  personne ne va chercher une histoire dans des réglages. La section s'ouvre depuis la
+  plaque du Domaine et porte deux rayons, « Médailles » et « Souvenirs », qu'un sélecteur
+  échange sans empiler d'écran (Retour ramène toujours au Domaine). La pastille de la
+  plaque compte tout ce qui est neuf, médailles à regarder et histoires à écouter ; s'il
+  n'y a de neuf que des histoires, la plaque mène droit aux Souvenirs. Le rayon Souvenirs
+  porte lui aussi le compte des histoires qui attendent. L'entrée des Réglages a disparu :
+  un seul chemin, celui qu'on voit.
 - **L'histoire d'un hôte** s'ouvre quand on a gagné les trois manches de son défi. Le compte
   est tenu par le serveur (`hostWins`). Rétroactif autant que possible : un défi relevé
   avant cette version compte pour la première manche ; les revanches gagnées en 2.0
@@ -428,6 +438,7 @@ pas impacter l'avancée des joueurs actuels ».
   portée, pour ne rien divulgâcher.
 - Les médailles déjà vues sont retenues sur l'appareil. À la première visite après la mise
   à jour, pas de rafale d'annonces : une pastille sur le Domaine.
+- La section a deux rayons : les médailles, et les Souvenirs (voir plus haut).
 - Seul le trophée des tricheurs démasqués ne peut pas être rétroactif : ils n'étaient pas
   comptés en 2.0.
 
@@ -462,7 +473,8 @@ pas impacter l'avancée des joueurs actuels ».
   Aucune traduction ne manque. Le seul défaut trouvé (la cagnotte d'un tournoi cachée sous
   le bouton à 320 px) est corrigé. Ont été joués de bout en bout : la vraie fin, une
   histoire d'hôte, des tickets semés par un, cinq et dix, six expériences de l'agence, une
-  Table des Maîtres.
+  Table des Maîtres. Les Souvenirs une fois passés dans la section Trophées, les écrans
+  neufs ont été repris dans les deux langues à 360 et 320 px : rien à signaler.
 - La répétition depuis l'archive : installation, construction, tests, simulation, puis la
   fonction empaquetée par l'outil de Netlify, branchée sur le client Blobs — le parcours
   général, puis les comptes d'avant déposés tels quels dans le store.

@@ -329,12 +329,10 @@ export function ficheDe(famille: TrophyFamily, player: PlayerState): Fiche {
 
 export const EN_VITRINE: Record<string, string> = {
   // --- La vitrine
-  "Trophées": "Trophies",
   "Médailles gagnées": "Medals earned",
   "Médailles gagnées : {n} sur {total}": "Medals earned: {n} of {total}",
   "{n} nouvelles médailles à admirer": "{n} new medals to admire",
   "1 nouvelle médaille à admirer": "1 new medal to admire",
-  "Médailles": "Medals",
   "Médailles à découvrir": "Medals yet to be discovered",
   "{nom}, gagnée : {condition}": "{nom}, earned: {condition}",
   "{nom}, à gagner : {condition}": "{nom}, yet to earn: {condition}",
