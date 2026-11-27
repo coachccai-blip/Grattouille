@@ -273,8 +273,9 @@ une table de poker contre quatre hôtes « avec des montants astronomiques » ; 
 l'histoire de chaque hôte dans les Souvenirs, un magasin d'« expériences de vie », la mise
 libre et le tapis au poker, des robots qui misent gros, des défis en trois manches, deux
 modes de table entre amis, des robots plus forts ; enfin les Souvenirs rangés « dans la
-section trophées pour améliorer leur visibilité ». Et, dès la première : « attention à ne
-pas impacter l'avancée des joueurs actuels ».
+section trophées pour améliorer leur visibilité », et, au même endroit, « l'album photo des
+expériences de vie ». Et, dès la première : « attention à ne pas impacter l'avancée des
+joueurs actuels ».
 
 ### La règle d'or : rien ne bouge pour les joueurs déjà là
 
@@ -336,8 +337,9 @@ pas impacter l'avancée des joueurs actuels ».
 - **Rangés avec les trophées, pas dans les Réglages.** Ils y étaient d'abord, et le
   propriétaire les a voulus « dans la section trophées pour améliorer leur visibilité » :
   personne ne va chercher une histoire dans des réglages. La section s'ouvre depuis la
-  plaque du Domaine et porte deux rayons, « Médailles » et « Souvenirs », qu'un sélecteur
-  échange sans empiler d'écran (Retour ramène toujours au Domaine). La pastille de la
+  plaque du Domaine et porte ses rayons côte à côte, « Médailles », « Souvenirs » et
+  « Album » (plus bas), qu'un sélecteur échange sans empiler d'écran (Retour ramène
+  toujours au Domaine). La pastille de la
   plaque compte tout ce qui est neuf, médailles à regarder et histoires à écouter ; s'il
   n'y a de neuf que des histoires, la plaque mène droit aux Souvenirs. Le rayon Souvenirs
   porte lui aussi le compte des histoires qui attendent. L'entrée des Réglages a disparu :
@@ -427,6 +429,39 @@ pas impacter l'avancée des joueurs actuels ».
 - **Son prix reste compté dans la fortune**, comme celui d'un bien : s'offrir un voyage ne
   fait pas reculer au classement. (Semer un ticket, au contraire, est un don.)
 
+### L'album photo des expériences vécues
+
+- Demande du propriétaire : « dans les trophées, on doit aussi retrouver l'album photo des
+  expériences de vie » qu'on a vécues. C'est le troisième rayon de la section Trophées, à
+  côté des médailles et des souvenirs.
+- **Une photo est la carte postale de l'expérience** : sa scène figée, le joueur dedans.
+  Aucun dessin de plus : le film en laissait déjà une à la fin, l'album les garde.
+- **Dans l'ordre où elles ont été vécues**, pas dans celui du catalogue : de la glace face
+  à la mer aux vacances de toute la ville, l'album raconte l'ascension du joueur. C'est
+  aussi le numéro que porte chaque carte (« Souvenir 8 sur 30 »).
+- **Rien de ce qui reste à vivre n'y est montré** : pas trente cases vides, le catalogue de
+  l'agence le fait déjà. Madame Diem dit combien de pages restent blanches, et sa porte est
+  à un bouton ; en revenant de l'agence, la photo neuve est dans l'album.
+- **Toucher une photo l'ouvre en grand** : la carte postale, sa légende, son timbre. Elle
+  est déjà prise : elle se pose sans déclic, sans air et sans cachet qui tombe. « Revivre »
+  rejoue le film, qui se fige de nouveau. (En animations réduites il n'y a pas de film : un
+  seul bouton.)
+- **Rien n'est stocké**, ni au serveur ni sur l'appareil : l'album se lit dans les
+  expériences vécues. Un joueur qui en avait déjà retrouve donc toutes ses photos. Pas de
+  pastille « nouveau » : une photo, on l'a vue en la prenant.
+- **Le joueur y a sa tête et sa tenue du jour**, pas celles du jour du voyage : il aurait
+  fallu enregistrer sa garde-robe à chaque expérience. Change de chapeau, et tout l'album
+  en change.
+- **Le poids** : l'écran arrive avec l'agence, les photos avec le morceau des films (les
+  trente scènes), et seulement s'il y a de quoi en montrer. Une photo ne se dessine qu'à
+  l'approche de l'écran : un album plein en compte trente. Rien au premier chargement,
+  hors le mot « Album » du sélecteur.
+- **Chaque tirage d'une scène a ses propres dégradés et découpes** : la même scène peut
+  être à l'écran deux fois (sa photo, et son film par-dessus). Les trente cartes postales
+  ont été comparées avant et après ce changement : identiques à l'octet près.
+- **Sans réseau**, les cadres restent vides et l'album le dit ; les photos reviennent avec
+  lui.
+
 ### Les trophées
 
 - Treize familles, quarante-deux médailles : tickets joués, plus gros gain sur un seul
@@ -438,7 +473,8 @@ pas impacter l'avancée des joueurs actuels ».
   portée, pour ne rien divulgâcher.
 - Les médailles déjà vues sont retenues sur l'appareil. À la première visite après la mise
   à jour, pas de rafale d'annonces : une pastille sur le Domaine.
-- La section a deux rayons : les médailles, et les Souvenirs (voir plus haut).
+- La section a trois rayons : les médailles, les Souvenirs et l'album photo des expériences
+  vécues (voir plus haut).
 - Seul le trophée des tricheurs démasqués ne peut pas être rétroactif : ils n'étaient pas
   comptés en 2.0.
 

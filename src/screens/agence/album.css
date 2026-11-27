@@ -91,7 +91,10 @@
   text-wrap: balance;
 }
 
-.album__panne { margin-top: var(--e4); }
+/* Un mot composé reste entier : « pique-nique » ne se coupe pas à son trait d'union. */
+.photo__mot { white-space: nowrap; }
+
+.album__panne { margin-top: var(--e3); }
 
 /* ---------------------------------------------------------------- Un album neuf */
 
@@ -121,6 +124,16 @@
 
 .album__vide span:first-child { transform: rotate(-2deg); }
 .album__vide span:last-child { transform: rotate(1.5deg); }
+
+/* Sur un écran court, les emplacements se font plus petits : la porte de l'agence reste en vue. */
+@media (max-height: 600px) {
+  .album__vide {
+    grid-template-columns: repeat(2, 80px);
+    margin-top: var(--e4);
+  }
+
+  .album__vide + .album__diem { margin-top: var(--e4); }
+}
 
 /* ---------------------------------------------------------------- Madame Diem, et sa porte */
 

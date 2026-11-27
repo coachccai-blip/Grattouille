@@ -15,9 +15,9 @@
 // Rien n'est stocké, ni sur l'appareil ni au serveur : l'album se lit dans les expériences
 // vécues du joueur.
 
-import { memo, useEffect, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { EXPERIENCE_COUNT, knownExperiences } from "../../../shared/experiences";
-import { nav } from "../../app/nav";
+import { nav, useNav } from "../../app/nav";
 import { useGame } from "../../app/store";
 import { Diem } from "../../art/agence/diem";
 import { Bouton } from "../../ui/Bouton";
@@ -52,6 +52,17 @@ function useProche(cadre: RefObject<Element | null>): boolean {
   return proche;
 }
 
+/**
+ * Un nom sous sa photo ne se coupe qu'aux espaces : dans une marge aussi étroite, un mot
+ * composé coupé à son trait d'union (« pique- », « nique ») se lirait mal.
+ */
+function sansCesure(nom: string): ReactNode[] {
+  return nom.split(" ").flatMap((mot, i) => [
+    i > 0 ? " " : "",
+    mot.includes("-") ? <span key={i} className="photo__mot">{mot}</span> : mot,
+  ]);
+}
+
 interface VignetteProps {
   experience: string;
   /** Son numéro dans l'album : la combientième expérience que le joueur a vécue. */
@@ -76,7 +87,7 @@ const Vignette = memo(function Vignette({ experience, rang, Photo }: VignettePro
         <span className="photo__vue" ref={cadre} aria-hidden="true">
           {Photo && proche && <Photo experience={experience} className="photo__image" />}
         </span>
-        <span className="photo__nom" aria-hidden="true">{nom}</span>
+        <span className="photo__nom" aria-hidden="true"><span>{sansCesure(nom)}</span></span>
       </button>
     </li>
   );
@@ -89,7 +100,10 @@ export function Album() {
   const vecues = player ? knownExperiences(player.experiences) : [];
   const n = vecues.length;
 
-  // Les photos arrivent avec les films, s'il y a de quoi en montrer.
+  // Les photos arrivent avec les films, s'il y a de quoi en montrer. On les demande dès le
+  // premier rendu, sans attendre que l'écran soit affiché : elles sont là avec lui. (Demander
+  // deux fois ne coûte rien : films.ts ne fait venir le morceau qu'une fois.)
+  if (n > 0 && !films && !panne) void chargerFilms();
   useEffect(() => {
     if (films || n === 0) return;
     let vivant = true;
@@ -102,6 +116,15 @@ export function Album() {
       vivant = false;
     };
   }, [films, n]);
+
+  // De retour devant l'album, une photo refermée : si les films ont fini par arriver (le
+  // réseau est revenu entre-temps), les photos aussi.
+  const devant = useNav((s) => s.stack[s.index]?.name === "album");
+  useEffect(() => {
+    if (!devant || films) return;
+    const prets = filmsPrets();
+    if (prets) setFilms(prets);
+  }, [devant, films]);
 
   if (!player) return null;
   const versAgence = () => nav.push({ name: "agence" });
@@ -118,12 +141,13 @@ export function Album() {
             <p className="album__compte-titre">{t("Expériences vécues : {n} sur {total}", { n, total: EXPERIENCE_COUNT })}</p>
             <Barre value={n} max={EXPERIENCE_COUNT} />
           </div>
-          <ul className="album__photos cascade">
-            {vecues.map((id, i) => <Vignette key={id} experience={id} rang={i + 1} Photo={films?.Photo ?? null} />)}
-          </ul>
+          {/* Les tirages n'arrivent pas : on le dit en haut de l'album, là où leurs cadres restent vides. */}
           {panne && !films && (
             <p className="note album__panne" role="status">{t("Les photos n'arrivent pas. Vérifie ta connexion, puis reviens.")}</p>
           )}
+          <ul className="album__photos cascade">
+            {vecues.map((id, i) => <Vignette key={id} experience={id} rang={i + 1} Photo={films?.Photo ?? null} />)}
+          </ul>
         </>
       ) : (
         // Un album neuf : deux emplacements vides, leurs quatre coins déjà collés.

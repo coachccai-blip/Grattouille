@@ -683,8 +683,11 @@ describe("l'album photo des expériences vécues, dans la section Trophées", ()
       `Souvenir 1 : ${nomExperience("mars")}`, `Souvenir 2 : ${nomExperience("glace")}`, `Souvenir 3 : ${nomExperience("australie")}`,
     ]);
     expect((page.match(/<svg class="xp-photo photo__image" /g) ?? []).length).toBe(3);
-    expect([...page.matchAll(/class="photo__nom" aria-hidden="true">([^<]+)</g)].map((m) => m[1]))
-      .toEqual(["mars", "glace", "australie"].map(nomExperience));
+    const noms = [...page.matchAll(/class="photo__nom" aria-hidden="true"><span>(.*?)<\/span><\/span>/g)].map((m) => m[1]!);
+    expect(noms.map((nom) => nom.replace(/<[^>]+>/g, ""))).toEqual(["mars", "glace", "australie"].map(nomExperience));
+    // Un mot composé ne se coupe pas à son trait d'union : « pique-nique » reste entier sous sa photo.
+    expect(noms[0]).toContain('<span class="photo__mot">pique-nique</span>');
+    expect(noms[1]).not.toContain("photo__mot");
     // Où il en est, ce que Madame Diem en dit, et sa porte.
     expect(page).toContain("Expériences vécues : 3 sur 30");
     expect(page).toContain(`« ${DIEM_ALBUM.reste.fr.replace("{n}", "27")} »`);
