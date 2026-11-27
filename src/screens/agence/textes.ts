@@ -1,6 +1,7 @@
 // Les mots de l'Agence Carpe Diem (LOT4.md, section 13) : les cinq chapitres du catalogue,
 // le nom anglais de chaque expérience, le boniment de Madame Diem, la légende de la carte
-// postale, et ce que Madame Diem dit selon ce que le joueur a déjà vécu.
+// postale, et ce que Madame Diem dit selon ce que le joueur a déjà vécu : derrière son
+// comptoir, et au bout de l'album photo de la section Trophées.
 //
 // Le nom français d'une expérience est celui de shared/experiences.ts. Tout le reste a ses
 // deux versions côte à côte, et se lit avec `pick` au moment de l'affichage. Ce module
@@ -386,4 +387,39 @@ export function motDeDiem(vecues: number, aPortee: boolean): string {
   if (reste === 1) return pick(DIEM.presque);
   if (vecues >= 20) return pick(DIEM.bientot).replace("{n}", String(reste));
   return pick(vecues >= 10 ? DIEM.milieu : DIEM.debut);
+}
+
+// ---------------------------------------------------------------------------
+// Ce que dit Madame Diem au bout de l'album photo, dans la section Trophées
+
+export const DIEM_ALBUM = {
+  /** Pas encore une photo. */
+  vide: {
+    fr: "Un album tout neuf, et pas une photo dedans ! Passe me voir à l'agence : on va arranger ça.",
+    en: "A brand-new album, and not one photo in it! Come and see me at the agency: we'll fix that.",
+  },
+  /** Il reste `{n}` pages à remplir, de deux à vingt-neuf. */
+  reste: {
+    fr: "Encore {n} pages blanches. J'ai tout ce qu'il faut pour les remplir.",
+    en: "{n} blank pages to go. I have just the thing to fill them.",
+  },
+  /** Il n'en reste qu'une. */
+  presque: {
+    fr: "Plus qu'une page blanche. Tu sais où me trouver.",
+    en: "Just one blank page left. You know where to find me.",
+  },
+  /** Les trente photos y sont. */
+  plein: {
+    fr: "Trente photos, pas une page blanche. Voilà ce que j'appelle une vie bien remplie.",
+    en: "Thirty photos, not one blank page. Now that's what I call a life well lived.",
+  },
+} satisfies Record<string, Paire>;
+
+/** Le mot de Madame Diem au bout de l'album, selon le nombre de photos qu'il contient (`vecues`, de 0 à 30). */
+export function motDeLAlbum(vecues: number): string {
+  const reste = EXPERIENCE_COUNT - vecues;
+  if (reste <= 0) return pick(DIEM_ALBUM.plein);
+  if (vecues <= 0) return pick(DIEM_ALBUM.vide);
+  if (reste === 1) return pick(DIEM_ALBUM.presque);
+  return pick(DIEM_ALBUM.reste).replace("{n}", String(reste));
 }

@@ -1,10 +1,11 @@
-// La section Trophées a deux rayons : les médailles, et les souvenirs (les fins à revoir,
-// l'histoire de chaque hôte). Ce sélecteur coiffe les deux écrans, sous le même titre : on
-// passe de l'un à l'autre d'un appui, et « retour » ramène au Domaine depuis l'un comme
-// depuis l'autre. Les souvenirs étaient d'abord rangés dans les Réglages : trop cachés.
+// La section Trophées a trois rayons : les médailles, les souvenirs (les fins à revoir,
+// l'histoire de chaque hôte) et l'album photo des expériences de vie. Ce sélecteur coiffe
+// les trois écrans, sous le même titre : on passe de l'un à l'autre d'un appui, et
+// « retour » ramène au Domaine depuis chacun. Les souvenirs étaient d'abord rangés dans
+// les Réglages : trop cachés.
 //
-// Chargé avec le reste du jeu (il ne pèse presque rien) : les deux écrans, eux, arrivent à
-// la demande, et chacun doit pouvoir s'afficher sans que l'autre soit là.
+// Chargé avec le reste du jeu (il ne pèse presque rien) : les trois écrans, eux, arrivent
+// à la demande, et chacun doit pouvoir s'afficher sans que les autres soient là.
 
 import { nav } from "../app/nav";
 import { storiesWaiting, useGame } from "../app/store";
@@ -12,9 +13,9 @@ import { t } from "../i18n";
 import { cx } from "../ticket/parts";
 import "./rayons.css";
 
-export type Rayon = "trophees" | "souvenirs";
+export type Rayon = "trophees" | "souvenirs" | "album";
 
-/** Le titre commun aux deux rayons. */
+/** Le titre commun aux trois rayons. */
 export function titreDesTrophees(): string {
   return t("Trophées");
 }
@@ -31,7 +32,7 @@ export function Rayons({ actif }: { actif: Rayon }) {
     if (name !== actif) nav.replace({ name });
   };
   return (
-    <div className="rayons" role="tablist" aria-label={t("Médailles ou souvenirs")}>
+    <div className="rayons" role="tablist" aria-label={t("Médailles, souvenirs ou album")}>
       <button
         type="button"
         role="tab"
@@ -50,8 +51,18 @@ export function Rayons({ actif }: { actif: Rayon }) {
         onClick={() => aller("souvenirs")}
       >
         {t("Souvenirs")}
-        {/* Les histoires qui attendent : la pastille se voit depuis les médailles. */}
+        {/* Les histoires qui attendent : la pastille se voit depuis les autres rayons. */}
         {histoires > 0 && <span className="rayon__pastille" aria-hidden="true">{histoires}</span>}
+      </button>
+      {/* Les photos des expériences vécues à l'Agence Carpe Diem. */}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={actif === "album"}
+        className={cx("rayon", actif === "album" && "rayon--actif")}
+        onClick={() => aller("album")}
+      >
+        {t("Album")}
       </button>
     </div>
   );

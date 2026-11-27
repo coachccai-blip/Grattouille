@@ -1,6 +1,8 @@
 // L'Agence Carpe Diem côté écrans (LOT4.md, section 13) : chacune des trente expériences a
 // son timbre, sa scène, son boniment et sa légende dans les deux langues ; aucune phrase
 // d'interface sans traduction ; des longueurs bornées ; et ce qui reste chargé au démarrage.
+// Et l'album photo des expériences vécues, que la section Trophées range à côté des
+// médailles et des souvenirs.
 // (Les trente expériences elles-mêmes, leurs prix et la route d'achat sont éprouvés dans
 // tests/suite.test.ts.)
 
@@ -25,7 +27,8 @@ import { EN_TROPHEES } from "../src/i18n/en/trophees";
 // Le `t()` de l'agence : c'est lui qui apporte le dictionnaire anglais de ses écrans.
 import "../src/screens/agence/mots";
 import {
-  CHAPITRES, DIEM, MADAME_DIEM, TEXTES, bonimentDe, catalogue, chapitreDe, legendeDe, motDeDiem, nomExperience, type Paire,
+  CHAPITRES, DIEM, DIEM_ALBUM, MADAME_DIEM, TEXTES, bonimentDe, catalogue, chapitreDe, legendeDe, motDeDiem, motDeLAlbum,
+  nomExperience, type Paire,
 } from "../src/screens/agence/textes";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
@@ -50,6 +53,7 @@ function paires(): { quoi: string; paire: Paire }[] {
       { quoi: `legende:${id}`, paire: TEXTES[id]?.legende ?? { fr: "", en: "" } },
     ]),
     ...Object.entries(DIEM).map(([cle, paire]) => ({ quoi: `diem:${cle}`, paire })),
+    ...Object.entries(DIEM_ALBUM).map(([cle, paire]) => ({ quoi: `album:${cle}`, paire })),
   ];
 }
 
@@ -116,8 +120,9 @@ describe("le catalogue : trente expériences, cinq chapitres", () => {
       expect([quoi, paire.en !== paire.fr]).toEqual([quoi, true]);
       expect([quoi, variables(paire.en)]).toEqual([quoi, variables(paire.fr)]);
     }
-    // Trente noms, trente boniments, trente légendes, cinq chapitres, et ce que dit Madame Diem.
-    expect(paires()).toHaveLength(5 + 90 + Object.keys(DIEM).length);
+    // Trente noms, trente boniments, trente légendes, cinq chapitres, et ce que dit Madame Diem,
+    // derrière son comptoir comme au bout de l'album.
+    expect(paires()).toHaveLength(5 + 90 + Object.keys(DIEM).length + Object.keys(DIEM_ALBUM).length);
   });
 
   it("écriture : guillemets et espaces de chaque langue", () => {
@@ -205,6 +210,7 @@ describe("longueurs : tout tient dans sa place", () => {
       expect(IDS.filter((id) => len(legendeDe(id)) > 52)).toEqual([]);
       // Ce que dit Madame Diem tient dans sa bulle.
       expect(Object.values(DIEM).filter((paire) => len(paire[langue]) > 120)).toEqual([]);
+      expect(Object.values(DIEM_ALBUM).filter((paire) => len(paire[langue]) > 100)).toEqual([]);
     });
   }
 
@@ -246,6 +252,23 @@ describe("ce que dit Madame Diem", () => {
     // « Plus que {n} » : la seule de ses phrases qui compte.
     expect(Object.values(DIEM).filter((paire) => paire.fr.includes("{n}"))).toEqual([DIEM.bientot]);
   });
+
+  for (const langue of LANGUES) {
+    it(`${langue} : au bout de l'album, un mot pour chaque nombre de photos`, () => {
+      setLang(langue);
+      expect(motDeLAlbum(0)).toBe(DIEM_ALBUM.vide[langue]);
+      expect(motDeLAlbum(1)).toBe(DIEM_ALBUM.reste[langue].replace("{n}", "29"));
+      expect(motDeLAlbum(12)).toBe(DIEM_ALBUM.reste[langue].replace("{n}", "18"));
+      expect(motDeLAlbum(28)).toBe(DIEM_ALBUM.reste[langue].replace("{n}", "2"));
+      // Une seule page blanche : le singulier a sa phrase.
+      expect(motDeLAlbum(29)).toBe(DIEM_ALBUM.presque[langue]);
+      expect(motDeLAlbum(30)).toBe(DIEM_ALBUM.plein[langue]);
+      // Aucune accolade ne reste, et « 1 pages » ne s'écrit jamais.
+      for (let n = 0; n <= 30; n++) {
+        expect([n, /[{}]/.test(motDeLAlbum(n)), /\b1 (pages|blank)/.test(motDeLAlbum(n))]).toEqual([n, false, false]);
+      }
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -320,15 +343,18 @@ describe("les timbres et les films : un par expérience", () => {
 
   it("le dernier film réunit toute la ville, Madame Diem comprise", () => {
     const svg = dessin("toute-la-ville", "renard");
-    // Treize habitants au registre des portraits, et Madame Diem : quatorze médaillons.
-    expect((svg.match(/clip-path="url\(#xp-rond\)"/g) ?? []).length).toBe(14);
+    // Treize habitants au registre des portraits, et Madame Diem : quatorze médaillons, chacun avec sa découpe.
+    expect((svg.match(/clip-path="url\(#xp-rond\w+\)"/g) ?? []).length).toBe(14);
+    expect(new Set(svg.match(/clip-path="url\(#xp-rond\w+\)"/g)).size).toBe(14);
   });
 });
 
 // ---------------------------------------------------------------------------
 
 describe("le mouvement : transformations et opacité seulement", () => {
-  const FEUILLES = ["src/screens/agence/film.css", "src/screens/agence/agence.css", "src/screens/agence/enseigne.css"];
+  const FEUILLES = [
+    "src/screens/agence/film.css", "src/screens/agence/agence.css", "src/screens/agence/enseigne.css", "src/screens/agence/album.css",
+  ];
   /** Les blocs @keyframes d'une feuille : leur nom, et ce qu'ils animent. */
   function images(css: string): { nom: string; proprietes: string[] }[] {
     const out: { nom: string; proprietes: string[] }[] = [];
@@ -360,8 +386,10 @@ describe("le mouvement : transformations et opacité seulement", () => {
     for (const geste of gestes) {
       expect([geste, css.includes(`.xp-${geste} { animation-name: xp-${geste}; }`), css.includes(`@keyframes xp-${geste} {`)]).toEqual([geste, true, true]);
     }
-    // Image fixe : sur la carte postale et en animations réduites, plus rien ne bouge.
+    // Image fixe : sur la carte postale et en animations réduites, plus rien ne bouge. La photo de l'album non plus.
     expect(css).toMatch(/\.xp--carte \.xp__image \*,\s*\.calme \.xp__image \* \{ animation: none !important; \}/);
+    expect(css).toMatch(/\.xp-photo \*,\s*\.xp--carte \.xp__image \*/);
+    expect(css).toMatch(/\.xp-photo :is\(\.xp-sort, \.xp-passe, \.xp-disparait, \.xp-eclat, \.xp-fugace\):not\(\.xp-reste\),/);
   });
 
   it("rien sous 12 px dans les feuilles de style de l'agence", () => {
@@ -454,7 +482,7 @@ describe("le poids : l'agence n'est chargée qu'à la demande", () => {
   const imports = (source: string) =>
     [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+"([^"]+)";/gm)].map((m) => m[1]!);
   /** Ce qui n'arrive qu'avec l'agence ou avec ses films. */
-  const LOURD = /art\/agence|agence\/(textes|mots|films|Film|Agence|FicheExperience|Experience|index)$|i18n\/en\/experiences/;
+  const LOURD = /art\/agence|agence\/(textes|mots|films|Film|Photo|Album|Agence|FicheExperience|Experience|index)$|i18n\/en\/experiences/;
 
   it("l'onglet Boutiques ne monte que l'enseigne, et l'enseigne n'importe ni dessin ni texte", () => {
     const boutiques = lire("src/screens/boutiques/Boutiques.tsx");
@@ -479,13 +507,16 @@ describe("le poids : l'agence n'est chargée qu'à la demande", () => {
   });
 
   it("les trente films sont un morceau à part du catalogue", () => {
-    for (const file of ["index.tsx", "Agence.tsx", "FicheExperience.tsx", "Experience.tsx", "textes.ts", "mots.ts"]) {
+    for (const file of ["index.tsx", "Agence.tsx", "Album.tsx", "FicheExperience.tsx", "Experience.tsx", "textes.ts", "mots.ts"]) {
       const lourds = imports(lire(`src/screens/agence/${file}`)).filter((module) => /\/Film$|art\/agence\/(scenes|kit)/.test(module));
       expect([file, lourds]).toEqual([file, []]);
     }
     // Ils arrivent par films.ts, et par lui seul.
     expect(lire("src/screens/agence/films.ts")).toMatch(/import\("\.\/Film"\)/);
     expect(imports(lire("src/screens/agence/Film.tsx"))).toContain("../../art/agence/scenes");
+    // La photo d'une expérience est une scène figée : elle voyage avec les films, qui la remettent à l'album.
+    expect(imports(lire("src/screens/agence/Photo.tsx"))).toContain("../../art/agence/scenes");
+    expect(lire("src/screens/agence/Film.tsx")).toMatch(/^export \{ Photo \} from "\.\/Photo";$/m);
   });
 
   it("le dictionnaire chargé au démarrage ne porte que les mots de l'enseigne", () => {
@@ -557,5 +588,211 @@ describe("le film d'une expérience", () => {
     expect(vu).toContain('class="moment moment--experience xp--film"');
     expect(vu).toContain('data-plein-ecran=""');
     expect(vu).toContain(nomExperience("mars"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("l'album photo des expériences vécues, dans la section Trophées", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Les espaces insécables que `t()` pose à l'affichage, et les apostrophes que le rendu échappe : pour comparer des phrases. */
+  const lisible = (html: string) => html.replace(/[  ]/g, " ").replace(/&#x27;/g, "'");
+  const imports = (source: string) =>
+    [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+"([^"]+)";/gm)].map((m) => m[1]!);
+
+  /** Un joueur dans le magasin d'état, hors navigateur. Rend de quoi lui faire vivre des expériences, dans cet ordre. */
+  async function monde(): Promise<(vecues: string[]) => void> {
+    vi.stubGlobal("window", { location: { search: "" } });
+    const { useGame } = await import("../src/app/store");
+    const { completeState } = await import("../src/app/etat");
+    const joueur = completeState({
+      id: "p_1", pseudo: "Zabeth", species: "renard", balance: 100, pending: [], owned: [],
+      look: {}, kiosk: false, standing: 0, fortune: 100,
+      stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0 },
+      createdAt: 0, luckyIn: 60_000,
+    } as unknown as Parameters<typeof completeState>[0]);
+    // Rendu hors navigateur, un écran lit l'état initial du magasin : c'est lui qu'on prépare.
+    const etat = useGame.getInitialState();
+    return (vecues) => {
+      Object.assign(etat, { phase: "jeu", player: { ...joueur, experiences: vecues } });
+    };
+  }
+
+  it("une photo par expérience : sa scène, dans le cadre de sa carte postale, et rien n'y bouge", async () => {
+    const vivre = await monde();
+    vivre(IDS);
+    const { CADRE, Photo, cadreDe } = await import("../src/screens/agence/Photo");
+    expect(CADRE).toBe(175);
+    for (const id of IDS) {
+      const svg = renderToStaticMarkup(createElement(Photo, { experience: id }));
+      // La classe qui la fige (film.css), et le cadre de la carte postale : 360 × 450, là où la scène le veut.
+      expect([id, svg.startsWith('<svg class="xp-photo" ')]).toEqual([id, true]);
+      expect([id, cadreDe(id)]).toEqual([id, `0 ${SCENES[id]!.cadre ?? 175} 360 450`]);
+      expect([id, svg.includes(`viewBox="${cadreDe(id)}"`), svg.includes('aria-hidden="true"')]).toEqual([id, true, true]);
+      // Le joueur y est, et c'est la scène du film : rien que des formes.
+      expect([id, svg.includes("av-tete"), /<text|<image|<filter|NaN|undefined/.test(svg)]).toEqual([id, true, false]);
+      expect([id, svg.length > 3000]).toEqual([id, true]);
+    }
+    // Trente photos différentes.
+    expect(new Set(IDS.map((id) => renderToStaticMarkup(createElement(Photo, { experience: id })).length)).size).toBeGreaterThan(25);
+    // Une expérience que ce jeu ne connaît pas : pas de photo, pas d'erreur.
+    expect(cadreDe("inconnue")).toBe("0 175 360 450");
+    expect(renderToStaticMarkup(createElement(Photo, { experience: "inconnue" }))).toBe("");
+    // Qui la range peut lui donner sa classe.
+    expect(renderToStaticMarkup(createElement(Photo, { experience: "glace", className: "photo__image" })))
+      .toContain('<svg class="xp-photo photo__image" ');
+  });
+
+  it("deux tirages d'une même scène ne partagent aucun identifiant, et chaque scène se suffit", () => {
+    // La photo dans l'album et le film par-dessus : la même scène est deux fois à l'écran.
+    const vues = { espece: "renard", look: {} };
+    let avecCiel = 0;
+    for (const id of IDS) {
+      const Art = SCENES[id]!.Art;
+      const deux = renderToStaticMarkup(createElement("div", null,
+        createElement("svg", null, createElement(Art, vues)), createElement("svg", null, createElement(Art, vues))));
+      const definis = [...deux.matchAll(/ id="(xp-[^"]+)"/g)].map((m) => m[1]!);
+      // Chaque tirage définit les siens (autant l'un que l'autre), et pas un identifiant n'est en double.
+      expect([id, definis.length % 2, doublons(definis)]).toEqual([id, 0, []]);
+      // Tout dégradé, toute découpe que la scène appelle, elle les définit elle-même : rien n'est attendu de qui l'affiche.
+      const appeles = [...new Set([...deux.matchAll(/url\(#(xp-[^)]+)\)/g)].map((m) => m[1]!))];
+      expect([id, appeles.length, appeles.filter((ref) => !definis.includes(ref))]).toEqual([id, definis.length, []]);
+      if (definis.some((nom) => nom.startsWith(`xp-ciel-`))) avecCiel += 1;
+    }
+    // Le relevé a bien trouvé de quoi vérifier : presque toutes les scènes ont un ciel en dégradé.
+    expect(avecCiel).toBeGreaterThanOrEqual(25);
+  });
+
+  it("range les photos dans l'ordre où le joueur les a vécues, sous les trois rayons de la section", async () => {
+    const vivre = await monde();
+    const { Album } = await import("../src/screens/agence/Album");
+    const { chargerFilms } = await import("../src/screens/agence/films");
+    expect(await chargerFilms()).not.toBeNull();
+    // Vécues dans le désordre du catalogue ; un doublon et une inconnue ne comptent pas.
+    vivre(["mars", "glace", "inconnue", "australie", "glace"]);
+    const page = lisible(renderToStaticMarkup(createElement(Album)));
+    expect(page).toContain('<main class="ecran album">');
+    // Le titre de la section, et ses trois rayons : l'album est le troisième, et c'est lui qui est choisi.
+    expect(page).toContain(">Trophées</h1>");
+    expect([...page.matchAll(/role="tab" aria-selected="(true|false)" class="[^"]*"[^>]*>([^<]+)/g)].map((m) => [m[2], m[1]]))
+      .toEqual([["Médailles", "false"], ["Souvenirs", "false"], ["Album", "true"]]);
+    // Trois photos, numérotées dans l'ordre vécu, chacune dessinée, son nom dessous.
+    const photos = [...page.matchAll(/<button type="button" class="photo" aria-label="([^"]+)">/g)].map((m) => m[1]!);
+    expect(photos).toEqual([
+      `Souvenir 1 : ${nomExperience("mars")}`, `Souvenir 2 : ${nomExperience("glace")}`, `Souvenir 3 : ${nomExperience("australie")}`,
+    ]);
+    expect((page.match(/<svg class="xp-photo photo__image" /g) ?? []).length).toBe(3);
+    expect([...page.matchAll(/class="photo__nom" aria-hidden="true">([^<]+)</g)].map((m) => m[1]))
+      .toEqual(["mars", "glace", "australie"].map(nomExperience));
+    // Où il en est, ce que Madame Diem en dit, et sa porte.
+    expect(page).toContain("Expériences vécues : 3 sur 30");
+    expect(page).toContain(`« ${DIEM_ALBUM.reste.fr.replace("{n}", "27")} »`);
+    expect(page).toMatch(/class="bouton bouton--secondaire bouton--bloc album__porte"/);
+    expect(page).not.toContain("album__vide");
+    // Rien de ce qui reste à vivre n'y est montré : le catalogue de l'agence le fait déjà.
+    expect(page).not.toContain(nomExperience("japon-coree"));
+  });
+
+  it("un album neuf invite à l'agence ; un album plein n'a plus de page blanche", async () => {
+    const vivre = await monde();
+    const { Album } = await import("../src/screens/agence/Album");
+    vivre([]);
+    const neuf = lisible(renderToStaticMarkup(createElement(Album)));
+    expect(neuf).toContain('class="album__vide" aria-hidden="true"');
+    expect(neuf).not.toMatch(/class="photo"|album__compte|xp-photo/);
+    expect(neuf).toContain(`« ${DIEM_ALBUM.vide.fr} »`);
+    expect(neuf).toMatch(/class="bouton bouton--principal bouton--bloc album__porte"/);
+    vivre(IDS);
+    const plein = lisible(renderToStaticMarkup(createElement(Album)));
+    expect((plein.match(/<button type="button" class="photo" /g) ?? []).length).toBe(30);
+    expect(plein).toContain("Expériences vécues : 30 sur 30");
+    expect(plein).toContain(`« ${DIEM_ALBUM.plein.fr} »`);
+    expect(plein).not.toContain("album__porte");
+    // La dernière page : les vacances de toute la ville, si c'est bien la dernière vécue.
+    expect(plein).toContain(`aria-label="Souvenir 30 : ${nomExperience("toute-la-ville")}"`);
+  });
+
+  it("en anglais, l'album parle anglais", async () => {
+    const vivre = await monde();
+    const { Album } = await import("../src/screens/agence/Album");
+    vivre(["mars", "glace"]);
+    setLang("en");
+    const page = lisible(renderToStaticMarkup(createElement(Album)));
+    expect(page).toContain(">Trophies</h1>");
+    expect([...page.matchAll(/role="tab" aria-selected="(?:true|false)" class="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]))
+      .toEqual(["Medals", "Memories", "Album"]);
+    expect(page).toContain('aria-label="Memory 1: A picnic on Mars"');
+    expect(page).toContain("Experiences lived: 2 of 30");
+    expect(page).toContain(`“${DIEM_ALBUM.reste.en.replace("{n}", "28")}”`);
+    expect(page).toContain("Step into the agency");
+    expect(i18nMisses()).toEqual([]);
+  });
+
+  it("une photo s'ouvre en grand : la carte postale d'abord, sans déclic, avec de quoi revivre le film", async () => {
+    const vivre = await monde();
+    const { chargerFilms } = await import("../src/screens/agence/films");
+    const { Experience } = await import("../src/screens/agence/Experience");
+    expect(await chargerFilms()).not.toBeNull();
+    vivre(["glace", "mars"]);
+    const photo = lisible(renderToStaticMarkup(createElement(Experience, { experience: "mars", premiere: false, photo: true })));
+    // La carte postale, rangée : ni film, ni éclair, ni invitation à passer.
+    expect(photo).toContain('class="moment moment--experience xp--carte xp--rangee"');
+    expect(photo).not.toMatch(/xp__flash|xp__passer|xp--film/);
+    expect(photo).toContain('viewBox="0 250 360 450"');
+    // Son numéro dans l'album, sa légende, son timbre oblitéré.
+    expect(photo).toContain("Souvenir 2 sur 30");
+    expect(photo).toContain(legendeDe("mars"));
+    expect(photo).toContain("timbre__cachet");
+    // Deux boutons : revivre le film, ou refermer.
+    expect(photo).toContain('class="xp__pied xp__pied--deux"');
+    expect([...photo.matchAll(/class="bouton__texte">([^<]+)</g)].map((m) => m[1])).toEqual(["Revivre", "Continuer"]);
+    // Revécue depuis l'agence, rien ne change : le film, puis sa carte et son seul bouton.
+    const film = renderToStaticMarkup(createElement(Experience, { experience: "mars", premiere: false }));
+    expect(film).toContain('class="moment moment--experience xp--film"');
+    expect(film).not.toMatch(/xp--rangee|xp__pied--deux/);
+    // Une photo ne s'ouvre pas pour une expérience qui n'est pas vécue.
+    expect(renderToStaticMarkup(createElement(Experience, { experience: "australie", premiere: false, photo: true }))).toBe("");
+  });
+
+  it("dans la navigation : un rayon des trophées, sans barre d'onglets, la photo posée par-dessus", async () => {
+    const { hasTabs, isSheet, resolveScreens, screenKey, tabOf } = await import("../src/app/nav");
+    expect(isSheet({ name: "album" })).toBe(false);
+    expect(hasTabs({ name: "album" })).toBe(false);
+    expect(tabOf({ name: "album" })).toBeNull();
+    // La photo ouverte ne remonte pas l'album : il reste dessous, là où on l'a laissé.
+    const pile = [{ name: "domaine" }, { name: "album" }, { name: "experience", experience: "glace", photo: true }] as const;
+    const { base, sheets } = resolveScreens(pile, 2);
+    expect([base.name, sheets.map((s) => s.name)]).toEqual(["album", ["experience"]]);
+    // Passer d'un rayon à l'autre remplace l'écran, à la même place de la pile : trois clés différentes.
+    expect(new Set((["trophees", "souvenirs", "album"] as const).map((name) => screenKey({ name }, 1))).size).toBe(3);
+  });
+
+  it("le câblage : la coquille, la porte de l'agence, le sélecteur des rayons", () => {
+    // L'album arrive avec l'agence : ce sont ses expériences, ses noms, ses films.
+    expect(lire("src/App.tsx")).toMatch(
+      /case "agence":\s+case "album":\s+return <Suspense fallback=\{<main className="ecran" aria-busy="true" \/>\}><Agence screen=\{screen\} \/><\/Suspense>;/,
+    );
+    const porte = lire("src/screens/agence/index.tsx");
+    expect(porte).toMatch(/case "album": return <Album \/>;/);
+    expect(porte).toMatch(/photo=\{screen\.photo === true\}/);
+    const album = lire("src/screens/agence/Album.tsx");
+    expect(album).toContain('<Rayons actif="album" />');
+    expect(album).toMatch(/nav\.push\(\{ name: "experience", experience, photo: true \}\)/);
+    expect(album).toMatch(/knownExperiences\(player\.experiences\)/);
+    // Les photos n'arrivent que s'il y en a à montrer, et ne se dessinent qu'à l'approche de l'écran.
+    expect(album).toMatch(/if \(films \|\| n === 0\) return;/);
+    expect(album).toMatch(/new IntersectionObserver\(/);
+    // Le sélecteur, chargé au démarrage, connaît l'album sans rien tirer de l'agence derrière lui.
+    const rayons = lire("src/ui/Rayons.tsx");
+    expect(rayons).toMatch(/export type Rayon = "trophees" \| "souvenirs" \| "album";/);
+    expect((rayons.match(/role="tab"/g) ?? []).length).toBe(3);
+    expect(imports(rayons).filter((module) => /agence|experiences/.test(module))).toEqual([]);
+    expect(EN_TROPHEES["Album"]).toBe("Album");
+  });
+
+  it("« Pousser la porte de l'agence » tient sur une ligne de bouton, dans les deux langues", () => {
+    expect(len("Pousser la porte de l'agence")).toBeLessThanOrEqual(30);
+    expect(len(EN_EXPERIENCES["Pousser la porte de l'agence"]!)).toBeLessThanOrEqual(30);
   });
 });

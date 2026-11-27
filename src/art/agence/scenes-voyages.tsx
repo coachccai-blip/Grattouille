@@ -544,18 +544,15 @@ const tourDuMonde: SceneArt = ({ espece, look }) => (
         <path d="M0 -36V-40M0 -36L3 -34" fill="none" stroke={C.nuit} strokeWidth="1.4" strokeLinecap="round" />
       </g>
     </Monument>
-    {/* Le globe : les continents défilent, il tourne */}
-    <defs>
-      <clipPath id="xp-globe"><circle cx={GX} cy={GY} r={GR} /></clipPath>
-    </defs>
+    {/* Le globe : les continents défilent, il tourne. Rien ne dépasse de son disque (une fenêtre ronde). */}
     <circle cx={GX} cy={GY} r={GR} fill={C.azur} />
-    <g clipPath="url(#xp-globe)">
+    <Fenetre x={GX - GR} y={GY - GR} l={GR * 2} h={GR * 2} rx={GR}>
       <g fill={C.vert} {...a("defile", { dx: -260, t: 5 })}>
         {[-260, 0, 260].map((x) => <path key={x} d={CONTINENTS} transform={`translate(${GX - GR + x} ${GY})`} />)}
       </g>
       <path d={`M${GX - GR} ${GY - 70}h70M${GX + 20} ${GY + 84}h70M${GX - 40} ${GY - 96}h60`} fill="none" stroke={C.blanc} strokeOpacity="0.7" strokeWidth="8" strokeLinecap="round" />
       <path d={`M${GX} ${GY - GR}A${GR} ${GR} 0 0 1 ${GX} ${GY + GR}Q${GX + 60} ${GY + 60} ${GX + 60} ${GY}Q${GX + 60} ${GY - 60} ${GX} ${GY - GR}Z`} fill={C.marine} fillOpacity="0.3" />
-    </g>
+    </Fenetre>
     {/* La route de l'avion, puis l'avion, qui boucle la boucle */}
     <circle cx={GX} cy={GY} r="152" fill="none" stroke={C.ivoire} strokeOpacity="0.55" strokeWidth="2" strokeDasharray="3 9" />
     <g {...a("va", { r: -720, t: 7.4, e: "cubic-bezier(.3,0,.2,1)", o: [GX, GY] })}>

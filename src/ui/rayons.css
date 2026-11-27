@@ -1,9 +1,9 @@
-/* Les deux rayons de la section Trophées : médailles et souvenirs. Deux onglets de même
-   largeur, dans une gouttière de laiton ; l'onglet choisi est en papier. */
+/* Les trois rayons de la section Trophées : médailles, souvenirs, album. Trois onglets dans
+   une gouttière de laiton, chacun à la largeur de son mot, plus sa part de la place qui
+   reste ; l'onglet choisi est en papier. */
 
 .rayons {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   gap: 4px;
   margin-bottom: var(--e4);
   padding: 4px;
@@ -14,15 +14,26 @@
 
 .rayon {
   display: flex;
-  gap: 8px;
+  flex: 1 1 auto;
+  gap: 6px;
   align-items: center;
   justify-content: center;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 99px;
   color: var(--brume);
   font: 700 16px/24px var(--texte);
   white-space: nowrap;
+}
+
+/* Sur un écran de 320 px, les trois mots et la pastille se resserrent d'un cran. */
+@media (max-width: 359px) {
+  .rayon {
+    gap: 5px;
+    padding: 0 6px;
+    font-size: 15px;
+  }
 }
 
 .rayon--actif {
@@ -34,12 +45,12 @@
 
 .rayon__pastille {
   flex: none;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   border-radius: 99px;
   background: var(--bougainvillier-fonce);
   color: #fff;
-  font: 700 12px/22px var(--texte);
+  font: 700 12px/20px var(--texte);
   text-align: center;
 }

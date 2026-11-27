@@ -1,0 +1,129 @@
+/* L'album photo des expériences de vie, troisième rayon de la section Trophées : des photos
+   collées deux par deux, un peu de travers, leur nom écrit dessous. Transformations et
+   opacité seulement. Chargé avec l'agence. */
+
+.album { padding-bottom: calc(var(--bas) + var(--e7)); }
+
+.album__chapeau {
+  margin-top: var(--e3);
+  color: var(--ecume);
+  font: 400 16px/22px var(--texte);
+  text-wrap: balance;
+}
+
+/* Où en est le joueur : la même phrase et la même jauge qu'au comptoir de l'agence. */
+.album__compte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin-top: var(--e4);
+}
+
+.album__compte-titre { font: 700 clamp(17px, 5.6vw, 20px)/24px var(--texte); }
+
+/* ---------------------------------------------------------------- Les photos */
+
+.album__photos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e4) var(--e3);
+  margin: var(--e5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Deux photos d'une même rangée ont la même hauteur, quel que soit le nom le plus long. */
+.album__photos > li { display: flex; }
+
+/* Une photo : son tirage dans une marge d'ivoire, plus large en bas, où l'on écrit. */
+.photo {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 6px 6px 0;
+  border-radius: 3px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  box-shadow: 0 5px 12px rgba(6, 24, 30, .42);
+  transform: rotate(var(--penche, 0deg)) scale(var(--appui, 1));
+  transition: transform var(--t-appui) linear;
+}
+
+.photo:active { --appui: .97; }
+
+/* Collées à la main : aucune n'est tout à fait droite, et deux voisines ne penchent pas pareil. */
+.album__photos > :nth-child(4n + 1) .photo { --penche: -1.6deg; }
+.album__photos > :nth-child(4n + 2) .photo { --penche: 1.2deg; }
+.album__photos > :nth-child(4n + 3) .photo { --penche: 1deg; }
+.album__photos > :nth-child(4n) .photo { --penche: -.8deg; }
+
+/* Le tirage, au format de la carte postale. Tant que la photo n'est pas arrivée, son papier attend. */
+.photo__vue {
+  position: relative;
+  display: block;
+  flex: none;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #C9DAD8;
+}
+
+/* Elle se révèle, comme un tirage qu'on sort du bain. */
+.photo__image {
+  position: absolute;
+  inset: 0;
+  animation: fondu 280ms linear both;
+}
+
+.calme .photo__image { animation: none; }
+
+/* Son nom, de la main du voyageur, comme la légende de sa carte postale. */
+.photo__nom {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 6px 2px 8px;
+  font: italic 500 13px/17px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.album__panne { margin-top: var(--e4); }
+
+/* ---------------------------------------------------------------- Un album neuf */
+
+/* Deux emplacements vides : la page de l'album, un peu plus claire là où la photo viendra,
+   et les quatre coins qui l'attendent. */
+.album__vide {
+  --coin: rgba(255, 247, 230, .62);
+  display: grid;
+  grid-template-columns: repeat(2, 112px);
+  gap: var(--e4);
+  justify-content: center;
+  margin-top: var(--e5);
+}
+
+.album__vide span {
+  aspect-ratio: 4 / 5;
+  border-radius: 2px;
+  background:
+    linear-gradient(135deg, var(--coin) 12px, transparent 0) top left,
+    linear-gradient(225deg, var(--coin) 12px, transparent 0) top right,
+    linear-gradient(45deg, var(--coin) 12px, transparent 0) bottom left,
+    linear-gradient(315deg, var(--coin) 12px, transparent 0) bottom right;
+  background-color: rgba(255, 247, 230, .08);
+  background-repeat: no-repeat;
+  background-size: 51% 51%;
+}
+
+.album__vide span:first-child { transform: rotate(-2deg); }
+.album__vide span:last-child { transform: rotate(1.5deg); }
+
+/* ---------------------------------------------------------------- Madame Diem, et sa porte */
+
+.album__diem { margin-top: var(--e5); }
+
+.album__porte { margin-top: var(--e4); }

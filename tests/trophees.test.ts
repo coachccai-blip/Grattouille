@@ -697,8 +697,8 @@ describe("les dictionnaires anglais des trophées", () => {
   const dir = `${root}src/screens/trophees/`;
   const OTHERS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER };
   /** Ce qui est chargé au démarrage : la file des annonces, l'entrée du Domaine, le crieur. */
-  // Chargés au démarrage : la plaque du Domaine, le crieur, et le sélecteur des deux rayons de la
-  // section (médailles, souvenirs), qui coiffe deux écrans chargés chacun à la demande.
+  // Chargés au démarrage : la plaque du Domaine, le crieur, et le sélecteur des trois rayons de la
+  // section (médailles, souvenirs, album), qui coiffe trois écrans chargés chacun à la demande.
   const AU_DEMARRAGE = [`${root}src/app/trophees.ts`, `${dir}Entree.tsx`, `${dir}Crieur.tsx`, `${root}src/ui/Rayons.tsx`];
   /** Ce qui arrive avec la vitrine : tout le reste du dossier. */
   const A_LA_DEMANDE = readdirSync(dir).filter((f) => /\.tsx?$/.test(f)).map((f) => dir + f).filter((f) => !AU_DEMARRAGE.includes(f));
@@ -716,10 +716,12 @@ describe("les dictionnaires anglais des trophées", () => {
     expect(keys).toContain("Trophées : {n} sur {total}");
     expect(keys.filter((key) => !(key in EN_TROPHEES))).toEqual([]);
     expect(Object.keys(EN_TROPHEES).filter((key) => !keys.includes(key))).toEqual([]);
-    // Quatre pour la plaque, cinq pour le sélecteur « Médailles | Souvenirs ».
-    expect(Object.keys(EN_TROPHEES)).toHaveLength(9);
+    // Quatre pour la plaque, six pour le sélecteur « Médailles | Souvenirs | Album ».
+    expect(Object.keys(EN_TROPHEES)).toHaveLength(10);
     expect(EN_TROPHEES["Médailles"]).toBe("Medals");
     expect(EN_TROPHEES["Souvenirs"]).toBe("Memories");
+    // « Album » se dit pareil dans les deux langues : c'est la seule phrase que l'anglais recopie.
+    expect(Object.entries(EN_TROPHEES).filter(([fr, en]) => fr === en).map(([fr]) => fr)).toEqual(["Album"]);
   });
 
   it("à la demande : chaque phrase de la vitrine et de l'annonce a sa traduction, apportée par leur morceau", () => {

@@ -1283,7 +1283,12 @@ describe("les écrans de la suite et leurs dictionnaires anglais", () => {
     const rayons = lire("src/ui/Rayons.tsx");
     expect(rayons).toMatch(/nav\.replace\(\{ name \}\)/);
     expect(rayons).toMatch(/storiesWaiting/);
-    for (const [ecran, rayon] of [["src/screens/trophees/Trophees.tsx", "trophees"], ["src/screens/souvenirs/Souvenirs.tsx", "souvenirs"]]) {
+    // Trois rayons sous le même titre : les médailles, les souvenirs, et l'album photo des expériences de vie.
+    const ECRANS = [
+      ["src/screens/trophees/Trophees.tsx", "trophees"], ["src/screens/souvenirs/Souvenirs.tsx", "souvenirs"],
+      ["src/screens/agence/Album.tsx", "album"],
+    ];
+    for (const [ecran, rayon] of ECRANS) {
       expect([ecran, lire(ecran!).includes(`<Rayons actif="${rayon}" />`)]).toEqual([ecran, true]);
     }
     // La plaque du Domaine compte les histoires à écouter avec les médailles neuves, et mène

@@ -4,11 +4,16 @@
 // légende, son timbre oblitéré et un bouton pour continuer. Un appui passe le film ; en
 // animations réduites, on a d'emblée la carte postale.
 //
+// Ouverte depuis l'album de la section Trophées (`photo`), c'est la carte postale qu'on
+// regarde d'abord : elle est déjà prise, elle se pose sans déclic, sans air et sans cachet
+// qui tombe. « Revivre » rejoue alors le film, qui se fige de nouveau en carte postale.
+//
 // Le film est une feuille de la navigation, posée par-dessus le catalogue : le bouton
 // retour du téléphone le referme. Il porte la classe `moment` (et `data-plein-ecran`) :
 // tant qu'il est à l'écran, aucune médaille ne s'annonce par-dessus.
 //
-// Ce module et les trente scènes forment un morceau à part, chargé par films.ts.
+// Ce module et les trente scènes forment un morceau à part, chargé par films.ts. La photo
+// d'une expérience (Photo.tsx), que l'album affiche, voyage avec lui.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { EXPERIENCE_COUNT, knownExperiences } from "../../../shared/experiences";
@@ -28,9 +33,12 @@ import { Fx } from "../../fx/particles";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { t } from "./mots";
+import { CADRE } from "./Photo";
 import { chapitreDe, legendeDe, nomExperience, type Chapitre } from "./textes";
 import "../moments/moments.css";
 import "./film.css";
+
+export { Photo } from "./Photo";
 
 /** Les bruits d'un film : ceux du jeu, sous le nom de ce qu'ils racontent ici. */
 const BRUITS: Record<Son, (n?: number) => void> = {
@@ -65,17 +73,24 @@ const BRUITS: Record<Son, (n?: number) => void> = {
 /** L'air qui salue la carte postale : plus l'expérience est folle, plus il est riche. */
 const AIRS: Record<Chapitre["id"], Tier> = { port: "petit", voyages: "joli", folies: "gros", ciel: "enorme", derniere: "jackpot" };
 
-/** Le cadre de la carte postale, quand la scène n'en choisit pas un : le milieu du dessin. */
-const CADRE = 175;
+interface FilmProps {
+  experience: string;
+  /** Elle vient d'être payée : la carte postale se fête. */
+  premiere: boolean;
+  /** Ouverte depuis l'album : la carte postale d'abord, le film si on le redemande. */
+  photo?: boolean;
+}
 
-export function Film({ experience, premiere }: { experience: string; premiere: boolean }) {
+export function Film({ experience, premiere, photo = false }: FilmProps) {
   const calm = useGame(isCalm);
   const espece = useGame((s) => s.player?.species ?? "renard");
   const look = useGame((s) => s.player?.look) ?? {};
   // Le rang du souvenir : la combientième expérience que le joueur a vécue.
   const rang = useGame((s) => (s.player ? knownExperiences(s.player.experiences).indexOf(experience) + 1 : 0));
   const scene = SCENES[experience];
-  const [carte, setCarte] = useState(calm);
+  const [carte, setCarte] = useState(calm || photo);
+  /** La carte sort de l'album, et le film n'a pas été rejoué : elle se pose sans bruit. */
+  const [rangee, setRangee] = useState(photo);
   const [sortie, setSortie] = useState(false);
   /** Quand la carte s'est posée : un appui parti pour passer le film ne la referme pas dans la foulée. */
   const depuis = useRef(0);
@@ -92,10 +107,12 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
   }, [carte, scene]);
 
   // La carte postale : le déclic, l'air de la fin, le cachet qui tombe, et des confettis la première fois.
+  // Sortie de l'album, elle ne fait rien de tout cela : c'est une photo qu'on regarde.
   useEffect(() => {
     if (!carte) return;
     depuis.current = Date.now();
     pied.current?.focus({ preventScroll: true });
+    if (rangee) return;
     if (!calm) playCardFlip();
     const timers = [
       window.setTimeout(() => playTier(air, !premiere), 260),
@@ -108,7 +125,14 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
       timers.forEach((timer) => window.clearTimeout(timer));
       fx?.destroy();
     };
-  }, [carte, calm, air, premiere]);
+  }, [carte, calm, air, premiere, rangee]);
+
+  /** Depuis l'album : le film se rejoue, puis se fige de nouveau, avec son déclic cette fois. */
+  const revivre = () => {
+    if (sortie) return;
+    setRangee(false);
+    setCarte(false);
+  };
 
   const fermer = () => {
     if (sortie || Date.now() - depuis.current < 480) return;
@@ -139,7 +163,7 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
 
   return (
     <div
-      className={cx("moment moment--experience", carte ? "xp--carte" : "xp--film", sortie && "xp--sortie")}
+      className={cx("moment moment--experience", carte ? "xp--carte" : "xp--film", sortie && "xp--sortie", carte && rangee && "xp--rangee")}
       role="dialog"
       aria-modal="true"
       aria-label={nom}
@@ -155,9 +179,6 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
             preserveAspectRatio="xMidYMid slice"
             focusable="false"
           >
-            <defs>
-              <clipPath id="xp-rond"><circle cx="60" cy="60" r="60" /></clipPath>
-            </defs>
             <scene.Art espece={espece} look={look} />
           </svg>
         </div>
@@ -169,7 +190,9 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
         )}
       </div>
       {carte ? (
-        <div className="xp__pied" ref={pied} tabIndex={-1}>
+        <div className={cx("xp__pied", photo && !calm && "xp__pied--deux")} ref={pied} tabIndex={-1}>
+          {/* Sans animations, il n'y a pas de film à revivre : la carte postale est tout ce qu'on en garde. */}
+          {photo && !calm && <Bouton variante="secondaire" bloc onClick={revivre}>{t("Revivre")}</Bouton>}
           <Bouton bloc onClick={fermer}>{t("Continuer")}</Bouton>
         </div>
       ) : (
@@ -177,7 +200,7 @@ export function Film({ experience, premiere }: { experience: string; premiere: b
           <span aria-hidden="true">{t("Touche l'écran pour passer")}</span>
         </button>
       )}
-      {carte && !calm && <span className="xp__flash" aria-hidden="true" />}
+      {carte && !calm && !rangee && <span className="xp__flash" aria-hidden="true" />}
       <canvas ref={canvas} className="moment__fx" aria-hidden="true" />
     </div>
   );

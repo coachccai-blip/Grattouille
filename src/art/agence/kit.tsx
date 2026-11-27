@@ -197,16 +197,26 @@ export function relief(points: readonly (readonly [number, number])[], bas = 800
 // ---------------------------------------------------------------------------
 // Le ciel et ses astres
 
+/**
+ * Un identifiant de dégradé ou de découpe propre à ce tirage de la scène. La même scène peut
+ * être à l'écran plusieurs fois (sa photo dans l'album, et son film par-dessus) : chacune a
+ * les siens, pour qu'aucune ne dépende du dessin d'une autre.
+ */
+function useTirage(nom: string): string {
+  return `${nom}${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+}
+
 /** Le ciel : un dégradé du haut (première couleur) jusqu'à l'horizon `bas`. Il déborde du cadre, par sûreté. */
 export function Ciel({ id, couleurs, bas = 800 }: { id: string; couleurs: readonly string[]; bas?: number }) {
+  const degrade = useTirage(`xp-ciel-${id}-`);
   return (
     <>
       <defs>
-        <linearGradient id={`xp-ciel-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={bas}>
+        <linearGradient id={degrade} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={bas}>
           {couleurs.map((couleur, i) => <stop key={i} offset={couleurs.length > 1 ? i / (couleurs.length - 1) : 0} stopColor={couleur} />)}
         </linearGradient>
       </defs>
-      <rect x="-20" y="-20" width="400" height="840" fill={`url(#xp-ciel-${id})`} />
+      <rect x="-20" y="-20" width="400" height="840" fill={`url(#${degrade})`} />
     </>
   );
 }
@@ -324,7 +334,7 @@ export function Tete({ espece, look }: Voyageur) {
  * ou un rond quand `rx` vaut la moitié de sa largeur). Pour une tête à la vitre d'un wagon.
  */
 export function Fenetre({ x, y, l, h, rx = 0, children }: { x: number; y: number; l: number; h: number; rx?: number; children: ReactNode }) {
-  const id = `xp-f${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const id = useTirage("xp-f");
   return (
     <>
       <clipPath id={id}><rect x={x} y={y} width={l} height={h} rx={rx} /></clipPath>
@@ -438,14 +448,16 @@ export function Astronaute({ espece, look, bras = [22, 22], jambes = [6, 6], sal
 }
 
 /**
- * Un habitant de Grattouille dans son médaillon rond (120 de large), cerclé d'ivoire. Le
- * film en fournit la découpe. `children` : un portrait qui n'est pas au registre des
- * illustrations (Madame Diem), à la place de celui de `pnj`.
+ * Un habitant de Grattouille dans son médaillon rond (120 de large), cerclé d'ivoire, avec
+ * sa découpe. `children` : un portrait qui n'est pas au registre des illustrations (Madame
+ * Diem), à la place de celui de `pnj`.
  */
 export function Medaillon({ pnj, children }: { pnj?: string; children?: ReactNode }) {
+  const rond = useTirage("xp-rond");
   return (
     <>
-      <g clipPath="url(#xp-rond)">
+      <clipPath id={rond}><circle cx="60" cy="60" r="60" /></clipPath>
+      <g clipPath={`url(#${rond})`}>
         <svg width="120" height="120">
           {children ?? <Illustration id={`pnj:${pnj}`} />}
         </svg>

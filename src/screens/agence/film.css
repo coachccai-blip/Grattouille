@@ -185,6 +185,16 @@
 
 .xp__pied:focus-visible { outline: none; }
 
+/* Sortie de l'album : deux boutons côte à côte, revivre le film ou refermer la carte. */
+.xp__pied--deux {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e2);
+}
+
+/* La carte sort de l'album : son cachet y est déjà, il ne retombe pas. */
+.xp--rangee .xp__timbre .timbre__cachet { animation: none; }
+
 /* Le film se fond avant de rendre la main. */
 .xp--sortie {
   pointer-events: none;
@@ -364,9 +374,19 @@
 
 /* La carte postale est une image fixe : chaque élément y est à sa place, sans mouvement.
    Ce qui ne faisait que passer (ce qui s'en va, ce qui éclate) n'y est plus. Les animations
-   réduites montrent d'emblée cette image-là. */
+   réduites montrent d'emblée cette image-là, et la photo de l'album (Photo.tsx) n'est
+   jamais autre chose. */
+.xp-photo *,
 .xp--carte .xp__image *,
 .calme .xp__image * { animation: none !important; }
 
+.xp-photo :is(.xp-sort, .xp-passe, .xp-disparait, .xp-eclat, .xp-fugace):not(.xp-reste),
 .xp--carte .xp__image :is(.xp-sort, .xp-passe, .xp-disparait, .xp-eclat, .xp-fugace):not(.xp-reste),
 .calme .xp__image :is(.xp-sort, .xp-passe, .xp-disparait, .xp-eclat, .xp-fugace):not(.xp-reste) { opacity: 0; }
+
+/* La photo prend la place qu'on lui donne (un cadre en 4:5). */
+.xp-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

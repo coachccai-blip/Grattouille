@@ -1,13 +1,13 @@
 // Anglais — l'Agence Carpe Diem : le catalogue des expériences de vie, la fiche d'une
-// expérience, le film qu'on en rapporte.
+// expérience, le film qu'on en rapporte, et l'album photo de la section Trophées.
 // Clé : la phrase française telle qu'elle est passée à `t()`. Valeur : sa traduction.
 //
 // Ce dictionnaire-ci ne pèse pas sur le démarrage : il n'est chargé qu'avec l'agence, dont
 // les écrans passent par le `t()` de src/screens/agence/mots.ts (LOT4.md, section 11).
 // L'enseigne de l'onglet Boutiques, elle, est traduite dans `./boutiques.ts`, et les refus
 // du magasin d'état dans `./suite.ts`. Les noms des trente expériences, les boniments de
-// Madame Diem et les légendes des cartes postales ont leurs deux versions côte à côte dans
-// src/screens/agence/textes.ts.
+// Madame Diem (au comptoir comme au bout de l'album) et les légendes des cartes postales
+// ont leurs deux versions côte à côte dans src/screens/agence/textes.ts.
 // « Vivre » une expérience se dit « to live » ; la revivre, « to relive ».
 
 export const EN_EXPERIENCES: Record<string, string> = {
@@ -30,4 +30,11 @@ export const EN_EXPERIENCES: Record<string, string> = {
   "Souvenir {n} sur {total}": "Memory {n} of {total}",
   "Passer l'animation": "Skip the animation",
   "Touche l'écran pour passer": "Tap the screen to skip",
+
+  // --- L'album photo, dans la section Trophées (src/screens/agence/Album.tsx)
+  "Chaque expérience vécue à l'Agence Carpe Diem laisse sa photo ici.":
+    "Every experience you live at the Carpe Diem Agency leaves its photo here.",
+  "Souvenir {n} : {nom}": "Memory {n}: {nom}",
+  "Les photos n'arrivent pas. Vérifie ta connexion, puis reviens.": "The photos won't load. Check your connection, then come back.",
+  "Pousser la porte de l'agence": "Step into the agency",
 };

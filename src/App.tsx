@@ -95,7 +95,9 @@ function ScreenView({ screen }: { screen: Screen }) {
     case "histoire":
       return <Suspense fallback={null}><Souvenirs screen={screen} /></Suspense>;
     // L'Agence Carpe Diem, la fiche d'une expérience de vie, et le film de celle qu'on vit.
+    // L'album photo de la section Trophées arrive avec elle : ce sont ses expériences.
     case "agence":
+    case "album":
       return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Agence screen={screen} /></Suspense>;
     case "fiche-experience":
     case "experience":

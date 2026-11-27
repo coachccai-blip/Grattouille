@@ -22,6 +22,8 @@ export type Screen =
   | { name: "carnet" }
   // Les Souvenirs : les fins déjà vues, et l'histoire de chaque hôte battu trois fois. Chargé à la demande.
   | { name: "souvenirs" }
+  // L'album photo des expériences de vie : le troisième rayon de la section Trophées. Chargé avec l'agence.
+  | { name: "album" }
   // Feuilles : posées par-dessus l'écran du dessous.
   | { name: "fiche-ticket"; ticket: string }
   | { name: "fiche-article"; item: string }
@@ -31,10 +33,11 @@ export type Screen =
   // L'histoire d'un hôte, racontée par lui : posée par-dessus les Souvenirs.
   | { name: "histoire"; lieu: PlaceId }
   // L'Agence Carpe Diem : les expériences de vie, la fiche de l'une d'elles, et son film
-  // (`premiere` : elle vient d'être payée ; sinon on la revit). Chargés à la demande.
+  // (`premiere` : elle vient d'être payée ; sinon on la revit ; `photo` : on la regarde
+  // depuis l'album, la carte postale d'abord). Chargés à la demande.
   | { name: "agence" }
   | { name: "fiche-experience"; experience: string }
-  | { name: "experience"; experience: string; premiere?: boolean }
+  | { name: "experience"; experience: string; premiere?: boolean; photo?: boolean }
   // Le Poker Tricheur : le hall, une table (par son code), et leurs feuilles.
   | { name: "poker" }
   | { name: "poker-table"; code: string }
