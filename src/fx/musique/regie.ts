@@ -1,12 +1,13 @@
 // La régie de la musique d'ambiance : c'est ici, et nulle part ailleurs, que se décide
 // quel thème va sur quel écran. Elle suit la navigation et l'état du jeu, et tient le
-// moteur : le thème du lieu à son comptoir, sur la fiche d'un de ses tickets et pendant
-// qu'on gratte un ticket de ce lieu ; le blues du poker sur tous ses écrans ; le thème de
-// la ville partout ailleurs, écran de bienvenue compris.
+// moteur : le thème du lieu à son comptoir, sur la fiche d'un de ses tickets, pendant
+// qu'on gratte un ticket de ce lieu et quand son hôte raconte son histoire ; le blues du
+// poker sur tous ses écrans ; le thème de la ville partout ailleurs, écran de bienvenue compris.
 //
 // Elle arrive avec le moteur et les partitions, à la demande (voir src/fx/musique.ts) :
 // rien de tout cela ne pèse sur le démarrage du jeu.
 
+import { isPlaceId } from "../../../shared/places";
 import { ticketById } from "../../../shared/tickets";
 import type { PendingTicket } from "../../../shared/types";
 import { resolveScreens, screenKey, useNav, type Screen } from "../../app/nav";
@@ -54,9 +55,11 @@ export function sceneDe(jeu: Vue, stack: readonly Screen[], index: number): Scen
   if (base.name === "comptoir") theme = base.place;
   else if (base.name === "grattage") theme = ticketById(ticketEnCours(base.tickets, jeu)?.type ?? "")?.place ?? "ville";
   else if (base.name === "poker" || base.name === "poker-table") theme = "poker";
-  // La fiche d'un ticket, où qu'elle s'ouvre, joue l'air de son lieu.
-  const dessus = stack[index];
-  if (dessus?.name === "fiche-ticket") theme = ticketById(dessus.ticket)?.place ?? theme;
+  // La fiche d'un ticket, où qu'elle s'ouvre, joue l'air de son lieu ; et quand un hôte
+  // raconte son histoire (dans les Souvenirs), c'est sur l'air de chez lui.
+  const dessus = stack[index] as { name: string; ticket?: unknown; lieu?: unknown } | undefined;
+  if (dessus?.name === "fiche-ticket" && typeof dessus.ticket === "string") theme = ticketById(dessus.ticket)?.place ?? theme;
+  else if (dessus?.name === "histoire" && isPlaceId(dessus.lieu)) theme = dessus.lieu;
   return { theme, niveau: isCovered(jeu) ? RETRAIT : 1, ecran, pile: base.name === "grattage" };
 }
 

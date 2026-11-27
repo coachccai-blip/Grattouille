@@ -210,10 +210,13 @@ export function storyLeftText(story: HostStory, host: string): string | null {
 
 /**
  * Les histoires qui viennent de s'ouvrir, en une phrase : « Gaspard a une histoire à te
- * raconter : elle t'attend dans tes Souvenirs. » `hosts` : les hôtes concernés ; `null` s'il n'y en a pas.
+ * raconter : elle t'attend dans tes Souvenirs. » `hosts` : les hôtes concernés ; `null` s'il n'y
+ * en a pas. Quatre d'un coup, ce sont les quatre maîtres d'une Table des Maîtres : on ne les
+ * renomme pas un à un (ils saluent juste au-dessus).
  */
 export function storiesOpenedText(hosts: readonly string[]): string | null {
   if (hosts.length === 0) return null;
+  if (hosts.length >= 4) return t("Les quatre maîtres ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.");
   // Le premier nom ouvre la phrase : « Le Baron et le Commodore ont… ».
   const names = hosts.map((host, i) => (i === 0 ? hostName(host) : nameInSentence(character(host))));
   if (names.length === 1) return t("{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.", { hote: names[0]! });

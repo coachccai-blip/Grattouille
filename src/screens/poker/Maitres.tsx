@@ -139,7 +139,7 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
   return (
     <main className={cx("ecran poker-table poker-table--sortie", won && "poker-fete")}>
       <Entete titre={tableTitle({ kind: "maitres", place: null, code: "" })} droite={<Bourse />} />
-      <div className="poker-sortie">
+      <div className={cx("poker-sortie", stories && "poker-sortie--histoires")}>
         <h2 className="t-titre">{ending.titre}</h2>
         {won && (
           <p className="poker-sortie__cagnotte poker-fete__somme">

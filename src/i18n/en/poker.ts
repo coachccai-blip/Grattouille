@@ -344,4 +344,6 @@ export const EN_POKER: Record<string, string> = {
     "{hote} has a story to tell you: it's waiting in your Memories.",
   "{hotes} ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.":
     "{hotes} have stories to tell you: they're waiting in your Memories.",
+  "Les quatre maîtres ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.":
+    "All four masters have stories to tell you: they're waiting in your Memories.",
 };

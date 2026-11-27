@@ -1208,6 +1208,9 @@
 .calme .poker-fete__somme strong,
 .calme .poker-fete__maitres li { animation: none; }
 
+/* Les histoires que cette victoire vient d'ouvrir : leur cartouche se pose après le salut des maîtres. */
+.poker-fete .poker-sortie__histoire--ouverte { animation-delay: 3200ms; }
+
 /* Le canvas des confettis et des pièces : par-dessus tout, transparent aux gestes. */
 .poker-fete__fx {
   position: fixed;
@@ -1309,6 +1312,15 @@
 
   /* Le panneau de fin se serre aussi : la bulle de l'hôte, sa cagnotte, son histoire et le bouton tiennent. */
   .poker-sortie { gap: 12px; }
+
+  /* La Table des Maîtres gagnée, avec des histoires qui s'ouvrent : c'est le panneau le plus rempli.
+     Leur cartouche s'écrit plus petit, et tout tient sans défiler jusqu'à trois noms. */
+  .poker-fete .poker-sortie--histoires { gap: 10px; }
+
+  .poker-fete .poker-sortie > .poker-sortie__histoire--ouverte {
+    padding: 6px 10px 7px;
+    font: 500 13px/17px var(--texte);
+  }
 }
 
 /* À une grande table (cinq ou six sièges), sur un écran de hauteur moyenne : quand c'est au
