@@ -6,6 +6,9 @@
 //
 // Chargé avec le reste du jeu (il ne pèse presque rien) : les trois écrans, eux, arrivent
 // à la demande, et chacun doit pouvoir s'afficher sans que les autres soient là.
+//
+// Ses classes s'appellent `rayons-trophees` : la Boutique a déjà ses « rayons » (les onglets
+// d'un magasin, boutiques.css), et deux feuilles de style qui partagent un nom se mélangent.
 
 import { nav } from "../app/nav";
 import { storiesWaiting, useGame } from "../app/store";
@@ -32,12 +35,12 @@ export function Rayons({ actif }: { actif: Rayon }) {
     if (name !== actif) nav.replace({ name });
   };
   return (
-    <div className="rayons" role="tablist" aria-label={t("Médailles, souvenirs ou album")}>
+    <div className="rayons-trophees" role="tablist" aria-label={t("Médailles, souvenirs ou album")}>
       <button
         type="button"
         role="tab"
         aria-selected={actif === "trophees"}
-        className={cx("rayon", actif === "trophees" && "rayon--actif")}
+        className={cx("rayons-trophees__onglet", actif === "trophees" && "rayons-trophees__onglet--actif")}
         onClick={() => aller("trophees")}
       >
         {t("Médailles")}
@@ -46,20 +49,20 @@ export function Rayons({ actif }: { actif: Rayon }) {
         type="button"
         role="tab"
         aria-selected={actif === "souvenirs"}
-        className={cx("rayon", actif === "souvenirs" && "rayon--actif")}
+        className={cx("rayons-trophees__onglet", actif === "souvenirs" && "rayons-trophees__onglet--actif")}
         aria-label={histoires > 0 ? t("Souvenirs : {n} à écouter", { n: histoires }) : undefined}
         onClick={() => aller("souvenirs")}
       >
         {t("Souvenirs")}
         {/* Les histoires qui attendent : la pastille se voit depuis les autres rayons. */}
-        {histoires > 0 && <span className="rayon__pastille" aria-hidden="true">{histoires}</span>}
+        {histoires > 0 && <span className="rayons-trophees__pastille" aria-hidden="true">{histoires}</span>}
       </button>
       {/* Les photos des expériences vécues à l'Agence Carpe Diem. */}
       <button
         type="button"
         role="tab"
         aria-selected={actif === "album"}
-        className={cx("rayon", actif === "album" && "rayon--actif")}
+        className={cx("rayons-trophees__onglet", actif === "album" && "rayons-trophees__onglet--actif")}
         onClick={() => aller("album")}
       >
         {t("Album")}

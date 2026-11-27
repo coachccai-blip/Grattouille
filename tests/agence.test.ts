@@ -794,6 +794,31 @@ describe("l'album photo des expériences vécues, dans la section Trophées", ()
     expect(EN_TROPHEES["Album"]).toBe("Album");
   });
 
+  it("les classes du sélecteur et de l'album n'appartiennent qu'à eux : aucune autre feuille de style ne les définit", () => {
+    // La Boutique a ses « rayons » (les onglets d'un magasin) : un sélecteur des trophées nommé
+    // pareil prenait ses marges, et lui donnait son fond. Deux feuilles qui partagent un nom se mélangent.
+    const classes = (css: string) => new Set([...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/\.(-?[a-zA-Z_][\w-]*)/g)].map((m) => m[1]!));
+    const NEUVES = ["src/ui/rayons.css", "src/screens/agence/album.css"];
+    // Les classes d'état posées sur la page entière se partagent, et c'est voulu.
+    const PARTAGEES = new Set(["calme"]);
+    const miennes = new Set(NEUVES.flatMap((feuille) => [...classes(lire(feuille))]).filter((nom) => !PARTAGEES.has(nom)));
+    expect(miennes.has("rayons-trophees") && miennes.has("photo") && miennes.has("album")).toBe(true);
+    const autres = (readdirSync(`${root}src`, { recursive: true }) as string[])
+      .map((f) => `src/${f.replace(/\\/g, "/")}`)
+      .filter((f) => f.endsWith(".css") && !NEUVES.includes(f));
+    expect(autres.length).toBeGreaterThan(20);
+    for (const feuille of autres) {
+      expect([feuille, [...classes(lire(feuille))].filter((nom) => miennes.has(nom))]).toEqual([feuille, []]);
+    }
+    // Ce que le film a reçu pour l'album n'existe que chez lui.
+    for (const nom of ["xp-photo", "xp--rangee", "xp__pied--deux"]) {
+      expect([nom, autres.filter((f) => f !== "src/screens/agence/film.css" && classes(lire(f)).has(nom))]).toEqual([nom, []]);
+    }
+    // Et le sélecteur ne s'appelle plus comme les rayons de la Boutique.
+    expect(lire("src/ui/Rayons.tsx")).not.toMatch(/className="rayons"|cx\("rayon"/);
+    expect(classes(lire("src/screens/boutiques/boutiques.css")).has("rayons")).toBe(true);
+  });
+
   it("« Pousser la porte de l'agence » tient sur une ligne de bouton, dans les deux langues", () => {
     expect(len("Pousser la porte de l'agence")).toBeLessThanOrEqual(30);
     expect(len(EN_EXPERIENCES["Pousser la porte de l'agence"]!)).toBeLessThanOrEqual(30);

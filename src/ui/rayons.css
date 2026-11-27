@@ -1,8 +1,11 @@
 /* Les trois rayons de la section Trophées : médailles, souvenirs, album. Trois onglets dans
    une gouttière de laiton, chacun à la largeur de son mot, plus sa part de la place qui
-   reste ; l'onglet choisi est en papier. */
+   reste ; l'onglet choisi est en papier.
 
-.rayons {
+   Ces classes s'appellent `rayons-trophees`, pas `rayons` : la Boutique a déjà les siens
+   (boutiques.css), et les deux se mélangeaient. */
+
+.rayons-trophees {
   display: flex;
   gap: 4px;
   margin-bottom: var(--e4);
@@ -12,7 +15,7 @@
   box-shadow: inset 0 0 0 1px rgba(243, 213, 138, .35);
 }
 
-.rayon {
+.rayons-trophees__onglet {
   display: flex;
   flex: 1 1 auto;
   gap: 6px;
@@ -29,21 +32,21 @@
 
 /* Sur un écran de 320 px, les trois mots et la pastille se resserrent d'un cran. */
 @media (max-width: 359px) {
-  .rayon {
+  .rayons-trophees__onglet {
     gap: 5px;
     padding: 0 6px;
     font-size: 15px;
   }
 }
 
-.rayon--actif {
+.rayons-trophees__onglet--actif {
   background: var(--ivoire);
   color: var(--nuit);
 }
 
-.rayon:active { transform: scale(.97); }
+.rayons-trophees__onglet:active { transform: scale(.97); }
 
-.rayon__pastille {
+.rayons-trophees__pastille {
   flex: none;
   min-width: 20px;
   height: 20px;
