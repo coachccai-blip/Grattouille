@@ -879,7 +879,7 @@ describe("l'histoire de chaque hôte : le battre trois fois au poker l'ouvre", (
     expect(storyProgressText(hostStory(wins(), "cafe"))).toBe("Story: 0 of 3 wins");
     expect(storyProgressText(hostStory(wins({ cafe: 1 }), "cafe"))).toBe("Story: 1 of 3 wins");
     expect(storyProgressText(hostStory(wins({ cafe: 2 }), "cafe"))).toBe("Story: 2 of 3 wins");
-    expect(storyProgressText(hostStory(wins({ cafe: 3 }), "cafe"))).toBe("Story unlocked: it's waiting in your Memories.");
+    expect(storyProgressText(hostStory(wins({ cafe: 3 }), "cafe"))).toBe("Story unlocked: see your Memories.");
   });
 
   it("au panneau de fin d'un défi gagné : ce qu'il reste, puis l'annonce à la troisième, puis plus rien", () => {

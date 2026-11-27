@@ -385,3 +385,39 @@ button.souvenir:active { transform: translateY(2px); }
 .histoire--apres .histoire__album::before {
   background: linear-gradient(rgba(14, 47, 58, .3), rgba(14, 47, 58, .62));
 }
+
+/* Un petit écran : tout se resserre un peu, pour que la photo garde sa place. */
+@media (max-height: 620px) {
+  .histoire__album {
+    min-height: 132px;
+    padding: calc(var(--haut) + 8px) 16px 30px;
+  }
+
+  @supports (width: 1cqw) {
+    .histoire__photo { width: max(120px, min(100cqw, (100cqh - 44px) * 1.4286, 400px)); }
+  }
+
+  .histoire__photo { padding: 5px 5px 0; }
+
+  .histoire__legende {
+    padding: 4px 2px 6px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .histoire__corps {
+    gap: var(--e2);
+    padding-top: var(--e2);
+    padding-bottom: calc(var(--bas) + var(--e3));
+  }
+
+  .histoire__qui { padding-left: 70px; }
+
+  .histoire__portrait {
+    width: 60px;
+    height: 60px;
+  }
+
+  .histoire__bulles { gap: 6px; }
+  .histoire__bulles .bulle__texte { padding: 6px 12px 8px; }
+}

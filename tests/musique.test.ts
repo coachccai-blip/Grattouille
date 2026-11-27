@@ -19,7 +19,7 @@ import { completeState } from "../src/app/etat";
 import type { Screen } from "../src/app/nav";
 import { EN_MUSIQUE } from "../src/i18n/en/musique";
 import { FONDU, NIVEAU, VOIX_MAX, creeMoteur, type Moteur } from "../src/fx/musique/moteur";
-import { accord, brode, classe, echelle, hertz, lis, longueur, plaque, suite, ton } from "../src/fx/musique/solfege";
+import { accord, brode, classe, echelle, grince, hertz, lis, longueur, plaque, suite, ton } from "../src/fx/musique/solfege";
 import { THEMES, THEME_IDS, type Plume, type ThemeId } from "../src/fx/musique/themes";
 
 // ---------------------------------------------------------------------------
@@ -334,12 +334,22 @@ describe("le solfège", () => {
     expect(plaque(accord("C"), 64, 3)).toEqual([64, 67, 72]);
     // Une quinte à vide n'a que deux notes : elle se redouble à l'octave.
     expect(plaque(accord("A5"), 62, 3)).toEqual([64, 69, 76]);
-    for (const nom of ["Dm7", "Fmaj7", "E7sus4", "Em9"]) {
-      const v = plaque(accord(nom), 60, 3);
-      expect(v).toHaveLength(3);
-      expect(v[2]! - v[0]!).toBeLessThanOrEqual(12);
-      for (const t of v) expect(accord(nom).tons).toContain(classe(t));
+    for (const nom of ["Dm7", "Fmaj7", "E7sus4", "Em9", "Dm9", "Cmaj7", "Bm7b5"]) {
+      for (const plancher of [55, 59, 60, 62, 64]) {
+        const v = plaque(accord(nom), plancher, 3);
+        expect(v).toHaveLength(3);
+        expect(v[2]! - v[0]!).toBeLessThanOrEqual(17);
+        for (const t of v) expect(accord(nom).tons).toContain(classe(t));
+        // Jamais deux notes à un demi-ton l'une de l'autre : la neuvième passe au-dessus.
+        for (let i = 1; i < v.length; i++) expect([nom, plancher, v[i]! - v[i - 1]! > 1]).toEqual([nom, plancher, true]);
+      }
     }
+    // Mi mineur neuvième : ré, sol, et le fa dièse tout en haut (pas collé au sol).
+    expect(plaque(accord("Em9"), 59, 3)).toEqual([62, 67, 78]);
+    // Une basse grince sous un accord quand elle est un demi-ton sous une de ses notes.
+    expect(grince(accord("Dm7"), ton("e3"))).toBe(true);
+    expect(grince(accord("Dm7"), ton("c3"))).toBe(false);
+    expect(grince(accord("Cmaj7"), ton("b2"))).toBe(false);
   });
 
   it("une phrase improvisée reste dans sa gamme, ne répète jamais une note, et se pose pour finir", () => {

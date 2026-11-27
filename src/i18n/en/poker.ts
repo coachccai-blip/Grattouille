@@ -335,7 +335,7 @@ export const EN_POKER: Record<string, string> = {
   // (« Memories », comme aux Réglages). Ni « his » ni « her » : chaque phrase vaut pour les huit.
   "Son histoire : {n} victoire sur {total}": "Story: {n} of {total} wins",
   "Son histoire : {n} victoires sur {total}": "Story: {n} of {total} wins",
-  "Son histoire t'attend dans tes Souvenirs.": "Story unlocked: it's waiting in your Memories.",
+  "Son histoire t'attend dans tes Souvenirs.": "Story unlocked: see your Memories.",
   "Sa cagnotte est déjà gagnée : on rejoue pour l'honneur, et pour son histoire.":
     "The kitty is already won: this one is for honour, and for the story.",
   "Encore une victoire et {hote} te raconte son histoire.": "One more win and you'll hear {hote}'s story.",

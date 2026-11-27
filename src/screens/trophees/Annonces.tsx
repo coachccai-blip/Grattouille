@@ -17,8 +17,11 @@ import { useAnnonces } from "../../app/trophees";
 import { Annonce } from "./Annonce";
 import { annoncer, finAnnonce, peutAnnoncer, remettreAnnonce } from "./file";
 
-/** Ce qui prend tout l'écran : un grand moment du récit, la fête d'un très gros lot. */
-const PLEIN_ECRAN = ".moment, .fete";
+/**
+ * Ce qui prend tout l'écran : un grand moment du récit, la fête d'un très gros lot, et tout
+ * plein écran qui se signale par `data-plein-ecran` (une animation venue d'un autre écran).
+ */
+const PLEIN_ECRAN = ".moment, .fete, [data-plein-ecran]";
 /** Ce pendant quoi une annonce n'arrive pas : cela, un résultat qui s'affiche, un carnet gratté en rafale. */
 const OCCUPE = `${PLEIN_ECRAN}, .grattage__plateau--resultat, .grattage--rafale`;
 
@@ -31,13 +34,18 @@ function libre(quoi: string): boolean {
 }
 
 /**
- * Le carton a sa place : la barre d'en-tête de l'écran est là, ou une feuille couvre l'écran
- * (ce qui est dessous ne se lit plus, et le haut d'une feuille n'est que sa poignée).
+ * Le carton a sa place : la barre d'en-tête de l'écran est là, à découvert, ou une feuille
+ * couvre l'écran (ce qui est dessous ne se lit plus, et le haut d'une feuille n'est que sa
+ * poignée). Sur une page qui a défilé, la barre n'est plus là. Et là où le carton se
+ * poserait, ce qui est au-dessus doit être un écran du jeu ou une feuille : sous un plein
+ * écran venu d'ailleurs, quel qu'il soit, la barre est couverte, et l'annonce attend.
  */
 function enTeteLibre(): boolean {
-  if (document.querySelector(".feuille")) return true;
-  const barre = document.querySelector(".jeu__fond > .ecran .entete__barre");
-  return !barre || barre.getBoundingClientRect().top >= 0;
+  const barre = document.querySelector(".jeu__fond > .ecran .entete__barre")?.getBoundingClientRect();
+  const enPlace = !barre || barre.top >= 0;
+  if (!enPlace && !document.querySelector(".feuille")) return false;
+  const dessus = document.elementFromPoint(window.innerWidth / 2, barre && enPlace ? barre.top + barre.height / 2 : 40);
+  return !dessus || dessus.closest(".jeu__fond") !== null;
 }
 
 /** Ce qu'une annonce attend après le geste qui l'a value, puis entre deux annonces, puis quand la place est prise. */
@@ -74,7 +82,7 @@ export function Annonces() {
       if (libre(PLEIN_ECRAN)) return;
       if (Date.now() - depuis < LUE_MS) remettreAnnonce();
       else finAnnonce();
-    }, 200);
+    }, 120);
     return () => window.clearInterval(veille);
   }, [annonce]);
 

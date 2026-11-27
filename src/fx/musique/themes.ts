@@ -13,7 +13,7 @@
 
 import type { PlaceId } from "../../../shared/types";
 import {
-  accord, brode, classe, echelle, grave, lis, plaque, rang, sort, suite, ton, type Accord, type Broderie, type Note,
+  accord, brode, classe, echelle, grave, grince, lis, plaque, rang, sort, suite, ton, type Accord, type Broderie, type Note,
 } from "./solfege";
 import {
   ACCORDEON, BALAI, BASSE, CHARLEY, CLAVECIN, CLAVIER, CONTREBASSE, FLUTE, GUITARE, LAME, NAPPE, PIED, PINCE, RHODES,
@@ -112,6 +112,15 @@ function voisine(gamme: readonly number[], midi: number, de: number): number {
   return t;
 }
 
+/**
+ * La note par laquelle une basse rejoint sa prochaine fondamentale (`but`) : sa voisine dans
+ * la gamme, du côté demandé ; de l'autre si celle-là grince sous l'accord qui sonne encore.
+ */
+function approche(gamme: readonly number[], sous: Accord, but: number, cote: number): number {
+  const note = voisine(gamme, but, cote);
+  return grince(sous, note) ? voisine(gamme, but, -cote) : note;
+}
+
 /** La basse qui alterne : la quinte de l'accord, ou sa fondamentale quand il est renversé. */
 function alterne(a: Accord, plancher: number): number {
   return grave(a.basse !== a.tons[0] ? a.tons[0]! : (a.tons[2] ?? a.tons[1] ?? a.tons[0]!), plancher);
@@ -203,7 +212,7 @@ const VILLE: Theme = {
     p.n("basse", 0, b1, 3, 1);
     if (vif) p.n("basse", 3, b1, 1, 0.55);
     p.n("basse", 4, a2 !== a1 ? grave(a2.basse, 43) : alterne(a1, 43), vif ? 2 : 3, 0.85);
-    if (vif && k < 7 && sort(n) < 0.5) p.n("basse", 7, voisine(BLANCHES, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n + 1) < 0.5 ? -1 : 1), 1, 0.5);
+    if (vif && k < 7 && sort(n) < 0.5) p.n("basse", 7, approche(BLANCHES, a2, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n + 1) < 0.5 ? -1 : 1), 1, 0.5);
 
     // Le ukulélé : les contretemps, un aller et un retour. Dans le pont, il égrène l'accord.
     const v1 = plaque(a1, 64, 3);
@@ -220,7 +229,7 @@ const VILLE: Theme = {
 
     const air = VILLE_AIRS[section];
     if (air) {
-      chante(p, "lame", air[k]!, 1, 0, 0.6);
+      chante(p, "lame", air[k]!, 1, 0, 0.45);
       // Aux tours suivants, une réponse dans l'aigu quand l'air tient sa note.
       if ((k === 3 || k === 7) && (tour > 0 || section === "A3") && sort(n * 3) < 0.7) {
         const haut = plaque(a2, 79, 3);
@@ -297,7 +306,7 @@ const KIOSQUE: Theme = {
     // La contrebasse sur les deux temps, la pompe sur les levées : « poum, tchic, poum, tchic ».
     p.n("basse", 0, grave(a1.basse, 43), 2.4, 1);
     p.n("basse", 3, a2 !== a1 ? grave(a2.basse, 43) : alterne(a1, 43), autrement ? 1.6 : 2.2, 0.8);
-    if (autrement && k < 7) p.n("basse", 5, voisine(UN_DIESE, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n) < 0.5 ? -1 : 1), 0.9, 0.55);
+    if (autrement && k < 7) p.n("basse", 5, approche(UN_DIESE, a2, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n) < 0.5 ? -1 : 1), 0.9, 0.55);
     plaquer(p, "pompe", 2, plaque(a1, 62, 3), 0.8, 0.8, 0.06);
     plaquer(p, "pompe", 5, plaque(a2, 62, 3), 0.8, 0.9, 0.06);
     if (autrement) {
@@ -415,9 +424,10 @@ const CAFE: Theme = {
 // Le Casino, au coucher du soleil : du swing en la mineur. La contrebasse marche, la
 // cymbale fait « ting, ting-a-ting », un vibraphone expose le thème, puis improvise.
 
+// (Do avec sa sixte, pas sa septième majeure : le thème se pose sur le do, qui grincerait contre un si.)
 const CASINO_ACCORDS = [
-  "Am7", "Dm7", "G7", "Cmaj7", "Fmaj7", "Bm7b5", "E7sus4", "Am7",
-  "Am7", "Dm7", "G7", "Cmaj7", "Fmaj7", "Bm7b5", "E7sus4", "Am7 E7sus4",
+  "Am7", "Dm7", "G7", "C6", "Fmaj7", "Bm7b5", "E7sus4", "Am7",
+  "Am7", "Dm7", "G7", "C6", "Fmaj7", "Bm7b5", "E7sus4", "Am7 E7sus4",
 ];
 
 const CASINO_AIRS: Record<string, readonly string[]> = {
@@ -426,7 +436,7 @@ const CASINO_AIRS: Record<string, readonly string[]> = {
     "-:2 e5 g5:2 a5:4 -:3", "-:2 d5 f5:2 a5:4 -:3", "-:2 d5 f5:2 g5 f5:2 d5 b4:3", "c5:2 e5 g5:6 -:3",
     "-:2 a5 c6:2 e6:4 -:3", "-:2 a5 b5:2 d6:4 -:3", "e6:2 d6 b5:2 a5 e5:3 -:3", "a5:6 -:6",
     "-:2 e5 g5:2 a5:4 -:3", "-:2 d5 f5:2 a5:2 c6 a5:4", "-:2 d5 f5:2 g5 b5:2 d6 b5:3", "c6:2 g5 e5:6 -:3",
-    "c6:2 a5 f5:2 a5 c6:2 e6 -:3", "d6:2 b5 a5:2 f5:4 -:3", "e5:2 a5 b5:2 d6 e6:6", "-:2 e6 c6:2 a5:7",
+    "c6:2 a5 e5:2 a5 c6:2 e6 -:3", "d6:2 b5 a5:2 f5:4 -:3", "e5:2 a5 b5:2 d6 e6:6", "-:2 e6 c6:2 a5:7",
   ],
 };
 
@@ -461,9 +471,12 @@ const CASINO: Theme = {
     const cible = rang(gamme, grave(suivant.basse, 43));
     const pasDeux = a2 !== a1 ? rang(gamme, grave(a2.basse, 43)) : racine + (p.alea() < 0.5 ? 2 : 1) * (p.alea() < 0.3 ? -1 : 1);
     const pasTrois = a2 !== a1 ? pasDeux : racine + (pasDeux > racine ? 4 : -3);
-    // La note d'approche vient du côté où se trouve la basse ; jamais la même note deux fois de suite.
-    let approche = cible + (pasTrois >= cible ? 1 : -1);
-    if (approche === pasTrois) approche = cible + (pasTrois >= cible ? -1 : 1);
+    // La note d'approche vient du côté où se trouve la basse ; jamais la même note deux fois
+    // de suite, et jamais une note qui grince sous l'accord.
+    const dernier = a2;
+    const cote = pasTrois >= cible ? 1 : -1;
+    let approche = cible + cote;
+    if (approche === pasTrois || grince(dernier, gamme[Math.max(0, Math.min(gamme.length - 1, approche))]!)) approche = cible - cote;
     const marche = [racine, a2 !== a1 ? racine + 4 : pasDeux, a2 !== a1 ? pasDeux : pasTrois, approche];
     marche.forEach((i, temps) => {
       const t = gamme[Math.max(0, Math.min(gamme.length - 1, i))]!;
@@ -663,7 +676,7 @@ const CERCLE: Theme = {
 // basse qui rebondit, une caisse sourde, un piano électrique, un clavier des années 80.
 
 const YACHT_ACCORDS: Record<string, readonly string[]> = {
-  A: ["Em9", "Cmaj7", "Am7", "Bm7", "Em9", "Cmaj7", "Am7", "Bm7"],
+  A: ["Em7", "Cmaj7", "Am7", "Bm7", "Em7", "Cmaj7", "Am7", "Bm7"],
   B: ["Cmaj7", "D6", "Em7", "Em7", "Cmaj7", "D6", "Gmaj7", "Bm7"],
 };
 
@@ -710,7 +723,7 @@ const YACHT: Theme = {
     if (p.alea() < 0.85) p.n("basse", 6, b + 12, 1.2, 0.7);
     p.n("basse", 10, b, 1.8, 0.9);
     p.n("basse", 12, alterne(a, 40), 1.8, 0.7);
-    p.n("basse", 14, voisine(UN_DIESE, grave(suivant.basse, 40), p.alea() < 0.5 ? -1 : 1), 1.6, 0.6);
+    p.n("basse", 14, approche(UN_DIESE, a, grave(suivant.basse, 40), p.alea() < 0.5 ? -1 : 1), 1.6, 0.6);
 
     // Le piano électrique : l'accord posé, puis une ponctuation.
     const v = plaque(a, 59, 3);
@@ -895,8 +908,10 @@ const POKER: Theme = {
     const racine = rang(gamme, grave(a.basse, 43));
     const cible = rang(gamme, grave(suivant.basse, 43));
     const troisieme = racine + (k % 4 === 3 || p.alea() < 0.5 ? 4 : 2);
-    let approche = cible + (troisieme >= cible ? 1 : -1);
-    if (approche === troisieme) approche = cible + (troisieme >= cible ? -1 : 1);
+    // La note d'approche : du côté où se trouve la basse, mais jamais une note qui grince sous l'accord.
+    const cote = troisieme >= cible ? 1 : -1;
+    let approche = cible + cote;
+    if (approche === troisieme || grince(a, gamme[Math.max(0, Math.min(gamme.length - 1, approche))]!)) approche = cible - cote;
     const marche = [racine, k % 4 === 3 ? racine + 2 : racine, troisieme, approche];
     marche.forEach((i, temps) => {
       const t = gamme[Math.max(0, Math.min(gamme.length - 1, i))]!;

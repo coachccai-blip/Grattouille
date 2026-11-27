@@ -126,7 +126,19 @@ export function plaque(a: Accord, plancher: number, n = 3): number[] {
   for (let midi = plancher; notes.length < n && midi < plancher + 36; midi++) {
     if (choisies.includes(classe(midi))) notes.push(midi);
   }
+  // Deux notes à un demi-ton l'une de l'autre grincent : la plus grave passe à l'octave, au-dessus de l'accord.
+  for (let i = 0; i + 1 < notes.length; i++) {
+    if (notes[i + 1]! - notes[i]! === 1) {
+      notes.push(notes.splice(i, 1)[0]! + 12);
+      i--;
+    }
+  }
   return notes;
+}
+
+/** Vrai si cette basse grince sous cet accord : elle est un demi-ton sous une de ses notes, sans en être une. */
+export function grince(a: Accord, midi: number): boolean {
+  return a.tons.includes(classe(midi + 1)) && !a.tons.includes(classe(midi));
 }
 
 /** Toutes les notes de ces classes de hauteur entre deux bornes, en montant : l'échelle d'un instrument. */
@@ -244,7 +256,8 @@ export function brode(o: Broderie): { notes: Note[]; fin: number } {
           ici = 0;
           sens = 1;
         } else if (o.alea() < 0.18) sens = -sens;
-        if (k === 0 && o.alea() < 0.7) ici = surAccord(ici, avant);
+        // Le début d'un temps se pose le plus souvent sur l'accord ; une note longue, toujours.
+        if (k === 0 && (o.alea() < 0.7 || duree >= o.temps)) ici = surAccord(ici, avant);
         // Jamais deux fois la même note de suite.
         if (ici === avant) ici = avant + sens >= 0 && avant + sens <= haut ? avant + sens : avant - sens;
         notes.push([pas, o.notes[ici]!, duree, k === 0 ? 1 : 0.8]);
