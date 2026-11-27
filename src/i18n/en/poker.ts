@@ -277,4 +277,8 @@ export const EN_POKER: Record<string, string> = {
   "Cette table a fermé.": "This table has closed.",
   "Ton tapis ({montant}) est retourné dans ta bourse.": "Your stack ({montant}) is back in your purse.",
   "Retour au hall": "Back to the lobby",
+
+  // --- La Table des Maîtres : refus du serveur (src/app/store.ts)
+  "La Table des Maîtres n'ouvre qu'à qui a relevé les huit défis.":
+    "The Masters' Table only opens to whoever has beaten all eight challenges.",
 };

@@ -18,9 +18,12 @@
 import { setFormatLang } from "../../shared/format";
 import { EN_BOUTIQUES } from "./en/boutiques";
 import { EN_JEU } from "./en/jeu";
+import { EN_MUSIQUE } from "./en/musique";
 import { EN_POKER } from "./en/poker";
 import { EN_RECIT } from "./en/recit";
+import { EN_SUITE } from "./en/suite";
 import { EN_TICKETS } from "./en/tickets";
+import { EN_TROPHEES } from "./en/trophees";
 
 export type Lang = "fr" | "en";
 export const LANGS: readonly Lang[] = ["fr", "en"];
@@ -29,7 +32,10 @@ export function isLang(x: unknown): x is Lang {
   return x === "fr" || x === "en";
 }
 
-const EN: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER };
+const EN: Record<string, string> = {
+  ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER,
+  ...EN_SUITE, ...EN_TROPHEES, ...EN_MUSIQUE,
+};
 
 let current: Lang = "fr";
 /** Les phrases demandées en anglais et absentes des dictionnaires : elles restent en français. */

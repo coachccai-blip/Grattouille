@@ -1,4 +1,5 @@
-// Tickets : achat, ticket trouvé par terre, déclaration (BRIEF.md, sections 5.5, 6.5, 15.4 et 15.6).
+// Tickets : achat, ticket trouvé par terre, déclaration (BRIEF.md, sections 5.5, 6.5, 15.4 et 15.6),
+// et les tickets que le Patron laisse tomber à son tour.
 
 import { FIRST_TICKET_MULTIPLIER, HOUSE_MULTIPLIER, drawGain } from "../../shared/economy";
 import {
@@ -10,7 +11,7 @@ import type { PendingTicket } from "../../shared/types";
 import { newTicketId } from "../auth";
 import { fail } from "../errors";
 import { commit, json, readAck, readBody, unchanged, writePlayer, type Deps } from "../http";
-import { safeAdd } from "../player";
+import { countOf, safeAdd } from "../player";
 
 /** POST /api/tickets/buy { type, qty, ack? } → { tickets, state } */
 export async function buyTickets(req: Request, deps: Deps): Promise<Response> {
@@ -92,5 +93,34 @@ export async function ackTickets(req: Request, deps: Deps): Promise<Response> {
   const body = await readBody(req);
   const ack = readAck(body, true);
   const { state } = await writePlayer(req, deps, ack, (_p, _now, paid) => (paid > 0 ? commit(null) : unchanged(null)));
+  return json({ state });
+}
+
+/**
+ * POST /api/tickets/sow { type, qty?, ack? } → { state }
+ * Le Patron du Kiosque laisse tomber des tickets pour ceux qui débarquent sans rien : un,
+ * cinq ou dix d'un coup (`qty`, un par défaut). Il les paie de sa bourse, au prix du
+ * comptoir. Ce ne sont pas ses tickets : rien ne l'attend à gratter, rien ne s'ajoute à
+ * ses tickets joués ni à ses mises, et il n'y gagne rien que le plaisir de les semer.
+ */
+export async function sowTickets(req: Request, deps: Deps): Promise<Response> {
+  const body = await readBody(req);
+  const ack = readAck(body);
+  const def = typeof body.type === "string" ? ticketById(body.type) : undefined;
+  if (!def) fail("BAD_REQUEST");
+  const qty = body.qty === undefined || body.qty === null ? 1 : body.qty;
+  if (qty !== 1 && qty !== 5 && qty !== 10) fail("BAD_REQUEST");
+
+  const { state } = await writePlayer(req, deps, ack, (p, now) => {
+    const cost = def.price * qty;
+    if (!p.kiosk) fail("SOW_LOCKED");
+    if (p.balance < cost) fail("INSUFFICIENT_FUNDS");
+    if (now - p.lastBuyAt < BUY_COOLDOWN_MS) fail("TOO_FAST");
+    p.balance -= cost;
+    p.stats.sown = safeAdd(countOf(p.stats.sown), qty);
+    p.stats.sownValue = safeAdd(countOf(p.stats.sownValue), cost);
+    p.lastBuyAt = now;
+    return commit(null);
+  });
   return json({ state });
 }

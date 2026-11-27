@@ -220,6 +220,7 @@ const FAILURES: Record<FailureCode, string> = {
   PSEUDO_INVALID: "Ce pseudo ne convient pas. Il faut 3 à 16 caractères : lettres, chiffres, espace ou tiret.",
   PLACE_LOCKED: "Ce lieu est encore fermé. Il te faut plus de Standing.",
   KIOSK_LOCKED: "Le Kiosque n'est à vendre qu'une fois ta collection complète.",
+  SOW_LOCKED: "Seul le Patron du Kiosque laisse tomber des tickets pour les nouveaux venus.",
   NOT_FOUND: "Cette adresse n'existe pas.",
   PSEUDO_TAKEN: "Ce pseudo est pris. Essaie avec un autre.",
   INSUFFICIENT_FUNDS: "Il te manque de l'argent pour cet achat.",
@@ -237,6 +238,7 @@ const FAILURES: Record<FailureCode, string> = {
   NOT_YOUR_TURN: "Ce n'est pas ton tour. Attends que la parole te revienne.",
   ACTION_IMPOSSIBLE: "Ce geste n'est plus possible : la table a déjà tourné.",
   BLIND_TOO_HIGH: "Cette blinde est trop haute pour ta bourse : il en faut quarante pour créer la table.",
+  MASTERS_LOCKED: "La Table des Maîtres n'ouvre qu'à qui a relevé les huit défis.",
 };
 
 /** Les précisions que le serveur donne parfois à la place du message de son code : connues, donc traduites. */
@@ -608,6 +610,75 @@ export async function pickUpTicket(): Promise<PendingTicket | null> {
       toast(failureText(error), "erreur");
     }
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Les tickets semés et l'histoire
+
+/** Le Patron peut laisser tomber des tickets : le Kiosque est à lui. */
+export function canSow(s: Pick<GameState, "player">): boolean {
+  return s.player?.kiosk === true;
+}
+
+/** Pourquoi semer est impossible, vu de l'appareil. `null` : rien ne s'y oppose. */
+export function sowBlocker(type: string, qty: number): string | null {
+  const s = get();
+  const def = ticketById(type);
+  if (!s.player || !def) return null;
+  if (!s.online) return t("Hors connexion. Les tickets à semer attendront.");
+  if (!s.player.kiosk) return t(FAILURES.SOW_LOCKED);
+  const balance = displayBalance(s);
+  const cost = def.price * qty;
+  if (balance >= cost) return null;
+  return t("Il te manque {montant} pour semer ça.", { montant: formatEuros(cost - balance) });
+}
+
+/**
+ * Laisse tomber des tickets pour les nouveaux venus (un, cinq ou dix). Rend vrai si
+ * c'est fait. Un refus s'affiche, sauf `quiet` : le geste du générique ne dit rien
+ * quand la bourse est vide.
+ */
+export async function sowTickets(type: string, qty = 1, quiet = false): Promise<boolean> {
+  const blocker = sowBlocker(type, qty);
+  if (blocker) {
+    if (!quiet) {
+      if (get().online && get().player?.kiosk) flashPurse();
+      toast(blocker, "erreur");
+    }
+    return false;
+  }
+  if (!get().player || !ticketById(type)) return false;
+  try {
+    const r = await api.sowTickets(requireAuth(), type, qty, ackList());
+    applyState(r.state);
+    return true;
+  } catch (error) {
+    await recover(error);
+    if (!quiet) {
+      if (error instanceof ApiFailure && error.code === "INSUFFICIENT_FUNDS") flashPurse();
+      toast(failureText(error), "erreur");
+    }
+    return false;
+  }
+}
+
+/** La vraie fin se mérite : le Kiosque est à lui, les huit défis sont relevés, et il ne l'a pas encore vue. */
+export function trueEndingDue(s: Pick<GameState, "player">): boolean {
+  const p = s.player;
+  return !!p && p.kiosk && p.defis.length >= PLACES.length && !p.story.vraieFin;
+}
+
+/** Marque la vraie fin comme vue. Sans réseau, elle se rejouera à la prochaine visite. */
+export async function markTrueEndingSeen(): Promise<boolean> {
+  if (!get().player) return false;
+  try {
+    const r = await api.storySeen(requireAuth(), "vraie-fin", ackList());
+    applyState(r.state);
+    return true;
+  } catch (error) {
+    await recover(error);
+    return false;
   }
 }
 

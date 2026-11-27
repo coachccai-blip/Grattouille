@@ -33,11 +33,11 @@ const len = (s: string) => [...s].length;
 const ITEMS = [...CATALOG, KIOSK];
 const SLOTS = Object.keys(SLOT_LABELS) as Slot[];
 const TEMPERAMENTS = Object.keys(TEMPERAMENT_LABELS) as Temperament[];
-/** Les clés des rangs : un par lieu, puis celui du propriétaire du Kiosque. */
-const RANK_KEYS = [...PLACES.map((p) => p.id), "patron"];
+/** Les clés des rangs : un par lieu, puis celui du propriétaire du Kiosque, puis celui de la vraie fin. */
+const RANK_KEYS = [...PLACES.map((p) => p.id), "patron", "legende"];
 const frenchRank = (key: string) => {
   const place = PLACES.find((p) => p.id === key);
-  return place ? rankOf(place.standing, false) : rankOf(0, true);
+  return place ? rankOf(place.standing, false) : rankOf(0, true, key === "legende");
 };
 
 /**
@@ -79,7 +79,7 @@ function readAll(n: Noms) {
     shops: SHOPS.map((s) => [n.shopName(s.id), n.keeperName(s.id), n.shopBlurb(s.id)]),
     slots: SLOTS.map((s) => n.slotLabel(s)),
     species: SPECIES.map((s) => n.speciesName(s)),
-    ranks: [...PLACES.map((p) => n.rankName(p.standing, false)), n.rankName(0, true)],
+    ranks: [...PLACES.map((p) => n.rankName(p.standing, false)), n.rankName(0, true), n.rankName(0, true, true)],
     temperaments: TEMPERAMENTS.map((x) => n.temperamentName(x)),
   };
 }
@@ -146,8 +146,8 @@ describe("noms anglais : rien ne manque", () => {
   it("aucune entrée absente ni vide", () => {
     const all = pairs();
     // 30 tickets, 111 biens, 8 × 3 pour les lieux, 4 × 3 pour les boutiques, 7 emplacements,
-    // 8 espèces, 9 rangs, 3 tempéraments.
-    expect(all.length).toBe(30 + 111 + 24 + 12 + 7 + 8 + 9 + 3);
+    // 8 espèces, 10 rangs, 3 tempéraments.
+    expect(all.length).toBe(30 + 111 + 24 + 12 + 7 + 8 + 10 + 3);
     expect(all.filter((p) => typeof p.en !== "string" || p.en.trim() === "").map((p) => p.what)).toEqual([]);
   });
 });
@@ -301,6 +301,9 @@ describe("noms.ts : français par défaut, anglais sur demande", () => {
     // Le propriétaire du Kiosque, quel que soit son Standing.
     expect(noms.rankName(0, true)).toBe(EN_RANKS.patron);
     expect(noms.rankName(80_000, true)).toBe(EN_RANKS.patron);
+    // Après la vraie fin : « Légende ». Sans le Kiosque, ce rang n'existe pas.
+    expect(noms.rankName(80_000, true, true)).toBe(EN_RANKS.legende);
+    expect(noms.rankName(80_000, false, true)).toBe(EN_RANKS.lune);
   });
 
   it("aucun identifiant connu n'est noté comme manquant", () => {

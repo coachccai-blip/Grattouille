@@ -259,6 +259,9 @@ describe("lieux", () => {
     ]);
     expect(rankOf(19, false)).toBe("Gueux");
     expect(rankOf(80_000, true)).toBe("Patron");
+    // La vraie fin vue : « Légende ». Ce rang ne remplace que « Patron ».
+    expect(rankOf(80_000, true, true)).toBe("Légende");
+    expect(rankOf(80_000, false, true)).toBe("Crésus");
   });
 });
 

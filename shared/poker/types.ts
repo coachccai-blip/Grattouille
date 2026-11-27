@@ -42,7 +42,8 @@ export type PokerErrorCode =
   | "BUYIN_UNAFFORDABLE"  // 409 : la bourse ne suffit pas pour la cave
   | "NOT_YOUR_TURN"       // 409 : ce n'est pas à lui de parler
   | "ACTION_IMPOSSIBLE"   // 409 : geste interdit à ce moment, ou montant hors limites
-  | "BLIND_TOO_HIGH";     // 409 : blinde au-dessus du quarantième de la bourse
+  | "BLIND_TOO_HIGH"      // 409 : blinde au-dessus du quarantième de la bourse
+  | "MASTERS_LOCKED";     // 403 : la Table des Maîtres n'ouvre qu'une fois les huit défis relevés
 
 // ---------------------------------------------------------------------------
 // Ce qui est public pendant une main

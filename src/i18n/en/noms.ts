@@ -260,8 +260,8 @@ export const EN_SPECIES: Record<string, string> = {
 } satisfies Record<SpeciesId, string>;
 
 /**
- * Rangs, par identifiant de lieu, plus `patron`. De gueux à Crésus : la même ascension,
- * du port à la Lune. Le dernier sert aussi d'adresse (« The Kiosk is yours, Boss. »).
+ * Rangs, par identifiant de lieu, plus `patron` et `legende`. De gueux à Crésus : la même
+ * ascension, du port à la Lune. « Boss » sert aussi d'adresse (« The Kiosk is yours, Boss. »).
  */
 export const EN_RANKS: Record<string, string> = {
   kiosque: "Pauper",
@@ -273,7 +273,8 @@ export const EN_RANKS: Record<string, string> = {
   banque: "Tycoon",
   lune: "Croesus",
   patron: "Boss",
-} satisfies Record<PlaceId | "patron", string>;
+  legende: "Legend",
+} satisfies Record<PlaceId | "patron" | "legende", string>;
 
 /** Du plus sage au plus fou, en minuscules : ils suivent « temperament: » sur la jauge. */
 export const EN_TEMPERAMENTS: Record<Temperament, string> = {

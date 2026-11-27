@@ -2,9 +2,10 @@
 // (BRIEF.md, sections 15.3 et 15.4).
 
 import { JACKPOT_MULTIPLIER } from "../shared/economy";
+import { PLACES } from "../shared/places";
 import { LUCKY_FIND_MS, emptyLook, fortuneOf, standingOf, START_BALANCE } from "../shared/rules";
 import { ticketById } from "../shared/tickets";
-import type { BoardEntry, Look, PendingTicket, PlayerState, PlayerStats } from "../shared/types";
+import type { BoardEntry, Look, PendingTicket, PlaceId, PlayerState, PlayerStats, PokerStats } from "../shared/types";
 
 export const SCHEMA_VERSION = 1;
 
@@ -24,6 +25,13 @@ export interface PokerSession {
   paid: number;
 }
 
+/**
+ * Les statistiques telles qu'elles sont enregistrées. Les compteurs ajoutés après la
+ * première version manquent dans les comptes plus anciens : ils valent alors zéro.
+ * Aucun compte n'est jamais réécrit pour les recevoir.
+ */
+export type StoredStats = Omit<PlayerStats, "sown" | "sownValue"> & { sown?: number; sownValue?: number };
+
 export interface PlayerRecord {
   /** Version du schéma. */
   v: number;
@@ -35,12 +43,18 @@ export interface PlayerRecord {
   owned: string[];
   look: Look;
   kiosk: boolean;
-  stats: PlayerStats;
+  stats: StoredStats;
   createdAt: number;
   /** Absent d'un compte qui n'a jamais joué au poker. */
   poker?: PokerSession | null;
   /** Les lieux dont le défi est relevé : la cagnotte d'un hôte ne se verse qu'une fois. */
   pokerWins?: string[];
+  /** Combien de fois la Table des Maîtres a été remportée. Absent : jamais. */
+  masters?: number;
+  /** Les compteurs du poker. Absents d'un compte d'avant : ils valent zéro. */
+  pokerStats?: Partial<PokerStats>;
+  /** La vraie fin, « Huit as de cœur », a été vue. Absent : pas encore. */
+  vraieFin?: boolean;
 
   // Les champs suivants ne sont jamais envoyés au client.
   pseudoKey: string;
@@ -100,7 +114,44 @@ export function fortune(r: PlayerRecord): number {
   return safeAdd(fortuneOf(r), r.poker?.paid ?? 0);
 }
 
-/** Ce que le client reçoit. Standing et fortune sont recalculés à chaque fois. */
+/** Un compteur enregistré, ou zéro s'il manque (compte d'avant) ou s'il est illisible. */
+export function countOf(x: unknown): number {
+  return typeof x === "number" && Number.isFinite(x) && x > 0 ? Math.min(Number.MAX_SAFE_INTEGER, Math.floor(x)) : 0;
+}
+
+/** Les lieux dont le défi de poker est relevé, dans l'ordre de la Promenade. */
+export function defisOf(r: Pick<PlayerRecord, "pokerWins">): PlaceId[] {
+  const wins = r.pokerWins ?? [];
+  return PLACES.filter((place) => wins.includes(place.id)).map((place) => place.id);
+}
+
+/** Les huit hôtes sont ruinés : la Table des Maîtres s'ouvre. */
+export function allChallengesWon(r: Pick<PlayerRecord, "pokerWins">): boolean {
+  return defisOf(r).length === PLACES.length;
+}
+
+/** La vraie fin se mérite : le Kiosque est à lui et les huit défis sont relevés. */
+export function trueEndingEarned(r: Pick<PlayerRecord, "kiosk" | "pokerWins">): boolean {
+  return r.kiosk && allChallengesWon(r);
+}
+
+export function pokerStatsOf(r: Pick<PlayerRecord, "pokerStats">): PokerStats {
+  const s = r.pokerStats ?? {};
+  return { hands: countOf(s.hands), pots: countOf(s.pots), unmasked: countOf(s.unmasked), caught: countOf(s.caught) };
+}
+
+/** Ajoute à un compteur du poker (créé à la première fois). */
+export function bumpPokerStat(r: PlayerRecord, key: keyof PokerStats, by = 1): void {
+  if (by <= 0) return;
+  const stats = pokerStatsOf(r);
+  stats[key] = safeAdd(stats[key], by);
+  r.pokerStats = stats;
+}
+
+/**
+ * Ce que le client reçoit. Standing et fortune sont recalculés à chaque fois ; tout ce
+ * qui a été ajouté après la première version reçoit ici sa valeur par défaut.
+ */
 export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState {
   const state: PlayerState = {
     id: r.id,
@@ -113,9 +164,13 @@ export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState 
     kiosk: r.kiosk,
     standing: standingOf(r.owned, r.kiosk),
     fortune: fortune(r),
-    stats: r.stats,
+    stats: { ...r.stats, sown: countOf(r.stats.sown), sownValue: countOf(r.stats.sownValue) },
     createdAt: r.createdAt,
     luckyIn: Math.max(0, LUCKY_FIND_MS - (now - r.lastHouseAt)),
+    defis: defisOf(r),
+    masters: countOf(r.masters),
+    story: { fin: r.kiosk, vraieFin: r.vraieFin === true },
+    pokerStats: pokerStatsOf(r),
   };
   // La table où il est assis, pour y revenir après un rechargement.
   if (r.poker) state.poker = { code: r.poker.code };

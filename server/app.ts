@@ -3,8 +3,9 @@
 // bac à sable passent tous par ici (BRIEF.md, section 15.5).
 
 import { ApiError, fail } from "./errors";
-import { ackTickets, buyTickets, foundTicket } from "./handlers/tickets";
+import { ackTickets, buyTickets, foundTicket, sowTickets } from "./handlers/tickets";
 import { ban, health, leaderboard } from "./handlers/misc";
+import { storySeen } from "./handlers/story";
 import { createPlayer, deleteMe, getMe, openSession } from "./handlers/players";
 import { createPokerTable, joinPokerTable, pokerAct, pokerLobby, pokerTable } from "./handlers/poker";
 import { buyItem, setLook } from "./handlers/shop";
@@ -23,6 +24,9 @@ const ROUTES: Record<string, Handler> = {
   // L'ancien nom de la route, pour une page restée ouverte pendant une mise à jour.
   "POST /api/tickets/house": foundTicket,
   "POST /api/tickets/ack": ackTickets,
+  // Le Patron laisse tomber des tickets pour ceux qui débarquent sans rien.
+  "POST /api/tickets/sow": sowTickets,
+  "POST /api/story/seen": storySeen,
   "POST /api/shop/buy": buyItem,
   "POST /api/look": setLook,
   "GET /api/leaderboard": leaderboard,

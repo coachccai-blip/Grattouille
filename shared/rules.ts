@@ -193,8 +193,12 @@ const RANKS: Record<PlaceId, string> = {
   cercle: "Rentier", yacht: "Nabab", banque: "Magnat", lune: "Crésus",
 };
 
-/** Le rang affiché sous le pseudo : celui du meilleur lieu débloqué, puis « Patron ». */
-export function rankOf(standing: number, kiosk: boolean): string {
+/**
+ * Le rang affiché sous le pseudo : celui du meilleur lieu débloqué, puis « Patron » pour
+ * qui a racheté le Kiosque, et « Légende » pour qui a vu la vraie fin de l'histoire.
+ */
+export function rankOf(standing: number, kiosk: boolean, legend = false): string {
+  if (kiosk && legend) return "Légende";
   return kiosk ? "Patron" : RANKS[bestPlace(standing).id];
 }
 

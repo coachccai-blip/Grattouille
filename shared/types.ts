@@ -50,6 +50,30 @@ export type Look = Record<LookSlot, string | null>;
 export interface PlayerStats {
   tickets: number; winners: number; wagered: number; won: number;
   bestGain: number; bestTicket: string | null; jackpots: number;
+  /** Tickets laissés tomber par terre pour les nouveaux venus (0 pour un compte d'avant). */
+  sown: number;
+  /** Leur valeur totale : la somme de leurs prix. */
+  sownValue: number;
+}
+
+/** Les compteurs du Poker Tricheur. Tous à zéro pour un compte qui n'y a pas encore joué. */
+export interface PokerStats {
+  /** Mains jouées jusqu'au dénouement. */
+  hands: number;
+  /** Pots remportés. */
+  pots: number;
+  /** Tricheurs démasqués par une accusation juste du joueur. */
+  unmasked: number;
+  /** Fois où le joueur s'est fait démasquer. */
+  caught: number;
+}
+
+/** Où en est le joueur dans l'histoire. */
+export interface StoryState {
+  /** Le premier générique est derrière lui : vrai dès que le Kiosque est à lui. */
+  fin: boolean;
+  /** La vraie fin, « Huit as de cœur », a été vue. */
+  vraieFin: boolean;
 }
 
 export interface PlayerState {      // ce que le client reçoit
@@ -67,6 +91,12 @@ export interface PlayerState {      // ce que le client reçoit
   luckyIn: number;
   /** La table de poker où le joueur est assis, pour y revenir. Absent s'il n'est assis nulle part. */
   poker?: { code: string };
+  /** Les lieux dont le défi de poker est relevé, dans l'ordre des lieux. */
+  defis: PlaceId[];
+  /** Combien de fois la Table des Maîtres a été remportée. */
+  masters: number;
+  story: StoryState;
+  pokerStats: PokerStats;
 }
 
 export interface BoardEntry {
@@ -84,7 +114,7 @@ export interface Board {
 export type ErrorCode =
   | "BAD_REQUEST" | "PSEUDO_INVALID" | "UNAUTHORIZED" | "PLACE_LOCKED" | "KIOSK_LOCKED"
   | "NOT_FOUND" | "PSEUDO_TAKEN" | "INSUFFICIENT_FUNDS" | "PENDING_FULL" | "ALREADY_OWNED"
-  | "HOUSE_NOT_ELIGIBLE" | "CONFLICT" | "TOO_FAST" | "DAILY_LIMIT";
+  | "HOUSE_NOT_ELIGIBLE" | "CONFLICT" | "TOO_FAST" | "DAILY_LIMIT" | "SOW_LOCKED";
 
 export interface ApiErrorBody {
   error: { code: ErrorCode; message: string };

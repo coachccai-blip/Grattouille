@@ -71,10 +71,10 @@ export function speciesName(id: string): string {
   return en(EN_SPECIES[id], `species:${id}`, SPECIES_LABELS[id as SpeciesId] ?? id);
 }
 
-/** Le rang sous le pseudo : « Gueux », …, « Patron ». */
-export function rankName(standing: number, kiosk: boolean): string {
-  const key = kiosk ? "patron" : bestPlace(standing).id;
-  return en(EN_RANKS[key], `rank:${key}`, rankOf(standing, kiosk));
+/** Le rang sous le pseudo : « Gueux », …, « Patron », et « Légende » après la vraie fin. */
+export function rankName(standing: number, kiosk: boolean, legend = false): string {
+  const key = kiosk ? (legend ? "legende" : "patron") : bestPlace(standing).id;
+  return en(EN_RANKS[key], `rank:${key}`, rankOf(standing, kiosk, legend));
 }
 
 /** « pépère », « joueur », « casse-cou ». */

@@ -12,6 +12,7 @@ import type {
 import type {
   ActBody, CreateTableBody, JoinTableBody, PokerErrorCode, PokerLobbyResponse, PokerPollResponse, PokerTableResponse,
 } from "../../shared/poker/types";
+import { completeResponse } from "./etat";
 import type { Auth } from "./persist";
 
 /**
@@ -113,7 +114,8 @@ function enqueue<T>(job: () => Promise<T>): Promise<T> {
 
 async function send<T>(req: RawRequest): Promise<T> {
   const { status, data } = await transport(req);
-  if (status >= 200 && status < 300) return data as T;
+  // L'état du joueur, s'il est dans la réponse, reçoit les champs qu'un serveur plus ancien ignore.
+  if (status >= 200 && status < 300) return completeResponse(data as T);
   const error = (data as Partial<ApiErrorBody> | null)?.error;
   const code = (error?.code ?? "SERVER_ERROR") as FailureCode;
   throw new ApiFailure(code, status, error?.message ?? "");
@@ -143,6 +145,14 @@ export const api = {
 
   ack: (auth: Auth, ack: string[]) =>
     call<StateResponse>({ method: "POST", path: "/api/tickets/ack", auth, body: { ack } }),
+
+  /** Le Patron laisse tomber des tickets pour les nouveaux venus : un, cinq ou dix d'un coup. */
+  sowTickets: (auth: Auth, type: string, qty: number, ack: string[]) =>
+    call<StateResponse>({ method: "POST", path: "/api/tickets/sow", auth, body: { type, qty, ack } }),
+
+  /** Marque une page de l'histoire comme vue (la vraie fin). */
+  storySeen: (auth: Auth, id: "vraie-fin", ack: string[]) =>
+    call<StateResponse>({ method: "POST", path: "/api/story/seen", auth, body: { id, ack } }),
 
   /** Déclaration envoyée au passage en arrière-plan : hors file, sans attendre la réponse. */
   ackNow: (auth: Auth, ack: string[]): void => {
