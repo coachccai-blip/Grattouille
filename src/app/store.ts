@@ -731,6 +731,8 @@ export function closeMemory(): void {
 }
 
 type StoriesView = Pick<GameState, "player" | "sandbox" | "settings" | "sandboxStories">;
+/** Aucune histoire regardée : toujours la même liste vide, pour qu'un écran qui la lit ne se redessine pas sans fin. */
+const NO_STORIES: readonly string[] = [];
 
 /**
  * Les histoires des hôtes que ce joueur a déjà regardées sur cet appareil : « lieu », ou
@@ -739,7 +741,7 @@ type StoriesView = Pick<GameState, "player" | "sandbox" | "settings" | "sandboxS
 export function storiesSeen(s: StoriesView): readonly string[] {
   const { joueur, vues } = s.sandbox ? s.sandboxStories : s.settings.histoires;
   // Ce qu'un autre compte a regardé sur cet appareil ne compte pas.
-  return s.player && joueur === s.player.id ? vues : [];
+  return s.player && joueur === s.player.id ? vues : NO_STORIES;
 }
 
 /**
