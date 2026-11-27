@@ -500,7 +500,7 @@ joueurs actuels ».
 
 ### Ce qui a été vérifié avant de livrer
 
-- 1 078 tests (19 fichiers), dont ceux qui rejouent des comptes des versions 1.0, 1.1 et
+- 1 090 tests (19 fichiers), dont ceux qui rejouent des comptes des versions 1.0, 1.1 et
   2.0 ; `npm run simulate` identique au chiffre près (10,1 heures, aucune partie bloquée).
 - À l'écran, sous Chromium, en français et en anglais, à 360 × 640, 320 × 568 et 390 × 844 :
   l'ancien parcours du jeu (124 écrans, quatre passes) ne montre aucun changement pour un
@@ -509,11 +509,26 @@ joueurs actuels ».
   Aucune traduction ne manque. Le seul défaut trouvé (la cagnotte d'un tournoi cachée sous
   le bouton à 320 px) est corrigé. Ont été joués de bout en bout : la vraie fin, une
   histoire d'hôte, des tickets semés par un, cinq et dix, six expériences de l'agence, une
-  Table des Maîtres. Les Souvenirs une fois passés dans la section Trophées, les écrans
-  neufs ont été repris dans les deux langues à 360 et 320 px : rien à signaler.
+  Table des Maîtres.
+- **Les Souvenirs et l'album une fois rangés dans la section Trophées, tout a été repris** :
+  les tests ; les écrans neufs dans les deux langues aux trois tailles (six passes) ;
+  l'ancien parcours en français à 360 px et en anglais à 320 px ; l'album vide, à sa
+  première photo, en cours, plein, et sans réseau ; une photo ouverte, son film revécu.
+  Un album plein (trente photos) défile sans à-coup sur un processeur ralenti six fois, et
+  les trente cartes postales sont identiques, à l'octet près, à celles d'avant.
+- **Un défaut trouvé à cette occasion, et corrigé avant de livrer** : le sélecteur des
+  trophées s'appelait « rayons », comme les onglets d'une boutique, et les deux feuilles de
+  style se mélangeaient (les onglets de la Boutique en étaient déformés). Ses classes ont
+  changé de nom, un test interdit désormais qu'une classe de la suite soit définie ailleurs,
+  et dix-huit écrans existants (le Domaine, la Promenade, le classement, les Boutiques,
+  chaque boutique et ses rayons, l'agence) ont été comparés au pixel près à ceux de la 2.1
+  d'avant ces deux changements, en français à 360 px et en anglais à 320 px : identiques.
 - La répétition depuis l'archive : installation, construction, tests, simulation, puis la
   fonction empaquetée par l'outil de Netlify, branchée sur le client Blobs — le parcours
-  général, puis les comptes d'avant déposés tels quels dans le store.
+  général, puis les comptes d'avant déposés tels quels dans le store. (Après les Souvenirs
+  et l'album : installation, construction, tests et simulation ont été rejoués depuis la
+  nouvelle archive ; le serveur, les règles partagées et la fonction n'ont pas changé d'un
+  octet, leur répétition reste celle-là.)
 - Ce qui n'a pas pu l'être est à la section 8.
 
 ## 1. Déploiement (jalon 0)
