@@ -22,10 +22,9 @@ export const EN_JEU: Record<string, string> = {
   "Réessayer": "Try again",
   "Jouer dans le bac à sable": "Play in the sandbox",
   "Tourne ton téléphone.": "Turn your phone upright.",
-  "Grattouille a fait peau neuve.": "Grattouille has had a fresh coat of paint.",
-  "Recharge la page pour continuer : ta fortune et tes tickets n'ont pas bougé.":
-    "Reload the page to carry on: your fortune and your tickets haven't moved.",
-  "Recharger": "Reload",
+  "Grattouille a fait peau neuve. Recharge la page pour continuer : rien n'est perdu.":
+    "Grattouille has had a fresh coat of paint. Reload the page to carry on: nothing is lost.",
+  "Hors connexion. Cet écran attendra le retour du réseau.": "You're offline. This screen will wait for the network.",
 
   // --- Onglets, en-tête, bourse, feuille, bulle
   "Navigation principale": "Main navigation",

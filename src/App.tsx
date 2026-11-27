@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useEffect, useLayoutEffect, type ComponentType } from "react";
 import { hasTabs, nav, resolveScreens, screenKey, tabOf, useNav, type Screen } from "./app/nav";
-import { boot, closeTrueEnding, isCalm, openTrueEnding, trueEndingDue, useGame } from "./app/store";
+import { boot, closeTrueEnding, isCalm, openTrueEnding, toast, trueEndingDue, useGame } from "./app/store";
 import { Icon } from "./art/icons";
 import { ArtDefs } from "./art/kit";
 import { installGestes } from "./fx/gestes";
@@ -32,7 +32,7 @@ import "./app.css";
 const Planche = lazy(() => import("./screens/planche/Planche"));
 
 // Le Poker Tricheur a son propre morceau : il n'est chargé qu'en poussant sa porte.
-const Poker = lazy(() => import("./screens/poker"));
+const Poker = lazy(() => ouAbsent(import("./screens/poker")));
 
 // La vitrine des trophées aussi : ses dessins et les noms des médailles n'arrivent qu'avec elle.
 const Trophees = lazy(() => ouAbsent(import("./screens/trophees")));
@@ -40,11 +40,20 @@ const Trophees = lazy(() => ouAbsent(import("./screens/trophees")));
 /** Au lancement, qui est assis à une table de poker y revient : une fois, pas à chaque changement de langue. */
 let pokerRepris = false;
 
-/** Un morceau de la suite n'est pas arrivé (plus de réseau) : on referme ce qu'il devait montrer, sans rien casser. */
+/**
+ * Un morceau du jeu n'est pas arrivé : on referme ce qu'il devait montrer, sans rien casser,
+ * et on dit pourquoi. Sans réseau, il attendra. Avec du réseau, c'est que le jeu a été mis à
+ * jour pendant que la page était ouverte, et que le fichier demandé n'existe plus : il
+ * suffit de recharger, la partie est côté serveur.
+ */
 function Absent() {
   useEffect(() => {
-    if (useGame.getState().trueEnding) closeTrueEnding(false);
+    const { trueEnding, online } = useGame.getState();
+    if (trueEnding) closeTrueEnding(false);
     else nav.back();
+    toast(online
+      ? t("Grattouille a fait peau neuve. Recharge la page pour continuer : rien n'est perdu.")
+      : t("Hors connexion. Cet écran attendra le retour du réseau."), "erreur");
   }, []);
   return null;
 }

@@ -1,6 +1,7 @@
 // Les petites pièces des écrans du poker : la tête d'un joueur, un jeton, la barre de
 // temps, un réglage à deux boutons.
 
+import "./anglais";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";

@@ -2,6 +2,7 @@
 // Ce module n'est chargé qu'à la demande (voir App.tsx) : le hall, la table et leurs
 // feuilles forment un morceau à part, que le reste du jeu n'attend pas.
 
+import "./anglais";
 import type { Screen } from "../../app/nav";
 import { FeuillePoker } from "./Feuilles";
 import { Hall } from "./Hall";

@@ -5,6 +5,7 @@
 // d'un tricheur, ou ce que chaque accusateur paie à l'innocent) ; à côté de chaque nom,
 // le bilan de la main.
 
+import "./anglais";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEuros } from "../../../shared/format";
 import type { Card } from "../../../shared/poker/cards";

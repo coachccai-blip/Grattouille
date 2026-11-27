@@ -2,6 +2,7 @@
 // carte en deux signes. Tout se lit à l'affichage, dans la langue du jeu : les tables de
 // ce fichier gardent leurs phrases françaises, qui sont les clés de traduction.
 
+import "./anglais";
 import { NBSP, formatEuros, formatInt } from "../../../shared/format";
 import { cardRank, cardSuit, type Card } from "../../../shared/poker/cards";
 import { placeById } from "../../../shared/places";

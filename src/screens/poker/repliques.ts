@@ -13,6 +13,7 @@
 // - rien n'est figé à l'import : tout se lit dans la langue courante, au moment de l'affichage ;
 // - on ne se moque jamais de qui perd, et un hôte ne dit jamais la règle du jeu.
 
+import "./anglais";
 import { hostName, type Line, type Speaker } from "../../app/dialogues";
 import { lang, type Lang } from "../../i18n";
 import type { DuelStage } from "./calcul";

@@ -14,6 +14,7 @@
 // - La bourse ne bouge qu'en s'asseyant, en recavant et en partant : le serveur joint alors
 //   l'état du joueur, que le magasin du jeu applique.
 
+import "../screens/poker/anglais";
 import { create } from "zustand";
 import type {
   ActBody, CreateTableBody, PokerAction, PokerLobbyResponse, PokerPollResponse, PokerTableResponse, TableView,

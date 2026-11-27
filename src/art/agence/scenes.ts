@@ -9,6 +9,7 @@ import type { SceneArt } from "./kit";
 import { SCENES_CIEL } from "./scenes-ciel";
 import { SCENES_FOLIES } from "./scenes-folies";
 import { SCENES_PORT } from "./scenes-port";
+import { SCENES_VILLE } from "./scenes-ville";
 import { SCENES_VOYAGES } from "./scenes-voyages";
 
 /**
@@ -242,5 +243,18 @@ export const SCENES: Record<string, Scene> = {
     fond: ["#22306E", "#060A22"],
     cadre: 200,
     sons: [[300, "souffle"], [1500, "grelots"], [2800, "souffle"], [4200, "scintille"], [5400, "gamme", 7], [6800, "halo"]],
+  },
+
+  // --- La dernière
+  "toute-la-ville": {
+    Art: SCENES_VILLE["toute-la-ville"]!,
+    duree: 9400,
+    fond: ["#38B4E8", "#2BB5C6"],
+    cadre: 226,
+    sons: [
+      [300, "fanfare"],
+      ...Array.from({ length: 14 }, (_, i): Bruit => [1100 + i * 300 + 120, "toc", i % 6]),
+      [5700, "bravo"], [5900, "gamme", 7], [6700, "mouette"], [7400, "accord", 2],
+    ],
   },
 };

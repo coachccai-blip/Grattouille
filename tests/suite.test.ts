@@ -14,7 +14,11 @@ import {
 import { ticketById } from "../shared/tickets";
 import { MEDAL_COUNT, TROPHIES, medalsOf, newMedals, progressOf, trophyById } from "../shared/trophies";
 import type { PlayerState } from "../shared/types";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { completeResponse, completeState } from "../src/app/etat";
+import { EN_POKER } from "../src/i18n/en/poker";
+import { EN_POKER_SEUIL } from "../src/i18n/en/poker-seuil";
 
 const T0 = Date.UTC(2026, 10, 27, 9, 0, 0);
 const ALL_ITEMS = CATALOG.map((item) => item.id);
@@ -857,5 +861,44 @@ describe("l'appareil complète l'état d'un serveur plus ancien", () => {
     const reply = completeResponse({ tickets: [], state: old as unknown as PlayerState });
     expect(reply.state.story).toEqual({ fin: false, vraieFin: false });
     expect(reply.tickets).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("l'anglais du poker ne pèse pas sur le premier chargement", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const read = (file: string) => readFileSync(`${root}${file}`, "utf8");
+
+  it("ce qui reste au démarrage est recopié mot pour mot du dictionnaire du poker", () => {
+    const seuil = Object.entries(EN_POKER_SEUIL);
+    expect(seuil.length).toBeGreaterThan(10);
+    expect(seuil.length).toBeLessThan(30);
+    for (const [fr, en] of seuil) expect([fr, EN_POKER[fr]]).toEqual([fr, en]);
+  });
+
+  it("tout ce que le jeu dit du poker avant d'en pousser la porte est au démarrage", () => {
+    // La carte du poker sur la Promenade.
+    const promenade = read("src/screens/promenade/Promenade.tsx");
+    const card = promenade.slice(promenade.indexOf("lieu--poker"));
+    const said = [...card.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string);
+    expect(said.length).toBeGreaterThan(2);
+    // Les refus du serveur, traduits par le magasin d'état.
+    const store = read("src/app/store.ts");
+    const start = store.indexOf("// Le Poker Tricheur (traduits");
+    const failures = [...store.slice(start, store.indexOf("};", start)).matchAll(/:\s*"((?:[^"\\]|\\.)*)"/g)]
+      .map((m) => JSON.parse(`"${m[1]}"`) as string);
+    expect(failures.length).toBeGreaterThan(7);
+    for (const fr of [...said, ...failures]) expect([fr, fr in EN_POKER_SEUIL]).toEqual([fr, true]);
+  });
+
+  it("le dictionnaire complet n'est importé que par les écrans du poker", () => {
+    expect(read("src/i18n/index.ts")).not.toContain("./en/poker\"");
+    expect(read("src/screens/poker/anglais.ts")).toContain("addEnglish(EN_POKER)");
+    // Chaque module du poker qui affiche un texte l'apporte avec lui.
+    for (const file of ["src/screens/poker/index.tsx", "src/screens/poker/textes.ts", "src/screens/poker/Hall.tsx", "src/screens/poker/Table.tsx"]) {
+      expect([file, read(file).includes('import "./anglais";')]).toEqual([file, true]);
+    }
+    expect(read("src/app/poker.ts")).toContain('import "../screens/poker/anglais";');
   });
 });

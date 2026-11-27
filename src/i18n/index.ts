@@ -19,7 +19,7 @@ import { setFormatLang } from "../../shared/format";
 import { EN_BOUTIQUES } from "./en/boutiques";
 import { EN_JEU } from "./en/jeu";
 import { EN_MUSIQUE } from "./en/musique";
-import { EN_POKER } from "./en/poker";
+import { EN_POKER_SEUIL } from "./en/poker-seuil";
 import { EN_RECIT } from "./en/recit";
 import { EN_SUITE } from "./en/suite";
 import { EN_TICKETS } from "./en/tickets";
@@ -33,7 +33,8 @@ export function isLang(x: unknown): x is Lang {
 }
 
 const EN: Record<string, string> = {
-  ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER,
+  // Le poker n'apporte ici que sa porte d'entrée : son dictionnaire complet vient avec ses écrans.
+  ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER_SEUIL,
   ...EN_SUITE, ...EN_TROPHEES, ...EN_MUSIQUE,
 };
 

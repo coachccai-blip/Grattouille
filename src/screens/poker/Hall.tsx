@@ -7,6 +7,7 @@
 // maître à ruiner, elle se devine en bas de la liste, fermée, avec ce qui l'ouvre ; une
 // fois ouverte, elle passe en tête, devant la Lune.
 
+import "./anglais";
 import { useEffect } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import { PLACES, placeById } from "../../../shared/places";

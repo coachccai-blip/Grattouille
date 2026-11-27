@@ -6,6 +6,7 @@
 // L'écran ne décide de rien : il montre la vue que le serveur fabrique pour ce joueur,
 // et n'offre que les gestes que cette vue permet (`view.options`).
 
+import "./anglais";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";

@@ -437,13 +437,17 @@ export function Astronaute({ espece, look, bras = [22, 22], jambes = [6, 6], sal
   );
 }
 
-/** Un habitant de Grattouille dans son médaillon rond (120 de large), cerclé d'ivoire. Le film en fournit la découpe. */
-export function Medaillon({ pnj }: { pnj: string }) {
+/**
+ * Un habitant de Grattouille dans son médaillon rond (120 de large), cerclé d'ivoire. Le
+ * film en fournit la découpe. `children` : un portrait qui n'est pas au registre des
+ * illustrations (Madame Diem), à la place de celui de `pnj`.
+ */
+export function Medaillon({ pnj, children }: { pnj?: string; children?: ReactNode }) {
   return (
     <>
       <g clipPath="url(#xp-rond)">
         <svg width="120" height="120">
-          <Illustration id={`pnj:${pnj}`} />
+          {children ?? <Illustration id={`pnj:${pnj}`} />}
         </svg>
       </g>
       <circle cx="60" cy="60" r="58" fill="none" stroke={C.ivoire} strokeWidth="5" />

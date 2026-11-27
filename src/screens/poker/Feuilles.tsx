@@ -6,6 +6,7 @@
 // téléphone les referme. Celles qui dépendent d'un temps de la main (la triche,
 // l'accusation) se referment d'elles-mêmes quand ce temps est passé.
 
+import "./anglais";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import type { Card } from "../../../shared/poker/cards";

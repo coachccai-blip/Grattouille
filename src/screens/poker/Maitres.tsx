@@ -4,6 +4,7 @@
 // ruinés qui saluent. Perdue, l'un d'eux raccompagne le joueur, et l'invite à revenir.
 // Quittée, on repart avec son tapis, sans la victoire.
 
+import "./anglais";
 import { useEffect, useRef, type CSSProperties } from "react";
 import { THIN, formatEuros } from "../../../shared/format";
 import type { SeatView, TableView } from "../../../shared/poker/types";

@@ -2,6 +2,7 @@
 // face ; au-delà, le premier et le dernier prennent les côtés. La parole tourne comme
 // autour d'une vraie table : à gauche, en face, à droite.
 
+import "./anglais";
 import type { ReactNode } from "react";
 import { formatEuros } from "../../../shared/format";
 import type { SeatView, TableView } from "../../../shared/poker/types";
