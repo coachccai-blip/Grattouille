@@ -22,7 +22,7 @@ export const EN_EXPERIENCES: Record<string, string> = {
   "Vécue": "Lived",
   "{nom}, vécue": "{nom}, lived",
   "Vivre l'expérience": "Live the experience",
-  "Autant de fois que tu veux : c'est la maison qui offre.": "As many times as you like: it's on the house.",
+  "Autant que tu veux : c'est la maison qui offre.": "As often as you like: it's on the house.",
   "Le film de ce souvenir n'arrive pas. Vérifie ta connexion, puis réessaie.":
     "This memory's film won't load. Check your connection, then try again.",
 

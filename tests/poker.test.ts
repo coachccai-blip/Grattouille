@@ -9,7 +9,7 @@ import {
   IDLE_TABLE_MS, MAX_BLIND, MAX_TABLE_CHIPS, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS,
   BOT_MAX_POTS, CHALLENGE_BLINDS, CHALLENGE_ROUNDS, PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
   cardRank, cardSuit, challengeBlind, challengeOf, challengeRise, challengeRound, chipsOnTable, compareHands, createTable, deposit,
-  difficultyOf, evaluate, handStrength, houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt,
+  difficultyOf, evaluate, handRank, handStrength, houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt,
   normalizeTableCode, pickPersonas, placeBlind, playerInHand, possibleSwaps, rebuyRange, seatIndexOf, settled,
   shuffledDeck, sidePots, sit, splitPot, viewFor, viewOfSeat,
   type Card, type Difficulty, type GameAction, type HandCategory, type Random32, type TableSpec, type TableState,
@@ -2258,7 +2258,7 @@ describe("les robots", () => {
     expect(botCheat(botView("7h 7d 7c Ks 2h"), "facile", always(5))).toBeNull();
   });
 
-  it("normal : triche une fois sur trois, et seulement si sa combinaison y gagne", () => {
+  it("normal : triche une fois sur trois, pour une main plausible : jamais plus qu'une couleur", () => {
     const rng = rngOf(51);
     let cheated = 0;
     const N = 3_000;
@@ -2267,49 +2267,103 @@ describe("les robots", () => {
       const swap = botCheat(view, "normal", rng);
       if (!swap) continue;
       cheated += 1;
-      expect(evaluate(after(view, swap)).level).toBeGreaterThan(evaluate(view.hand!.cards).level);
+      const made = evaluate(after(view, swap));
+      expect(made.level).toBeGreaterThan(evaluate(view.hand!.cards).level);
+      expect(made.level).toBeLessThanOrEqual(5);
     }
-    expect(cheated / N).toBeGreaterThan(1 / 3 - 0.04);
-    expect(cheated / N).toBeLessThan(1 / 3 + 0.04);
-    // Une suite ne devient ni couleur ni full en une carte : il ne triche pas, même quand le dé le veut.
-    expect(botCheat(botView("9h 8d 7c 6s 5h"), "normal", always(0))).toBeNull();
-    expect(evaluate(after(botView("9h 9d Ac 5s 2h"), botCheat(botView("9h 9d Ac 5s 2h"), "normal", always(0)))).category).toBe("brelan");
-    expect(evaluate(after(botView("3h 3d 3c Ks Kh"), botCheat(botView("3h 3d 3c Ks Kh"), "normal", always(0)))).category).toBe("carre");
+    // Une fois sur trois, moins les rares mains où il n'y a rien de plausible à gagner.
+    expect(cheated / N).toBeGreaterThan(1 / 3 - 0.06);
+    expect(cheated / N).toBeLessThan(1 / 3 + 0.03);
+    const made = (cards: string, level: Difficulty, rng: Random32) => evaluate(after(botView(cards), botCheat(botView(cards), level, rng)));
+    // Une paire devient un brelan ; rien du tout, la paire de sa plus haute carte ; deux paires, un brelan plutôt qu'un full.
+    expect(made("9h 9d Ac 5s 2h", "normal", always(0)).category).toBe("brelan");
+    expect([made("Kh Jd 8c 5s 2h", "normal", always(0)).category, made("Kh Jd 8c 5s 2h", "normal", always(0)).ranks[0]]).toEqual(["paire", 13]);
+    expect(made("Kh Kd 4c 4s Ah", "normal", always(0)).category).toBe("brelan");
+    // Une suite ne devient ni couleur ni full en une carte ; un brelan, un full ne deviendraient qu'un carré,
+    // tombé du ciel : il s'abstient, même quand le dé le veut. Le robot facile, lui, se le fait.
+    for (const cards of ["9h 8d 7c 6s 5h", "7h 7d 7c Ks 2h", "3h 3d 3c Ks Kh"]) expect(botCheat(botView(cards), "normal", always(0))).toBeNull();
+    expect(made("3h 3d 3c Ks Kh", "facile", always(0)).category).toBe("carre");
+    // Deux fois sur trois, franc jeu.
     expect(botCheat(botView("9h 9d Ac 5s 2h"), "normal", always(1))).toBeNull();
   });
 
-  it("difficile : triche une fois sur deux, discrètement : un brelan, une suite, une couleur, jamais plus", () => {
+  it("difficile : triche une fois sur deux, pour des mains qu'on ne remarque pas", () => {
     const rng = rngOf(52);
     let cheated = 0;
-    let possible = 0;
-    const N = 2_000;
+    let open = 0;
+    const kinds: Record<string, number> = {};
+    const N = 4_000;
     for (let i = 0; i < N; i++) {
       const view = withCards(shuffledDeck(rng).slice(0, 5));
       const level = evaluate(view.hand!.cards).level;
-      const discreet = possibleSwaps(view.hand!.cards).some(({ value }) => value.level > level && value.level >= 3 && value.level <= 5);
-      if (discreet) possible += 1;
+      // Avec rien ou une paire, il y a toujours quelque chose de discret à gagner.
+      if (level < 2) open += 1;
       const swap = botCheat(view, "difficile", rng);
       if (!swap) continue;
       cheated += 1;
       const made = evaluate(after(view, swap));
-      expect(discreet).toBe(true);
-      expect(["brelan", "suite", "couleur"]).toContain(made.category);
+      // Avec deux paires ou mieux, il a déjà de quoi jouer : il ne touche à rien.
+      expect(level).toBeLessThan(2);
       expect(made.level).toBeGreaterThan(level);
+      expect(made.level).toBeLessThanOrEqual(5);
+      kinds[made.category] = (kinds[made.category] ?? 0) + 1;
     }
-    expect(cheated / possible).toBeGreaterThan(0.5 - 0.04);
-    expect(cheated / possible).toBeLessThan(0.5 + 0.04);
-    // Avec un brelan, tricher ferait un carré ou un full : trop voyant. Il s'abstient.
-    expect(botCheat(botView("7h 7d 7c Ks 2h"), "difficile", always(0))).toBeNull();
-    // Avec deux paires, il préfère un brelan au full que prendraient les deux autres.
-    expect(evaluate(after(botView("Kh Kd 4c 4s Ah"), botCheat(botView("Kh Kd 4c 4s Ah"), "difficile", always(0)))).category).toBe("brelan");
-    expect(evaluate(after(botView("Kh Kd 4c 4s Ah"), botCheat(botView("Kh Kd 4c 4s Ah"), "normal", always(0)))).category).toBe("full");
-    // Une suite, une couleur, un full : rien de discret à y gagner.
-    for (const made of ["9h 8d 7c 6s 5h", "Ah Jh 9h 5h 2h", "3h 3d 3c Ks Kh"]) expect(botCheat(botView(made), "difficile", always(0))).toBeNull();
-    expect(evaluate(after(botView("9h 9d Ac 5s 2h"), botCheat(botView("9h 9d Ac 5s 2h"), "difficile", always(0)))).category).toBe("brelan");
-    expect(evaluate(after(botView("Ah Jh 9h 5h 2c"), botCheat(botView("Ah Jh 9h 5h 2c"), "difficile", always(0)))).category).toBe("couleur");
-    expect(evaluate(after(botView("9h 8d 7c 6s 2h"), botCheat(botView("9h 8d 7c 6s 2h"), "difficile", always(0)))).category).toBe("suite");
+    expect(cheated / open).toBeGreaterThan(0.5 - 0.04);
+    expect(cheated / open).toBeLessThan(0.5 + 0.04);
+    // Ce qu'il se fait : surtout des paires et des doubles paires, que personne n'accuse ; des
+    // brelans ; de temps en temps une suite ou une couleur. Jamais un full ni un carré.
+    expect(Object.keys(kinds).sort()).toEqual(["brelan", "couleur", "deux-paires", "paire", "suite"]);
+    expect(kinds.paire! / cheated).toBeGreaterThan(0.4);
+    expect(kinds["deux-paires"]! / cheated).toBeGreaterThan(0.15);
+    expect(kinds.brelan! / cheated).toBeGreaterThan(0.15);
+    expect((kinds.suite! + kinds.couleur!) / cheated).toBeLessThan(0.1);
+
+    const made = (cards: string, rng: Random32) => evaluate(after(botView(cards), botCheat(botView(cards), "difficile", rng)));
+    // Une fois sur deux, la main la plus forte qui reste plausible : un brelan, une suite, une couleur.
+    expect(made("9h 9d Ac 5s 2h", always(0)).category).toBe("brelan");
+    expect(made("Ah Jh 9h 5h 2c", always(0)).category).toBe("couleur");
+    expect(made("9h 8d 7c 6s 2h", always(0)).category).toBe("suite");
+    // Sinon, plus discret encore : deux paires avec une paire, une belle paire avec rien.
+    expect([made("9h 9d Ac 5s 2h", sequence(0, 1, 0)).category, made("9h 9d Ac 5s 2h", sequence(0, 1, 0)).ranks.slice(0, 2)]).toEqual(["deux-paires", [14, 9]]);
+    expect([made("Ah Jh 9h 5h 2c", sequence(0, 1, 0)).category, made("Ah Jh 9h 5h 2c", sequence(0, 1, 0)).ranks[0]]).toEqual(["paire", 14]);
+    // Rien du tout, et pas de tirage : la paire de sa plus haute carte, quoi que dise le dé.
+    expect([made("Kh Jd 8c 5s 2h", always(0)).category, made("Kh Jd 8c 5s 2h", always(0)).ranks[0]]).toEqual(["paire", 13]);
+    // Deux paires, un brelan, une suite, une couleur, un full : il ne touche à rien.
+    for (const cards of ["Kh Kd 4c 4s Ah", "7h 7d 7c Ks 2h", "9h 8d 7c 6s 5h", "Ah Jh 9h 5h 2h", "3h 3d 3c Ks Kh"]) {
+      expect(botCheat(botView(cards), "difficile", always(0))).toBeNull();
+    }
     // Une fois sur deux, franc jeu.
     expect(botCheat(botView("9h 9d Ac 5s 2h"), "difficile", always(1))).toBeNull();
+  });
+
+  it("il se méfie : démasqué à la main précédente, il se fait oublier ; accusé, le robot difficile ne fait plus rien de voyant", () => {
+    /** La même vue, la main d'après : le robot (siège 1) y a été accusé par le siège 0, à raison ou à tort. */
+    const after1 = (cards: string, right: boolean): TableView => {
+      const view = copy(botView(cards));
+      view.handNo = 2;
+      view.result = {
+        no: 1, showdown: true, hands: [], accusations: [{ from: 0, to: 1, right, paid: right ? 0 : 10 }],
+        unmasked: right ? [{ seat: 1, index: 0, from: "2c", to: "9c" }] : [], pots: [], net: [], carry: 0, until: T0,
+      };
+      return view;
+    };
+    const pair = "9h 9d Ac 5s 2h";
+    const category = (view: TableView, level: Difficulty) => {
+      const swap = botCheat(view, level, always(0));
+      return swap ? evaluate(after(view, swap)).category : null;
+    };
+    // Sans histoire : le dé le plus bas lui fait faire un brelan.
+    expect([category(botView(pair), "normal"), category(botView(pair), "difficile")]).toEqual(["brelan", "brelan"]);
+    // Démasqué à la main précédente : franc jeu, cette main-ci.
+    expect([category(after1(pair, true), "normal"), category(after1(pair, true), "difficile")]).toEqual([null, null]);
+    // Accusé à tort : le robot difficile triche encore, mais pour deux paires, pas pour un brelan.
+    expect([category(after1(pair, false), "normal"), category(after1(pair, false), "difficile")]).toEqual(["brelan", "deux-paires"]);
+    // Le robot facile ne retient rien.
+    expect(category(after1(pair, true), "facile")).toBe("brelan");
+    // Une main plus ancienne n'est plus dans la vue : rien ne change.
+    const older = after1(pair, true);
+    older.handNo = 3;
+    expect(category(older, "difficile")).toBe("brelan");
   });
 
   it("un robot ne propose que des remplacements permis", () => {
@@ -2400,7 +2454,7 @@ describe("les robots", () => {
     for (const mood of [40, 500, 999]) expect(botBet(weak, "facile", sequence(mood, 500))).toEqual({ type: "parole" });
   });
 
-  it("enchères, face à une mise : le robot facile suit trop, les autres pèsent la cote du pot", () => {
+  it("enchères, face à une mise : le robot facile suit trop, les autres se défendent", () => {
     const nothing = botView("7h 5d 4c 3s 2h", "mise");
     const smallPair = botView("4h 4d 9c 7s 2h", "mise");
     const trips = botView("7h 7d 7c Ks 2h", "mise");
@@ -2410,15 +2464,18 @@ describe("les robots", () => {
     expect(botBet(smallPair, "facile", sequence(999, 0))).toEqual({ type: "suivre" });
     expect(botBet(nothing, "facile", sequence(100, 0))).toEqual({ type: "suivre" });
     expect(botBet(nothing, "facile", sequence(900, 0))).toEqual({ type: "coucher" });
-    // Normal et difficile : une petite paire ne vaut pas une mise du pot ; rien du tout, encore moins.
-    expect(botBet(smallPair, "normal", sequence(900, 0))).toEqual({ type: "coucher" });
-    expect(botBet(smallPair, "difficile", sequence(500, 0))).toEqual({ type: "coucher" });
-    expect(botBet(nothing, "normal", sequence(0, 0))).toEqual({ type: "coucher" });
-    // Une paire d'as la vaut, un brelan aussi.
-    const aces = botView("Ah Ad 9c 7s 2h", "mise");
+    // Normal et difficile, face à une mise du pot : toute paire suit, un as bien accompagné aussi.
+    // Un as sec, un roi, rien du tout : ils se couchent.
     for (const level of ["normal", "difficile"] as const) {
-      expect(botBet(aces, level, sequence(700, 0))).toEqual({ type: "suivre" });
+      for (const cards of ["4h 4d 9c 7s 2h", "Ah Ad 9c 7s 2h", "Ah Kd 9c 5s 2h"]) {
+        expect([level, cards, botBet(botView(cards, "mise"), level, sequence(700, 0))]).toEqual([level, cards, { type: "suivre" }]);
+      }
+      for (const cards of ["7h 5d 4c 3s 2h", "Kh Qd 9c 5s 2h", "Ah 8d 6c 4s 2h"]) {
+        expect([level, cards, botBet(botView(cards, "mise"), level, sequence(700, 0))]).toEqual([level, cards, { type: "coucher" }]);
+      }
+      // Un brelan suit le plus souvent, et relance quand l'humeur y est.
       expect(botBet(trips, level, sequence(700, 0))).toEqual({ type: "suivre" });
+      expect(botBet(trips, level, sequence(100, 0)).type).toBe("relancer");
     }
     // Un full relance gros, quand l'humeur y est ; sinon il suit.
     for (const level of LEVELS) {
@@ -2437,32 +2494,113 @@ describe("les robots", () => {
     expect(botBet(nothing, "normal", sequence(970, 0))).toEqual({ type: "coucher" });
   });
 
-  it("la cote du pot : plus la mise est grosse devant le pot, plus il faut une belle main pour la suivre", () => {
+  it("le rang d'une main : la part des donnes honnêtes qu'elle bat", () => {
+    const rank = (cards: string) => handRank(hand(cards));
+    // Du pire au meilleur, sans un faux pas.
+    const ladder = [
+      "7h 5d 4c 3s 2h", "Qh 9d 7c 5s 2h", "Kh Qd 9c 5s 2h", "Ah 8d 6c 4s 2h", "Ah Kd 9c 5s 2h", "2h 2d 9c 5s 3h", "4h 4d 9c 7s 2h",
+      "9h 9d Kc 7s 2h", "Ah Ad 9c 7s 2h", "4h 4d 3c 3s Ah", "Kh Kd 4c 4s Ah", "7h 7d 7c Ks 2h", "9h 8d 7c 6s 5h", "Ah Jh 9h 5h 2h",
+      "3h 3d 3c Ks Kh", "5h 5d 5c 5s Kh", "As Ks Qs Js Ts",
+    ].map(rank);
+    for (let i = 1; i < ladder.length; i++) expect([i, ladder[i]! > ladder[i - 1]!]).toEqual([i, true]);
+    // La plus petite main possible (sept, cinq, quatre, trois, deux) ne bat à peu près rien.
+    expect(ladder[0]!).toBeLessThan(0.001);
+    expect(ladder[ladder.length - 1]!).toBeLessThan(1);
+    // Une donne sur deux n'a pas même une paire ; une paire d'as bat neuf donnes sur dix ; un brelan, plus de 97 sur 100.
+    expect(rank("2h 2d 5c 4s 3h")).toBeCloseTo(0.501, 2);
+    expect(rank("Ah Ad 9c 7s 2h")).toBeGreaterThan(0.89);
+    expect(rank("Ah Ad 9c 7s 2h")).toBeLessThan(0.924);
+    expect(rank("2h 2d 2c 4s 3h")).toBeGreaterThan(0.971);
+    // Mesuré sur des donnes : le rang est bien la part des mains battues, à deux centièmes près.
+    const rng = rngOf(63);
+    const scores: number[] = [];
+    for (let i = 0; i < 4_000; i++) scores.push(evaluate(shuffledDeck(rng).slice(0, 5)).score);
+    for (const cards of ["Qh 9d 7c 5s 2h", "Ah Kd 9c 5s 2h", "4h 4d 9c 7s 2h", "9h 9d Kc 7s 2h", "Ah Ad 9c 7s 2h", "Kh Kd 4c 4s Ah"]) {
+      const beaten = scores.filter((score) => score < evaluate(hand(cards)).score).length / scores.length;
+      expect(Math.abs(rank(cards) - beaten)).toBeLessThan(0.025);
+    }
+  });
+
+  it("la défense : plus la mise est grosse devant le pot, plus il faut une belle main ; jamais une main correcte jetée pour une blinde", () => {
     /** La même main face à une mise de `bet` dans un pot de 20 : le pot en vaut 20 + `bet`, il faut `bet` pour suivre. */
-    const facing = (cards: string, bet: number): TableView => {
+    const facing = (cards: string, bet: number, crowd = 0): TableView => {
       const view = copy(botView(cards, "mise"));
       view.pot = 20 + bet;
       view.bet = bet;
       view.options.call = bet;
+      // D'autres adversaires encore dans le coup, pour voir ce que fait le robot à plusieurs.
+      for (let k = 0; k < crowd; k++) view.seats.push({ ...view.seats[0]!, seat: 2 + k });
       return view;
     };
-    const calls = (cards: string, bet: number, level: Difficulty): boolean => botBet(facing(cards, bet), level, sequence(700, 0)).type === "suivre";
+    const calls = (cards: string, bet: number, level: Difficulty, crowd = 0): boolean => botBet(facing(cards, bet, crowd), level, sequence(700, 0)).type === "suivre";
+    const KING_HIGH = "Kh 9d 7c 5s 2h";
+    const FOURS = "4h 4d 9c 7s 2h";
+    const FIVES = "5h 5d 9c 7s 2h";
+    const EIGHTS = "8h 8d Kc 7s 2h";
+    const NINES = "9h 9d Kc 7s 2h";
+    const JACKS = "Jh Jd Kc 7s 2h";
     for (const level of ["normal", "difficile"] as const) {
-      // Une petite paire suit un quart de pot, pas le pot.
-      expect([level, calls("4h 4d 9c 7s 2h", 5, level), calls("4h 4d 9c 7s 2h", 20, level)]).toEqual([level, true, false]);
-      // Une paire d'as suit le pot et deux fois le pot, pas un tapis de dix blindes.
-      expect([level, calls("Ah Ad 9c 7s 2h", 20, level), calls("Ah Ad 9c 7s 2h", 40, level), calls("Ah Ad 9c 7s 2h", 100, level)]).toEqual([level, true, true, false]);
-      // Deux paires suivent cinq fois le pot, pas quinze.
-      expect([level, calls("Kh Kd 4c 4s Ah", 100, level), calls("Kh Kd 4c 4s Ah", 300, level)]).toEqual([level, true, false]);
-      // Un brelan suit neuf fois le pot ; devant un tapis de cinquante fois le pot, il faut un beau brelan.
-      expect([level, calls("7h 7d 7c Ks 2h", 180, level), calls("7h 7d 7c Ks 2h", 1_000, level), calls("Ah Ad Ac Ks 2h", 1_000, level)]).toEqual([level, true, false, true]);
-      // Une suite suit tout.
-      expect([level, calls("9h 8d 7c 6s 5h", 1_000, level)]).toEqual([level, true]);
+      // Une blinde (un demi-pot) : un roi sec suit ; seul rien du tout se couche.
+      expect([level, calls(KING_HIGH, 10, level), calls("7h 5d 4c 3s 2h", 10, level)]).toEqual([level, true, false]);
+      // Le pot : une petite paire suit, le roi sec se couche.
+      expect([level, calls(FOURS, 20, level), calls(KING_HIGH, 20, level)]).toEqual([level, true, false]);
+      // Trois fois le pot : une paire de huit suit, une paire de quatre se couche.
+      expect([level, calls(EIGHTS, 60, level), calls(FOURS, 60, level)]).toEqual([level, true, false]);
+      // Un tapis de douze fois le pot : une paire de valets suit, une paire de huit se couche.
+      expect([level, calls(JACKS, 250, level), calls(EIGHTS, 250, level)]).toEqual([level, true, false]);
+      // Deux paires, un brelan : ils suivent tout.
+      expect([level, calls("Kh Kd 4c 4s Ah", 250, level), calls("7h 7d 7c Ks 2h", 990, level)]).toEqual([level, true, true]);
     }
+    // Le robot difficile se défend un peu plus que le robot normal : une paire de cinq face à trois
+    // fois le pot, une paire de neuf face à un tapis.
+    expect([calls(FIVES, 60, "normal"), calls(FIVES, 60, "difficile")]).toEqual([false, true]);
+    expect([calls(NINES, 250, "normal"), calls(NINES, 250, "difficile")]).toEqual([false, true]);
+    // À plusieurs, chacun défend un peu moins : un autre que lui peut tenir la belle main.
+    expect([calls(FOURS, 20, "normal", 0), calls(FOURS, 20, "normal", 2)]).toEqual([true, false]);
+    expect([calls(EIGHTS, 60, "difficile", 0), calls(EIGHTS, 60, "difficile", 3)]).toEqual([true, false]);
     // Le robot facile, lui, suit n'importe quoi avec n'importe quelle paire.
-    expect(calls("4h 4d 9c 7s 2h", 1_000, "facile")).toBe(true);
-    // Le robot difficile est un peu plus sévère que le robot normal : une paire de six suit le pot chez l'un, pas chez l'autre.
-    expect([calls("6h 6d 9c 7s 2h", 20, "normal"), calls("6h 6d 9c 7s 2h", 20, "difficile")]).toEqual([true, false]);
+    expect(calls(FOURS, 990, "facile")).toBe(true);
+  });
+
+  it("on ne plume pas un robot en misant à chaque main : face au pot, il continue plus d'une fois sur deux", () => {
+    const rng = rngOf(64);
+    const N = 3_000;
+    for (const [level, least] of [["facile", 0.7], ["normal", 0.55], ["difficile", 0.6]] as const) {
+      const kept = { blind: 0, pot: 0, triple: 0 };
+      for (let i = 0; i < N; i++) {
+        const cards = shuffledDeck(rng).slice(0, 5);
+        for (const [key, bet] of [["blind", 10], ["pot", 20], ["triple", 60]] as const) {
+          const view = copy(botView("7h 5d 4c 3s 2h", "mise"));
+          view.hand = { ...view.hand!, cards, category: evaluate(cards).category };
+          view.pot = 20 + bet;
+          view.bet = bet;
+          view.options.call = bet;
+          if (botBet(view, level, rng).type !== "coucher") kept[key] += 1;
+        }
+      }
+      // Sur des donnes honnêtes (un robot qui a triché a mieux, et continue plus souvent encore).
+      expect([level, kept.pot / N > least]).toEqual([level, true]);
+      // Une petite mise : presque toujours. Trois fois le pot : plus d'une fois sur trois.
+      if (level !== "facile") expect([level, kept.blind / N > 0.85, kept.triple / N > 0.33]).toEqual([level, true, true]);
+      // Plus la mise est grosse, moins il continue. (Le robot facile, lui, ne regarde pas le prix.)
+      if (level !== "facile") expect([level, kept.blind > kept.pot, kept.pot > kept.triple]).toEqual([level, true, true]);
+    }
+  });
+
+  it("en tête-à-tête, une belle paire vaut une petite mise ; à plusieurs, non", () => {
+    const tens = botView("Th Td Kc 7s 2h", "parole");
+    for (const level of ["normal", "difficile"] as const) {
+      const move = botBet(tens, level, sequence(100, 500));
+      // D'un tiers à deux tiers du pot (20) : ici, la moitié.
+      expect([level, move]).toEqual([level, { type: "miser", amount: 10 }]);
+      expect(botBet(tens, level, sequence(900, 500))).toEqual({ type: "parole" });
+      const crowded = copy(tens);
+      crowded.seats.push({ ...crowded.seats[0]!, seat: 2 });
+      expect(botBet(crowded, level, sequence(100, 500))).toEqual({ type: "parole" });
+    }
+    // Une petite paire ne mise pas ; le robot facile non plus, même avec la belle.
+    expect(botBet(botView("4h 4d 9c 7s 2h", "parole"), "difficile", sequence(100, 500))).toEqual({ type: "parole" });
+    expect(botBet(tens, "facile", sequence(100, 500))).toEqual({ type: "parole" });
   });
 
   it("un robot ne propose que des gestes permis, dans les fourchettes annoncées", () => {
@@ -2489,28 +2627,55 @@ describe("les robots", () => {
     expect(checked).toBeGreaterThan(3_000);
   });
 
-  it("facile : accuse rarement, et au hasard", () => {
-    const view = botView("7h 5d 4c 3s 2h", "abattage", "As Ks Qs Js Ts");
+  it("facile : accuse au jugé, mais voit deux fois sur cinq la belle main qui le bat", () => {
     const rng = rngOf(55);
-    let accused = 0;
-    for (let i = 0; i < 4_000; i++) if (botAccuse(view, "facile", rng) !== null) accused += 1;
-    expect(accused / 4_000).toBeGreaterThan(0.07);
-    expect(accused / 4_000).toBeLessThan(0.13);
-    expect(botAccuse(view, "facile", always(0))).toBe(0);
-    expect(botAccuse(view, "facile", always(1))).toBeNull();
+    const rate = (view: TableView) => {
+      let n = 0;
+      for (let i = 0; i < 4_000; i++) if (botAccuse(view, "facile", rng) !== null) n += 1;
+      return n / 4_000;
+    };
+    // Une quinte flush royale en face : deux fois sur cinq (et parfois par hasard).
+    const royal = botView("7h 5d 4c 3s 2h", "abattage", "As Ks Qs Js Ts");
+    expect(rate(royal)).toBeGreaterThan(0.39);
+    expect(rate(royal)).toBeLessThan(0.49);
+    // Un brelan qui le bat : pareil. Une simple paire : une fois sur seize, au hasard.
+    expect(rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks 2d"))).toBeGreaterThan(0.39);
+    const pair = rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d Ac 5s 2d"));
+    expect(pair).toBeGreaterThan(0.04);
+    expect(pair).toBeLessThan(0.09);
+    // Un brelan qu'il bat lui-même ne l'intéresse pas davantage.
+    expect(rate(botView("As Ks Qs Js Ts", "abattage", "9h 9d 9c Kd 2d"))).toBeLessThan(0.09);
+    // La preuve (une carte qu'il a lui-même reçue), il la voit trois fois sur cinq.
+    const proof = rate(botView("7h 5d 4c 3s 2h", "abattage", "7h Jd 8c 6h 2s"));
+    expect(proof).toBeGreaterThan(0.58);
+    expect(proof).toBeLessThan(0.68);
+    // Les tirages : le coup d'œil d'abord, le hasard ensuite.
+    expect(botAccuse(royal, "facile", sequence(399, 1))).toBe(0);
+    expect(botAccuse(royal, "facile", sequence(400, 1))).toBeNull();
+    expect(botAccuse(royal, "facile", sequence(400, 0, 0))).toBe(0);
   });
 
-  it("normal : accuse une main trop belle une fois sur deux, et toujours une carte qu'il a lui-même en main", () => {
-    // Un brelan chez l'adversaire : rien à dire. Un full : une fois sur deux.
-    expect(botAccuse(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks 2d"), "normal", always(0))).toBeNull();
-    const full = botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks Kd");
-    expect(botAccuse(full, "normal", always(0))).toBe(0);
-    expect(botAccuse(full, "normal", always(1))).toBeNull();
+  it("normal : accuse près d'une fois sur deux la belle main qui le bat, et toujours une carte qu'il a lui-même reçue", () => {
     const rng = rngOf(56);
-    let accused = 0;
-    for (let i = 0; i < 2_000; i++) if (botAccuse(full, "normal", rng) !== null) accused += 1;
-    expect(accused / 2_000).toBeGreaterThan(0.45);
-    expect(accused / 2_000).toBeLessThan(0.55);
+    const rate = (view: TableView) => {
+      let n = 0;
+      for (let i = 0; i < 3_000; i++) if (botAccuse(view, "normal", rng) !== null) n += 1;
+      return n / 3_000;
+    };
+    // Un brelan, un full, un carré qui le battent : le pari est bon, il le voit un peu moins d'une fois sur deux.
+    for (const rival of ["9h 9d 9c Ks 2d", "9h 9d 9c Ks Kd", "9h 9d 9c 9s Kd"]) {
+      const view = botView("7h 5d 4c 3s 2h", "abattage", rival);
+      expect(rate(view)).toBeGreaterThan(0.41);
+      expect(rate(view)).toBeLessThan(0.49);
+      expect(botAccuse(view, "normal", always(0))).toBe(0);
+      expect(botAccuse(view, "normal", always(450))).toBeNull();
+    }
+    // Une paire, même d'as, ou deux paires : une main ordinaire, rien à dire.
+    for (const rival of ["9h 9d Ac 5s 2d", "Ah Ad 9c 7s 2d", "Kh Kd 4d 4s Ad"]) {
+      expect(rate(botView("7h 5d 4c 3s 2h", "abattage", rival))).toBe(0);
+    }
+    // Une main qu'il bat déjà : la démasquer ne lui rapporterait rien.
+    expect(rate(botView("As Ks Qs Js Ts", "abattage", "9h 9d 9c 9s Kd"))).toBe(0);
     // L'adversaire montre le 7 de cœur, que le robot a reçu : c'est une preuve, quelle que soit la main.
     const proof = botView("7h 5d 4c 3s 2h", "abattage", "7h Jd 8c 6h 2s");
     for (const value of [0, 1, 999_999]) expect(botAccuse(proof, "normal", always(value))).toBe(0);
@@ -2531,31 +2696,64 @@ describe("les robots", () => {
     expect(botAccuse(discarded, "difficile", always(999_999))).toBe(0);
   });
 
-  it("difficile : accuse d'après la vraisemblance, et seulement une main qui bat la sienne", () => {
+  it("difficile : pèse le pari, et ne laisse presque jamais passer une belle main qui le bat", () => {
     const rng = rngOf(57);
     const rate = (view: TableView) => {
       let n = 0;
       for (let i = 0; i < 2_000; i++) if (botAccuse(view, "difficile", rng) !== null) n += 1;
       return n / 2_000;
     };
-    // Plus la main montrée est rare, plus elle est suspecte.
-    const pair = rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d Ac 5s 2d"));
-    const trips = rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks 2d"));
-    const full = rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks Kd"));
-    const quads = rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c 9s Kd"));
-    expect(pair).toBeLessThan(0.06);
-    expect(trips).toBeGreaterThan(0.24);
-    expect(trips).toBeLessThan(0.36);
-    expect(full).toBeGreaterThan(0.58);
-    expect(full).toBeLessThan(0.72);
-    expect(quads).toBeGreaterThan(0.8);
+    // Une paire, deux paires : des mains de tous les jours, il ne dit rien.
+    expect(rate(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d Ac 5s 2d"))).toBe(0);
+    expect(rate(botView("7h 5d 4c 3s 2h", "abattage", "Kh Kd 4d 4s Ad"))).toBe(0);
+    // Un brelan ou mieux : moins de trois donnes honnêtes sur cent. Neuf fois sur dix, il accuse.
+    for (const rival of ["9h 9d 9c Ks 2d", "9h 8d 7c 6s 5c", "Ah Jh 9h 6h 3h", "9h 9d 9c Ks Kd", "9h 9d 9c 9s Kd"]) {
+      const seen = rate(botView("7h 5d 4c 3s 2h", "abattage", rival));
+      expect([rival, seen > 0.86, seen < 0.94]).toEqual([rival, true, true]);
+    }
     // Il ne démasque pas une main qu'il bat déjà : cela ne lui rapporterait rien.
     expect(rate(botView("As Ks Qs Js Ts", "abattage", "9h 9d 9c 9s Kd"))).toBe(0);
-    // À tapis, une accusation fausse ne coûte rien : un doute suffit.
-    const allIn = botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks 2d", 20, [1000, 10]);
-    expect(allIn.seats[1]!.stack).toBe(0);
-    expect(botAccuse(allIn, "difficile", always(999_999))).toBe(0);
-    expect(botAccuse(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d Ac 5s 2d", 20, [1000, 10]), "difficile", always(0))).toBeNull();
+    // Une paire d'as qui le bat : pas assez pour risquer de la payer…
+    const aces = botView("7h 5d 4c 3s 2h", "abattage", "Ah Ad 9c 7s 2d");
+    expect(rate(aces)).toBe(0);
+    // … sauf si ce joueur vient d'être démasqué, à la main d'avant : il s'en souvient.
+    const known = copy(aces);
+    known.handNo = 2;
+    known.result = {
+      no: 1, showdown: true, hands: [], accusations: [{ from: 1, to: 0, right: true, paid: 0 }],
+      unmasked: [{ seat: 0, index: 0, from: "2c", to: "9c" }], pots: [], net: [], carry: 0, until: T0,
+    };
+    expect(rate(known)).toBeGreaterThan(0.86);
+    // Une petite paire reste une petite paire, même chez un tricheur connu.
+    const knownNines = copy(known);
+    knownNines.seats[0] = { ...knownNines.seats[0]!, cards: hand("9h 9d Ac 5s 2d") };
+    expect(rate(knownNines)).toBe(0);
+    // À tapis, une accusation fausse ne coûte rien : un doute suffit, la paire d'as y passe. Pas la paire de neuf.
+    const allIn = (rival: string) => botView("7h 5d 4c 3s 2h", "abattage", rival, 20, [1000, 10]);
+    expect(allIn("Ah Ad 9c 7s 2d").seats[1]!.stack).toBe(0);
+    expect(botAccuse(allIn("9h 9d 9c Ks 2d"), "difficile", always(0))).toBe(0);
+    expect(botAccuse(allIn("Ah Ad 9c 7s 2d"), "difficile", always(0))).toBe(0);
+    expect(botAccuse(allIn("9h 9d Ac 5s 2d"), "difficile", always(0))).toBeNull();
+    // Le robot normal, moins soupçonneux, laisse la paire d'as tranquille même à tapis.
+    expect(botAccuse(allIn("Ah Ad 9c 7s 2d"), "normal", always(0))).toBe(0);
+  });
+
+  it("le pari : ce que l'accusation rapporte contre ce qu'elle coûte", () => {
+    // Le robot (siège 1) a perdu contre un brelan. Le pot est petit, la mise de l'accusé énorme :
+    // s'il se trompe, il la paie. Plus elle est grosse devant le pot, moins le pari est bon.
+    const view = copy(botView("7h 5d 4c 3s 2h", "abattage", "9h 9d 9c Ks 2d"));
+    expect([view.pot, view.seats[0]!.committed, view.seats[1]!.stack]).toEqual([20, 10, 990]);
+    expect(botAccuse(view, "difficile", always(0))).toBe(0);
+    // Un pot de 20 pour 400 à payer en cas d'erreur : même sûr à neuf contre un, il se tait.
+    view.seats[0] = { ...view.seats[0]!, committed: 400 };
+    expect(botAccuse(view, "difficile", always(0))).toBeNull();
+    // Le même risque pour un pot de 800 : il accuse.
+    view.pot = 800;
+    expect(botAccuse(view, "difficile", always(0))).toBe(0);
+    // Il ne risque jamais plus que son tapis : avec 30 devant lui, l'erreur ne coûte que 30.
+    view.pot = 20;
+    view.seats[1] = { ...view.seats[1]!, stack: 30 };
+    expect(botAccuse(view, "difficile", always(0))).toBe(0);
   });
 
   it("deux adversaires montrent la même carte : pour le robot difficile, l'un des deux au moins a triché", () => {
@@ -2566,18 +2764,30 @@ describe("les robots", () => {
       t = deposit(t, `s_${i}`, 1, 1000, T0, rng);
     }
     t = act(t, "p_a", { type: "lancer" }, T0, rng);
-    // Deux paires chez l'un et chez l'autre, avec le même as de pique ; le robot (siège 2) n'a rien.
-    const s = copy(withHands(t, { 0: "As Ad 7c 7h 2d", 1: "As Kd Kc 4h 4c", 2: "9h 5d 4s 3s 2h" }));
-    s.phase = "abattage";
-    for (const p of s.hand!.players) p.chosen = true;
-    const view = viewOfSeat(s, 2, T0);
-    let accused = 0;
-    for (let i = 0; i < 2_000; i++) if (botAccuse(view, "difficile", rng) !== null) accused += 1;
-    // Deux paires seules ne l'inquiètent guère (5 %) ; la carte en double, beaucoup (60 %).
-    expect(accused / 2_000).toBeGreaterThan(0.53);
-    expect(accused / 2_000).toBeLessThan(0.67);
+    const showdown = (hands: Record<number, string>): TableView => {
+      const s = copy(withHands(t, hands));
+      s.phase = "abattage";
+      for (const p of s.hand!.players) p.chosen = true;
+      return viewOfSeat(s, 2, T0);
+    };
+    const rate = (view: TableView) => {
+      let n = 0;
+      for (let i = 0; i < 2_000; i++) if (botAccuse(view, "difficile", rng) !== null) n += 1;
+      return n / 2_000;
+    };
+    // Le robot (siège 2) a une paire de rois. Deux paires le battent au siège 0 ; le siège 1 n'a rien.
+    // Deux paires seules ne l'inquiètent pas…
+    expect(rate(showdown({ 0: "As Ad 7c 7h 2d", 1: "Ac Qd 8c 6h 3d", 2: "Kh Kd 4s 3s 2h" }))).toBe(0);
+    // … mais les deux adversaires montrent le même as de pique : l'un des deux a triché. Il accuse
+    // celui qui lui prend le pot.
+    const twins = showdown({ 0: "As Ad 7c 7h 2d", 1: "As Qd 8c 6h 3d", 2: "Kh Kd 4s 3s 2h" });
+    expect(rate(twins)).toBeGreaterThan(0.86);
+    expect(botAccuse(twins, "difficile", always(0))).toBe(0);
+    // Si les deux le battent, en démasquer un ne lui rapporterait rien : il se tait.
+    expect(rate(showdown({ 0: "As Ad 7c 7h 2d", 1: "As Kc Kd 4h 4c", 2: "Kh Ks 4s 3s 2h" }))).toBe(0);
     // Les robots plus simples n'y voient rien.
-    expect(botAccuse(view, "normal", always(0))).toBeNull();
+    expect(botAccuse(twins, "normal", always(0))).toBeNull();
+    expect(botAccuse(twins, "facile", sequence(399, 1))).toBeNull();
   });
 
   it("un robot n'accuse jamais que des adversaires encore en jeu", () => {

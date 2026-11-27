@@ -293,7 +293,7 @@ export function pickMasters(rng: Random32): string[] {
  * 37e main, où elle s'arrête). Le dernier nombre de la liste vaut pour tous les paliers suivants.
  *
  * Réglé par simulation, le joueur tenu par un robot difficile : la table se dénoue pour lui
- * en 19 mains en médiane, et il lui faut une trentaine de mains pour la gagner (une fois sur cinq).
+ * en 15 mains en médiane, et il lui faut une trentaine de mains pour la gagner (une fois sur cinq).
  */
 export const MASTERS_LEVEL_HANDS: readonly number[] = [16, 4, 4, 4, 2];
 

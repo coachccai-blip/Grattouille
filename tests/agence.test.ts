@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXPERIENCES, EXPERIENCE_COUNT } from "../shared/experiences";
 import { SPECIES } from "../shared/rules";
 import { SCENES } from "../src/art/agence/scenes";
@@ -521,5 +521,41 @@ describe("l'agence dans la navigation", () => {
     // Deux fiches, deux films : des clés différentes.
     expect(screenKey({ name: "fiche-experience", experience: "glace" }, 3)).not.toBe(screenKey({ name: "fiche-experience", experience: "mars" }, 3));
     expect(screenKey({ name: "experience", experience: "glace" }, 3)).not.toBe(screenKey({ name: "experience", experience: "mars" }, 3));
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("le film d'une expérience", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("ne se projette que pour une expérience vécue : ni par l'historique, ni par un état trafiqué", async () => {
+    vi.stubGlobal("window", { location: { search: "" } });
+    const { useGame } = await import("../src/app/store");
+    const { completeState } = await import("../src/app/etat");
+    const { chargerFilms } = await import("../src/screens/agence/films");
+    const { Experience } = await import("../src/screens/agence/Experience");
+    // Le morceau des films est là : seul l'état du joueur décide.
+    expect(await chargerFilms()).not.toBeNull();
+    const joueur = completeState({
+      id: "p_1", pseudo: "Zabeth", species: "renard", balance: 100, pending: [], owned: [],
+      look: {}, kiosk: false, standing: 0, fortune: 100,
+      stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0 },
+      createdAt: 0, luckyIn: 60_000,
+    } as unknown as Parameters<typeof completeState>[0]);
+    // Rendu hors navigateur, un écran lit l'état initial du magasin : c'est lui qu'on prépare.
+    const etat = useGame.getInitialState();
+    const film = (vecues: string[], experience: string) => {
+      Object.assign(etat, { phase: "jeu", player: { ...joueur, experiences: vecues } });
+      return renderToStaticMarkup(createElement(Experience, { experience, premiere: false }));
+    };
+    expect(film([], "glace")).toBe("");
+    expect(film(["mars"], "glace")).toBe("");
+    expect(film(["glace"], "inconnue")).toBe("");
+    // Vécue : le film, en plein écran, et signalé comme tel (aucune médaille ne s'annonce par-dessus).
+    const vu = film(["glace", "mars"], "mars");
+    expect(vu).toContain('class="moment moment--experience xp--film"');
+    expect(vu).toContain('data-plein-ecran=""');
+    expect(vu).toContain(nomExperience("mars"));
   });
 });

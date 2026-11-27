@@ -506,7 +506,7 @@ const mars: SceneArt = ({ espece, look }) => {
       <Ciel id="mars" couleurs={["#D5814F", "#EBB583", "#F6D9B0"]} bas={480} />
       <circle cx="286" cy="226" r="13" fill="#FFF3D6" />
       <circle cx="286" cy="226" r="22" fill="#FFF3D6" fillOpacity="0.3" />
-      <path d="M60 250Q66 240 78 244Q86 252 78 260Q66 262 60 250Z" fill="#8F6A52" />
+      <path d="M60 276Q66 266 78 270Q86 278 78 286Q66 288 60 276Z" fill="#8F6A52" />
       <circle cx="156" cy="206" r="5" fill="#8F6A52" />
       {/* Le grand volcan, les dunes */}
       <path d="M-20 482Q60 400 150 396H230Q300 404 380 482Z" fill="#C4683F" />

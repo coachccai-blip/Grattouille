@@ -121,7 +121,7 @@ export function FicheExperience({ experience: id }: { experience: string }) {
         {vecue && (
           <>
             <Bouton bloc onClick={() => projeter(false)}>{t("Revivre")}</Bouton>
-            <p className="note">{t("Autant de fois que tu veux : c'est la maison qui offre.")}</p>
+            <p className="note">{t("Autant que tu veux : c'est la maison qui offre.")}</p>
           </>
         )}
       </div>

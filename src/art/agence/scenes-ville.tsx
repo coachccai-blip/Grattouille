@@ -68,7 +68,7 @@ const touteLaVille: SceneArt = ({ espece, look }) => (
     <g transform="translate(180 506)"><Parasol couleur="#2C7DA0" d={0.6} /></g>
     <g transform="translate(298 520)"><Parasol couleur={C.persienne} d={0.8} /></g>
     {/* La guirlande de fanions tombe du ciel */}
-    <g {...a("va", { dy: -260, t: 0.8, d: HOURRA - 0.3, e: "rebond" })}>
+    <g {...a("va", { dy: -340, t: 0.8, d: HOURRA - 0.3, e: "rebond" })}>
       <path d="M-20 240Q180 330 380 240" fill="none" stroke={C.nuit} strokeWidth="1.4" />
       {FANIONS.map(([x, y, couleur], i) => (
         <path key={x} d={`M${x - 9} ${y}h18l-9 20Z`} fill={couleur} {...a("flotte", { r: 8, t: 0.5 + (i % 3) * 0.1, d: -i * 0.13, o: "50% 0%" })} />

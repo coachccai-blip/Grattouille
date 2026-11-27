@@ -11,7 +11,8 @@
   gap: var(--e2);
 }
 
-.agence__compte-titre { font: 700 20px/24px var(--texte); }
+/* Sur un écran de 320 px, la phrase se resserre d'un cran plutôt que de laisser « 30 » seul à la ligne. */
+.agence__compte-titre { font: 700 clamp(17px, 5.6vw, 20px)/24px var(--texte); }
 
 /* ---------------------------------------------------------------- Les chapitres */
 
@@ -143,11 +144,6 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
     repeating-linear-gradient(-45deg, var(--cerise) 0 10px, var(--ivoire) 10px 20px, #2C7DA0 20px 30px, var(--ivoire) 30px 40px) border-box;
 }
 
-/* Écran bas : l'enveloppe se tasse, le bouton reste en vue. */
-@media (max-height: 600px) {
-  .fiche-experience__vue { height: 18vh; }
-}
-
 .fiche-experience__timbre {
   flex: none;
   height: 84%;
@@ -199,3 +195,10 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
 }
 
 .fiche-experience__diem .bulle__texte { background: #fff; }
+
+/* Écran bas : l'enveloppe se tasse et les marges se resserrent, la fiche tient sans défiler. */
+@media (max-height: 600px) {
+  .fiche-experience__vue { height: 84px; }
+  .fiche-experience__nom,
+  .fiche-experience .fiche-article__actions { margin-top: var(--e3); }
+}

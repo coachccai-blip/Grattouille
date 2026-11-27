@@ -31,6 +31,17 @@
   height: 100%;
 }
 
+/* Sur un écran trapu (la barre d'un navigateur, un ordinateur), la scène garde les trois
+   quarts de sa hauteur : elle cède deux bandes de nuit sur les côtés plutôt que son sujet. */
+.xp--film .xp__vue {
+  width: min(100%, 60vh);
+  margin: 0 auto;
+}
+
+@supports (height: 100dvh) {
+  .xp--film .xp__vue { width: min(100%, 60dvh); }
+}
+
 /* Un appui passe le film : tout l'écran est le bouton, et il le dit en bas, sans insister. */
 .xp__passer {
   position: absolute;
@@ -44,12 +55,19 @@
   color: #fff;
 }
 
+/* Le mot arrive quand la scène est posée, et s'efface une fois lu : le bas du dessin reste à la scène. */
 .xp__passer span {
   padding: 5px 14px;
   border-radius: 99px;
   background: rgba(6, 24, 30, .62);
   font: 500 14px/20px var(--texte);
-  animation: fondu 400ms linear 1800ms both;
+  animation: xp-mot 3800ms linear 1600ms both;
+}
+
+@keyframes xp-mot {
+  0% { opacity: 0; }
+  10%, 88% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ---------------------------------------------------------------- La carte postale */

@@ -857,7 +857,7 @@ describe("des tables entières", () => {
   it("un joueur qui fait n'importe quoi de permis, ou rien du tout : l'argent reste juste, la fin reste nette", () => {
     const reasons = new Map<string, number>();
     let hands = 0;
-    for (let seed = 1; seed <= 60; seed++) {
+    for (let seed = 1; seed <= 110; seed++) {
       const rng = rngOf(43_000 + seed);
       const pick = (n: number) => rng() % n;
       // Un joueur sur trois est un flâneur : il laisse passer un tour sur deux. Un sur cinq
@@ -1016,8 +1016,9 @@ describe("les robots autour de la table", () => {
     }
     expect(accused).toEqual([2, 0, 2, 0, 2]);
     // Le soupçon passe toujours avant la force. Deux adversaires montrent le même as de cœur :
-    // l'un des deux a triché, et cela l'inquiète plus qu'un brelan. Entre ces deux-là, la paire.
-    const twins = { 0: "Ah Ad 8c 6h 2d", 1: low, 2: "Ah Kd Qc 9s 3d", 3: "Th Td Tc 8h 3c" };
+    // l'un des deux a triché, et cela l'inquiète bien plus que deux paires, pourtant plus fortes.
+    // Entre ces deux-là, la paire.
+    const twins = { 0: "Ah Ad 8c 6h 2d", 1: low, 2: "Ah Kd Qc 9s 3d", 3: "Th Td 8s 8h 3c" };
     expect(botAccuse(showdownView(1, twins), "difficile", always(0))).toBe(0);
     expect(botAccuse(showdownView(1, { ...twins, 0: twins[2], 2: twins[0] }), "difficile", always(0))).toBe(2);
   });
@@ -1265,7 +1266,7 @@ describe("les compteurs du poker : ce que la table retient pour chaque joueur", 
     let hands = 0;
     let departures = 0;
     const totals = stat(0);
-    for (let seed = 1; seed <= 10; seed++) {
+    for (let seed = 1; seed <= 16; seed++) {
       const rng = rngOf(77_000 + seed);
       const pick = (n: number) => rng() % n;
       let now = T0;
