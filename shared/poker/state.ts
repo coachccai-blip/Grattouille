@@ -39,9 +39,9 @@ export function seatsAfter(t: TableState, from: number, seats: readonly number[]
 }
 
 /**
- * Un défi et la Table des Maîtres se jouent en tournoi : personne ne recave (ni le joueur,
- * ni les robots), la blinde monte au fil des mains, et qui n'a plus de quoi la payer pose
- * ce qui lui reste. Ailleurs, la blinde est fixe et un robot à sec recave.
+ * Un défi, la Table des Maîtres et une table entre amis créée en tournoi se jouent sans
+ * recave (ni les joueurs, ni les robots) : la blinde monte au fil des mains, et qui n'a plus
+ * de quoi la payer pose ce qui lui reste. Ailleurs, la blinde est fixe et un robot à sec recave.
  */
 export function isTournament(t: Pick<TableState, "kind" | "format">): boolean {
   return t.kind === "defi" || isMasters(t);
@@ -57,8 +57,8 @@ export function isMasters(t: Pick<TableState, "kind" | "format">): boolean {
 }
 
 /**
- * La blinde de la main `handNo`. À une table, c'est toujours la même. Dans un défi et à la
- * Table des Maîtres, elle part de la blinde de base (`t.blind`) et double de palier en palier.
+ * La blinde de la main `handNo`. À une table classique, c'est toujours la même. Dans un défi
+ * et en tournoi, elle part de la blinde de départ (`t.blind`) et double de palier en palier.
  */
 export function blindAt(t: TableState, handNo: number): number {
   if (t.kind === "defi") return challengeBlind(t.blind, handNo);
@@ -89,9 +89,10 @@ export function chipsOf(seat: SeatState): number {
 }
 
 /**
- * Table des Maîtres : ce siège est éliminé. Il n'a plus rien, et il n'est pas dans la main
- * en cours (à tapis, on n'a plus rien devant soi mais on joue encore). Son siège reste à la
- * table, vide de jetons : il ne reçoit plus de cartes, et la parole comme le bouton le sautent.
+ * Tournoi (le format des Maîtres) : ce siège est éliminé. Il n'a plus rien, et il n'est pas
+ * dans la main en cours (à tapis, on n'a plus rien devant soi mais on joue encore). Il ne
+ * reçoit plus de cartes, et la parole comme le bouton le sautent. Un robot garde son siège,
+ * vide de jetons ; un joueur humain libère le sien à la main suivante.
  */
 export function isOut(t: TableState, index: number): boolean {
   const seat = t.seats[index];
@@ -124,7 +125,7 @@ export function canDeal(t: TableState): boolean {
 /**
  * Ce qu'un joueur peut recaver maintenant, ou `null`. On recave entre deux mains, ou dès
  * qu'on n'est plus dans le coup ; jusqu'à la cave maximale, et pas en dessous de la cave
- * minimale. En tournoi (défi, Table des Maîtres), personne ne recave.
+ * minimale. Dans un défi et en tournoi, personne ne recave.
  */
 export function rebuyRange(t: TableState, index: number): Range | null {
   const seat = t.seats[index];

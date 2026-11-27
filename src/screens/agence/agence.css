@@ -143,6 +143,11 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
     repeating-linear-gradient(-45deg, var(--cerise) 0 10px, var(--ivoire) 10px 20px, #2C7DA0 20px 30px, var(--ivoire) 30px 40px) border-box;
 }
 
+/* Écran bas : l'enveloppe se tasse, le bouton reste en vue. */
+@media (max-height: 600px) {
+  .fiche-experience__vue { height: 18vh; }
+}
+
 .fiche-experience__timbre {
   flex: none;
   height: 84%;

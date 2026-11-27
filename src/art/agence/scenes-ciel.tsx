@@ -139,7 +139,7 @@ const TR = 640;
 const orbite: SceneArt = ({ espece, look }) => (
   <>
     <Ciel id="orbite" couleurs={ESPACE} />
-    <Etoiles points={FIRMAMENT} brillantes={[[70, 250, 7], [300, 190, 8], [220, 420, 6]]} />
+    <Etoiles points={FIRMAMENT} brillantes={[[70, 250, 7], [300, 236, 8], [220, 470, 6]]} />
     {/* Le soleil se couche derrière la Terre, et se relève. Et recommence : seize fois par jour. */}
     <g {...a("saut", { dy: 96, t: 2.3, d: 0.4, n: 3 })}>
       <Astre x={292} y={528} r={25} couleur="#FFF2B8" halo="#FFD873" />
@@ -240,7 +240,7 @@ const SALVES: readonly (readonly [x: number, y: number, r: number, couleur: stri
 const feuArtifice: SceneArt = ({ espece, look }) => (
   <>
     <Ciel id="feu" couleurs={ESPACE} />
-    <Etoiles points={FIRMAMENT} brillantes={[[330, 150, 7], [150, 180, 6]]} />
+    <Etoiles points={FIRMAMENT} brillantes={[[326, 196, 7], [150, 186, 6]]} />
     {/* La Lune regarde. Au bouquet, elle fait « oh ». */}
     <circle cx="64" cy="178" r="40" fill={C.ivoire} />
     <path d="M64 138A40 40 0 0 1 64 218Q86 198 86 178Q86 158 64 138Z" fill={C.pierre} />
@@ -359,7 +359,7 @@ const pasSurLaLune: SceneArt = ({ espece, look }) => (
   <>
     <Ciel id="pas" couleurs={ESPACE} />
     <Etoiles points={FIRMAMENT} brillantes={[[200, 160, 7], [320, 260, 6], [130, 300, 6]]} />
-    <g transform="translate(74 232)"><Terre r={42} /></g>
+    <g transform="translate(74 276)"><Terre r={42} /></g>
     <path d={relief([[-20, 520], [60, 486], [130, 514], [210, 480], [290, 508], [380, 478]], 560)} fill={shade("#C7CCD6", -0.24)} />
     <SolLunaire y={530} />
     {/* Le module : sa cabine d'or, ses pattes, son échelle */}

@@ -57,6 +57,17 @@ const everest: SceneArt = ({ espece, look }) => (
     <path d="M300 312L380 430V800H262L312 540L260 420Z" fill="#B9D5EC" />
     <path d="M-20 640L50 566L76 598L128 520L150 560L112 640Z" fill="#DCEBF6" />
     <path d="M120 800L186 650L224 708L262 630L320 800Z" fill="#DCEBF6" />
+    <path d="M168 372L190 350L204 376L222 362L232 392L196 404ZM60 478L84 452L96 480L78 496ZM250 470L270 446L286 478L262 492ZM150 470L166 456L176 480L160 488Z" fill="#8FA3BA" />
+    <path d="M190 350L204 376L196 404L186 372ZM84 452L96 480L78 496L86 474ZM270 446L286 478L262 492L272 468Z" fill="#6F859E" />
+    {/* Le camp de base : une tente, et la fumée du thé */}
+    <path d="M196 560L218 522L240 560Z" fill={C.corail} />
+    <path d="M218 522L240 560H226Z" fill={shade(C.corail, -0.25)} />
+    <path d="M214 560L218 544L222 560Z" fill={C.nuit} />
+    <g fill={C.blanc} fillOpacity="0.7">
+      <circle cx="250" cy="548" r="5" {...a("passe", { fy: -40, fx: 10, t: 2.4, n: "inf" })} />
+      <circle cx="250" cy="548" r="4" {...a("passe", { fy: -40, fx: 14, t: 2.4, d: 1.2, n: "inf" })} />
+    </g>
+    <path d="M244 560H256V552H244Z" fill={C.grisFonce} />
     {/* Le mât du sommet et ses fanions de prière */}
     <path d="M300 312V232" fill="none" stroke={C.nuit} strokeWidth="3" strokeLinecap="round" />
     <path d="M300 240Q160 238 -20 112" fill="none" stroke={C.nuit} strokeWidth="1.2" />

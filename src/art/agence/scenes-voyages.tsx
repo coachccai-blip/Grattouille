@@ -170,9 +170,10 @@ const japonCoree: SceneArt = ({ espece, look }) => (
     <path d="M262 508V472H270V508ZM330 508V472H338V508ZM294 508V472H306V508Z" fill={C.cerise} />
     <rect x="256" y="462" width="88" height="11" fill={C.persienne} />
     <path d="M262 467h6M276 467h6M290 467h6M304 467h6M318 467h6M332 467h6" fill="none" stroke={C.mimosa} strokeWidth="3" />
-    <path d="M236 462Q300 452 364 462L372 446Q300 428 228 446Z" fill={C.ardoise} />
-    <path d="M228 446L216 436L236 462ZM372 446L384 436L364 462Z" fill={C.ardoise} />
-    <path d="M250 448Q300 436 350 448" fill="none" stroke={shade(C.ardoise, -0.3)} strokeWidth="2" />
+    <path d="M238 464Q300 454 362 464L374 438Q300 414 226 438Z" fill={C.ardoise} />
+    <path d="M226 438L212 426L238 464ZM374 438L388 426L362 464Z" fill={C.ardoise} />
+    <path d="M246 446Q300 430 354 446M256 432Q300 420 344 432" fill="none" stroke={shade(C.ardoise, -0.3)} strokeWidth="2" />
+    <path d="M286 420Q300 410 314 420Z" fill={shade(C.ardoise, -0.3)} />
     {/* Les lanternes */}
     <path d="M196 214Q270 250 372 204" fill="none" stroke={C.nuit} strokeWidth="1.2" />
     {([[222, 228, C.bougClair, 0], [258, 240, C.mimosa, -0.3], [296, 238, C.persClair, -0.6], [334, 226, C.lilas, -0.9]] as const).map(([x, y, couleur, d]) => (
@@ -192,9 +193,9 @@ const japonCoree: SceneArt = ({ espece, look }) => (
       <path d="M-40 584H320L326 588H-40Z" fill={C.marine} />
       <path d="M262 568Q296 572 318 590H262Z" fill={C.nuit} />
       <path d={[-20, 16, 52, 88, 186, 222].map((x) => `M${x} 568h28v16h-28Z`).join("")} fill={C.nuit} />
-      <rect x="130" y="563" width="46" height="24" rx="4" fill={C.ciel} />
-      <Fenetre x={130} y={563} l={46} h={24} rx={4}>
-        <g transform={tf(126, 541, 0.19)}><Tete espece={espece} look={look} /></g>
+      <rect x="126" y="563" width="54" height="27" rx="5" fill={C.ciel} />
+      <Fenetre x={126} y={563} l={54} h={27} rx={5}>
+        <g transform={tf(122.2, 540, 0.22)}><Tete espece={espece} look={look} /></g>
       </Fenetre>
       <path d="M-40 562V610" fill="none" stroke={C.grisClair} strokeWidth="2" />
       <path d="M84 562V588" fill="none" stroke={C.grisClair} strokeWidth="2" />
@@ -341,15 +342,17 @@ const aurores: SceneArt = ({ espece, look }) => (
       points={[[24, 130], [70, 190], [120, 120], [168, 220], [214, 140], [262, 200], [310, 130], [340, 250], [44, 290], [300, 330], [150, 330], [226, 380]]}
       brillantes={[[92, 250, 7], [282, 160, 8], [196, 300, 6], [330, 380, 6]]}
     />
-    <g {...a("passe", { dx: 60, dy: 40, fx: 520, fy: 300, t: 0.8, d: 2.2 })}>
+    <g {...a("passe", { fx: 520, fy: 300, t: 0.8, d: 2.2 })}>
       <rect x="-80" y="-40" width="80" height="2.5" rx="1.2" fill={C.blanc} transform="rotate(28)" />
     </g>
     {/* Les rideaux de l'aurore se déroulent un à un, puis ondulent */}
     {([[20, 62, 150, 470, "#5FE0B0", 0.6, 0.7], [104, 74, 120, 500, "#7BE8C4", 0.75, 1.5], [196, 66, 140, 480, "#B9A5D6", 0.6, 2.3], [268, 70, 170, 490, "#5FE0B0", 0.55, 3.1]] as const).map(
       ([x, l, haut, bas, couleur, opacite, d], i) => (
-        <g key={x} {...a("etire", { sy: 0.02, t: 1.6, d, e: "sortie", o: "50% 0%" })}>
-          <g {...a("flotte", { dx: 9, t: 2.1 + i * 0.3, d: -i * 0.7 })}>
-            <path d={rideau(x, l, haut, bas)} fill={couleur} fillOpacity={opacite} {...a("clignote", { t: 1.4 + i * 0.25, d: -i * 0.4, o0: 0.55 })} />
+        <g key={x} {...a("apparait", { t: 0.3, d })}>
+          <g {...a("etire", { sy: 0.02, t: 1.6, d, e: "sortie", o: "50% 0%" })}>
+            <g {...a("flotte", { dx: 9, t: 2.1 + i * 0.3, d: -i * 0.7 })}>
+              <path d={rideau(x, l, haut, bas)} fill={couleur} fillOpacity={opacite} {...a("clignote", { t: 1.4 + i * 0.25, d: -i * 0.4, o0: 0.55 })} />
+            </g>
           </g>
         </g>
       ),
@@ -422,16 +425,20 @@ const transatlantique: SceneArt = ({ espece, look }) => (
     </g>
     {/* La ville, de l'autre côté */}
     <g {...a("va", { dx: 300, t: 2.4, d: 5.2, e: "sortie" })}>
-      <path d="M232 500V440H250V414H266V452H280V396H298V432H310V376H328V420H342V452H360V500Z" fill="#7A8FB8" />
-      <path d="M250 500V460H262V500ZM284 500V436H294V500ZM314 500V410H324V500ZM346 500V470H356V500Z" fill="#5E739E" />
-      <path d={ronds(1.5, [[256, 426], [258, 440], [288, 410], [290, 424], [318, 392], [320, 406], [336, 434], [350, 462]])} fill={C.mimosa} />
+      <g transform="translate(44 0)">
+        <path d="M232 500V440H250V414H266V452H280V396H298V432H310V376H328V420H342V452H360V500Z" fill="#7A8FB8" />
+        <path d="M250 500V460H262V500ZM284 500V436H294V500ZM314 500V410H324V500ZM346 500V470H356V500Z" fill="#5E739E" />
+        <path d={ronds(1.5, [[256, 426], [258, 440], [288, 410], [290, 424], [318, 392], [320, 406], [336, 434], [350, 462]])} fill={C.mimosa} />
+      </g>
       {/* La statue, flambeau levé */}
-      <path d="M196 500V478H224V500Z" fill={C.pierre} />
-      <path d="M202 478L206 436Q210 426 214 436L218 478Z" fill="#7FC6B2" />
-      <circle cx="210" cy="426" r="7" fill="#7FC6B2" />
-      <path d="M204 422L200 414M208 419L207 410M213 419L215 410M216 423L221 416" fill="none" stroke="#7FC6B2" strokeWidth="2" strokeLinecap="round" />
-      <path d="M214 440L224 408" fill="none" stroke="#7FC6B2" strokeWidth="5" strokeLinecap="round" />
-      <path d="M220 406Q220 396 226 392Q230 400 228 408Z" fill={C.mimosa} {...a("pulse", { s0: 0.8, s: 1.2, t: 0.3, o: "50% 100%" })} />
+      <g transform="translate(66 -6) scale(1.12)">
+        <path d="M196 500V478H224V500Z" fill={C.pierre} />
+        <path d="M202 478L206 436Q210 426 214 436L218 478Z" fill="#7FC6B2" />
+        <circle cx="210" cy="426" r="7" fill="#7FC6B2" />
+        <path d="M204 422L200 414M208 419L207 410M213 419L215 410M216 423L221 416" fill="none" stroke="#7FC6B2" strokeWidth="2" strokeLinecap="round" />
+        <path d="M214 440L224 408" fill="none" stroke="#7FC6B2" strokeWidth="5" strokeLinecap="round" />
+        <path d="M220 406Q220 396 226 392Q230 400 228 408Z" fill={C.mimosa} {...a("pulse", { s0: 0.8, s: 1.2, t: 0.3, o: "50% 100%" })} />
+      </g>
     </g>
     {/* La houle du large */}
     <path d={vagues(498, 120, 9)} fill={HOULE} {...a("defile", { dx: -120, t: 4 })} />
@@ -490,7 +497,7 @@ const GR = 112;
 /** Un monument, debout sur le bord du globe à l'angle `angle` (0 : en haut), qui surgit à l'instant `d`. */
 function Monument({ angle, d, children }: { angle: number; d: number; children: ReactNode }) {
   return (
-    <g transform={`rotate(${angle} ${GX} ${GY}) translate(${GX} ${GY - GR + 3})`}>
+    <g transform={`rotate(${angle} ${GX} ${GY}) translate(${GX} ${GY - GR + 3}) scale(1.3)`}>
       <g {...a("pop", { t: 0.45, d, o: "50% 100%" })}>{children}</g>
     </g>
   );
@@ -606,7 +613,7 @@ const antarctique: SceneArt = ({ espece, look }) => (
     <path d="M206 446L252 368L286 404L314 356L380 446Z" fill={C.blanc} />
     <path d="M314 356L380 446H334L342 404Z" fill="#BFE0EE" />
     <rect x="-20" y="440" width="400" height="110" fill="#2E6F8E" />
-    <path d="M30 470H110L118 476H38ZM220 492H300L308 498H228Z" fill={C.blanc} />
+    <path d="M196 462H262L270 468H204Z" fill={C.blanc} />
     {/* Le brise-glace accoste */}
     <g {...a("va", { dx: -260, t: 3.2, e: "sortie" })}>
       <path d="M40 440V420H112V440Z" fill={C.blanc} />

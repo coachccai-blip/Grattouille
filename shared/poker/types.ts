@@ -168,8 +168,9 @@ export type LeaveReason =
   | "defi-gagne"   // défi : l'hôte n'a plus rien
   | "defi-perdu"   // défi : le joueur n'a plus rien
   | "defi-nul"     // défi : plus personne n'a rien (tous deux démasqués, tout est resté au pot)
-  | "maitres-gagne"  // Table des Maîtres : il est le dernier assis, tout l'argent de la table est à lui
-  | "maitres-perdu"; // Table des Maîtres : son tapis est à zéro
+  | "maitres-gagne"  // tournoi (Table des Maîtres, table entre amis en tournoi) : il est le dernier à avoir des jetons, tout l'argent de la table est à lui
+  | "maitres-perdu"  // tournoi : son tapis est à zéro, il est éliminé
+  | "maitres-nul";   // tournoi entre amis : plus personne n'a rien (tous démasqués, tout est resté au pot) ; le pot est partagé
 
 /** Pourquoi une table est fermée. `vide` : plus aucun joueur humain. */
 export type CloseReason = "vide" | "inactive" | "defi" | "banque" | "maitres";
@@ -257,7 +258,7 @@ export interface HandPlayer {
 export interface HandState {
   /** Les joueurs servis, dans l'ordre de parole : le voisin du donneur d'abord. */
   players: HandPlayer[];
-  /** La blinde de cette main. Celle de la table, sauf en tournoi (défi, Table des Maîtres), où elle monte au fil des mains. */
+  /** La blinde de cette main. Celle de la table, sauf dans un défi et en tournoi, où elle monte au fil des mains. */
   blind: number;
   /** Tout l'argent au milieu : les mises de la main, plus le pot resté de la main précédente. */
   pot: number;
@@ -305,14 +306,14 @@ export interface TableState {
    * trois manches : celui-là se règle selon ses règles d'origine (la cagnotte versée à part).
    */
   level?: number;
-  /** La blinde de la table. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
+  /** La blinde de la table. Dans un défi et en tournoi : la blinde de départ, celle des premières mains. */
   blind: number;
   minBuyIn: number;
   maxBuyIn: number;
   difficulty: Difficulty;
   /**
-   * Un par siège ; `null` : siège libre. À la Table des Maîtres, un hôte éliminé garde le
-   * sien, avec un tapis à zéro : il ne reçoit plus de cartes.
+   * Un par siège ; `null` : siège libre. En tournoi, un robot éliminé garde le sien, avec un
+   * tapis à zéro : il ne reçoit plus de cartes. Un joueur humain éliminé libère le sien.
    */
   seats: (SeatState | null)[];
   /** Le joueur qui peut lancer la partie. */
@@ -386,9 +387,9 @@ export interface SeatView {
   /** Sa mise dans le tour d'enchères. */
   bet: number;
   /**
-   * Tout ce qu'il a versé au pot dans cette main, blinde comprise. Dans un défi et à la
-   * Table des Maîtres, un joueur qui n'a plus de quoi payer la blinde pose ce qui lui
-   * reste : il est à tapis d'entrée.
+   * Tout ce qu'il a versé au pot dans cette main, blinde comprise. Dans un défi et en
+   * tournoi, un joueur qui n'a plus de quoi payer la blinde pose ce qui lui reste : il est
+   * à tapis d'entrée.
    */
   committed: number;
   /**
@@ -400,11 +401,12 @@ export interface SeatView {
   cards: Card[] | null;
   category: HandCategory | null;
   /**
-   * Table des Maîtres : éliminé. Il n'a plus rien (`stack` vaut 0) et regarde la fin de la
-   * partie ; son siège reste dessiné, mais il ne reçoit plus de cartes et la parole comme le
-   * bouton le sautent. Le champ est ABSENT de tout autre siège, et de toute autre table.
-   * Il apparaît au dénouement de la main où le joueur a tout perdu (pendant cette main, il
-   * est encore `inHand` et `allIn`).
+   * Tournoi (Table des Maîtres, table entre amis en tournoi) : éliminé. Il n'a plus rien
+   * (`stack` vaut 0) ; il ne reçoit plus de cartes, et la parole comme le bouton le sautent.
+   * Le champ est ABSENT de tout autre siège, et de toute table classique. Il apparaît au
+   * dénouement de la main où le joueur a tout perdu (pendant cette main, il est encore
+   * `inHand` et `allIn`). Un robot éliminé garde son siège, dessiné vide, jusqu'à la fin ; un
+   * joueur humain libère le sien à la main suivante.
    */
   out?: true;
 }
@@ -460,7 +462,7 @@ export interface Options {
   fold: boolean;
   /** `accuser` : les sièges qu'il peut accuser. Vide hors de l'abattage, ou s'il a déjà parlé. `rien` est permis dès que la liste n'est pas vide. */
   accuse: number[];
-  /** `recaver` : fourchette de `amount`. `null` : pas possible maintenant (ou jamais, dans un défi et à la Table des Maîtres). */
+  /** `recaver` : fourchette de `amount`. `null` : pas possible maintenant (ou jamais, dans un défi et en tournoi). */
   rebuy: Range | null;
   /** `retour` : il est marqué absent. */
   back: boolean;
@@ -484,20 +486,20 @@ export interface TableView {
   level?: number;
   /**
    * La blinde en vigueur : celle de la main en cours, ou de la prochaine entre deux mains.
-   * À une table, elle ne change jamais. Dans un défi et à la Table des Maîtres, elle part
-   * de la blinde de base et double de palier en palier (voir `rise`) ; c'est aussi la mise
-   * et la relance minimales du tour d'enchères.
+   * À une table classique, elle ne change jamais. Dans un défi et en tournoi, elle part de
+   * la blinde de départ et double de palier en palier (voir `rise`) ; c'est aussi la mise et
+   * la relance minimales du tour d'enchères.
    */
   blind: number;
   /**
-   * Défi et Table des Maîtres : la prochaine hausse de la blinde. `hand` : le numéro de la
-   * main où elle monte (à comparer à `handNo`) ; `blind` : ce qu'elle vaudra. `null` à une
-   * table ordinaire, ou quand elle a dépassé tout l'argent en jeu et ne montera plus.
+   * Défi et tournoi : la prochaine hausse de la blinde. `hand` : le numéro de la main où
+   * elle monte (à comparer à `handNo`) ; `blind` : ce qu'elle vaudra. `null` à une table
+   * classique, ou quand elle a dépassé tout l'argent en jeu et ne montera plus.
    */
   rise: { hand: number; blind: number } | null;
   /**
-   * Les caves. Dans un défi et à la Table des Maîtres, toutes deux valent 30 blindes de
-   * base (la cave imposée), quelle que soit la blinde en vigueur.
+   * Les caves. Dans un défi et en tournoi, toutes deux valent la mise imposée (25 blindes
+   * de départ dans un défi, 30 en tournoi), quelle que soit la blinde en vigueur.
    */
   minBuyIn: number;
   maxBuyIn: number;
@@ -647,13 +649,15 @@ export interface PokerLobbyResponse {
 }
 
 /**
- * POST /api/poker/tables : créer une table, ouvrir une table de la maison, ou lancer un défi.
+ * POST /api/poker/tables : créer une table (classique ou en tournoi), ouvrir une table de la
+ * maison, lancer un défi, ou s'asseoir à la Table des Maîtres.
  * `ack` : comme partout, les tickets grattés à déclarer avant de compter la bourse.
  */
 export type CreateTableBody =
   | {
+    /** La blinde. En tournoi : la blinde de départ. */
     blind: number;
-    /** La cave maximale de la table, entre 20 et 100 blindes. */
+    /** La cave maximale de la table, entre 20 et 100 blindes. En tournoi : ignorée. */
     maxBuyIn: number;
     /** Le nombre de sièges, de 2 à 6. */
     seats: number;
@@ -670,6 +674,8 @@ export type CreateTableBody =
     format?: TableFormat;
     ack?: string[];
   }
+  /** Une table en tournoi se crée aussi sans cave maximale : elle n'en a pas. */
+  | { blind: number; seats: number; bots: number; difficulty?: Difficulty; format: "tournoi"; ack?: string[] }
   | { maison: PlaceId; buyIn?: number; ack?: string[] }
   | { defi: PlaceId; ack?: string[] }
   | { maitres: true; ack?: string[] };
@@ -677,7 +683,7 @@ export type CreateTableBody =
 /** POST /api/poker/join */
 export interface JoinTableBody {
   code: string;
-  /** La cave, entre la cave minimale et la cave maximale de la table. */
+  /** La cave, entre la cave minimale et la cave maximale de la table. En tournoi, les deux sont la même somme : la cagnotte exacte. */
   buyIn: number;
   ack?: string[];
 }
@@ -696,7 +702,8 @@ export interface ActBody {
  * - `view` : ce que voit le joueur. `null` : la table n'existe plus ;
  * - `state` : présent quand la bourse du joueur a bougé pendant la requête ;
  * - `left` : présent quand le joueur n'est plus assis à cette table (il a quitté, il a
- *   été écarté, la table a fermé). `bonus` : la cagnotte d'un défi relevé pour la première fois.
+ *   été écarté ou éliminé, la table a fermé). `bonus` : 0, sauf pour un défi ouvert avant les
+ *   trois manches et relevé pour la première fois (sa cagnotte d'origine, versée à part).
  */
 export interface PokerTableResponse {
   view: TableView | null;

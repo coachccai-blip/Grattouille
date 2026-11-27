@@ -187,8 +187,8 @@ const cerfVolant: SceneArt = ({ espece, look }) => {
       <g {...a("flotte", { dx: 5, dy: 6, t: 1.7 })}>
         <g transform="translate(196 368)">
           <g {...a("flotte", { r: 7, t: 1.1, o: [0, 0] })}>
-            <g {...a("flotte", { r: 16, t: 0.3, o: [-62, -100] })}>
-              <path d="M-62 -100Q-42 -92 -32 -74Q-20 -80 -10 -64L-16 -58Q-24 -70 -36 -64Q-46 -82 -62 -90Z" fill={C.cerise} />
+            <g {...a("flotte", { r: 14, t: 0.34, o: [0, 0] })}>
+              <path d="M0 0Q22 4 30 22Q44 14 54 30Q66 22 74 38L68 44Q60 32 50 40Q42 26 28 32Q20 16 0 10Z" fill={C.cerise} />
             </g>
             <g {...a("flotte", { r: 16, t: 0.26, d: -0.1, o: [62, -100] })}>
               <path d="M62 -100Q82 -92 92 -74Q104 -80 114 -64L108 -58Q100 -70 88 -64Q78 -82 62 -90Z" fill={C.persienne} />
@@ -283,17 +283,17 @@ const piqueNique: SceneArt = ({ espece, look }) => (
     <path d="M284 498H332V504H284Z" fill={C.gris} />
     {/* L'assiette, et ce qu'il y avait sous la cloche */}
     <ellipse cx="180" cy="548" rx="50" ry="8" fill={METAL.argent} />
-    <path d="M142 542Q150 522 180 522Q210 522 218 542Q180 552 142 542Z" fill={C.paille} />
-    <path d="M144 540Q180 548 216 540L214 545Q180 554 146 545Z" fill={C.rose} />
-    <path d="M146 546Q180 556 214 546Q210 552 180 553Q150 552 146 546Z" fill={shade(C.paille, -0.2)} />
-    <path d="M160 530L168 526M178 528L186 524M196 530L204 526" fill="none" stroke={shade(C.paille, -0.25)} strokeWidth="2.4" strokeLinecap="round" />
+    <path d="M134 541Q138 527 156 526H204Q222 527 226 541Q180 547 134 541Z" fill={C.paille} />
+    <path d="M136 540Q150 536 158 541Q168 535 180 541Q192 535 202 541Q212 536 224 540L222 546Q180 553 138 546Z" fill={C.rose} />
+    <path d="M138 545Q180 553 222 545Q218 552 180 553Q142 552 138 545Z" fill={shade(C.paille, -0.2)} />
+    <path d="M154 533L162 529M174 532L182 528M194 532L202 528" fill="none" stroke={shade(C.paille, -0.25)} strokeWidth="2.4" strokeLinecap="round" />
     <path d={etoiles([[128, 520, 9], [232, 512, 7], [180, 500, 6]])} fill={C.blanc} {...a("pop", { t: 0.5, d: 4.5 })} />
     {/* Le maître d'hôtel arrive par le bout de la table, et soulève la cloche */}
     <g {...a("va", { dx: 160, t: 1.6, d: 1.3, e: "lin" })}>
-      <g transform="translate(272 550)"><g {...a("saut", { dy: -5, t: 0.26, n: 9 })}><Crabe /></g></g>
+      <g transform="translate(292 550)"><g {...a("saut", { dy: -5, t: 0.26, n: 9 })}><Crabe /></g></g>
     </g>
-    <g {...a("va", { dx: -66, dy: 62, r: -22, t: 0.6, d: 3.9, e: "rebond", o: [248, 470] })}>
-      <g transform="translate(248 470) rotate(22)">
+    <g {...a("va", { dx: -82, dy: 60, r: -22, t: 0.6, d: 3.9, e: "rebond", o: [262, 472] })}>
+      <g transform="translate(262 472) rotate(22)">
         <path d="M-44 44A44 44 0 0 1 44 44Z" fill={METAL.argent} />
         <path d="M-30 30A32 32 0 0 1 -6 8" fill="none" stroke={C.blanc} strokeWidth="5" strokeLinecap="round" />
         <rect x="-48" y="42" width="96" height="6" rx="3" fill={C.gris} />

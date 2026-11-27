@@ -48,7 +48,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
       cards: shown ? [...p.cards] : null,
       category: shown ? evaluate(p.cards).category : null,
     };
-    // Table des Maîtres : un joueur éliminé garde son siège, vide. Le champ n'existe que là.
+    // Tournoi : un joueur éliminé, assis sans un jeton. Le champ n'existe que là.
     if (isOut(t, index)) view.out = true;
     return view;
   });

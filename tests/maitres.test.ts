@@ -1636,6 +1636,20 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     audited(t);
   });
 
+  it("un siège réservé avant le lancement, jamais payé, ne se paie plus après : il est libéré", () => {
+    const rng = rngOf(6);
+    // Le troisième a réservé son siège, mais sa cagnotte n'est pas arrivée quand la partie part.
+    let t = sit(tourney(2, [], 4, rng), sitter(2), T0, rng);
+    t = act(t, "p_a", { type: "lancer" }, T0, rng);
+    expect([t.handNo, t.hand!.players.map((p) => p.seat).sort(), t.seats[2]!.seq]).toEqual([1, [0, 1], 0]);
+    // Sa demande rejouée est refusée : il n'entrera plus.
+    expect(refusal(() => sit(t, sitter(2), T0 + 1_000, rng))).toBe("TABLE_FULL");
+    // Au bout de trente secondes, son siège est libéré ; il n'avait rien posé, il n'a rien à reprendre.
+    t = advance(t, T0 + RESERVE_MS, rng);
+    expect([t.seats[2], owed(t, "p_c"), t.closed]).toEqual([null, [["reserve", 0]], null]);
+    audited(t);
+  });
+
   it("le créateur la lance dès qu'ils sont deux, humains ou robots", () => {
     const alone = tourney(1, [], 3);
     expect(viewFor(alone, "p_a", T0).options.start).toBe(false);
@@ -1659,6 +1673,13 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     const t = launched(2, ["gaspard"]);
     for (const seat of [0, 1, 2]) expect([seat, rebuyRange(t, seat)]).toEqual([seat, null]);
     expect(viewFor(t, "p_b", T0).options.rebuy).toBeNull();
+    // Même entre deux mains, avec un tapis entamé : à une table classique, on lui proposerait de recaver.
+    const short = tourneyAt(t, { played: 4, stacks: [350, 250, 300], nextAt: T0 + 5_000 });
+    expect([rebuyRange(short, 1), viewFor(short, "p_b", T0).options.rebuy]).toEqual([null, null]);
+    const classic = copy(friends([1000, 1000]));
+    Object.assign(classic, { hand: null, phase: "denouement", nextAt: T0 + 5_000 });
+    classic.seats[1]!.stack = 250;
+    expect(rebuyRange(classic, 1)).toEqual({ min: 1, max: 750 });
     // Le même barème : seize mains à la blinde de départ, puis elle double par paliers.
     expect([1, 16, 17, 20, 21, 25, 29, 31, 33, 35].map((n) => blindAt(t, n))).toEqual([10, 10, 20, 40 / 2, 40, 80, 160, 320, 640, 1280]);
     for (const n of [1, 16, 17, 21, 25, 29, 31, 33, 35]) expect([n, blindAt(t, n)]).toEqual([n, mastersBlind(10, n)]);
@@ -1740,10 +1761,47 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     audited(t);
   });
 
-  it("plus personne n'a rien (tous démasqués, tout est resté au pot) : personne ne gagne", () => {
-    const t = advance(tourneyAt(launched(2), { played: 1, stacks: [0, 0], carry: 600 }), T0, rngOf(2));
-    expect([t.closed, owed(t, "p_a"), owed(t, "p_b")]).toEqual(["maitres", [["maitres-perdu", 0]], [["maitres-perdu", 0]]]);
+  it("plus personne n'a rien (tous à tapis, tous démasqués) : match nul, ils se partagent le pot resté là", () => {
+    const rng = rngOf(25);
+    // À deux, première main : tous deux poussent leur tapis, tous deux ont triché, et chacun accuse l'autre.
+    let t = toShowdown(launched(2, [], rng), { cards: { 0: ACES, 1: KINGS }, push: [0, 1], cheats: [0, 1] });
+    t = play(play(t, 0, { type: "accuser", seat: 1 }), 1, { type: "accuser", seat: 0 });
+    expect([t.phase, stacksOf(t), t.carry, t.result!.pots]).toEqual([
+      "denouement", [0, 0], 600, [{ amount: 600, winners: [], carried: true }],
+    ]);
+    t = advance(t, T0 + RESULT_MS, rng);
+    // Personne n'a gagné, personne n'a perdu : chacun reprend sa part.
+    expect([t.closed, owed(t, "p_a"), owed(t, "p_b")]).toEqual(["maitres", [["maitres-nul", 300]], [["maitres-nul", 300]]]);
+    expect(t.audit).toEqual({ in: 600, out: 600, bank: 0 });
     audited(t);
+  });
+
+  it("match nul avec un robot dans le coup : la part du robot disparaît avec lui ; un joueur éliminé plus tôt n'a droit à rien", () => {
+    const rng = rngOf(26);
+    // Trois joueurs et un robot ; le siège 2 est déjà éliminé, le siège 1 se couche. Le siège 0
+    // et le robot poussent 450 € chacun, ont triché tous les deux, et s'accusent l'un l'autre.
+    let t = advance(tourneyAt(launched(3, ["gaspard"], rng), { played: 5, stacks: [450, 300, 0, 450] }), T0, rng);
+    expect([owed(t, "p_c"), t.handNo, stacksOf(t)]).toEqual([[["maitres-perdu", 0]], 6, [440, 290, null, 440]]);
+    t = toShowdown(t, { cards: { 0: ACES, 3: KINGS }, push: [0, 3], cheats: [0, 3], accuse: { 3: 0 } });
+    t = play(t, 0, { type: "accuser", seat: 3 });
+    // Le pot (910 €) reste là ; le siège 1, couché, a gardé ses jetons : la partie continue, et il la gagne.
+    expect([t.phase, stacksOf(t), t.carry]).toEqual(["denouement", [0, 290, null, 0], 910]);
+    const won = advance(t, T0 + RESULT_MS, rng);
+    expect([won.closed, owed(won, "p_a"), owed(won, "p_b")]).toEqual(["maitres", [["maitres-perdu", 0]], [["maitres-gagne", 1200]]]);
+    audited(won);
+
+    // Sans le siège 1 : plus personne n'a rien. Le joueur et le robot qui jouait le coup se
+    // partagent le pot (la part du robot disparaît avec lui) ; l'autre robot, éliminé plus tôt et
+    // toujours assis, n'y a pas droit.
+    let duel = advance(tourneyAt(launched(2, ["gaspard", "ondine"], rng), { played: 5, stacks: [450, 0, 0, 450] }), T0, rng);
+    expect([owed(duel, "p_b"), duel.seats.map((seat) => seat === null), duel.hand!.players.map((p) => p.seat).sort()]).toEqual([
+      [["maitres-perdu", 0]], [false, true, false, false], [0, 3],
+    ]);
+    duel = toShowdown(duel, { cards: { 0: ACES, 3: KINGS }, push: [0, 3], cheats: [0, 3], accuse: { 3: 0 } });
+    duel = advance(play(duel, 0, { type: "accuser", seat: 3 }), T0 + RESULT_MS, rng);
+    expect([duel.closed, owed(duel, "p_a")]).toEqual(["maitres", [["maitres-nul", 450]]]);
+    expect([duel.audit.in, duel.audit.out, chipsOnTable(duel)]).toEqual([600, 450, 0]);
+    audited(duel);
   });
 
   it("abandonner entre deux mains : le tapis de celui qui part reste sur la table et rejoint le pot de la main suivante", () => {
@@ -1779,6 +1837,21 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     expect(stacksOf(t)).toEqual([320, null, 290]);
     t = advance(t, T0 + RESULT_MS, rng);
     expect([t.handNo, t.carry, t.hand!.pot, stacksOf(t)]).toEqual([2, 0, 310, [310, null, 280]]);
+    audited(t);
+  });
+
+  it("abandonner face à un joueur à tapis : il n'a plus rien devant lui, mais il est encore en jeu", () => {
+    const rng = rngOf(24);
+    const s = copy(launched(2, ["gaspard"], rng));
+    // Le siège 0 a tout poussé dans la main en cours.
+    const pushed = s.hand!.players.find((p) => p.seat === 0)!;
+    pushed.committed += s.seats[0]!.stack;
+    s.hand!.pot += s.seats[0]!.stack;
+    s.seats[0]!.stack = 0;
+    pushed.allIn = true;
+    audited(s);
+    const t = leave(s, "p_b", T0, rng);
+    expect([owed(t, "p_b"), t.carry, t.closed]).toEqual([[["quitte", 0]], 290, null]);
     audited(t);
   });
 
@@ -1941,15 +2014,20 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
         // Chaque joueur a une entrée, et une seule.
         expect(t.ended.map((e) => e.playerId).sort()).toEqual(IDS.slice(0, humans));
         const winners = t.ended.filter((e) => e.reason === "maitres-gagne");
+        const drawn = t.ended.filter((e) => e.reason === "maitres-nul");
         expect(winners.length).toBeLessThanOrEqual(1);
+        // Un match nul n'a pas de vainqueur.
+        if (drawn.length > 0) expect(winners.length).toBe(0);
         for (const e of t.ended) {
           if (e.reason === "maitres-gagne") expect(e.payout).toBe(total);
+          else if (e.reason === "maitres-nul") expect(e.payout).toBeGreaterThan(0);
           else expect([e.reason, e.payout]).toEqual(["maitres-perdu", 0]);
         }
-        // Sans robot, il y a toujours un vainqueur, sauf si les derniers se sont tous fait démasquer.
         if (winners.length === 1) won += 1;
         else lost += 1;
-        expect(t.audit.out).toBe(winners.length * total);
+        expect(t.audit.out).toBe(winners.length === 1 ? total : drawn.reduce((sum, e) => sum + e.payout, 0));
+        // Sans robot à la table, tout l'argent retourne aux joueurs : à un vainqueur, ou à ceux d'un match nul.
+        if (bots.length === 0) expect([winners.length + (drawn.length > 0 ? 1 : 0), t.audit.out]).toEqual([1, total]);
       }
     }
     expect(won).toBeGreaterThan(lost);
@@ -1969,7 +2047,7 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
       expect(winners.length).toBeLessThanOrEqual(1);
       for (const e of t.ended) {
         reasons.add(e.payout > 0 ? `${e.reason}+` : e.reason);
-        expect(["maitres-gagne", "maitres-perdu", "quitte"]).toContain(e.reason);
+        expect(["maitres-gagne", "maitres-perdu", "maitres-nul", "quitte"]).toContain(e.reason);
         if (e.reason === "maitres-perdu") expect(e.payout).toBe(0);
       }
       // Un vainqueur remporte tout ce qui restait sur la table : rien n'est sorti d'autre que des tapis repris.
@@ -1978,7 +2056,7 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
       expect(chipsOnTable(t)).toBe(0);
     }
     // Les quatre sorties se sont toutes produites : gagné, perdu, abandonné sans rien, parti avec son tapis.
-    expect([...reasons].sort()).toEqual(["maitres-gagne+", "maitres-perdu", "quitte", "quitte+"]);
+    expect([...reasons].filter((reason) => reason !== "maitres-nul+").sort()).toEqual(["maitres-gagne+", "maitres-perdu", "quitte", "quitte+"]);
   });
 });
 
@@ -3017,8 +3095,10 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
       const r = await w.poker.create(a, body) as Reply;
       return [r.status, r.body.error?.code];
     };
-    expect(await refused({ blind: 10, seats: 2, bots: 0, format: "autre" })).toEqual([400, "BAD_REQUEST"]);
-    expect(await refused({ blind: 10, seats: 2, bots: 0, format: true })).toEqual([400, "BAD_REQUEST"]);
+    // Un format inconnu est refusé, même dans un corps par ailleurs valable pour une table classique.
+    for (const format of ["autre", "", true, null, 1]) {
+      expect([format, ...(await refused({ blind: 10, maxBuyIn: 1_000, seats: 2, bots: 0, format }))]).toEqual([format, 400, "BAD_REQUEST"]);
+    }
     expect(await refused({ blind: 10, seats: 7, bots: 0, format: "tournoi" })).toEqual([400, "BAD_REQUEST"]);
     expect(await refused({ blind: 10, seats: 3, bots: 3, format: "tournoi" })).toEqual([400, "BAD_REQUEST"]);
     expect(await refused({ blind: 15, seats: 3, bots: 1, format: "tournoi" })).toEqual([400, "BAD_REQUEST"]);
@@ -3068,6 +3148,28 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     // Et personne ne recave.
     expect(((await w.poker.act(b, code, { type: "recaver", amount: 100 })) as Reply).body.error.code).toBe("ACTION_IMPOSSIBLE");
     expect(w.balance(b)).toBe(700);
+  });
+
+  it("une demande coupée avant de payer, puis la partie lancée : son siège réservé ne se paie plus, il est libéré", async () => {
+    const w = makeWorld();
+    const [a, b] = [await w.signup("Ada", 1_000), await w.signup("Bob", 1_000)];
+    const code = await tournament(w, [a], { seats: 3, bots: 1, launch: false });
+    // La demande de Bob tombe entre la réservation de son siège et le paiement de sa cagnotte.
+    w.failAt("mutatePlayer", 1, "before");
+    const crashed = await w.crashing(() => w.poker.join(b, code, STAKE));
+    expect(crashed.status).toBe(500);
+    expect(w.table(code)!.seats[1]).toMatchObject({ playerId: b.playerId, seq: 0, stack: 0 });
+    // Ada lance sans lui : elle et le robot.
+    const started = await w.poker.act(a, code, { type: "lancer" });
+    expect([started.body.view!.handNo, started.body.view!.seats[1]!.funded]).toEqual([1, false]);
+    // Bob réessaie : trop tard, et il n'a rien payé.
+    const retry = await w.poker.join(b, code, STAKE) as Reply;
+    expect([retry.status, retry.body.error.code]).toEqual([409, "TABLE_FULL"]);
+    expect([w.balance(b), w.record(b).poker ?? null]).toEqual([1_000, null]);
+    // Trente secondes après sa réservation, son siège est libéré.
+    w.advance(RESERVE_MS);
+    await w.poker.poll(a, code);
+    expect([w.table(code)!.seats[1], w.balance(b), w.record(b).poker ?? null]).toEqual([null, 1_000, null]);
   });
 
   it("à deux : le vainqueur remporte tout, chacun est réglé par sa propre requête, et `masters` ne bouge pas", async () => {
@@ -3141,6 +3243,12 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     await forcedHand(w, code, [a, b, c], { cards: { 0: ACES, 2: NOTHING }, push: [0, 2] });
     expect(w.table(code)!.seats.map((seat) => seat!.stack)).toEqual([620, 290, 0, 290]);
     expect((await w.poker.poll(c, code)).body.view!.seats[2]).toMatchObject({ stack: 0, out: true });
+    // Personne ne recave, pas même entre deux mains : ni celle qui n'a plus rien, ni celui dont le tapis est entamé.
+    for (const who of [b, c]) {
+      expect((await w.poker.poll(who, code)).body.view!.options.rebuy).toBeNull();
+      expect(((await w.poker.act(who, code, { type: "recaver", amount: 10 })) as Reply).body.error.code).toBe("ACTION_IMPOSSIBLE");
+    }
+    expect([w.balance(b), w.balance(c)]).toEqual([700, 700]);
     w.advance(RESULT_MS);
     // La main suivante part sans Cléo : éliminée, elle repart sans rien. C'est la requête d'Ada qui la règle.
     const next = await w.poker.poll(a, code);
@@ -3174,6 +3282,41 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     expect(won.body.state).toMatchObject({ balance: 1_900, masters: 0, pokerStats: stat(2, 2) });
     expect([w.balance(a), w.balance(b), w.balance(c), w.storage.tableCodes()]).toEqual([1_900, 700, 700, []]);
     for (const who of [a, b, c]) expect([w.record(who).poker, w.record(who).masters]).toEqual([null, undefined]);
+  });
+
+  it("match nul : tous deux à tapis, tous deux démasqués ; chacun reprend sa part du pot, sans victoire", async () => {
+    const w = makeWorld();
+    const [a, b] = [await w.signup("Ada", 1_000), await w.signup("Bob", 1_000)];
+    const code = await tournament(w, [a, b]);
+    // Chacun se glisse une carte qu'il n'a pas, puis pousse son tapis (derrière le dos du serveur).
+    const spare = async (who: Account): Promise<Card> => {
+      const cards = (await w.poker.poll(who, code)).body.view!.hand!.cards;
+      return DECK.find((card) => !cards.includes(card))!;
+    };
+    expect((await w.poker.act(a, code, { type: "tricher", index: 4, card: await spare(a) })).status).toBe(200);
+    w.storage.pokeTable(code, (t) => {
+      for (const p of t.hand!.players) {
+        const seat = t.seats[p.seat]!;
+        p.committed += seat.stack;
+        t.hand!.pot += seat.stack;
+        seat.stack = 0;
+        p.allIn = true;
+      }
+    });
+    expect((await w.poker.act(b, code, { type: "tricher", index: 0, card: await spare(b) })).body.view!.phase).toBe("abattage");
+    // Chacun accuse l'autre : à tapis, cela ne coûte rien.
+    await w.poker.act(a, code, { type: "accuser", seat: 1 });
+    const done = await w.poker.act(b, code, { type: "accuser", seat: 0 });
+    expect(done.body.view).toMatchObject({ phase: "denouement", pot: 600 });
+    expect(done.body.view!.result).toMatchObject({ carry: 600, unmasked: [{ seat: 0 }, { seat: 1 }] });
+    expect(done.body.view!.seats.map((seat) => seat!.out ?? false)).toEqual([true, true]);
+    w.advance(RESULT_MS);
+    for (const who of [a, b]) {
+      const r = await w.poker.poll(who, code);
+      expect(r.body.left).toEqual({ reason: "maitres-nul", payout: STAKE, bonus: 0 });
+      expect(r.body.state).toMatchObject({ balance: 1_000, masters: 0, pokerStats: stat(1, 0, 1, 1) });
+    }
+    expect([w.record(a).masters, w.record(b).masters, w.storage.tableCodes()]).toEqual([undefined, undefined, []]);
   });
 
   it("le dernier joueur humain se lève : il reprend son tapis, sans victoire, et la table ferme", async () => {
@@ -3269,11 +3412,19 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
       }
       expect(left.size).toBe(3);
       const won = [...left.values()].filter((l) => l.reason === "maitres-gagne");
+      const drawn = [...left.values()].filter((l) => l.reason === "maitres-nul");
       expect(won.length).toBeLessThanOrEqual(1);
-      for (const l of left.values()) expect(l.reason === "maitres-gagne" ? l.payout : [l.reason, l.payout]).toEqual(l.reason === "maitres-gagne" ? 1_500 : ["maitres-perdu", 0]);
+      if (drawn.length > 0) expect(won.length).toBe(0);
+      for (const l of left.values()) {
+        if (l.reason === "maitres-gagne") expect(l.payout).toBe(1_500);
+        else if (l.reason === "maitres-nul") expect(l.payout).toBeGreaterThan(0);
+        else expect([l.reason, l.payout]).toEqual(["maitres-perdu", 0]);
+      }
       winners += won.length;
-      // Les bourses : 700 € chacun, plus toute la table pour le vainqueur s'il y en a un.
-      expect(players.map((who) => w.balance(who)).sort((x, y) => x - y)).toEqual(won.length === 1 ? [700, 700, 2_200] : [700, 700, 700]);
+      // Les bourses : 700 € chacun, plus ce que la table a rendu (toute la table au vainqueur, s'il y en a un).
+      const back = [...left.values()].reduce((sum, l) => sum + l.payout, 0);
+      expect(players.reduce((sum, who) => sum + w.balance(who), 0)).toBe(2_100 + back);
+      if (won.length === 1) expect(players.map((who) => w.balance(who)).sort((x, y) => x - y)).toEqual([700, 700, 2_200]);
       expect(players.map((who) => [w.record(who).poker, w.record(who).masters])).toEqual([[null, undefined], [null, undefined], [null, undefined]]);
       expect(w.storage.tableCodes()).toEqual([]);
     }

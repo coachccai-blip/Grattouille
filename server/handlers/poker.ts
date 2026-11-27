@@ -189,9 +189,10 @@ function readOrder(body: Body, me: PlayerRecord): Order {
 
 /**
  * POST /api/poker/tables → { view, state }
- * Créer une table ({ blind, maxBuyIn, seats, bots, difficulty?, buyIn? }), ouvrir une
- * table de la maison ({ maison: lieu, buyIn? }), lancer un défi ({ defi: lieu }) ou
- * s'asseoir à la Table des Maîtres ({ maitres: true }).
+ * Créer une table ({ blind, maxBuyIn, seats, bots, difficulty?, buyIn? }, ou en tournoi
+ * { blind, seats, bots, difficulty?, format: "tournoi" }), ouvrir une table de la maison
+ * ({ maison: lieu, buyIn? }), lancer un défi ({ defi: lieu }) ou s'asseoir à la Table des
+ * Maîtres ({ maitres: true }).
  * Le créateur s'assoit. Le siège est réservé sur la table avant que la bourse ne paie.
  */
 export async function createPokerTable(req: Request, deps: Deps): Promise<Response> {
@@ -238,7 +239,8 @@ export async function createPokerTable(req: Request, deps: Deps): Promise<Respon
 /**
  * POST /api/poker/join { code, buyIn, ack? } → { view, state }
  * Rejoindre une table avec son code et une cave. Seules les tables créées par un joueur
- * se rejoignent : une table de la maison ou un défi n'a pas de code à partager.
+ * se rejoignent : une table de la maison ou un défi n'a pas de code à partager. Une table en
+ * tournoi se rejoint à la cagnotte exacte, et seulement avant son lancement.
  */
 export async function joinPokerTable(req: Request, deps: Deps): Promise<Response> {
   const body = await readBody(req);
@@ -264,10 +266,10 @@ export async function joinPokerTable(req: Request, deps: Deps): Promise<Response
   const fresh = newSessionId(deps.random32);
   const reserved = await touchTable(deps, me, code, now, (t) => {
     if (t.kind !== "privee" || t.phase === "fermee") fail("TABLE_NOT_FOUND");
-    // Un tournoi entre amis ne se rejoint qu'avant son lancement, et à la cagnotte exacte.
-    if (t.format === "tournoi" && t.handNo > 0) fail("TABLE_FULL");
+    // En tournoi, la cave minimale et la cave maximale sont la même somme : la cagnotte exacte.
     if (buyIn < t.minBuyIn || buyIn > t.maxBuyIn) fail("BAD_REQUEST");
-    // Un siège déjà réservé à son nom (une requête interrompue) : on le reprend.
+    // Un siège déjà réservé à son nom (une requête interrompue) : on le reprend. Un tournoi
+    // lancé entre-temps n'accepte plus personne : le moteur refuse (`TABLE_FULL`).
     return sit(t, sitterOf(me, fresh), now, deps.random32);
   });
   const index = reserved ? seatIndexOf(reserved, me.id) : -1;
