@@ -59,6 +59,10 @@ interface GameState {
   ending: boolean;
   /** Piou accueille un nouveau compte. */
   welcome: boolean;
+  /** La vraie fin, « Huit as de cœur », est à l'écran. */
+  trueEnding: boolean;
+  /** Le générique à l'écran est un souvenir, revu depuis les Réglages : il ne dit rien au serveur et ne sème rien. */
+  replay: boolean;
   /** Durée du prochain comptage du solde dans la bourse, en millisecondes. */
   countMs: number;
   /**
@@ -89,6 +93,8 @@ export const useGame = create<GameState>(() => ({
   openings: [],
   ending: false,
   welcome: false,
+  trueEnding: false,
+  replay: false,
   countMs: 800,
   countDelay: 0,
   purseFlash: 0,
@@ -124,8 +130,8 @@ export function isCalm(s: Pick<GameState, "settings" | "systemCalm">): boolean {
 }
 
 /** Vrai tant qu'un grand moment (accueil, ouverture d'un lieu, générique) couvre le jeu : l'écran du dessous se tait. */
-export function isCovered(s: Pick<GameState, "welcome" | "ending" | "openings">): boolean {
-  return s.welcome || s.ending || s.openings.length > 0;
+export function isCovered(s: Pick<GameState, "welcome" | "ending" | "openings"> & Partial<Pick<GameState, "trueEnding">>): boolean {
+  return s.welcome || s.ending || s.trueEnding === true || s.openings.length > 0;
 }
 
 type FoundView = Pick<GameState, "player" | "revealed" | "luckyAt">;
@@ -285,7 +291,10 @@ function requireAuth(): Auth {
 /** Le compte n'existe plus côté serveur : retour à l'écran de bienvenue. */
 function dropSession(): void {
   if (!get().sandbox) clearSession();
-  set({ auth: null, player: null, revealed: [], phase: "bienvenue", openings: [], ending: false, welcome: false });
+  set({
+    auth: null, player: null, revealed: [], phase: "bienvenue", openings: [], ending: false, welcome: false,
+    trueEnding: false, replay: false,
+  });
 }
 
 /**
@@ -419,6 +428,7 @@ function enter(auth: Auth, state: PlayerState, welcome: boolean): void {
   }
   set({
     auth, player: state, revealed: [], phase: "jeu", welcome, openings: [], ending: false,
+    trueEnding: false, replay: false,
     luckyAt: Date.now() + (state.luckyIn ?? 0),
   });
 }
@@ -680,6 +690,41 @@ export async function markTrueEndingSeen(): Promise<boolean> {
     await recover(error);
     return false;
   }
+}
+
+/** Vue jusqu'au bout depuis le lancement du jeu : si le serveur ne l'a pas su, on le lui redira sans la rejouer. */
+let trueEndingWatched = false;
+
+/**
+ * La vraie fin se lève, si elle est due : la coquille l'appelle au retour sur le Domaine.
+ * Vue jusqu'au bout sans réseau, elle ne recommence pas à chaque passage : on redit
+ * seulement au serveur qu'elle a été vue, et elle se rejouera au prochain lancement s'il
+ * ne l'a toujours pas su.
+ */
+export function openTrueEnding(): void {
+  const s = get();
+  if (s.trueEnding || !trueEndingDue(s)) return;
+  if (trueEndingWatched) void markTrueEndingSeen();
+  else set({ trueEnding: true, replay: false });
+}
+
+/**
+ * La vraie fin se referme : c'est à la cinématique de dire d'abord au serveur qu'elle a été
+ * vue. `seen` : faux si elle n'a pas pu se jouer (son morceau du jeu n'est pas arrivé).
+ */
+export function closeTrueEnding(seen = true): void {
+  if (seen && !get().replay) trueEndingWatched = true;
+  set({ trueEnding: false, replay: false });
+}
+
+/** Les Souvenirs des Réglages : revoir le premier générique ou la vraie fin, sans rien changer au compte. */
+export function replayMemory(memory: "fin" | "vraie-fin"): void {
+  set(memory === "fin" ? { ending: true, replay: true } : { trueEnding: true, replay: true });
+}
+
+/** Le souvenir du premier générique se referme. */
+export function closeMemory(): void {
+  set({ ending: false, replay: false });
 }
 
 // ---------------------------------------------------------------------------

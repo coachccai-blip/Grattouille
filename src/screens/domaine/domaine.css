@@ -319,3 +319,23 @@
 
 .calme .domaine__trouve,
 .calme .domaine__trouve-eclat { animation: none; }
+
+/*
+ * Les entrées posées sur le ciel de la scène, en haut à droite : la plaque des trophées
+ * (src/screens/trophees/Entree.tsx), et la place d'une autre à côté. Elles ne prennent
+ * rien à la hauteur de l'écran. Entre deux entrées, un toucher passe à la résidence.
+ */
+.domaine__entrees {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.domaine__entrees > * { pointer-events: auto; }

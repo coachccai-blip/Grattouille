@@ -27,6 +27,8 @@ const ECART_MIN = 105;
 let ctx: AudioContext | null = null;
 /** Le bus où arrivent toutes les voix, avant le limiteur. */
 let bus: GainNode | null = null;
+/** L'entrée du limiteur : la musique d'ambiance s'y branche à côté du bus (voir `partage`). */
+let limiteur: AudioNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 let enabled = true;
 
@@ -88,6 +90,7 @@ function build(c: AudioContext): void {
   trim.connect(guard);
   guard.connect(c.destination);
   bus = input;
+  limiteur = limiter;
 }
 
 /**
@@ -97,8 +100,17 @@ function build(c: AudioContext): void {
  */
 let gestured = false;
 
+/** Le contexte des bruitages : `null` tant que le réglage « Son » est coupé. */
 function context(): AudioContext | null {
-  if (!enabled || !gestured || typeof window === "undefined") return null;
+  return enabled ? ouvrir() : null;
+}
+
+/**
+ * Le contexte, créé au besoin et réveillé si la page est visible, sans regarder le réglage
+ * « Son » : la musique d'ambiance a le sien. `null` avant le premier geste, ou sans Web Audio.
+ */
+function ouvrir(): AudioContext | null {
+  if (!gestured || typeof window === "undefined") return null;
   if (!ctx) {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
@@ -109,6 +121,7 @@ function context(): AudioContext | null {
     } catch {
       ctx = null;
       bus = null;
+      limiteur = null;
       return null;
     }
   }
@@ -143,11 +156,48 @@ export function setSoundEnabled(on: boolean): void {
   }
 }
 
+/** Ce que la musique d'ambiance veut savoir de chaque geste du joueur (voir `partage`). */
+const gestes = new Set<() => void>();
+
 /** À appeler sur le premier toucher : les navigateurs n'autorisent le son qu'après un geste. */
 export function unlockAudio(): void {
   gestured = true;
   context();
+  for (const fn of gestes) {
+    try {
+      fn();
+    } catch {
+      // La musique ne fait jamais taire un bruitage.
+    }
+  }
 }
+
+/**
+ * Le partage du contexte audio avec la musique d'ambiance (src/fx/musique.ts). Elle joue
+ * dans le même contexte et derrière le même limiteur que les bruitages, mais sans passer
+ * par leur bus : le réglage « Son » ne la coupe pas, et elle a son propre réglage.
+ */
+export const partage = {
+  /**
+   * Le contexte audio et l'entrée du limiteur, que le réglage « Son » soit allumé ou non.
+   * Réveille le contexte si la page est visible. `null` avant le premier geste du joueur,
+   * ou sans Web Audio.
+   */
+  sortie(): { ctx: AudioContext; vers: AudioNode } | null {
+    const c = ouvrir();
+    return c && limiteur ? { ctx: c, vers: limiteur } : null;
+  },
+  /**
+   * `fn` sera rappelée à chaque geste du joueur, le premier compris : c'est là, et là
+   * seulement, que le son a le droit de démarrer. Rend de quoi l'oublier.
+   */
+  auGeste(fn: () => void): () => void {
+    gestes.add(fn);
+    return () => {
+      gestes.delete(fn);
+    };
+  },
+};
 
 export function suspendAudio(): void {
   scratchEnd();

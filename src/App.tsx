@@ -1,8 +1,8 @@
 // La coquille de l'application : une seule page, pas de routes d'URL (BRIEF.md, section 12.1).
 
-import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, type ComponentType } from "react";
 import { hasTabs, nav, resolveScreens, screenKey, tabOf, useNav, type Screen } from "./app/nav";
-import { boot, isCalm, useGame } from "./app/store";
+import { boot, closeTrueEnding, isCalm, openTrueEnding, trueEndingDue, useGame } from "./app/store";
 import { Icon } from "./art/icons";
 import { ArtDefs } from "./art/kit";
 import { installGestes } from "./fx/gestes";
@@ -22,6 +22,7 @@ import { Grattage } from "./screens/grattage/Grattage";
 import { Accueil, Fin, Ouverture } from "./screens/moments/Moments";
 import { Promenade } from "./screens/promenade/Promenade";
 import { Reglages } from "./screens/reglages/Reglages";
+import { Crieur } from "./screens/trophees/Crieur";
 import { Bouton } from "./ui/Bouton";
 import { Message, Onglets } from "./ui/Commun";
 import "./app.css";
@@ -32,8 +33,27 @@ const Planche = lazy(() => import("./screens/planche/Planche"));
 // Le Poker Tricheur a son propre morceau : il n'est chargé qu'en poussant sa porte.
 const Poker = lazy(() => import("./screens/poker"));
 
+// La vitrine des trophées aussi : ses dessins et les noms des médailles n'arrivent qu'avec elle.
+const Trophees = lazy(() => import("./screens/trophees"));
+
 /** Au lancement, qui est assis à une table de poker y revient : une fois, pas à chaque changement de langue. */
 let pokerRepris = false;
+
+/** Un morceau de la suite n'est pas arrivé (plus de réseau) : on referme ce qu'il devait montrer, sans rien casser. */
+function Absent() {
+  useEffect(() => {
+    if (useGame.getState().trueEnding) closeTrueEnding(false);
+    else nav.back();
+  }, []);
+  return null;
+}
+
+const ouAbsent = <P,>(morceau: Promise<{ default: ComponentType<P> }>): Promise<{ default: ComponentType<P> }> =>
+  morceau.catch(() => ({ default: Absent }));
+
+// La suite de l'histoire a ses propres morceaux : la vraie fin, puis les tickets semés et le Carnet du Patron.
+const VraieFin = lazy(() => ouAbsent(import("./screens/moments/VraieFin")));
+const Semis = lazy(() => ouAbsent(import("./screens/semis")));
 
 function ScreenView({ screen }: { screen: Screen }) {
   switch (screen.name) {
@@ -50,12 +70,19 @@ function ScreenView({ screen }: { screen: Screen }) {
     case "fiche-ticket": return <FicheTicket ticket={screen.ticket} />;
     case "fiche-article": return <FicheArticle item={screen.item} />;
     case "choix-domaine": return <ChoixDomaine slot={screen.slot} />;
+    // Le Carnet du Patron, et la vignette d'un ticket semé : chargés à la demande, eux aussi.
+    case "carnet":
+      return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Semis screen={screen} /></Suspense>;
+    case "semis":
+      return <Suspense fallback={null}><Semis screen={screen} /></Suspense>;
     // Le temps que le morceau du poker arrive : un écran vide à sa place, ou pas encore de feuille.
     case "poker":
     case "poker-table":
       return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Poker screen={screen} /></Suspense>;
     case "poker-feuille":
       return <Suspense fallback={null}><Poker screen={screen} /></Suspense>;
+    case "trophees":
+      return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Trophees /></Suspense>;
   }
 }
 
@@ -65,11 +92,20 @@ function Jeu() {
   const welcome = useGame((s) => s.welcome);
   const opening = useGame((s) => s.openings[0]);
   const ending = useGame((s) => s.ending);
+  const trueEnding = useGame((s) => s.trueEnding);
+  const due = useGame(trueEndingDue);
   const sandbox = useGame((s) => s.sandbox);
   const { base, baseIndex, sheets } = resolveScreens(stack, index);
   const tabs = hasTabs(base);
   const moment = ending || Boolean(opening) || welcome;
   const key = screenKey(base, baseIndex);
+
+  // La vraie fin se mérite (le Kiosque, les huit défis), et se joue au retour sur le Domaine :
+  // jamais par-dessus un autre grand moment.
+  const surLeDomaine = base.name === "domaine" && sheets.length === 0;
+  useEffect(() => {
+    if (due && surLeDomaine && !moment) openTrueEnding();
+  }, [due, surLeDomaine, moment]);
 
   // Un nouvel écran s'ouvre en haut de page, quel que soit le défilement de celui qu'on quitte.
   // (La Promenade se cale ensuite d'elle-même sur le meilleur lieu ouvert.)
@@ -96,14 +132,18 @@ function Jeu() {
   return (
     <>
       {/* Derrière un grand moment (accueil, ouverture d'un lieu, générique), l'écran ne répond plus. */}
-      <div className="jeu__fond" inert={moment}>
+      <div className="jeu__fond" inert={moment || trueEnding}>
         <ScreenView key={key} screen={base} />
         {tabs && <Onglets actif={tabOf(base)} />}
         {sheets.map((sheet, i) => <ScreenView key={screenKey(sheet, baseIndex + 1 + i)} screen={sheet} />)}
       </div>
-      {ending ? <Fin /> : opening ? <Ouverture key={opening} place={opening} /> : welcome ? <Accueil /> : null}
+      {trueEnding
+        ? <Suspense fallback={null}><VraieFin /></Suspense>
+        : ending ? <Fin /> : opening ? <Ouverture key={opening} place={opening} /> : welcome ? <Accueil /> : null}
       <Message onglets={tabs && sheets.length === 0} />
-      {sandbox && <p className="bandeau-bac-a-sable"><span>{t("Bac à sable : rien n'est enregistré.")}</span></p>}
+      {/* Une médaille vient d'être gagnée : le crieur l'annonce, quand la place est libre. */}
+      <Crieur />
+      {sandbox &&<p className="bandeau-bac-a-sable"><span>{t("Bac à sable : rien n'est enregistré.")}</span></p>}
     </>
   );
 }

@@ -15,7 +15,7 @@
 // disparaître (ce qu'ils emportent quand la table ferme).
 
 import { uniformInt } from "../economy";
-import type { PlaceId } from "../types";
+import type { PlaceId, PokerStats } from "../types";
 import { betOptions, type BetOptions } from "./betting";
 import { botAccuse, botBet, botCheat } from "./bots";
 import { isCard, shuffledDeck, type Card, type Random32 } from "./cards";
@@ -28,12 +28,12 @@ import {
   MISSES_BEFORE_ABSENT, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS, minBuyIn,
 } from "./rules";
 import {
-  blindAt, canDeal, chipsOnTable, dealableSeats, isFunded, isLive, playerInHand, seatIndexOf, seatIndexOfSession,
-  seatsAfter,
+  blindAt, canDeal, chipsOf, chipsOnTable, dealableSeats, isFunded, isLive, isTournament, playerInHand, seatIndexOf,
+  seatIndexOfSession, seatsAfter,
 } from "./state";
 import type {
-  Accusation, AvatarLook, CloseReason, Difficulty, GameAction, HandPlayer, HandState, LeaveReason, LogEntry,
-  LogKind, PotResult, SeatState, TableKind, TableState,
+  Accusation, AvatarLook, CloseReason, Difficulty, EndedSeat, GameAction, HandPlayer, HandState, LeaveReason,
+  LogEntry, LogKind, PotResult, SeatState, TableKind, TableState,
 } from "./types";
 import { viewOfSeat } from "./view";
 
@@ -45,8 +45,9 @@ export interface TableSpec {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
+  /** La blinde. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
   blind: number;
-  /** La cave maximale. Dans un défi, c'est la cave tout court : chacun pose exactement cela. */
+  /** La cave maximale. En tournoi, c'est la cave tout court : chacun pose exactement cela. */
   maxBuyIn: number;
   /** Le nombre de sièges, de 2 à 6. */
   seats: number;
@@ -89,12 +90,12 @@ export function createTable(spec: TableSpec, now: number): TableState {
     kind: spec.kind,
     place: spec.place,
     blind: spec.blind,
-    minBuyIn: spec.kind === "defi" ? spec.maxBuyIn : minBuyIn(spec.blind),
+    minBuyIn: isTournament(spec) ? spec.maxBuyIn : minBuyIn(spec.blind),
     maxBuyIn: spec.maxBuyIn,
     difficulty: spec.difficulty,
     seats,
     owner: null,
-    // Une table de la maison ou un défi part dès que le joueur a posé sa cave.
+    // Une table de la maison, un défi ou la Table des Maîtres part dès que le joueur a posé sa cave.
     started: spec.kind !== "privee",
     phase: "attente",
     version: 1,
@@ -289,9 +290,40 @@ function firePhase(d: TableState, t: number, rng: Random32): void {
 // ---------------------------------------------------------------------------
 // La main : blinde, donne, triche
 
-/** Les joueurs écartés, la fin d'un défi, puis la main suivante si elle peut partir. */
+/**
+ * Un tournoi, entre deux mains : est-il joué ? Un défi finit quand l'un des deux n'a plus
+ * rien. La Table des Maîtres finit pour le joueur dès que son tapis est à zéro (perdue,
+ * même si les hôtes n'ont plus rien non plus), ou dès qu'il est le dernier à avoir des
+ * jetons (gagnée). La blinde qui monte y mène : qui ne peut plus la payer pose ce qui lui
+ * reste, et joue sa main à tapis. `null` : la partie continue, ou n'est pas un tournoi.
+ */
+function tournamentOutcome(d: TableState): LeaveReason | null {
+  if (!isTournament(d) || d.hand || d.handNo === 0) return null;
+  const human = d.seats.find((s) => s !== null && s.bot === null && isFunded(s));
+  if (!human) return null;
+  const humanOut = chipsOf(human) <= 0;
+  const rivals = d.seats.some((s) => s !== null && s.bot !== null && chipsOf(s) > 0);
+  if (d.kind === "defi") {
+    if (!humanOut && rivals) return null;
+    return humanOut && !rivals ? "defi-nul" : humanOut ? "defi-perdu" : "defi-gagne";
+  }
+  if (humanOut) return "maitres-perdu";
+  return rivals ? null : "maitres-gagne";
+}
+
+/** Ferme un tournoi joué, avec son résultat. Rend faux s'il n'est pas (encore) joué. */
+function endTournament(d: TableState, t: number): boolean {
+  const outcome = tournamentOutcome(d);
+  if (!outcome) return false;
+  closeTable(d, t, d.kind === "defi" ? "defi" : "maitres", () => outcome);
+  return true;
+}
+
+/** La fin d'un tournoi, les joueurs écartés, puis la main suivante si elle peut partir. */
 function nextHand(d: TableState, t: number, rng: Random32): void {
   d.nextAt = null;
+  // Un tournoi joué se dénoue avant tout le reste : son résultat ne dépend plus de personne.
+  if (endTournament(d, t)) return;
   // Trois mains de suite sans jouer (absent, ou à sec) : le joueur quitte la table et
   // récupère son tapis.
   const humans = fundedHumans(d);
@@ -303,19 +335,6 @@ function nextHand(d: TableState, t: number, rng: Random32): void {
     return;
   }
   for (const index of leaving) removeSeat(d, index, t, cause(d.seats[index]!));
-  if (d.kind === "defi" && d.handNo > 0) {
-    // Un défi dure jusqu'à ce que l'un des deux n'ait plus rien. La blinde qui monte y
-    // mène vite : qui ne peut plus la payer pose ce qui lui reste, et joue sa main à tapis.
-    const human = d.seats.find((s) => s !== null && s.bot === null)!;
-    const host = d.seats.find((s) => s !== null && s.bot !== null);
-    const humanOut = human.stack + human.reserve <= 0;
-    const hostOut = !host || host.stack <= 0;
-    if (humanOut || hostOut) {
-      const outcome: LeaveReason = humanOut && hostOut ? "defi-nul" : hostOut ? "defi-gagne" : "defi-perdu";
-      closeTable(d, t, "defi", () => outcome);
-      return;
-    }
-  }
   if (!startHand(d, t, rng) && d.phase !== "fermee") d.phase = "attente";
 }
 
@@ -330,7 +349,8 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
       seat.stack += seat.reserve;
       seat.reserve = 0;
     }
-    if (seat.bot === null || d.kind === "defi") continue;
+    // En tournoi, personne ne recave : un robot à zéro est éliminé, et rien ne plafonne un tapis.
+    if (seat.bot === null || isTournament(d)) continue;
     // Un robot à sec recave ; un robot trop riche met le surplus de côté.
     const cap = d.maxBuyIn * BOT_STACK_CAVES;
     if (seat.stack < d.blind) {
@@ -376,7 +396,7 @@ function startHand(d: TableState, t: number, rng: Random32): boolean {
   d.step += 1;
   for (const p of h.players) {
     const seat = d.seats[p.seat]!;
-    // Dans un défi, qui n'a plus de quoi payer la blinde pose ce qui lui reste. Ailleurs,
+    // En tournoi, qui n'a plus de quoi payer la blinde pose ce qui lui reste. Ailleurs,
     // seuls ceux qui peuvent la payer sont servis.
     const posted = Math.min(blind, seat.stack);
     seat.stack -= posted;
@@ -548,7 +568,7 @@ function endBetting(d: TableState, t: number, rng: Random32): void {
     const seat = d.seats[top.seat]!;
     seat.stack += excess;
     top.committed -= excess;
-    // Dans un défi, ce qui revient peut être une part de la blinde : l'autre n'a pas pu la payer.
+    // En tournoi, ce qui revient peut être une part de la blinde : les autres n'ont pas pu la payer.
     top.bet = Math.max(0, top.bet - excess);
     top.allIn = false;
     h.pot -= excess;
@@ -589,6 +609,35 @@ function speak(d: TableState, p: HandPlayer, target: number | null, auto: boolea
   p.spoke = true;
   p.actAt = null;
   note(d, "parle", p.seat, 0, auto ? { auto: true } : {});
+}
+
+/**
+ * Les compteurs du poker : ce que cette main vaut à chaque joueur humain qui y a reçu des
+ * cartes et qui est encore assis à son dénouement. Une main, un passage ici : chacun est
+ * compté une fois, qui que ce soit dont la requête fait avancer la table.
+ * - `won` : les sièges qui ramassent au moins une part de pot ;
+ * - `accusations` : celles de la main, jugées ; `unmasked` : les sièges démasqués.
+ * Le compte suit le siège : le joueur le retrouve dans ses propres compteurs en partant.
+ */
+function tally(
+  d: TableState, h: HandState, won: ReadonlySet<number>, accusations: readonly Accusation[], unmasked: ReadonlySet<number>,
+): void {
+  for (const p of h.players) {
+    // Parti pendant la main : son siège est libre, ou déjà repris par un autre.
+    if (p.gone) continue;
+    const seat = d.seats[p.seat];
+    if (!seat || seat.bot !== null) continue;
+    // Un siège d'une table enregistrée avant ces compteurs n'en a pas : ils partent de zéro.
+    const stats: PokerStats = {
+      hands: seat.stats?.hands ?? 0, pots: seat.stats?.pots ?? 0,
+      unmasked: seat.stats?.unmasked ?? 0, caught: seat.stats?.caught ?? 0,
+    };
+    stats.hands += 1;
+    if (won.has(p.seat)) stats.pots += 1;
+    if (accusations.some((a) => a.from === p.seat && a.right)) stats.unmasked += 1;
+    if (unmasked.has(p.seat)) stats.caught += 1;
+    seat.stats = stats;
+  }
 }
 
 /** La main est finie : les compteurs de présence, puis l'affichage du dénouement. */
@@ -634,6 +683,7 @@ function walkover(d: TableState, t: number): void {
     carry: d.carry,
     until: t + WALKOVER_MS,
   };
+  tally(d, h, new Set(winner && h.pot > 0 ? [winner.seat] : []), [], new Set());
   finishHand(d, t, WALKOVER_MS);
 }
 
@@ -716,11 +766,23 @@ function resolve(d: TableState, t: number): void {
     carry,
     until: t + RESULT_MS,
   };
+  // Un euro ne se coupe pas : à égalité sur un tout petit pot, on peut gagner sans rien ramasser.
+  tally(d, h, new Set([...won].filter(([, amount]) => amount > 0).map(([seat]) => seat)), accusations, unmasked);
   finishHand(d, t, RESULT_MS);
 }
 
 // ---------------------------------------------------------------------------
 // Les départs et la fermeture
+
+/**
+ * Ce que la table doit à un joueur qui s'en va : son tapis, et les compteurs de sa séance
+ * (absents s'il n'a joué aucune main jusqu'au bout, ou si le siège date d'avant ces compteurs).
+ */
+function endedOf(seat: SeatState, index: number, payout: number, reason: LeaveReason, t: number): EndedSeat {
+  const ended: EndedSeat = { sid: seat.sid, playerId: seat.playerId, seat: index, payout, received: seat.received, reason, at: t };
+  if (seat.stats) ended.stats = { ...seat.stats };
+  return ended;
+}
 
 /**
  * Retire un joueur de la table. S'il était dans le coup, il se couche : ce qu'il a versé
@@ -743,7 +805,7 @@ function removeSeat(d: TableState, index: number, t: number, reason: LeaveReason
   }
   const payout = seat.stack + seat.reserve;
   if (seat.bot === null) {
-    d.ended.push({ sid: seat.sid, playerId: seat.playerId, seat: index, payout, received: seat.received, reason, at: t });
+    d.ended.push(endedOf(seat, index, payout, reason, t));
     d.audit.out += payout;
     d.departed.push({ playerId: seat.playerId, seat: index, reason, payout, at: t });
     if (d.departed.length > DEPARTED_SIZE) d.departed.splice(0, d.departed.length - DEPARTED_SIZE);
@@ -778,7 +840,9 @@ function depart(d: TableState, index: number, t: number, rng: Random32, reason: 
   const seat = d.seats[index]!;
   const humans = fundedHumans(d);
   if (!d.hand && isFunded(seat) && humans.length === 1 && humans[0] === index) {
-    closeTable(d, t, "vide", () => reason);
+    // Un tournoi déjà joué ne se perd pas en partant, et ne se rattrape pas non plus : s'en
+    // aller pendant le dénouement de la dernière main, c'est seulement ne pas attendre la suite.
+    if (!endTournament(d, t)) closeTable(d, t, "vide", () => reason);
     return;
   }
   const wasTurn = removeSeat(d, index, t, reason);
@@ -806,6 +870,9 @@ function afterRemoval(d: TableState, t: number, rng: Random32, wasTurn: boolean)
  * Ferme la table et rend les tapis. Une main en cours est annulée : chacun reprend ce
  * qu'il y avait versé. Un pot resté là est partagé entre les joueurs assis ; la part des
  * robots disparaît avec eux. `reason` : ce qu'on dira à chaque joueur humain encore assis.
+ * À la Table des Maîtres, seuls ceux qui ont encore des jetons prétendent à ce pot : un
+ * joueur éliminé n'y a plus droit. Le vainqueur, seul en jetons, l'emporte donc en entier,
+ * et le vaincu repart sans rien.
  */
 function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: SeatState) => LeaveReason): void {
   const h = d.hand;
@@ -818,7 +885,8 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
     d.carry = h.pot;
     d.hand = null;
   }
-  const seated = seatsAfter(d, d.dealer, d.seats.map((_, i) => i).filter((i) => d.seats[i] !== null && isFunded(d.seats[i]!)));
+  const claims = (seat: SeatState): boolean => isFunded(seat) && (d.kind !== "maitres" || chipsOf(seat) > 0);
+  const seated = seatsAfter(d, d.dealer, d.seats.map((_, i) => i).filter((i) => d.seats[i] !== null && claims(d.seats[i]!)));
   const shares = new Map(splitPot(d.carry, seated, seated).map((s) => [s.seat, s.amount]));
   if (seated.length === 0) d.audit.bank -= d.carry;
   d.carry = 0;
@@ -832,7 +900,7 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
       const payout = seat.stack + seat.reserve + share;
       // Un siège réservé dont la cave n'est jamais arrivée n'a rien à reprendre.
       const cause: LeaveReason = isFunded(seat) ? reason(seat) : "reserve";
-      d.ended.push({ sid: seat.sid, playerId: seat.playerId, seat: index, payout, received: seat.received, reason: cause, at: t });
+      d.ended.push(endedOf(seat, index, payout, cause, t));
       d.audit.out += payout;
       d.departed.push({ playerId: seat.playerId, seat: index, reason: cause, payout, at: t });
     }

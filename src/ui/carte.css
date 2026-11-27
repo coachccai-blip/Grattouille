@@ -69,6 +69,24 @@
   transform: rotateY(180deg);
 }
 
+/* Le dos doré, celui du jeu de qui a vu la vraie fin : le même treillis, à l'envers. Un
+   fil de nuit sur un or patiné, dans un filet ivoire et vieil or. Rien qui brille plus
+   fort que le reste de la table. */
+:root {
+  --dos-carte-dore:
+    repeating-linear-gradient(45deg, rgba(14, 47, 58, .2) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(14, 47, 58, .2) 0 1px, transparent 1px 6px),
+    linear-gradient(160deg, #F4DC96 0%, #E0B64C 42%, #C4952C 72%, #A27A18 100%);
+}
+
+.carte--doree .carte__dos {
+  background: var(--dos-carte-dore);
+  box-shadow:
+    inset 0 0 0 calc(var(--carte-l) * .045) var(--ivoire),
+    inset 0 0 0 calc(var(--carte-l) * .07) #8F6A1F,
+    0 calc(var(--carte-l) * .04) 0 rgba(6, 24, 30, .35);
+}
+
 /* La carte choisie, la carte gagnante : un liseré mimosa, et elle se soulève. */
 .carte--choisie { transform: translateY(calc(var(--carte-l) * -.08)); }
 

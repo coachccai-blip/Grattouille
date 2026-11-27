@@ -6,7 +6,7 @@
 
 import { betOptions } from "./betting";
 import { evaluate } from "./hands";
-import { canDeal, currentBlind, isFunded, nextRise, playerInHand, rebuyRange, seatIndexOf } from "./state";
+import { canDeal, currentBlind, isFunded, isOut, nextRise, playerInHand, rebuyRange, seatIndexOf } from "./state";
 import type { HandResult, Options, OwnHand, SeatView, TableState, TableView } from "./types";
 
 function noOptions(): Options {
@@ -29,7 +29,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     if (t.phase === "denouement") done = seat.ready;
     else if (p && t.phase === "triche") done = p.chosen;
     else if (p && t.phase === "abattage") done = p.spoke;
-    return {
+    const view: SeatView = {
       seat: index,
       pseudo: seat.bot === null ? seat.pseudo : null,
       bot: seat.bot,
@@ -48,6 +48,9 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
       cards: shown ? [...p.cards] : null,
       category: shown ? evaluate(p.cards).category : null,
     };
+    // Table des Maîtres : un joueur éliminé garde son siège, vide. Le champ n'existe que là.
+    if (isOut(t, index)) view.out = true;
+    return view;
   });
 
   const seat = you === null ? null : t.seats[you] ?? null;

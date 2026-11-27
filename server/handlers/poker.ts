@@ -8,9 +8,9 @@
 
 import { PLACES, isPlaceId } from "../../shared/places";
 import {
-  BLIND_SHARE, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MAX_SEATS, MIN_SEATS,
+  BLIND_SHARE, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, MAX_SEATS, MIN_SEATS,
   act, allowedBlinds, challengeOf, createTable, houseOf, isBlind, isCard, isDifficulty, leave, maxBuyIn, minBuyIn,
-  newTableCode, normalizeTableCode, pickPersonas, rebuyRange, seatIndexOf, sit, viewFor,
+  newTableCode, normalizeTableCode, pickMasters, pickPersonas, rebuyRange, seatIndexOf, sit, viewFor,
   type GameAction, type PokerAction, type PokerLobbyResponse, type PokerPollResponse, type PokerTableResponse,
   type TableSpec, type TableState,
 } from "../../shared/poker";
@@ -105,6 +105,8 @@ interface Order {
   /** Le nombre de robots, et l'hôte qui ouvre la liste s'il y en a un. */
   bots: number;
   host?: string;
+  /** Table des Maîtres : les robots sont quatre des huit hôtes, tirés au sort. */
+  masters?: true;
   /** La cave demandée, ou `undefined` : la plus grosse que la bourse permet. */
   buyIn: number | undefined;
   minBuyIn: number;
@@ -125,7 +127,18 @@ function readBuyIn(raw: unknown, min: number, max: number): number | undefined {
 }
 
 function readOrder(body: Body, me: PlayerRecord): Order {
-  if (body.maison !== undefined && body.defi !== undefined) fail("BAD_REQUEST");
+  // Une table de la maison, un défi ou la Table des Maîtres : un seul à la fois.
+  if ([body.maison, body.defi, body.maitres].filter((x) => x !== undefined).length > 1) fail("BAD_REQUEST");
+  if (body.maitres !== undefined) {
+    // La Table des Maîtres : le joueur et quatre hôtes, 30 blindes de base chacun, en tournoi.
+    // Elle n'ouvre qu'à qui a relevé les huit défis.
+    if (body.maitres !== true) fail("BAD_REQUEST");
+    if (!allChallengesWon(me)) fail("MASTERS_LOCKED");
+    return {
+      spec: { kind: "maitres", place: null, blind: MASTERS_BLIND, maxBuyIn: MASTERS_BUYIN, seats: MASTERS_SEATS, difficulty: "difficile" },
+      bots: MASTERS_SEATS - 1, masters: true, buyIn: MASTERS_BUYIN, minBuyIn: MASTERS_BUYIN, capped: false,
+    };
+  }
   if (body.maison !== undefined) {
     // Une table de la maison : l'hôte du lieu et deux autres personnages.
     const def = houseOf(readPlace(body.maison, me));
@@ -159,7 +172,8 @@ function readOrder(body: Body, me: PlayerRecord): Order {
 /**
  * POST /api/poker/tables → { view, state }
  * Créer une table ({ blind, maxBuyIn, seats, bots, difficulty?, buyIn? }), ouvrir une
- * table de la maison ({ maison: lieu, buyIn? }) ou lancer un défi ({ defi: lieu }).
+ * table de la maison ({ maison: lieu, buyIn? }), lancer un défi ({ defi: lieu }) ou
+ * s'asseoir à la Table des Maîtres ({ maitres: true }).
  * Le créateur s'assoit. Le siège est réservé sur la table avant que la bourse ne paie.
  */
 export async function createPokerTable(req: Request, deps: Deps): Promise<Response> {
@@ -179,7 +193,8 @@ export async function createPokerTable(req: Request, deps: Deps): Promise<Respon
   if (balance < buyIn) fail("BUYIN_UNAFFORDABLE");
 
   const sid = newSessionId(deps.random32);
-  const bots = pickPersonas(order.bots, deps.random32, order.host);
+  // La tablée des Maîtres se tire au sort à chaque nouvelle table : quatre des huit hôtes.
+  const bots = order.masters ? pickMasters(deps.random32) : pickPersonas(order.bots, deps.random32, order.host);
   let code = "";
   for (let attempt = 0; attempt < 8 && !code; attempt++) {
     const candidate = newTableCode(deps.random32);

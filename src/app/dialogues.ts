@@ -2074,6 +2074,45 @@ const APRES: Record<Exclude<Host, "gaspard">, Deux<readonly string[]>> = {
   },
 };
 
+/**
+ * Après la vraie fin (« Huit as de cœur »), chaque maître des lieux a un mot pour la
+ * Légende. Plus de « Votre Immensité » : on ne flatte pas quelqu'un de la maison.
+ */
+const LEGENDE: Record<Exclude<Host, "sidonie" | "enzo" | "colette" | "archibald">, Deux<string>> = {
+  gaspard: {
+    fr: "Légende ! Enfin : Patron. Enfin : les deux. Je m'y perds, mais le comptoir est astiqué.",
+    en: "Legend! That is: Boss. That is: both. I lose track, but the counter is polished.",
+  },
+  ondine: {
+    fr: "Mon as de cœur ? Rangé sous le plateau. Je ne confirmerai rien. Une citronnade, Légende ?",
+    en: "My ace of hearts? Tucked under the tray. I shall confirm nothing. Lemonade, Legend?",
+  },
+  hector: {
+    fr: "La maison a recompté. Huit as de cœur. La maison n'a rien vu. Bonsoir, Légende.",
+    en: "The house has recounted. Eight aces of hearts. The house saw nothing. Good evening, Legend.",
+  },
+  baron: {
+    fr: "Hmpf. Je n'ai pas pleuré, l'autre matin. C'étaient les embruns. Asseyez-vous, Légende.",
+    en: "Hmph. I did not cry, the other morning. It was the sea spray. Sit down, Legend.",
+  },
+  auguste: {
+    fr: "J'ai reparié sur vous, Légende. Je ne dirai pas quoi. La moustache, elle, le sait déjà.",
+    en: "I have bet on you again, Legend. I shan't say on what. The moustache already knows.",
+  },
+  balthazar: {
+    fr: "Légende à bord ! J'ai fait hisser huit pavillons. Tous à cœur. Pure coïncidence.",
+    en: "Legend on deck! I've had eight flags hoisted. All hearts. Pure coincidence.",
+  },
+  taupin: {
+    fr: "J'ai ouvert un registre des as de cœur, Légende. Huit lignes. Colonne Tricheur : vide. Naturellement.",
+    en: "I have opened a ledger of aces of hearts, Legend. Eight lines. The Cheat column: empty. Naturally.",
+  },
+  selene: {
+    fr: "D'ici, on voit le quai, la table et un calot rouge. Je ne dirai rien. Vous non plus, Légende.",
+    en: "From here one can see the quay, the table and a red cap. I shan't tell. Nor will you, Legend.",
+  },
+};
+
 /** Une théorie toutes les sept visites environ : assez pour intriguer, pas assez pour lasser. */
 const RARE = 7;
 
@@ -2289,6 +2328,25 @@ export function patronLine(situation: Situation, seed = 0): Line | null {
   return toLine("gaspard", choose(list, seed));
 }
 
+/** Les maîtres des lieux qui ont déjà salué la Légende depuis le lancement du jeu. */
+const salues = new Set<string>();
+
+/**
+ * Vrai au premier passage au comptoir de cet hôte depuis le lancement du jeu : c'est le
+ * moment de son mot à la Légende. Une fois par visite, pas à chaque passage.
+ */
+export function legendGreeting(speaker: string): boolean {
+  if (!(speaker in LEGENDE) || salues.has(speaker)) return false;
+  salues.add(speaker);
+  return true;
+}
+
+/** Le mot d'un maître des lieux à la Légende, après la vraie fin ; `null` pour qui n'en a pas. */
+export function legendLine(speaker: string): Line | null {
+  const mot = (LEGENDE as Partial<Record<string, Deux<string>>>)[speaker];
+  return mot ? toLine(speaker as Speaker, pick(mot)) : null;
+}
+
 /** Le numéro de chapitre d'un lieu : 1 pour le Kiosque, 8 pour la Lune. */
 export function chapterOf(place: PlaceId): number {
   return PLACES.findIndex((p) => p.id === place) + 1;
@@ -2443,6 +2501,39 @@ const P = {
     fr: "Un ticket ! Ramassez-le vite, avant les mouettes !",
     en: "A ticket! Pick it up, quick, before the seagulls do!",
   },
+  // La suite : le Patron sème à son tour, et personne n'a jamais ruiné les huit maîtres des lieux.
+  semeur: {
+    fr: [
+      "Vous voilà Patron : à vous de semer ! Au comptoir, sous les règles et lots d'un ticket, laissez-en tomber un.",
+      "{n} tickets semés, Patron ! Sur le quai, on débarque déjà en regardant par terre.",
+      "{n} tickets semés ! Les mouettes font la tête : il n'en reste jamais un pour elles.",
+      "{n} tickets semés, Patron. Le bateau du matin affiche complet : ça s'est su.",
+      "{n} tickets semés ! Les poches trouées de Grattouille, c'est vous. Je l'ai toujours dit. Enfin, depuis peu.",
+    ],
+    en: [
+      "You're the Boss now: your turn! At any counter, under a ticket's rules and prizes, you can drop one.",
+      "{n} tickets dropped, Boss! On the quay, people already step ashore looking down.",
+      "{n} tickets dropped! The seagulls are sulking: there's never one left for them.",
+      "{n} tickets dropped, Boss. The morning boat is fully booked: word has got round.",
+      "{n} tickets dropped! Grattouille's holey pockets are yours. I always said so. Well, lately.",
+    ],
+  },
+  maitres: {
+    fr: [
+      "Il paraît que personne n'a jamais ruiné les huit maîtres des lieux, au Poker Tricheur. Enfin, il paraît.",
+      "{n} sur huit ! Il paraît que personne n'a ruiné tous les maîtres des lieux. Il paraît de moins en moins.",
+      "Sept sur huit ! Plus qu'un maître des lieux à ruiner. Je ne dis rien, mais j'ai repassé mon calot.",
+    ],
+    en: [
+      "They say nobody has ever ruined all eight hosts at Cheater's Poker. Well, so they say.",
+      "{n} out of eight! They say nobody has ever ruined every host. They say it less and less.",
+      "Seven out of eight! Just one host left to ruin. I'm saying nothing, but I've ironed my cap.",
+    ],
+  },
+  legende: {
+    fr: "Bonjour, Légende ! Pas un mot, hein ? Officiellement, je suis groom, et ce sont les poches trouées.",
+    en: "Morning, Legend! Not a word, mind. Officially, I'm the bellboy, and it's the holes in the pockets.",
+  },
 } satisfies Record<string, Deux<string | readonly string[]>>;
 
 /** Ce que Piou dit. Chaque valeur se lit dans la langue courante, au moment où on la demande. */
@@ -2539,6 +2630,18 @@ export const PIOU = {
   get nouveauVenu(): string {
     return pick(P.nouveauVenu);
   },
+  /** Le Patron sème à son tour : comment, tant qu'il débute (`n` : ses tickets semés), puis ce qu'on en dit sur le quai. */
+  semeur(n: number): string {
+    return fill(pick(P.semeur)[n < 2 ? 0 : n < 10 ? 1 : n < 50 ? 2 : n < 200 ? 3 : 4]!, { n: formatInt(n) });
+  },
+  /** L'indice d'après la fin : les huit maîtres des lieux. `n` : ceux qu'il a déjà ruinés (aucun, quelques-uns, sept). */
+  maitres(n: number): string {
+    return fill(pick(P.maitres)[n < 1 ? 0 : n < PLACES.length - 1 ? 1 : 2]!, { n });
+  },
+  /** Après la vraie fin : le secret se garde. */
+  get legende(): string {
+    return pick(P.legende);
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -2613,4 +2716,5 @@ export const TEXTES = {
   patron: PATRON,
   piou: P,
   fin: F,
+  legende: LEGENDE,
 } as const;

@@ -1,0 +1,43 @@
+/* L'entrée des trophées sur le Domaine : une plaque de laiton, et sa pastille. */
+
+.entree-trophees {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  /* La plaque fait 32 px de haut ; la cible, 44. */
+  min-height: 44px;
+}
+
+.entree-trophees__plaque {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px 0 9px;
+  border-radius: 4px;
+  background: linear-gradient(170deg, #D9B866 0%, #B98F38 55%, #9C7526 100%);
+  color: var(--nuit);
+  font: 700 14px/20px var(--texte);
+  box-shadow: 0 3px 0 rgba(14, 47, 58, .5);
+  transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear;
+}
+
+.entree-trophees:active .entree-trophees__plaque {
+  box-shadow: 0 1px 0 rgba(14, 47, 58, .5);
+  transform: translateY(2px);
+}
+
+/* « 3 nouvelles » : des médailles pas encore regardées. */
+.entree-trophees__pastille {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 99px;
+  background: var(--bougainvillier-fonce);
+  color: #fff;
+  font: 700 12px/22px var(--texte);
+  white-space: nowrap;
+  box-shadow: 0 0 0 2px rgba(14, 47, 58, .35);
+  animation: compte-saute 320ms var(--rebond) backwards;
+}
+
+.calme .entree-trophees__pastille { animation: none; }

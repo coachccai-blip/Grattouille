@@ -1329,7 +1329,11 @@ describe("le temps", () => {
     const gone = t.departed.find((d) => d.playerId === "p_c")!;
     expect(gone).toMatchObject({ seat: 2, reason: "absent" });
     // Il a payé quatre blindes sans jamais miser davantage, et n'a rien gagné de plus que les pots.
-    expect(t.ended).toEqual([{ sid: "s_2", playerId: "p_c", seat: 2, payout: gone.payout, received: 1000, reason: "absent", at: gone.at }]);
+    // Ses compteurs le suivent : quatre mains reçues et menées au dénouement, deux pots ramassés à la parole.
+    expect(t.ended).toEqual([{
+      sid: "s_2", playerId: "p_c", seat: 2, payout: gone.payout, received: 1000, reason: "absent", at: gone.at,
+      stats: { hands: 4, pots: 2, unmasked: 0, caught: 0 },
+    }]);
     expect(gone.payout).toBeGreaterThanOrEqual(960);
     // La table continue pour les deux autres.
     expect(t.phase).not.toBe("fermee");
@@ -2887,7 +2891,11 @@ describe("tables de la maison et défis", () => {
     // L'hôte ne recave pas : au moment de donner la main suivante, le défi est fini.
     t = advance(t, T0 + RESULT_MS, rng);
     expect([t.phase, t.closed]).toEqual(["fermee", "defi"]);
-    expect(t.ended).toEqual([{ sid: "s_0", playerId: "p_a", seat: 0, payout: 60, received: 30, reason: "defi-gagne", at: T0 + RESULT_MS }]);
+    // Avec son tapis, la table lui doit les compteurs de sa séance : une main, un pot.
+    expect(t.ended).toEqual([{
+      sid: "s_0", playerId: "p_a", seat: 0, payout: 60, received: 30, reason: "defi-gagne", at: T0 + RESULT_MS,
+      stats: { hands: 1, pots: 1, unmasked: 0, caught: 0 },
+    }]);
     expect(t.audit).toEqual({ in: 30, out: 60, bank: 30 });
     expect(chipsOnTable(t)).toBe(0);
   });

@@ -150,6 +150,15 @@
 
 .poker-siege--libre .poker-siege__nom { color: var(--brume); }
 
+/* Éliminé de la Table des Maîtres : le siège reste à sa place, éteint. La tête s'efface
+   davantage qu'un joueur couché, le nom et l'état passent en brume : l'œil va aux autres. */
+.poker-siege--elimine .poker-tete { opacity: .3; }
+
+.poker-siege--elimine .poker-siege__nom,
+.poker-siege--elimine .poker-siege__tapis { color: var(--brume); }
+
+.poker-siege--elimine .poker-siege__tapis { font-weight: 500; }
+
 /* Sa main, de dos : trois petites cartes en éventail au bord du médaillon. */
 .poker-siege__cartes {
   position: absolute;
@@ -173,6 +182,12 @@
 }
 
 .poker-siege__cartes i:last-child { transform: rotate(14deg) translateY(1px); }
+
+/* Le jeu doré de qui a vu la vraie fin : les mains de dos, autour du tapis, le portent aussi. */
+.poker-table--doree .poker-siege__cartes i {
+  background: var(--dos-carte-dore);
+  box-shadow: inset 0 0 0 1px var(--ivoire), 0 1px 0 rgba(6, 24, 30, .5);
+}
 
 /* Le bouton du donneur. */
 .poker-siege__donneur {
@@ -309,6 +324,10 @@
   text-align: center;
   text-wrap: balance;
 }
+
+/* À la Table des Maîtres, sous la blinde : combien de maîtres sont encore assis. */
+.poker-pot__maitres { color: var(--ecume); }
+.poker-pot__maitres:empty { display: none; }
 
 /* Un jeton qui glisse d'un siège au pot, ou du pot à son gagnant (evenements.ts). */
 .poker-jeton--vol {
@@ -665,6 +684,19 @@
 .poker-mise--tapis { border-color: var(--mimosa); }
 .poker-mise--tapis .poker-mise__taille { color: var(--mimosa); }
 
+/* Des sommes à rallonge (« 137,05 Bn€ », à la Table des Maîtres) : « Miser » ou « Relancer à »
+   passe au-dessus de ses trois mises, comme sur un écran étroit, et aucune somme n'est coupée. */
+.poker-mises--longues {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.poker-mises--longues .poker-mises__titre {
+  flex-basis: 100%;
+  max-width: none;
+  font: 500 12px/14px var(--texte);
+}
+
 /* ---------------------------------------------------------------- L'abattage */
 
 /* Le tapis, vu de près : une rangée par main montrée. S'il y en a trop pour l'écran, il défile. */
@@ -936,6 +968,160 @@
 }
 
 .poker-sortie__cagnotte strong { font-size: clamp(30px, 10vw, 40px); }
+
+/* ---------------------------------------------------------------- La Table des Maîtres */
+
+/* Son feutre : un prune de fin de soirée, ourlé du même laiton. Les sièges, le pot et les
+   mises s'y lisent comme sur le vert (l'écume et le mimosa y ressortent même davantage). */
+.poker-table--maitres {
+  --feutre: #5A2147;
+  --feutre-fonce: #3E1531;
+}
+
+/* Le tirage : les quatre maîtres que le sort a désignés, chacun avec son mot en s'asseyant.
+   Il prend la place du tapis le temps de la première triche, dans le même cadre. */
+.poker-presentation {
+  gap: 6px;
+  padding: 8px 6px 6px;
+}
+
+/* Le titre et ses quatre lignes se tiennent ensemble, au milieu du cadre. */
+.poker-presentation__titre {
+  flex: none;
+  margin-top: auto;
+  color: var(--mimosa);
+  font: 500 13px/18px var(--texte);
+  text-align: center;
+}
+
+.poker-presentation__maitres {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: auto;
+}
+
+.poker-presentation__maitre {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #0A242D;
+  color: var(--ecume);
+  animation: cascade-entre 320ms var(--sortie) calc(120ms + var(--i) * 140ms) backwards;
+}
+
+.calme .poker-presentation__maitre { animation: none; }
+
+.poker-presentation__maitre .poker-tete {
+  width: 40px;
+  height: 40px;
+}
+
+.poker-presentation__maitre p {
+  font: 400 13px/17px var(--texte);
+  text-wrap: pretty;
+}
+
+.poker-presentation__maitre strong {
+  margin-right: 6px;
+  color: var(--mimosa);
+  font-weight: 700;
+}
+
+.poker-presentation__maitre em { color: var(--brume); }
+
+/* ---------------------------------------------------------------- La Table des Maîtres, gagnée */
+
+/* L'un des sommets du jeu : le montant défile sur un carton d'or, les confettis et les
+   pièces tombent (sur le canvas, par-dessus tout), puis les maîtres ruinés saluent, l'un
+   après l'autre. Si l'écran est trop court pour tout tenir, le panneau défile. */
+.poker-fete .poker-sortie {
+  gap: 12px;
+  justify-content: flex-start;
+  justify-content: safe center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.poker-fete .poker-sortie > * { flex: none; }
+
+.poker-fete .t-titre {
+  color: var(--mimosa);
+  text-align: center;
+  animation: poker-fete-titre 420ms var(--rebond) backwards;
+}
+
+@keyframes poker-fete-titre {
+  from { opacity: 0; transform: scale(.7); }
+}
+
+.poker-sortie > .poker-fete__somme {
+  padding: 8px 12px 12px;
+  background: var(--or);
+  box-shadow: 0 4px 0 #6E4F0C;
+}
+
+.poker-sortie > .poker-fete__somme > span:first-child {
+  color: var(--nuit);
+  font: 500 15px/20px var(--texte);
+}
+
+.poker-fete__somme strong {
+  line-height: 1.15;
+  white-space: nowrap;
+  animation: poker-fete-grossit 1400ms var(--rebond) both;
+}
+
+@keyframes poker-fete-grossit {
+  0% { transform: scale(.6); }
+  100% { transform: scale(1); }
+}
+
+.poker-fete__maitres {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poker-fete__maitres li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  animation: bulle-pousse 260ms var(--rebond) calc(1500ms + var(--i) * 380ms) backwards;
+  transform-origin: 0 50%;
+}
+
+.poker-fete__maitres p {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px 10px 5px;
+  border-radius: 3px 14px 14px 14px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 400 14px/18px var(--texte);
+  text-wrap: pretty;
+}
+
+.poker-fete__maitres em { color: var(--encre-douce); }
+
+.calme .poker-fete .t-titre,
+.calme .poker-fete__somme strong,
+.calme .poker-fete__maitres li { animation: none; }
+
+/* Le canvas des confettis et des pièces : par-dessus tout, transparent aux gestes. */
+.poker-fete__fx {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 
 /* ---------------------------------------------------------------- Écrans courts */
 

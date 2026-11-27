@@ -2,10 +2,11 @@
 // carte en deux signes. Tout se lit à l'affichage, dans la langue du jeu : les tables de
 // ce fichier gardent leurs phrases françaises, qui sont les clés de traduction.
 
+import { formatEuros } from "../../../shared/format";
 import { cardRank, cardSuit, type Card } from "../../../shared/poker/cards";
 import { placeById } from "../../../shared/places";
 import type { HandCategory } from "../../../shared/poker/hands";
-import type { Difficulty, SeatView, TableView } from "../../../shared/poker/types";
+import type { Difficulty, LeaveReason, SeatView, TableView } from "../../../shared/poker/types";
 import { hostName } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { pick, t } from "../../i18n";
@@ -104,8 +105,80 @@ export function nameList(names: readonly string[]): string {
 
 /** Le titre d'une table : le lieu d'une table de la maison, l'hôte d'un défi, le code d'une table d'amis. */
 export function tableTitle(view: Pick<TableView, "kind" | "place" | "code">): string {
+  if (view.kind === "maitres") return t("Table des Maîtres");
   if (view.kind === "maison" && view.place) return capitalize(placeShort(view.place));
   // L'hôte se retrouve par son lieu : une table fermée n'a plus personne d'assis.
   if (view.kind === "defi") return view.place ? t("Défi : {hote}", { hote: hostName(placeById(view.place).host) }) : t("Le défi");
   return t("Table {code}", { code: view.code });
+}
+
+/**
+ * L'état d'un siège, en un mot, quand il en a un : il s'écrit à la place de son tapis.
+ * Éliminé de la Table des Maîtres, un siège ne dit plus rien d'autre.
+ */
+export function seatStateText(seat: SeatView, view: Pick<TableView, "started" | "hand" | "phase">): string | null {
+  if (seat.out) return t("éliminé");
+  if (!seat.funded) return t("arrive…");
+  if (seat.absent) return t("absent");
+  if (seat.folded) return t("couché");
+  if (seat.allIn) return t("à tapis");
+  if (view.started && view.hand !== null && !seat.inHand && (view.phase === "triche" || view.phase === "encheres")) return t("attend");
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// La Table des Maîtres
+
+/** Combien de maîtres sont encore assis : « 3 maîtres assis », « Plus qu'un maître ». Vide quand il n'en reste aucun. */
+export function mastersLeftText(left: number): string {
+  if (left > 1) return t("{n} maîtres assis", { n: left });
+  return left === 1 ? t("Plus qu'un maître") : "";
+}
+
+/** Les trois façons de sortir de la Table des Maîtres : elle est gagnée, elle est perdue, ou le joueur s'est levé. */
+export type MastersEnd = Extract<LeaveReason, "maitres-gagne" | "maitres-perdu" | "quitte">;
+
+export function isMastersEnd(reason: LeaveReason | null | undefined): reason is MastersEnd {
+  return reason === "maitres-gagne" || reason === "maitres-perdu" || reason === "quitte";
+}
+
+/** Ce que dit le panneau de fin : un titre, une phrase, et ce qui s'écrit au-dessus de la somme quand il y en a une à fêter. */
+export interface MastersEnding {
+  titre: string;
+  /**
+   * La phrase sous le titre. Pour la victoire, c'est celle qui dit le montant d'une traite :
+   * à l'écran il défile en grand, et cette phrase est lue à sa place par un lecteur d'écran.
+   */
+  texte: string;
+  /** La victoire seulement : le mot posé au-dessus du montant remporté, qui défile. */
+  somme: string | null;
+}
+
+/**
+ * Les mots des trois fins. `payout` : ce qui retourne à la bourse (toute la table pour une
+ * victoire, le tapis pour un départ, rien pour une défaite).
+ */
+export function mastersEnding(reason: MastersEnd, payout: number): MastersEnding {
+  switch (reason) {
+    case "maitres-gagne":
+      return {
+        titre: t("La table est à toi !"),
+        texte: t("Tu remportes {montant}.", { montant: formatEuros(payout) }),
+        somme: t("Tu remportes"),
+      };
+    case "maitres-perdu":
+      return {
+        titre: t("Les maîtres gardent la table"),
+        texte: t("Tu y laisses ta cave, pas ta place : reviens quand tu veux, quatre maîtres seront tirés au sort."),
+        somme: null,
+      };
+    case "quitte":
+      return {
+        titre: t("Tu te lèves de table"),
+        texte: payout > 0
+          ? t("Tu repars avec ton tapis, {montant}, sans la victoire. La table rouvre quand tu veux.", { montant: formatEuros(payout) })
+          : t("Tu repars sans la victoire. La table rouvre quand tu veux."),
+        somme: null,
+      };
+  }
 }

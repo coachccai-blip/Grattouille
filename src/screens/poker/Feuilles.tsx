@@ -1,6 +1,6 @@
-// Les feuilles du Poker Tricheur : les règles, s'asseoir (table d'un lieu, défi, table
-// d'amis à créer ou à rejoindre), puis celles de la table : remplacer une carte,
-// accuser, recaver, quitter. Une feuille dit une chose et propose un geste.
+// Les feuilles du Poker Tricheur : les règles, s'asseoir (table d'un lieu, défi, Table
+// des Maîtres, table d'amis à créer ou à rejoindre), puis celles de la table : remplacer
+// une carte, accuser, recaver, quitter. Une feuille dit une chose et propose un geste.
 //
 // Ce sont des entrées de la navigation, comme les autres fiches : le bouton retour du
 // téléphone les referme. Celles qui dépendent d'un temps de la main (la triche,
@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import type { Card } from "../../../shared/poker/cards";
-import { CHEAT_MS, MAX_BUYIN_BLINDS, MAX_SEATS, MIN_SEATS } from "../../../shared/poker/rules";
+import { CHEAT_MS, MASTERS_SEATS, MAX_BUYIN_BLINDS, MAX_SEATS, MIN_SEATS } from "../../../shared/poker/rules";
 import type { Difficulty, TableView } from "../../../shared/poker/types";
 import type { PlaceId } from "../../../shared/types";
 import { capitalize } from "../../app/helpers";
@@ -25,8 +25,8 @@ import { Bouton } from "../../ui/Bouton";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
-  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, isFullCode, maxBuyInChoices, rankTaken, suitTaken,
-  swapped,
+  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, isFullCode, mastersCard, maxBuyInChoices, rankTaken,
+  suitTaken, swapped,
 } from "./calcul";
 import { Alerte, BarreTemps, Pas, Tete, steps } from "./parts";
 import { categoriesFromTop, categoryName, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity } from "./textes";
@@ -202,6 +202,65 @@ function Defi({ place }: { place: PlaceId }) {
       <div className="poker-feuille__action">
         <Bouton bloc reflet={!short} disabled={short} attente={busy} onClick={() => void run(() => sitDown({ defi: place }))}>
           {t("Défier pour {montant}", { montant: mise })}
+        </Bouton>
+      </div>
+    </Feuille>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// S'asseoir à la Table des Maîtres
+
+// Ses règles, en trois lignes : des clés de traduction, lues à l'affichage. `{cave}` et
+// `{blinde}` sont les sommes du hall, mises en forme.
+const REGLES_MAITRES = [
+  "Chacun pose {cave}, et personne ne recave : à zéro, on quitte la table.",
+  "La blinde part de {blinde} et monte au fil des mains.",
+  "Tu peux partir avec ton tapis, mais sans la victoire.",
+] as const;
+
+function Maitres() {
+  const fermer = useFermer();
+  const lobby = usePoker((s) => s.lobby);
+  const balance = useGame(displayBalance);
+  const { busy, error, run } = useSeating();
+  const card = lobby ? mastersCard(lobby, balance) : null;
+  // Le serveur ne connaît pas cette table : il n'y a rien à confirmer.
+  if (!card) return null;
+
+  const short = card.short > 0;
+  const sommes = { cave: formatEuros(card.buyIn), blinde: formatEuros(card.blind) };
+
+  return (
+    <Feuille titre={t("La Table des Maîtres")} onClose={fermer} className="poker-feuille">
+      <div>
+        <h2 className="t-titre">{t("La Table des Maîtres")}</h2>
+        <p className="note">{t("Toi, et quatre des huit maîtres des lieux, tirés au sort.")}</p>
+      </div>
+      <ol className="poker-regles">
+        {REGLES_MAITRES.map((regle, i) => (
+          <li key={regle}>
+            <span className="poker-regles__numero" aria-hidden="true">{i + 1}</span>
+            <span>{t(regle, sommes)}</span>
+          </li>
+        ))}
+      </ol>
+      {/* Tout ce qui est sur la table : les cinq caves. */}
+      <p className="poker-feuille__gain">
+        {t("Le dernier assis prend tout : {montant}.", { montant: formatEuros(card.buyIn * MASTERS_SEATS) })}
+      </p>
+      {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(card.short) })}</Alerte>}
+      <Alerte>{error}</Alerte>
+      <div className="poker-feuille__action">
+        {/* Refusée par le serveur (un défi manque encore) : le hall s'est relu, la table est fermée, la feuille dit pourquoi. */}
+        <Bouton
+          bloc
+          reflet={!short && card.open}
+          disabled={short || !card.open}
+          attente={busy}
+          onClick={() => void run(() => sitDown({ maitres: true }))}
+        >
+          {t("S'asseoir pour {montant}", { montant: sommes.cave })}
         </Bouton>
       </div>
     </Feuille>
@@ -645,6 +704,8 @@ function Quitter() {
         <p>{t("Un pot de {montant} est resté sur la table : en partant, tu le laisses aux autres.", { montant: formatEuros(leftOver) })}</p>
       )}
       {view.kind === "defi" && <p>{t("Le défi s'arrête là : il faudra le reprendre du début.")}</p>}
+      {/* À la Table des Maîtres, partir c'est renoncer : on garde son tapis, pas la victoire. */}
+      {view.kind === "maitres" && <p>{t("Le tournoi s'arrête là pour toi : pas de victoire, et la table ferme derrière toi.")}</p>}
       <p>{t("Ton tapis ({montant}) retourne dans ta bourse.", { montant: formatEuros(stack) })}</p>
       <div className="poker-feuille__action">
         <Bouton bloc attente={busy === "quitter"} onClick={() => void leave()}>{t("Quitter la table")}</Bouton>
@@ -663,6 +724,7 @@ export function FeuillePoker({ screen }: { screen: SheetScreen }) {
     case "rejoindre": return <Rejoindre />;
     case "maison": return <Maison place={screen.place} />;
     case "defi": return <Defi place={screen.place} />;
+    case "maitres": return <Maitres />;
     case "triche": return <Triche index={screen.index} />;
     case "accuser": return <Accuser seat={screen.seat} />;
     case "recave": return <Recave />;

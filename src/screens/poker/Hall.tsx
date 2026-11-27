@@ -2,6 +2,10 @@
 // Grattouille. Chaque lieu ouvert a son hôte, qui lance un défi (un tête-à-tête, sa
 // cagnotte à la clé) et tient une table à quatre. Les lieux fermés sont là, grisés, avec
 // ce qui les ouvre. Entre amis : créer une table, ou en rejoindre une avec son code.
+//
+// Au bout des huit défis : la Table des Maîtres (LOT4.md, section 5). Tant qu'il reste un
+// maître à ruiner, elle se devine en bas de la liste, fermée, avec ce qui l'ouvre ; une
+// fois ouverte, elle passe en tête, devant la Lune.
 
 import { useEffect } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
@@ -22,6 +26,7 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
 import { Bulle, BulleLibre, Entete, Phrase } from "../../ui/Commun";
+import { challengesWon, mastersCard, type MastersCard } from "./calcul";
 import { hostLine, piouHall } from "./repliques";
 import { difficultyName } from "./textes";
 import "./poker.css";
@@ -51,6 +56,7 @@ function shortOf(amount: number, balance: number): string | null {
 function seatTitle(seat: NonNullable<PokerLobbyResponse["seat"]> | null): string {
   // Le hall n'a pas encore répondu : on sait seulement, par l'état du joueur, qu'il est assis quelque part.
   if (!seat) return t("Ta table");
+  if (seat.kind === "maitres") return t("La Table des Maîtres");
   if (seat.kind === "maison" && seat.place) return capitalize(placeShort(seat.place));
   if (seat.kind === "defi" && seat.place) return t("Défi : {hote}", { hote: hostName(placeById(seat.place).host) });
   return t("Table {code}", { code: seat.code });
@@ -118,6 +124,71 @@ function Ferme({ entry, standing }: { entry: Entry; standing: number }) {
   );
 }
 
+/**
+ * La Table des Maîtres, ouverte : elle en impose. Quatre sièges dont on ne sait pas encore
+ * qui les prendra, les sommes en grand, et ce qu'on y joue. La toucher ouvre la feuille qui
+ * dit ses règles avant de s'y asseoir ; la bourse trop courte, elle dit ce qu'il manque.
+ */
+function Maitres({ card }: { card: MastersCard }) {
+  const court = card.short > 0;
+  return (
+    <button
+      type="button"
+      className={cx("poker-maitres poker-maitres--ouverte", court && "poker-maitres--courte")}
+      onClick={() => nav.push({ name: "poker-feuille", feuille: "maitres" })}
+    >
+      <span className="poker-maitres__sieges" aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => <span key={i} className="poker-maitres__siege">?</span>)}
+      </span>
+      <strong className="poker-maitres__nom">{t("La Table des Maîtres")}</strong>
+      <span className="poker-maitres__devise">{t("Quatre maîtres tirés au sort")}</span>
+      <span className="poker-maitres__sommes">
+        <span className="poker-maitres__somme">
+          <span>{t("Blinde de départ")}</span>
+          <strong className="chiffres">{formatEuros(card.blind)}</strong>
+        </span>
+        <span className="poker-maitres__somme">
+          <span>{t("Cave")}</span>
+          <strong className="chiffres">{formatEuros(card.buyIn)}</strong>
+        </span>
+      </span>
+      <span className="poker-maitres__regle">{t("Tournoi : le dernier assis prend tout")}</span>
+      {card.won > 0 && (
+        <span className="poker-maitres__palmares">
+          <Icon name="coche" size={16} />
+          {card.won === 1 ? t("Tu l'as remportée une fois") : t("Tu l'as remportée {n} fois", { n: formatInt(card.won) })}
+        </span>
+      )}
+      {court ? (
+        <span className="poker-maitres__manque">{t("Il te manque {montant}.", { montant: formatEuros(card.short) })}</span>
+      ) : (
+        <span className="poker-maitres__entrer">{t("Prendre place")}</span>
+      )}
+    </button>
+  );
+}
+
+/** La Table des Maîtres, fermée : elle se devine. Un cadenas, ce qui l'ouvre, et où l'on en est : rien de plus. */
+function MaitresFermee({ card }: { card: MastersCard }) {
+  const compte = t("{n} sur {total}", { n: card.defis, total: card.total });
+  return (
+    <div className="poker-maitres poker-maitres--fermee">
+      <Icon name="cadenas" size={20} />
+      <div className="poker-maitres__texte">
+        <strong className="poker-maitres__nom">{t("La Table des Maîtres")}</strong>
+        <span>{t("Ruine les huit maîtres des lieux pour t'y asseoir.")}</span>
+        <span className="poker-maitres__compte">
+          {/* Un pion par maître : plein quand il est ruiné. Le compte s'écrit à côté. */}
+          <span className="poker-maitres__pions" aria-hidden="true">
+            {Array.from({ length: card.total }, (_, i) => <i key={i} className={i < card.defis ? "poker-maitres__pion--plein" : undefined} />)}
+          </span>
+          <span>{compte}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function Hall() {
   const lobby = usePoker((s) => s.lobby);
   const busy = usePoker((s) => s.lobbyBusy);
@@ -142,6 +213,9 @@ export function Hall() {
   const cheapest = open.length > 0 ? Math.min(...open.map((e) => e.house.minBuyIn)) : 0;
   const broke = lobby !== null && tableCode === null && open.length > 0 && balance < cheapest;
   const offline = !sandbox && !online;
+  // Les défis relevés, et la Table des Maîtres (un serveur plus ancien ne la connaît pas : pas de carte).
+  const defis = lobby ? challengesWon(lobby) : null;
+  const maitres = lobby ? mastersCard(lobby, balance) : null;
 
   const piou = tableCode ? piouHall("assis") : broke ? piouHall("fauche", formatEuros(cheapest)) : piouHall("accueil");
 
@@ -190,7 +264,14 @@ export function Hall() {
       {lobby && !tableCode && (
         <>
           <section className="rubrique" aria-labelledby="poker-hall-lieux">
-            <h2 id="poker-hall-lieux" className="rubrique__titre">{t("Les maîtres des lieux")}</h2>
+            <div className="poker-hall__titre">
+              <h2 id="poker-hall-lieux" className="rubrique__titre">{t("Les maîtres des lieux")}</h2>
+              {/* Dès le premier défi relevé : où l'on en est des huit. */}
+              {defis && defis.won > 0 && (
+                <p className="poker-hall__defis">{t("Défis relevés : {n} sur {total}", { n: defis.won, total: defis.total })}</p>
+              )}
+            </div>
+            {maitres?.open && <Maitres card={maitres} />}
             <ul className="poker-hall__lieux cascade">
               {open.map((entry) => <Lieu key={entry.place.id} entry={entry} balance={balance} />)}
             </ul>
@@ -199,6 +280,7 @@ export function Hall() {
                 {closed.map((entry) => <Ferme key={entry.place.id} entry={entry} standing={standing} />)}
               </ul>
             )}
+            {maitres && !maitres.open && <MaitresFermee card={maitres} />}
           </section>
 
           <section className="rubrique" aria-labelledby="poker-hall-amis">

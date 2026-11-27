@@ -1,0 +1,333 @@
+/* La vraie fin, « Huit as de cœur » : le cadre des grands moments (moments.css), et quatre
+   décors à elle : la tablée devant le Kiosque, les huit cartes sur la nappe, Piou qui
+   raconte, le quai où tombent les tickets. Transformations et opacité seulement. */
+
+.moment--vraie-fin {
+  /* La largeur d'une carte : quatre de front dans la colonne, deux rangs dans la hauteur
+     qui reste au-dessus du texte. Jamais moins de 44 px : chaque carte se touche. */
+  --vf-carte: clamp(44px, min((min(100vw, var(--colonne)) - 62px) / 4, (100vh - var(--haut) - 440px) / 2.8), 76px);
+  /* Un médaillon de la tablée. */
+  --vf-m: clamp(36px, 12.4vw, 58px);
+}
+
+@supports (height: 100dvh) {
+  .moment--vraie-fin {
+    --vf-carte: clamp(44px, min((min(100vw, var(--colonne)) - 62px) / 4, (100dvh - var(--haut) - 440px) / 2.8), 76px);
+  }
+}
+
+.moment--vraie-fin .moment__titre { color: var(--mimosa); }
+
+/* La cinématique se fond avant de rendre la main. */
+.vf--sortie {
+  pointer-events: none;
+  animation: vf-sortie 240ms linear both;
+}
+
+@keyframes vf-sortie {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- Le décor */
+
+/* Les dessins sont composés : ce n'est pas chaque portrait qui entre, c'est la scène. */
+.vf__decor svg,
+.vf__decor img { animation: none; }
+
+.vf__scene {
+  position: relative;
+  flex: none;
+  width: 100%;
+  animation: moment-facade 600ms var(--sortie) both;
+}
+
+.calme .vf__scene { animation: fondu 200ms linear both; }
+
+/* Piou : c'est le bas du dessin qui cède la place au texte. Sa tête, nue, reste en vue. */
+.vf--piou .vf__decor { justify-content: flex-start; }
+
+/* Les cartes : rien ne cède, toutes se voient et se touchent. */
+.vf--cartes .vf__decor { flex: none; }
+
+/* ---------------------------------------------------------------- 1. La tablée */
+
+.vf__tablee > svg {
+  display: block;
+  width: 100%;
+}
+
+/* Neuf places le long de la table : les huit maîtres des lieux, en quinconce, et le joueur au bout. */
+.vf__convive {
+  position: absolute;
+  bottom: 15%;
+  left: calc(7% + var(--i) * 10.75%);
+  z-index: 1;
+  width: var(--vf-m);
+  height: var(--vf-m);
+  margin-left: calc(var(--vf-m) / -2);
+  transition: transform 420ms var(--rebond);
+}
+
+/* Le rang du fond : debout derrière les autres. */
+.vf__convive--fond {
+  bottom: calc(15% + var(--vf-m) * .52);
+  z-index: 0;
+}
+
+.vf__convive .portrait,
+.vf__perchoir .portrait {
+  width: 100%;
+  height: 100%;
+  box-shadow: 0 0 0 2px var(--ivoire), 0 3px 6px rgba(14, 47, 58, .35);
+  transition: transform 420ms var(--sortie), box-shadow 200ms linear;
+}
+
+/* Le joueur prend place : son médaillon se pose au bout de la table. */
+.vf__convive--toi { animation: portrait-pose 420ms var(--rebond) 120ms both; }
+.vf__convive--toi .portrait { box-shadow: 0 0 0 3px var(--mimosa), 0 3px 6px rgba(14, 47, 58, .35); }
+
+/* Piou, perché sur la tourelle de gauche : il regarde, comme toujours. */
+.vf__perchoir {
+  position: absolute;
+  top: 37.7%;
+  left: 13.25%;
+  width: calc(var(--vf-m) * .66);
+  height: calc(var(--vf-m) * .66);
+  transform: translate(-50%, -88%);
+  transition: transform 520ms var(--rebond);
+}
+
+/* La nappe : un bord de table blanc, un tombé ivoire, un feston mimosa. */
+.vf__table {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  height: 19%;
+  border-top: 5px solid #fff;
+  background:
+    repeating-linear-gradient(90deg, var(--mimosa) 0 12px, #fff 12px 24px) bottom / 100% 6px no-repeat,
+    var(--ivoire);
+  box-shadow: 0 -3px 0 rgba(14, 47, 58, .2);
+}
+
+/* Devant chacun, une carte face cachée. */
+.vf__dos {
+  position: absolute;
+  top: 12%;
+  left: calc(7% + var(--i) * 10.75%);
+  width: calc(var(--vf-m) * .36);
+  margin-left: calc(var(--vf-m) * -.18);
+  aspect-ratio: 5 / 7;
+  border-radius: 2px;
+  background: var(--dos-carte);
+  box-shadow: inset 0 0 0 1.5px var(--ivoire), 0 1.5px 0 rgba(6, 24, 30, .3);
+  transform: rotate(calc((var(--i) - 3.5) * 2.5deg));
+}
+
+/* Ils se lèvent, et ils applaudissent : chacun à son tour, de gauche à droite. */
+.vf__tablee--bravo .vf__convive {
+  animation: vf-bravo 360ms ease-in-out calc(var(--i) * 60ms) 8 alternate both;
+}
+
+@keyframes vf-bravo {
+  from { transform: translateY(-12%); }
+  to { transform: translateY(-34%); }
+}
+
+/* Le pari : la maison paie Sir Auguste. Une pièce passe de l'un à l'autre, par-dessus la table. */
+.vf__tablee--pari .vf__convive--hector .portrait,
+.vf__tablee--pari .vf__convive--auguste .portrait {
+  box-shadow: 0 0 0 3px var(--mimosa), 0 3px 6px rgba(14, 47, 58, .35);
+}
+
+.vf__mise {
+  position: absolute;
+  bottom: calc(15% + var(--vf-m) * .7);
+  left: calc(7% + 2 * 10.75%);
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--mimosa);
+  box-shadow: inset -2px -2px 0 var(--mimosa-fonce), 0 2px 4px rgba(14, 47, 58, .4);
+  animation: vf-mise 900ms cubic-bezier(.45, 0, .55, 1) 500ms both;
+}
+
+@keyframes vf-mise {
+  0% { left: calc(7% + 2 * 10.75%); transform: translateY(0); opacity: 0; }
+  12% { opacity: 1; }
+  50% { transform: translateY(-26px); }
+  100% { left: calc(7% + 4 * 10.75%); transform: translateY(0); opacity: 1; }
+}
+
+/* Huit têtes se tournent vers le groom, et le groom ne sait plus où se mettre. */
+.vf__tablee--regards .vf__convive .portrait { transform: rotate(-12deg) translateX(-6%); }
+.vf__tablee--regards .vf__convive--toi .portrait { transform: none; }
+.vf__tablee--regards .vf__perchoir { transform: translate(-50%, -88%) scale(1.55); }
+.vf__tablee--regards .vf__perchoir .portrait { box-shadow: 0 0 0 3px var(--mimosa), 0 3px 8px rgba(14, 47, 58, .4); }
+
+/* ---------------------------------------------------------------- 2. Les huit cartes */
+
+/* La nappe de vichy : quatre cartes de front, deux rangs. */
+.vf__nappe {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 16px 12px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(90deg, rgba(247, 201, 72, .34) 50%, transparent 50%),
+    linear-gradient(rgba(247, 201, 72, .34) 50%, transparent 50%);
+  background-size: 28px 28px;
+  box-shadow: inset 0 3px 0 rgba(14, 47, 58, .14);
+}
+
+/* Un couvert : le médaillon de qui l'a posée, et sa carte. Le tout se touche. */
+.vf__couvert {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  border-radius: 8px;
+  transition: transform var(--t-appui) linear;
+}
+
+.vf__couvert .portrait {
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 0 0 2px var(--ivoire), 0 2px 4px rgba(14, 47, 58, .3);
+  transition: box-shadow 200ms linear, transform 300ms var(--rebond);
+}
+
+.vf__couvert:not(.vf__couvert--vu):active { transform: scale(.95); }
+.vf__couvert--vu { cursor: default; }
+
+/* Celui qui vient de retourner sa carte : c'est lui qui parle. */
+.vf__couvert--parle .portrait {
+  box-shadow: 0 0 0 3px var(--mimosa), 0 2px 4px rgba(14, 47, 58, .3);
+  transform: scale(1.14);
+}
+
+/* ---------------------------------------------------------------- 4. Le quai */
+
+.vf__quai > svg {
+  display: block;
+  width: 100%;
+}
+
+/* Celui qui débarque, à côté de la barque. */
+.vf__debarque {
+  position: absolute;
+  bottom: 13%;
+  left: 5%;
+  width: var(--vf-m);
+  height: var(--vf-m);
+  animation: vf-debarque 620ms var(--rebond) 260ms both;
+}
+
+.vf__debarque .portrait {
+  width: 100%;
+  height: 100%;
+  box-shadow: 0 0 0 2px var(--ivoire), 0 3px 6px rgba(14, 47, 58, .35);
+}
+
+@keyframes vf-debarque {
+  from { opacity: 0; transform: translate(-60%, 20%) scale(.7); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Dix tickets, d'un bout à l'autre du quai. Chacun tombe à son heure, et se pose de travers. */
+.vf__ticket {
+  position: absolute;
+  bottom: var(--y, 2px);
+  left: calc(8% + var(--i) * 9.3%);
+  z-index: 1;
+  margin-left: -16px;
+  transform: rotate(var(--r, 0deg));
+  animation: vf-tombe 900ms cubic-bezier(.3, 0, .7, 1) var(--d, 0ms) both;
+}
+
+.vf__ticket .moment__ticket-papier {
+  width: 32px;
+  height: 23px;
+  border-radius: 4px;
+  transform: none;
+  box-shadow: 0 2px 0 var(--mimosa-fonce), 0 4px 6px rgba(14, 47, 58, .35);
+}
+
+@keyframes vf-tombe {
+  0% { opacity: 0; transform: translateY(-180px) rotate(calc(var(--r, 0deg) - 50deg)); }
+  15% { opacity: 1; }
+  70% { transform: translateY(0) rotate(calc(var(--r, 0deg) + 8deg)); }
+  85% { transform: translateY(-5px) rotate(calc(var(--r, 0deg) - 3deg)); }
+  100% { opacity: 1; transform: rotate(var(--r, 0deg)); }
+}
+
+/* La mouette : elle prend le dixième ticket, là où il est tombé, et monte dans le ciel du
+   matin. Elle y reste : c'est la dernière image. */
+.vf__mouette {
+  position: absolute;
+  bottom: 0;
+  left: calc(8% + var(--i) * 9.3%);
+  z-index: 2;
+  width: 27%;
+  margin-left: -22%;
+  transform: translate(-6%, -205%) scale(.62);
+  animation: vf-envol 2400ms cubic-bezier(.45, 0, .3, 1) 300ms backwards;
+}
+
+@keyframes vf-envol {
+  0% { transform: translate(-150%, -260%) scale(.5); }
+  38% { transform: translate(0, -8%) scale(1); }
+  46% { transform: translate(4%, 0) scale(1); }
+  100% { transform: translate(-6%, -205%) scale(.62); }
+}
+
+.vf-aile {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: vf-bat 380ms ease-in-out infinite alternate;
+}
+
+.vf-aile--fond { animation-delay: -90ms; }
+
+@keyframes vf-bat {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(-.5); }
+}
+
+/* ---------------------------------------------------------------- Le texte */
+
+/* La chute d'un écran : ce que raconte le récit, une fois que tout le monde a parlé. */
+.vf__chute { color: var(--brume); }
+
+/* Ce que la vraie fin change, dit une fois : le rang, sous le pseudo. */
+.note.vf__legende {
+  color: var(--mimosa);
+  font: 500 16px/22px var(--texte);
+}
+
+/* Revue depuis les Souvenirs, la cinématique se referme d'un mot, à tout moment. */
+.moment--vraie-fin .bouton--texte { margin-top: calc(var(--e2) * -1); }
+
+/* Animations réduites : chaque plan est une image fixe. */
+.calme .vf__convive,
+.calme .vf__convive--toi,
+.calme .vf__mise,
+.calme .vf__debarque,
+.calme .vf__ticket,
+.calme .vf__mouette,
+.calme .vf-aile { animation: none; }
+
+.calme .vf__convive,
+.calme .vf__convive .portrait,
+.calme .vf__perchoir,
+.calme .vf__couvert .portrait { transition: none; }
+
+.calme .vf__mise { left: calc(7% + 4 * 10.75%); }
+.calme .vf__tablee--bravo .vf__convive { transform: translateY(-24%); }

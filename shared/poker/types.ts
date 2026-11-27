@@ -7,7 +7,7 @@
 //   3. le contrat de l'API : le corps de chaque requête et la forme de chaque réponse.
 // Le client n'a besoin que des familles 2 et 3.
 
-import type { PlaceId, PlayerState } from "../types";
+import type { PlaceId, PlayerState, PokerStats } from "../types";
 import type { Card } from "./cards";
 import type { HandCategory } from "./hands";
 
@@ -209,6 +209,14 @@ export interface SeatState {
   idle: number;
   /** Dénouement : il a demandé la main suivante. */
   ready: boolean;
+  /**
+   * Humain : les compteurs de sa séance à cette table (mains jouées jusqu'au dénouement,
+   * pots ramassés, tricheurs démasqués, fois où il s'est fait prendre). Ils le suivent
+   * jusqu'à son départ, où ils rejoignent ceux de son compte avec son tapis.
+   * Absent tant qu'il n'a fini aucune main, d'un siège de robot, et d'une table enregistrée
+   * avant ces compteurs : tout vaut alors zéro.
+   */
+  stats?: PokerStats;
 }
 
 /** Un joueur dans la main en cours. */
@@ -238,7 +246,7 @@ export interface HandPlayer {
 export interface HandState {
   /** Les joueurs servis, dans l'ordre de parole : le voisin du donneur d'abord. */
   players: HandPlayer[];
-  /** La blinde de cette main. Celle de la table, sauf dans un défi, où elle monte au fil des mains. */
+  /** La blinde de cette main. Celle de la table, sauf en tournoi (défi, Table des Maîtres), où elle monte au fil des mains. */
   blind: number;
   /** Tout l'argent au milieu : les mises de la main, plus le pot resté de la main précédente. */
   pot: number;
@@ -264,6 +272,12 @@ export interface EndedSeat {
   received: number;
   reason: LeaveReason;
   at: number;
+  /**
+   * Les compteurs de sa séance, versés à son compte dans la même écriture que son tapis :
+   * une fois, et une seule. Absent : rien à verser (aucune main finie, ou entrée d'avant
+   * ces compteurs).
+   */
+  stats?: PokerStats;
 }
 
 export interface TableState {
@@ -273,11 +287,15 @@ export interface TableState {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
-  /** La blinde de la table. Dans un défi : la blinde de base, celle des premières mains. */
+  /** La blinde de la table. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
   blind: number;
   minBuyIn: number;
   maxBuyIn: number;
   difficulty: Difficulty;
+  /**
+   * Un par siège ; `null` : siège libre. À la Table des Maîtres, un hôte éliminé garde le
+   * sien, avec un tapis à zéro : il ne reçoit plus de cartes.
+   */
   seats: (SeatState | null)[];
   /** Le joueur qui peut lancer la partie. */
   owner: string | null;
@@ -346,8 +364,9 @@ export interface SeatView {
   /** Sa mise dans le tour d'enchères. */
   bet: number;
   /**
-   * Tout ce qu'il a versé au pot dans cette main, blinde comprise. Dans un défi, un joueur
-   * qui n'a plus de quoi payer la blinde pose ce qui lui reste : il est à tapis d'entrée.
+   * Tout ce qu'il a versé au pot dans cette main, blinde comprise. Dans un défi et à la
+   * Table des Maîtres, un joueur qui n'a plus de quoi payer la blinde pose ce qui lui
+   * reste : il est à tapis d'entrée.
    */
   committed: number;
   /**
@@ -358,7 +377,13 @@ export interface SeatView {
   /** Sa main, seulement quand elle est montrée (abattage). `null` sinon. */
   cards: Card[] | null;
   category: HandCategory | null;
-  /** Table des Maîtres : éliminé. Il n'a plus rien et regarde la fin de la partie ; son siège reste dessiné. */
+  /**
+   * Table des Maîtres : éliminé. Il n'a plus rien (`stack` vaut 0) et regarde la fin de la
+   * partie ; son siège reste dessiné, mais il ne reçoit plus de cartes et la parole comme le
+   * bouton le sautent. Le champ est ABSENT de tout autre siège, et de toute autre table.
+   * Il apparaît au dénouement de la main où le joueur a tout perdu (pendant cette main, il
+   * est encore `inHand` et `allIn`).
+   */
   out?: true;
 }
 
@@ -407,7 +432,7 @@ export interface Options {
   fold: boolean;
   /** `accuser` : les sièges qu'il peut accuser. Vide hors de l'abattage, ou s'il a déjà parlé. `rien` est permis dès que la liste n'est pas vide. */
   accuse: number[];
-  /** `recaver` : fourchette de `amount`. `null` : pas possible maintenant (ou jamais, dans un défi). */
+  /** `recaver` : fourchette de `amount`. `null` : pas possible maintenant (ou jamais, dans un défi et à la Table des Maîtres). */
   rebuy: Range | null;
   /** `retour` : il est marqué absent. */
   back: boolean;
@@ -424,18 +449,21 @@ export interface TableView {
   place: PlaceId | null;
   /**
    * La blinde en vigueur : celle de la main en cours, ou de la prochaine entre deux mains.
-   * À une table, elle ne change jamais. Dans un défi, elle part de la blinde de base du
-   * lieu et double de palier en palier (voir `rise`) ; c'est aussi la mise et la relance
-   * minimales du tour d'enchères.
+   * À une table, elle ne change jamais. Dans un défi et à la Table des Maîtres, elle part
+   * de la blinde de base et double de palier en palier (voir `rise`) ; c'est aussi la mise
+   * et la relance minimales du tour d'enchères.
    */
   blind: number;
   /**
-   * Défi : la prochaine hausse de la blinde. `hand` : le numéro de la main où elle monte
-   * (à comparer à `handNo`) ; `blind` : ce qu'elle vaudra. `null` hors défi, ou quand elle
-   * a dépassé tout l'argent en jeu et ne montera plus.
+   * Défi et Table des Maîtres : la prochaine hausse de la blinde. `hand` : le numéro de la
+   * main où elle monte (à comparer à `handNo`) ; `blind` : ce qu'elle vaudra. `null` à une
+   * table ordinaire, ou quand elle a dépassé tout l'argent en jeu et ne montera plus.
    */
   rise: { hand: number; blind: number } | null;
-  /** Les caves. Dans un défi, toutes deux valent 30 blindes de base, quelle que soit la blinde en vigueur. */
+  /**
+   * Les caves. Dans un défi et à la Table des Maîtres, toutes deux valent 30 blindes de
+   * base (la cave imposée), quelle que soit la blinde en vigueur.
+   */
   minBuyIn: number;
   maxBuyIn: number;
   difficulty: Difficulty;

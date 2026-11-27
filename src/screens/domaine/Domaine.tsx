@@ -28,6 +28,7 @@ import { Bouton } from "../../ui/Bouton";
 import { Bourse, Standing, useCompteSouvenir } from "../../ui/Bourse";
 import { Barre, BulleLibre, Entete, Phrase } from "../../ui/Commun";
 import { useFoundSparkle, usePickUp } from "../../ui/Trouve";
+import { EntreeTrophees } from "../trophees/Entree";
 import "./domaine.css";
 
 /** Les trois trésors les plus chers, pour la console. */
@@ -242,6 +243,10 @@ export function Domaine() {
             <span className="domaine__trouve-eclat" aria-hidden="true" />
           </button>
         )}
+        {/* Les entrées posées sur le ciel, en haut à droite : les trophées (une autre peut venir à côté). */}
+        <div className="domaine__entrees">
+          <EntreeTrophees />
+        </div>
       </div>
 
       <div className="domaine__identite">

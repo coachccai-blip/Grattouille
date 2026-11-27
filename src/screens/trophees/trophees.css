@@ -1,0 +1,344 @@
+/* La vitrine des trophées, et l'annonce d'une médaille gagnée. Chargé à la demande, avec l'écran. */
+
+.trophees { gap: var(--e3); }
+
+/* ---------------------------------------------------------------- Le palmarès */
+
+/* Une plaque de laiton vissée, comme celles du classement : combien de médailles sur 38. */
+.palmares {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 24px 12px;
+  border-radius: 4px;
+  background: linear-gradient(170deg, #D9B866 0%, #B98F38 55%, #9C7526 100%);
+  color: var(--nuit);
+}
+
+.palmares::before,
+.palmares::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6B4E14;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, .35);
+  transform: translateY(-50%);
+}
+
+.palmares::before { left: 7px; }
+.palmares::after { right: 7px; }
+
+.palmares__compte {
+  flex: none;
+  font: 400 40px/44px var(--titre);
+  white-space: nowrap;
+}
+
+.palmares__total { font-size: 24px; }
+
+.palmares__suite {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.palmares__mot { font: 700 16px/20px var(--texte); }
+
+.palmares .barre { background: rgba(14, 47, 58, .3); }
+.palmares .barre__plein { background: var(--nuit); }
+
+/* « 3 nouvelles médailles à admirer » */
+.trophees__neuves {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--bougainvillier-clair);
+  font: 500 16px/24px var(--texte);
+}
+
+/* L'éclat : la même étoile à quatre branches que sur le ticket qui traîne par terre. */
+.trophees__eclat,
+.medaille--neuve::before,
+.annonce__eclat {
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+.trophees__eclat { flex: none; }
+
+/* ---------------------------------------------------------------- Une vitrine par famille */
+
+.trophees__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+
+/* La vitrine : une glace sombre dans son cadre de laiton, comme celles des boutiques. */
+.trophee {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 14px;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: linear-gradient(#0A242D, var(--lagune)) padding-box, var(--laiton) border-box;
+}
+
+.trophee__tete {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.trophee__objet {
+  flex: none;
+  width: 76px;
+}
+
+.trophee__qui {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.trophee__nom {
+  font: 400 24px/28px var(--titre);
+  text-wrap: balance;
+}
+
+.trophee__phrase {
+  margin-top: 2px;
+  color: var(--brume);
+  font: 400 14px/20px var(--texte);
+}
+
+/* La tringle de laiton, d'un bord à l'autre de la vitrine : les médailles y pendent par leur ruban. */
+.trophee__tringle {
+  display: block;
+  height: 4px;
+  margin: 12px -8px 0;
+  border-radius: 2px;
+  background: var(--laiton);
+  box-shadow: 0 2px 0 rgba(6, 24, 30, .5);
+}
+
+.trophee__medailles {
+  display: flex;
+  margin: 0 -8px;
+  padding: 0 2px;
+}
+
+/* Une médaille : 44 px de large au moins, même à six de front sur un écran de 320 px. */
+.medaille {
+  position: relative;
+  display: block;
+  flex: 0 1 52px;
+  min-width: 44px;
+  padding: 0 3px 8px;
+  /* La silhouette d'une médaille à gagner prend cette couleur. */
+  color: rgba(230, 242, 240, .2);
+  transition: transform var(--t-appui) linear;
+}
+
+.medaille svg { filter: none; }
+
+button.medaille:active { transform: translateY(2px); }
+
+/* La médaille que le cartel présente : une pointe de papier la désigne. */
+.medaille[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  width: 16px;
+  height: 8px;
+  background: var(--ivoire);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  transform: translateX(-50%);
+}
+
+/* Une médaille qu'on n'avait pas encore regardée : elle se balance au bout de son ruban, et brille. */
+.medaille--neuve svg {
+  transform-origin: 50% 0;
+  animation: medaille-balance 1600ms ease-in-out 500ms 2 both;
+}
+
+.medaille--neuve::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: 0;
+  z-index: 1;
+  color: #fff;
+  animation: trouve-brille 1600ms ease-in-out infinite;
+}
+
+@keyframes medaille-balance {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(7deg); }
+  75% { transform: rotate(-7deg); }
+}
+
+.calme .medaille--neuve svg,
+.calme .medaille--neuve::before { animation: none; }
+
+/* Le cartel : une étiquette de papier, comme au musée. Le nom de la médaille, où elle en est, ce qu'elle demande. */
+.cartel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 10px;
+  align-items: baseline;
+  padding: 8px 12px 9px;
+  border-radius: 4px;
+  background: var(--ivoire);
+  color: var(--nuit);
+}
+
+.cartel__nom { font: 700 16px/22px var(--texte); }
+
+.cartel__etat {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  color: var(--encre-douce);
+  font: 500 14px/22px var(--texte);
+  white-space: nowrap;
+}
+
+.cartel__etat svg { flex: none; }
+.cartel__etat--gagnee { color: var(--persienne-fonce); }
+.cartel__etat--neuve { color: var(--bougainvillier-fonce); font-weight: 700; }
+
+.cartel__condition {
+  grid-column: 1 / -1;
+  color: var(--encre-douce);
+  font: 400 14px/20px var(--texte);
+}
+
+/* Où en est la famille : la jauge vers le prochain palier, et le compte. */
+.trophee__progres {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.trophee__progres .barre {
+  flex: 1 1 60px;
+  min-width: 40px;
+}
+
+.trophee__compte {
+  flex: none;
+  color: var(--ecume);
+  font: 500 14px/20px var(--texte);
+  white-space: nowrap;
+}
+
+/* Tous les paliers atteints : plus de jauge, le compte et sa coche. */
+.trophee__compte--plein {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--persienne-clair);
+  white-space: normal;
+}
+
+.trophee__compte--plein svg { flex: none; }
+
+/* ---------------------------------------------------------------- L'annonce d'une médaille */
+
+/* Un carton de papier descend prendre, quelques secondes, la place de la barre d'en-tête :
+   rien d'autre n'est recouvert. Au-dessus des feuilles et des messages, sous les grands moments. */
+.annonce {
+  position: fixed;
+  top: calc(var(--haut) + var(--e2));
+  left: 50%;
+  z-index: 62;
+  width: calc(100% - 32px);
+  max-width: calc(var(--colonne) - 32px);
+  transform: translateX(-50%);
+  animation: annonce-entre 420ms var(--rebond) both;
+}
+
+.annonce--sort { animation: annonce-sort 240ms ease-in both; }
+
+@keyframes annonce-entre {
+  from { opacity: 0; transform: translate(-50%, -130%); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes annonce-sort {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to { opacity: 0; transform: translate(-50%, -130%); }
+}
+
+.calme .annonce { animation: fondu 200ms linear both; }
+.calme .annonce--sort { animation: fondu 200ms linear reverse both; }
+
+.annonce__carton {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 3px 16px 3px 10px;
+  border-radius: 6px;
+  color: var(--nuit);
+  text-align: left;
+  box-shadow: var(--ombre-papier), inset 0 0 0 2px var(--mimosa);
+  transition: transform var(--t-appui) linear;
+}
+
+.annonce__carton:active { transform: scale(.98); }
+
+.annonce__medailles {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.annonce__medailles svg {
+  width: 36px;
+  height: 48px;
+}
+
+/* Plusieurs médailles d'un coup : elles se chevauchent comme sur une poitrine de général. */
+.annonce__carton--groupe .annonce__medailles svg + svg { margin-left: -18px; }
+
+.annonce__eclat {
+  position: absolute;
+  top: 6px;
+  right: -4px;
+  color: #fff;
+  animation: trouve-brille 1400ms ease-in-out 2 both;
+}
+
+.calme .annonce__eclat { animation: none; }
+
+.annonce__texte {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.annonce__titre {
+  color: var(--encre-douce);
+  font: 500 12px/16px var(--texte);
+}
+
+.annonce__nom { font: 700 16px/20px var(--texte); }

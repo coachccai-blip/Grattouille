@@ -1,6 +1,6 @@
 // Stockage local (BRIEF.md, section 11) : trois clés, rien d'autre.
 //   grattouille.auth      identifiant et code de récupération
-//   grattouille.settings  son, vibrations, animations réduites, langue, signe préféré
+//   grattouille.settings  son, musique, vibrations, animations réduites, langue, signe préféré
 //   grattouille.revealed  tickets grattés pas encore déclarés au serveur
 
 import { isLang, type Lang } from "../i18n";
@@ -16,6 +16,8 @@ export interface Auth {
 
 export interface Settings {
   son: boolean;
+  /** La musique d'ambiance : un réglage à part, que « Son » ne commande pas. */
+  musique: boolean;
   vibrations: boolean;
   /** Réglage « Animations réduites ». La préférence du système s'y ajoute. */
   calme: boolean;
@@ -25,15 +27,26 @@ export interface Settings {
   signes: Record<string, string>;
   /** L'invitation à noter le code de récupération a déjà été vue. */
   codeNote: boolean;
+  /** Les médailles déjà regardées dans la vitrine des trophées (src/app/trophees.ts). */
+  medailles: MedaillesVues;
+}
+
+/** Les médailles qu'un compte a déjà regardées sur cet appareil : « famille:rang ». */
+export interface MedaillesVues {
+  /** Le compte à qui elles sont : un autre compte, sur le même appareil, repart de zéro. */
+  joueur: string;
+  vues: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   son: true,
+  musique: true,
   vibrations: true,
   calme: false,
   langue: "fr",
   signes: {},
   codeNote: false,
+  medailles: { joueur: "", vues: [] },
 };
 
 function read<T>(key: string): T | null {
@@ -74,11 +87,23 @@ export function loadSettings(): Settings {
   const s = read<Partial<Settings>>(KEY_SETTINGS) ?? {};
   return {
     son: typeof s.son === "boolean" ? s.son : DEFAULT_SETTINGS.son,
+    // Des réglages enregistrés avant la musique ne connaissent pas ce champ : elle est allumée.
+    musique: typeof s.musique === "boolean" ? s.musique : DEFAULT_SETTINGS.musique,
     vibrations: typeof s.vibrations === "boolean" ? s.vibrations : DEFAULT_SETTINGS.vibrations,
     calme: typeof s.calme === "boolean" ? s.calme : DEFAULT_SETTINGS.calme,
     langue: isLang(s.langue) ? s.langue : DEFAULT_SETTINGS.langue,
     signes: s.signes && typeof s.signes === "object" ? { ...s.signes } : {},
     codeNote: s.codeNote === true,
+    medailles: readMedailles(s.medailles),
+  };
+}
+
+/** Des réglages enregistrés avant les trophées ne connaissent pas ce champ : rien n'a encore été regardé. */
+function readMedailles(raw: unknown): MedaillesVues {
+  const m = (raw && typeof raw === "object" ? raw : {}) as Partial<MedaillesVues>;
+  return {
+    joueur: typeof m.joueur === "string" ? m.joueur : "",
+    vues: Array.isArray(m.vues) ? m.vues.filter((x): x is string => typeof x === "string") : [],
   };
 }
 

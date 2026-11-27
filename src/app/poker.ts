@@ -258,12 +258,13 @@ export async function joinTable(code: string, buyIn: number): Promise<string> {
 
 /**
  * Après un échec en voulant s'asseoir : le compte se recale, et le hall aussi quand
- * c'est lui qui n'était plus à jour (déjà assis ailleurs, bourse trop courte, lieu fermé).
+ * c'est lui qui n'était plus à jour (déjà assis ailleurs, bourse trop courte, lieu fermé,
+ * Table des Maîtres encore fermée).
  */
 export async function afterSitFailure(error: unknown): Promise<void> {
   await recover(error);
   if (!(error instanceof ApiFailure)) return;
-  const stale: readonly string[] = ["ALREADY_SEATED", "BUYIN_UNAFFORDABLE", "BLIND_TOO_HIGH", "PLACE_LOCKED"];
+  const stale: readonly string[] = ["ALREADY_SEATED", "BUYIN_UNAFFORDABLE", "BLIND_TOO_HIGH", "PLACE_LOCKED", "MASTERS_LOCKED"];
   if (stale.includes(error.code)) void loadLobby();
 }
 

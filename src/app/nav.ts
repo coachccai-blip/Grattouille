@@ -12,14 +12,20 @@ export type Screen =
   | { name: Tab }
   | { name: "dressing" }
   | { name: "reglages" }
+  // La vitrine des trophées : un écran à part, chargé à la demande.
+  | { name: "trophees" }
   | { name: "comptoir"; place: PlaceId }
   | { name: "a-gratter" }
   | { name: "grattage"; tickets: PendingTicket[]; rafale?: boolean }
   | { name: "boutique"; shop: ShopId }
+  // Le Carnet du Patron : les tickets semés et les nouvelles des protégés. Chargé à la demande.
+  | { name: "carnet" }
   // Feuilles : posées par-dessus l'écran du dessous.
   | { name: "fiche-ticket"; ticket: string }
   | { name: "fiche-article"; item: string }
   | { name: "choix-domaine"; slot: "residence" | "vehicule" }
+  // Des tickets viennent d'être semés : qui les trouve (`rang` : le premier des `qty`). Posé par-dessus la fiche.
+  | { name: "semis"; ticket: string; rang: number; qty: number }
   // Le Poker Tricheur : le hall, une table (par son code), et leurs feuilles.
   | { name: "poker" }
   | { name: "poker-table"; code: string }
@@ -34,9 +40,11 @@ export type PokerSheet =
   | { feuille: "regles" | "creer" | "rejoindre" | "quitter" | "recave" }
   | { feuille: "maison" | "defi"; place: PlaceId }
   | { feuille: "triche"; index: number }
-  | { feuille: "accuser"; seat: number };
+  | { feuille: "accuser"; seat: number }
+  // La Table des Maîtres : ses règles en trois lignes, avant de s'y asseoir.
+  | { feuille: "maitres" };
 
-const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille"]);
+const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis"]);
 const TABS = new Set<string>(["domaine", "promenade", "boutiques", "classement"]);
 
 export function isSheet(screen: Screen): boolean {
@@ -185,6 +193,7 @@ export function screenKey(screen: Screen, index: number): string {
     case "fiche-ticket": return `${index}:fiche-ticket:${screen.ticket}`;
     case "fiche-article": return `${index}:fiche-article:${screen.item}`;
     case "choix-domaine": return `${index}:choix:${screen.slot}`;
+    case "semis": return `${index}:semis:${screen.rang}`;
     case "poker-table": return `${index}:poker-table:${screen.code}`;
     case "poker-feuille": return `${index}:poker-feuille:${screen.feuille}`;
     default: return `${index}:${screen.name}`;

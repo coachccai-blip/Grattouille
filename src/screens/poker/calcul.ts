@@ -7,7 +7,9 @@ import { evaluate, type HandCategory } from "../../../shared/poker/hands";
 import {
   ACCUSE_MS, CHEAT_MS, MAX_BUYIN_BLINDS, MIN_BUYIN_BLINDS, RESTART_MS, RESULT_MS, TABLE_CODE_LENGTH, TURN_MS, WALKOVER_MS,
 } from "../../../shared/poker/rules";
-import type { HandResult, Options, PokerAction, Range, SeatView, TableView } from "../../../shared/poker/types";
+import type {
+  HandResult, LobbyChallenge, LobbyMasters, Options, PokerAction, Range, SeatView, TableView,
+} from "../../../shared/poker/types";
 import { CODE_ALPHABET } from "../../../shared/rules";
 
 // ---------------------------------------------------------------------------
@@ -279,6 +281,100 @@ export function maxBuyInChoices(blind: number): number[] {
   const out: number[] = [];
   for (let n = MIN_BUYIN_BLINDS; n <= MAX_BUYIN_BLINDS; n += 20) out.push(n * blind);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// La Table des Maîtres
+
+/** Ce que le hall sait des défis et de la Table des Maîtres. Un serveur plus ancien ne rend pas `masters`. */
+export interface MastersLobby {
+  masters?: LobbyMasters | null;
+  challenges: readonly Pick<LobbyChallenge, "won">[];
+}
+
+/** « Défis relevés : N sur 8 » : les défis relevés, et ceux qu'il y a à relever. */
+export function challengesWon(lobby: MastersLobby): { won: number; total: number } {
+  const total = lobby.challenges.length;
+  const counted = lobby.challenges.filter((c) => c.won).length;
+  // Le serveur le dit lui-même quand il connaît la Table des Maîtres ; sinon, on compte les défis relevés.
+  const said = lobby.masters?.defis;
+  const won = typeof said === "number" && Number.isFinite(said) ? Math.floor(said) : counted;
+  return { won: Math.max(0, Math.min(total, won)), total };
+}
+
+/** La carte de la Table des Maîtres, dans le hall. */
+export interface MastersCard {
+  /** Les huit défis sont relevés : on peut s'y asseoir. Sinon elle se devine, fermée. */
+  open: boolean;
+  /** Les défis relevés, et ceux qu'il faut. */
+  defis: number;
+  total: number;
+  /** La blinde de base et la cave, la même pour les cinq joueurs. */
+  blind: number;
+  buyIn: number;
+  /** Combien de fois le joueur l'a remportée. */
+  won: number;
+  /** Ce qui manque à la bourse pour la cave ; 0 quand elle suffit. */
+  short: number;
+}
+
+/**
+ * La carte de la Table des Maîtres. `null` : le serveur ne la connaît pas (il est plus ancien
+ * que cet écran), il n'y a rien à montrer. `balance` : la bourse telle que le joueur la voit,
+ * tickets grattés compris ; c'est elle que le serveur comptera au moment de s'asseoir.
+ */
+export function mastersCard(lobby: MastersLobby, balance: number): MastersCard | null {
+  const m = lobby.masters ?? null;
+  if (!m) return null;
+  const { won: defis, total } = challengesWon(lobby);
+  const buyIn = Math.max(0, m.buyIn);
+  return {
+    open: m.open === true,
+    defis,
+    total,
+    blind: Math.max(0, m.blind),
+    buyIn,
+    won: Number.isFinite(m.won) && m.won > 0 ? Math.floor(m.won) : 0,
+    short: balance >= buyIn ? 0 : buyIn - Math.max(0, Math.floor(balance)),
+  };
+}
+
+/** Les maîtres encore assis à la Table des Maîtres, et combien ils étaient au départ. */
+export function mastersLeft(view: Pick<TableView, "seats">): { left: number; of: number } {
+  let left = 0;
+  let of = 0;
+  for (const seat of view.seats) {
+    if (!seat || seat.bot === null) continue;
+    of += 1;
+    if (!seat.out) left += 1;
+  }
+  return { left, of };
+}
+
+/**
+ * Les sièges que la main qui vient de finir a éliminés : ils y jouaient, et n'ont plus rien.
+ * Vide hors du dénouement d'une main de la Table des Maîtres.
+ */
+export function fallenSeats(view: Pick<TableView, "kind" | "phase" | "seats" | "result" | "handNo">): number[] {
+  const result = view.result;
+  if (view.kind !== "maitres" || view.phase !== "denouement" || !result || result.no !== view.handNo) return [];
+  const played = new Set(result.net.map((n) => n.seat));
+  const out: number[] = [];
+  for (const seat of view.seats) if (seat && seat.out && played.has(seat.seat)) out.push(seat.seat);
+  return out;
+}
+
+/**
+ * Un tournoi (un défi, la Table des Maîtres) est joué : le joueur n'a plus rien, ou plus
+ * aucun adversaire n'a de jetons. La main suivante n'aura pas lieu : c'est le dénouement.
+ */
+export function tournamentDecided(view: Pick<TableView, "kind" | "seats" | "you">): boolean {
+  if (view.kind !== "defi" && view.kind !== "maitres") return false;
+  const me = view.you === null ? null : view.seats[view.you] ?? null;
+  if (!me) return false;
+  if (me.stack + me.reserve <= 0) return true;
+  const rivals = view.seats.filter((seat): seat is SeatView => seat !== null && seat.bot !== null);
+  return rivals.length > 0 && rivals.every((seat) => seat.stack <= 0);
 }
 
 // ---------------------------------------------------------------------------

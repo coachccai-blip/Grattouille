@@ -11,7 +11,7 @@ import { cx } from "../../ticket/parts";
 import { neighbours, sidesFor, type Neighbour } from "./calcul";
 import type { SeatLabel } from "./evenements";
 import { Jeton, Tete } from "./parts";
-import { identityOf, playerName } from "./textes";
+import { identityOf, playerName, seatStateText } from "./textes";
 
 /** Ce qu'un joueur vient de faire, en deux mots : écrit à la place de son nom, un instant. */
 function labelText(label: SeatLabel): string {
@@ -27,21 +27,13 @@ function labelText(label: SeatLabel): string {
   }
 }
 
-/** L'état d'un siège, en un mot, quand il en a un. */
-function stateText(seat: SeatView, view: TableView): string | null {
-  if (!seat.funded) return t("arrive…");
-  if (seat.absent) return t("absent");
-  if (seat.folded) return t("couché");
-  if (seat.allIn) return t("à tapis");
-  if (view.started && view.hand !== null && !seat.inHand && (view.phase === "triche" || view.phase === "encheres")) return t("attend");
-  return null;
-}
-
 /** Ce qu'un lecteur d'écran lit d'un siège : une phrase, d'une traite. */
 function spoken(seat: SeatView, view: TableView, name: string): string {
+  // Éliminé de la Table des Maîtres : il n'a plus de tapis, plus de mise, plus la parole.
+  if (seat.out) return t("{nom} : éliminé", { nom: name });
   const parts = [t("{nom} : tapis {montant}", { nom: name, montant: formatEuros(seat.stack) })];
   if (seat.bet > 0) parts.push(t("mise {montant}", { montant: formatEuros(seat.bet) }));
-  const state = stateText(seat, view);
+  const state = seatStateText(seat, view);
   if (state) parts.push(state);
   if (view.dealer === seat.seat) parts.push(t("donneur"));
   if (view.turn === seat.seat) parts.push(t("a la parole"));
@@ -68,8 +60,10 @@ function Siege({ place, view, label }: SiegeProps) {
   const who = identityOf(seat);
   const name = playerName(who);
   const turn = view.turn === seat.seat;
-  const state = stateText(seat, view);
+  const state = seatStateText(seat, view);
   const live = seat.inHand && !seat.folded;
+  // Éliminé de la Table des Maîtres : le siège reste dessiné à sa place, éteint, pour que les autres ne bougent pas.
+  const out = seat.out === true;
   // Se coucher, pousser son tapis : l'état écrit sous le nom dit déjà le geste. Rien n'est
   // dit deux fois : le nom reste, et c'est l'état qui s'anime.
   const echo = label !== undefined
@@ -79,6 +73,7 @@ function Siege({ place, view, label }: SiegeProps) {
     <div
       className={cx(
         "poker-siege", turn && "poker-siege--parle", (seat.folded || seat.absent || !seat.funded) && "poker-siege--efface",
+        out && "poker-siege--elimine",
       )}
       data-siege={seat.seat}
     >
@@ -86,8 +81,8 @@ function Siege({ place, view, label }: SiegeProps) {
       <span className="poker-siege__tete" aria-hidden="true">
         <Tete who={who} />
         {live && <span className="poker-siege__cartes"><i /><i /><i /></span>}
-        {view.dealer === seat.seat && <span className="poker-siege__donneur">{t("D")}</span>}
-        {seat.done && <span className="poker-siege__pret"><Icon name="coche" size={14} /></span>}
+        {view.dealer === seat.seat && !out && <span className="poker-siege__donneur">{t("D")}</span>}
+        {seat.done && !out && <span className="poker-siege__pret"><Icon name="coche" size={14} /></span>}
       </span>
       {/* Le geste qui vient de tomber prend un instant la place du nom ; l'état (couché, absent) celle du tapis. */}
       <span className={cx("poker-siege__nom", gesture && "poker-siege__nom--geste")} aria-hidden="true" key={gesture ? gesture.id : "nom"}>

@@ -9,6 +9,9 @@
 // sur une ligne en anglais.
 //
 // Les répliques des personnages ont leurs deux versions dans src/screens/poker/repliques.ts.
+//
+// La Table des Maîtres est « the Masters' Table » : un tournoi (« tournament ») où l'on est
+// « knocked out » quand on n'a plus rien, et où « the last one seated takes it all ».
 
 export const EN_POKER: Record<string, string> = {
   // --- La Promenade : la porte du poker
@@ -281,4 +284,51 @@ export const EN_POKER: Record<string, string> = {
   // --- La Table des Maîtres : refus du serveur (src/app/store.ts)
   "La Table des Maîtres n'ouvre qu'à qui a relevé les huit défis.":
     "The Masters' Table only opens to whoever has beaten all eight challenges.",
+
+  // --- La Table des Maîtres, dans le hall. Les « maîtres des lieux » sont « your hosts » ;
+  // à cette table, ils sont « the masters ».
+  "Défis relevés : {n} sur {total}": "Challenges won: {n} of {total}",
+  "La Table des Maîtres": "The Masters' Table",
+  "Ruine les huit maîtres des lieux pour t'y asseoir.": "Ruin all eight hosts to earn a seat.",
+  "Quatre maîtres tirés au sort": "Four masters, drawn by lot",
+  "Blinde de départ": "Opening blind",
+  "Cave": "Buy-in",
+  "Tournoi : le dernier assis prend tout": "Tournament: last one seated takes it all",
+  "Tu l'as remportée une fois": "You've won it once",
+  "Tu l'as remportée {n} fois": "You've won it {n} times",
+  "Prendre place": "Take a seat",
+
+  // --- S'y asseoir : ses règles en trois lignes
+  "Toi, et quatre des huit maîtres des lieux, tirés au sort.": "You, and four of the eight hosts, drawn by lot.",
+  "Chacun pose {cave}, et personne ne recave : à zéro, on quitte la table.":
+    "Everyone puts down a {cave} buy-in, and nobody tops up: at zero, you leave the table.",
+  "La blinde part de {blinde} et monte au fil des mains.": "The blind starts at {blinde} and goes up as the hands go by.",
+  "Tu peux partir avec ton tapis, mais sans la victoire.": "You can leave with your stack, but without the win.",
+  "Le dernier assis prend tout : {montant}.": "Last one seated takes it all: {montant}.",
+  "S'asseoir pour {montant}": "Sit down for {montant}",
+
+  // --- À la table
+  "Table des Maîtres": "Masters' Table",
+  "Les maîtres de ce soir": "Tonight's masters",
+  "Tes adversaires, tirés au sort": "Your opponents, drawn by lot",
+  "éliminé": "knocked out",
+  "{nom} : éliminé": "{nom}: knocked out",
+  "{n} maîtres assis": "{n} masters seated",
+  "Plus qu'un maître": "One master left",
+  "Fin du tournoi": "See the outcome",
+  "Le tournoi s'arrête là pour toi : pas de victoire, et la table ferme derrière toi.":
+    "The tournament ends here for you: no win, and the table closes behind you.",
+
+  // --- Ses trois fins : gagnée, perdue, quittée
+  "La table est à toi !": "The table is yours!",
+  "Tu remportes": "You win",
+  "Tu remportes {montant}.": "You win {montant}.",
+  "Les maîtres saluent": "The masters salute you",
+  "Les maîtres gardent la table": "The masters keep the table",
+  "Tu y laisses ta cave, pas ta place : reviens quand tu veux, quatre maîtres seront tirés au sort.":
+    "You leave your buy-in behind, not your seat: come back whenever you like, and four masters will be drawn afresh.",
+  "Tu te lèves de table": "You leave the table",
+  "Tu repars avec ton tapis, {montant}, sans la victoire. La table rouvre quand tu veux.":
+    "You leave with your stack, {montant}, but without the win. The table reopens whenever you like.",
+  "Tu repars sans la victoire. La table rouvre quand tu veux.": "You leave without the win. The table reopens whenever you like.",
 };

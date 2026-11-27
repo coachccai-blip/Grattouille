@@ -222,6 +222,215 @@
   gap: var(--e2);
 }
 
+/* Le titre de la rubrique des maîtres, et à sa droite le compte des défis relevés. */
+.poker-hall__titre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.poker-hall__defis {
+  color: var(--mimosa);
+  font: 500 14px/20px var(--texte);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- La Table des Maîtres */
+
+/* Ouverte, elle en impose : un carton de nuit ourlé d'or, son nom en grand, ses sommes en
+   mimosa. C'est un bouton : il s'enfonce sur sa tranche, comme un billet. */
+.poker-maitres--ouverte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 12px 16px;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(247, 201, 72, .2), rgba(247, 201, 72, 0) 62%) padding-box,
+    linear-gradient(#0A242D, #06181E) padding-box,
+    var(--or) border-box;
+  color: var(--ecume);
+  font: 400 14px/20px var(--texte);
+  text-align: center;
+  box-shadow: 0 5px 0 #6E4F0C;
+  transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear;
+}
+
+.poker-maitres--ouverte:active {
+  box-shadow: 0 2px 0 #6E4F0C;
+  transform: translateY(3px);
+}
+
+/* Quatre sièges, et personne encore dessus : on ne sait pas qui le sort désignera. */
+.poker-maitres__sieges { display: flex; }
+
+.poker-maitres__siege {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--lagune);
+  color: var(--mimosa);
+  font: 400 20px/1 var(--titre);
+  box-shadow: 0 0 0 2px #C99A3A, 0 0 0 4px #0A242D;
+}
+
+.poker-maitres__siege:first-child { margin-left: 0; }
+
+.poker-maitres--ouverte .poker-maitres__nom {
+  margin-top: 4px;
+  color: #F3D58A;
+  font: 400 clamp(25px, 8vw, 32px)/1.12 var(--titre);
+  text-wrap: balance;
+}
+
+/* Le nom en or, là où le navigateur sait peindre un texte avec un dégradé. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .poker-maitres--ouverte .poker-maitres__nom {
+    background: var(--or);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
+.poker-maitres__devise { color: var(--brume); }
+
+/* Les sommes : la blinde de départ et la cave, côte à côte, un filet d'or entre elles. */
+.poker-maitres__sommes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-self: stretch;
+  margin: 8px 0 6px;
+}
+
+.poker-maitres__somme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  color: var(--brume);
+  font: 500 13px/18px var(--texte);
+}
+
+.poker-maitres__somme + .poker-maitres__somme { box-shadow: -1px 0 0 rgba(201, 154, 58, .55); }
+
+.poker-maitres__somme strong {
+  color: var(--mimosa);
+  font: 700 clamp(22px, 7vw, 26px)/30px var(--texte);
+  white-space: nowrap;
+}
+
+.poker-maitres__regle { font-weight: 500; }
+
+.poker-maitres__palmares {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--persienne-clair);
+  font-weight: 500;
+}
+
+.poker-maitres__palmares svg { flex: none; }
+
+/* Ce qui invite à s'asseoir : une pilule mimosa, celle des boutons du jeu. */
+.poker-maitres__entrer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 48px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: var(--mimosa);
+  color: var(--nuit);
+  font: 700 18px/24px var(--texte);
+  box-shadow: 0 4px 0 var(--mimosa-fonce);
+}
+
+.poker-maitres__manque {
+  margin-top: 8px;
+  color: var(--cerise-clair);
+  font: 500 15px/22px var(--texte);
+}
+
+/* La bourse ne suffit pas : l'or se ternit, mais la carte se touche encore (la feuille dit ce qu'il manque). */
+.poker-maitres--courte {
+  background:
+    linear-gradient(#0A242D, #06181E) padding-box,
+    var(--laiton) border-box;
+  box-shadow: 0 5px 0 rgba(6, 24, 30, .6);
+}
+
+.poker-maitres--courte:active { box-shadow: 0 2px 0 rgba(6, 24, 30, .6); }
+.poker-maitres--courte .poker-maitres__somme strong { color: var(--brume); }
+
+/* Fermée, elle se devine : un contour en pointillé, un cadenas, ce qui l'ouvre, et où l'on en est. */
+.poker-maitres--fermee {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px 12px;
+  border: 2px dashed rgba(201, 154, 58, .6);
+  border-radius: 6px;
+  background: rgba(10, 36, 45, .7);
+  color: var(--brume);
+  font: 400 14px/20px var(--texte);
+}
+
+.poker-maitres--fermee > svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.poker-maitres__texte {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.poker-maitres--fermee .poker-maitres__nom { font: 400 20px/26px var(--titre); }
+.poker-maitres--fermee .poker-maitres__texte > span { text-wrap: balance; }
+
+.poker-maitres__compte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin-top: 4px;
+  font: 500 13px/18px var(--texte);
+}
+
+/* Un pion par maître : plein, il est ruiné. */
+.poker-maitres__pions {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.poker-maitres__pions i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(180, 205, 208, .55);
+}
+
+.poker-maitres__pions .poker-maitres__pion--plein {
+  background: var(--mimosa);
+  box-shadow: inset 0 0 0 2px var(--mimosa-fonce);
+}
+
 /* ---------------------------------------------------------------- Les feuilles */
 
 .poker-feuille .feuille__corps {

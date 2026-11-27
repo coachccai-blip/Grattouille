@@ -127,9 +127,11 @@ interface AbattageProps {
   flip: boolean;
   /** Le dénouement en cours, s'il y en a un. */
   outcome: Denouement | null;
+  /** Le jeu doré de qui a vu la vraie fin : les mains qui attendent de se retourner montrent un dos doré. */
+  dore?: boolean;
 }
 
-export function Abattage({ view, who, flip, outcome }: AbattageProps) {
+export function Abattage({ view, who, flip, outcome, dore = false }: AbattageProps) {
   const calm = useGame(isCalm);
   const rows = rowsOf(view);
   const { width, step } = useCardFit(rows.length);
@@ -252,6 +254,7 @@ export function Abattage({ view, who, flip, outcome }: AbattageProps) {
                     carte={card}
                     largeur={width}
                     cachee={!faceUp}
+                    dore={dore}
                     className={cx(
                       twice.has(card) && faceUp && !result && "poker-carte--double",
                       fake === i && "poker-carte--fausse",

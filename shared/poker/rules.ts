@@ -135,12 +135,15 @@ export const CHALLENGE_BONUS_BLINDS = 100;
  */
 export const CHALLENGE_LEVEL_HANDS: readonly number[] = [4, 4, 4, 2];
 
-/** Le palier de la main `handNo` (la première porte le numéro 1) : 0, puis 1, 2… */
-function challengeLevel(handNo: number): number {
+/**
+ * Le palier de la main `handNo` (la première porte le numéro 1) : 0, puis 1, 2…
+ * `levels` : la durée de chaque palier, en mains ; le dernier nombre vaut pour tous les suivants.
+ */
+function levelAt(handNo: number, levels: readonly number[]): number {
   let level = 0;
   let left = Math.max(1, Math.floor(handNo)) - 1;
   for (;;) {
-    const hands = CHALLENGE_LEVEL_HANDS[Math.min(level, CHALLENGE_LEVEL_HANDS.length - 1)]!;
+    const hands = levels[Math.min(level, levels.length - 1)]!;
     // Garde-fou : la blinde cesse de monter après quelques paliers, inutile de compter sans fin.
     if (left < hands || level >= 60) return level;
     left -= hands;
@@ -149,14 +152,33 @@ function challengeLevel(handNo: number): number {
 }
 
 /**
+ * Une blinde qui double de palier en palier. Elle cesse de monter dès qu'elle dépasse tout
+ * l'argent en jeu (`everything`) : au-delà, rien ne changerait.
+ */
+function risingBlind(base: number, handNo: number, levels: readonly number[], everything: number): number {
+  let blind = base;
+  for (let level = levelAt(handNo, levels); level > 0 && blind < everything; level--) blind *= 2;
+  return blind;
+}
+
+/** La main où cette blinde montera, après la main `handNo`, et ce qu'elle vaudra. `null` : elle ne montera plus. */
+function risingNext(
+  base: number, handNo: number, levels: readonly number[], everything: number,
+): { hand: number; blind: number } | null {
+  const now = risingBlind(base, handNo, levels, everything);
+  if (now >= everything) return null;
+  // Tant qu'elle n'a pas dépassé tout l'argent en jeu, elle double au palier suivant.
+  let hand = Math.max(1, Math.floor(handNo)) + 1;
+  while (risingBlind(base, hand, levels, everything) === now) hand += 1;
+  return { hand, blind: risingBlind(base, hand, levels, everything) };
+}
+
+/**
  * La blinde d'un défi à la main `handNo`. Elle cesse de monter dès qu'elle dépasse tout
  * l'argent en jeu (les deux caves) : au-delà, rien ne changerait.
  */
 export function challengeBlind(base: number, handNo: number): number {
-  const everything = base * CHALLENGE_BLINDS * 2;
-  let blind = base;
-  for (let level = challengeLevel(handNo); level > 0 && blind < everything; level--) blind *= 2;
-  return blind;
+  return risingBlind(base, handNo, CHALLENGE_LEVEL_HANDS, base * CHALLENGE_BLINDS * 2);
 }
 
 /**
@@ -164,12 +186,7 @@ export function challengeBlind(base: number, handNo: number): number {
  * vaudra alors. `null` quand elle ne montera plus.
  */
 export function challengeRise(base: number, handNo: number): { hand: number; blind: number } | null {
-  const now = challengeBlind(base, handNo);
-  if (now >= base * CHALLENGE_BLINDS * 2) return null;
-  // Tant qu'elle n'a pas dépassé tout l'argent en jeu, elle double au palier suivant.
-  let hand = Math.max(1, Math.floor(handNo)) + 1;
-  while (challengeBlind(base, hand) === now) hand += 1;
-  return { hand, blind: challengeBlind(base, hand) };
+  return risingNext(base, handNo, CHALLENGE_LEVEL_HANDS, base * CHALLENGE_BLINDS * 2);
 }
 
 /** Facile au Kiosque et au Grand Café, normal au Casino et au Salon, difficile à partir du Cercle. */
@@ -231,6 +248,39 @@ export const MASTERS_BLIND = 10_000_000_000_000;
 /** La cave de chacun : trente blindes de base, soit 300 Bn€. Pas de recave. */
 export const MASTERS_BLINDS = 30;
 export const MASTERS_BUYIN = MASTERS_BLIND * MASTERS_BLINDS;
+
+/** Les huit hôtes, du Kiosque à la Lune : c'est parmi eux que la tablée des Maîtres est tirée. */
+export const HOSTS: readonly string[] = PLACES.map((place) => place.host);
+
+/** La tablée des Maîtres : quatre hôtes distincts, tirés au sort sans remise parmi les huit. */
+export function pickMasters(rng: Random32): string[] {
+  const pool = [...HOSTS];
+  const picked: string[] = [];
+  while (picked.length < MASTERS_SEATS - 1 && pool.length > 0) {
+    picked.push(pool.splice(uniformInt(pool.length, rng), 1)[0]!);
+  }
+  return picked;
+}
+
+/**
+ * La Table des Maîtres est un tournoi : personne ne recave, et la blinde double de palier en
+ * palier jusqu'à dépasser tout l'argent en jeu (les cinq caves). Barème provisoire.
+ * Le dernier nombre de la liste vaut pour tous les paliers suivants.
+ */
+export const MASTERS_LEVEL_HANDS: readonly number[] = [6, 6, 6, 6, 4];
+
+/** La blinde de la Table des Maîtres à la main `handNo`, à partir de sa blinde de base. */
+export function mastersBlind(base: number, handNo: number): number {
+  return risingBlind(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * MASTERS_SEATS);
+}
+
+/**
+ * La main à laquelle la blinde de la Table des Maîtres montera, après la main `handNo`, et
+ * ce qu'elle vaudra alors. `null` quand elle ne montera plus.
+ */
+export function mastersRise(base: number, handNo: number): { hand: number; blind: number } | null {
+  return risingNext(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * MASTERS_SEATS);
+}
 
 // ---------------------------------------------------------------------------
 // Le code d'une table

@@ -231,14 +231,18 @@ export function botAccuse(view: TableView, level: Difficulty, rng: Random32): nu
   for (const s of rivals) for (const card of s.cards!) shown.set(card, (shown.get(card) ?? 0) + 1);
   let target: SeatView | null = null;
   let doubt = 0;
+  let best = 0;
   for (const s of rivals) {
     const value = evaluate(s.cards!);
     if (value.score < own) continue;
     let suspicion = SUSPICION[value.level]!;
     if (s.cards!.some((card) => shown.get(card)! > 1)) suspicion = Math.max(suspicion, TWIN_SUSPICION);
-    if (suspicion > doubt) {
+    // À soupçon égal, il vise la main la plus forte : c'est elle qui lui prend le pot. La place
+    // autour de la table n'y est pour rien (le joueur, toujours au premier siège, n'est pas visé d'abord).
+    if (suspicion > doubt || (target !== null && suspicion === doubt && value.score > best)) {
       doubt = suspicion;
       target = s;
+      best = value.score;
     }
   }
   if (!target) return null;

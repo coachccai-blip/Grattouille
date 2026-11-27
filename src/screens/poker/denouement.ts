@@ -11,7 +11,7 @@ import type { Line } from "../../app/dialogues";
 import { playAccuse, playInnocent, playPot, playUnmasked } from "../../fx/audio";
 import { beatsOf, lineBeats, outcomeLines, winnersOf, type Beat, type OutcomeLine } from "./calcul";
 import { flyChips } from "./evenements";
-import { tableLine } from "./repliques";
+import { mastersLine, tableLine } from "./repliques";
 
 export interface Denouement {
   result: HandResult;
@@ -42,6 +42,8 @@ interface Stage {
   botAt: (seat: number) => string | null;
   /** Une somme vaut-elle un mot du gagnant ? */
   big: (amount: number) => boolean;
+  /** Table des Maîtres : les sièges que cette main élimine. Qui s'en va a le dernier mot. */
+  fallen?: readonly number[];
   calm: boolean;
 }
 
@@ -52,9 +54,14 @@ function rowEl(root: HTMLElement | null, seat: number): Element | null {
 /**
  * Ce qui se dira, et à quel battement : une seule réplique par dénouement, décidée d'avance.
  * L'accusé proteste (une main sur deux) ou réagit à son verdict ; sinon, un beau pot vaut un
- * mot de son gagnant.
+ * mot de son gagnant. À la Table des Maîtres, un maître que la main élimine passe devant
+ * tout le monde : il dit son mot quand le pot est ramassé.
  */
-function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "botAt" | "big">): { at: number; line: Line } | null {
+function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "botAt" | "big" | "fallen">): { at: number; line: Line } | null {
+  for (const seat of stage.fallen ?? []) {
+    const line = mastersLine(stage.botAt(seat), "elimine");
+    if (line) return { at: beats.length - 1, line };
+  }
   for (let at = 0; at < beats.length; at++) {
     const b = beats[at]!;
     let line: Line | null = null;

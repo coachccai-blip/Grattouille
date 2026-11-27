@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
-import type { HandResult, TableView } from "../../../shared/poker/types";
+import type { HandResult, SeatView, TableView } from "../../../shared/poker/types";
 import type { Line } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { nav, useNav } from "../../app/nav";
@@ -25,13 +25,18 @@ import { Bourse, Compteur } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Abattage } from "./Abattage";
-import { betChoices, doubles, netOf, phaseTotal, type BetChoice, type OutcomeLine } from "./calcul";
+import {
+  betChoices, doubles, fallenSeats, mastersLeft, netOf, phaseTotal, tournamentDecided, type BetChoice, type OutcomeLine,
+} from "./calcul";
 import { useDenouement, type Denouement } from "./denouement";
 import { useTableEvents } from "./evenements";
+import { Presentation, SortieMaitres, mastersOf } from "./Maitres";
 import { BarreTemps, Jeton, Tete } from "./parts";
 import { hostLine, tableLine } from "./repliques";
 import { Tapis } from "./Tapis";
-import { categoryName, identityOf, nameInSentence, nameList, tableTitle, type Identity } from "./textes";
+import {
+  categoryName, identityOf, isMastersEnd, mastersLeftText, nameInSentence, nameList, tableTitle, type Identity,
+} from "./textes";
 import "./poker.css";
 import "./table.css";
 
@@ -49,6 +54,11 @@ function useRoster(view: TableView): (seat: number) => Identity | null {
   const known = useRef<Record<number, Identity>>({});
   for (const seat of view.seats) if (seat) known.current[seat.seat] = identityOf(seat);
   return useCallback((seat: number) => known.current[seat] ?? null, []);
+}
+
+/** Le jeu de cartes doré : celui de qui a vu la vraie fin. Tous les dos de cartes de sa table le portent. */
+function useGoldenDeck(): boolean {
+  return useGame((s) => s.player?.story.vraieFin === true);
 }
 
 /** La largeur d'une carte de la main du joueur : cinq cartes tiennent côte à côte. */
@@ -72,8 +82,8 @@ function leaveTable(view: TableView): void {
     && (view.phase === "triche" || view.phase === "encheres" || view.phase === "abattage");
   // Hors d'une main, `pot` est ce qui est resté sur la table : qui s'en va le laisse aux autres.
   const leftOver = view.hand === null && view.pot > 0;
-  // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi.
-  if (live || leftOver || view.kind === "defi") nav.push({ name: "poker-feuille", feuille: "quitter" });
+  // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi, la Table des Maîtres.
+  if (live || leftOver || view.kind === "defi" || view.kind === "maitres") nav.push({ name: "poker-feuille", feuille: "quitter" });
   else void play({ type: "quitter" });
 }
 
@@ -210,9 +220,26 @@ function blindText(view: TableView): string {
 // ---------------------------------------------------------------------------
 // La main du joueur
 
-function MaMain({ view, dealt }: { view: TableView; dealt: boolean }) {
+/** Un jeu doré se montre : à la donne, chaque carte se pose de dos, puis se retourne, l'une après l'autre. */
+const GOLD_FLIP_MS = 240;
+const GOLD_EVERY_MS = 115;
+
+function MaMain({ view, dealt, dore }: { view: TableView; dealt: boolean; dore: boolean }) {
   const hand = view.hand;
   const width = useHandWidth();
+  // La donne d'un jeu doré : combien de cartes sont déjà retournées (les cinq, hors de ce moment).
+  const flourish = dealt && dore;
+  const [turned, setTurned] = useState(0);
+  useEffect(() => {
+    if (!flourish) return;
+    setTurned(0);
+    const timers: number[] = [];
+    // Au rythme de la donne : chaque carte se retourne quand elle se pose.
+    for (let i = 0; i < 5; i++) timers.push(window.setTimeout(() => setTurned((n) => Math.max(n, i + 1)), 140 + i * GOLD_EVERY_MS + GOLD_FLIP_MS));
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [flourish, view.handNo]);
   if (!hand) return null;
   const canCheat = view.phase === "triche" && view.options.cheat;
   return (
@@ -225,9 +252,13 @@ function MaMain({ view, dealt }: { view: TableView; dealt: boolean }) {
         const name = nomDeCarte(card) ?? "";
         const face = (
           <Carte
+            // La donne d'un jeu doré repart d'une carte neuve, déjà de dos : elle ne se retourne qu'une fois posée.
+            key={flourish ? "dos" : "face"}
             carte={card}
             largeur={width}
-            label={mine ? t("{carte}, glissée par toi", { carte: name }) : undefined}
+            cachee={flourish && i >= turned}
+            dore={dore}
+            label={mine ? t("{carte}, glissée par toi", { carte: name }) : flourish ? name : undefined}
             className={mine ? "poker-carte--glissee" : undefined}
           />
         );
@@ -283,6 +314,9 @@ function Infos({ view }: { view: TableView }) {
 // ---------------------------------------------------------------------------
 // Les gestes
 
+/** À partir de neuf signes (« 137,05 M€ », « 287,35 Bn€ »), une somme ne tient plus à côté du titre des mises. */
+const LONG_AMOUNT = 9;
+
 // Les tailles de mise : des clés de traduction, lues à l'affichage.
 const SIZES: Record<BetChoice["size"], string> = { min: "mini", milieu: "milieu", pot: "pot", tapis: "tapis" };
 
@@ -294,10 +328,12 @@ function Encheres({ view, off }: { view: TableView; off: boolean }) {
   // Suivre engage tout ce qui reste : c'est un tapis, et on le dit.
   const allIn = o.call > 0 && o.call >= me.stack;
   const titre = o.bet ? t("Miser") : t("Relancer à");
+  // Des sommes à rallonge (« 137,05 Bn€ ») : le titre passe au-dessus, et chaque mise garde la largeur de sa somme.
+  const longues = choices.some((choice) => formatEuros(choice.amount).length >= LONG_AMOUNT);
   return (
     <div className="poker-actions">
       {choices.length > 0 && (
-        <div className="poker-mises" role="group" aria-label={titre}>
+        <div className={cx("poker-mises", longues && "poker-mises--longues")} role="group" aria-label={titre}>
           <span className="poker-mises__titre" aria-hidden="true">{titre}</span>
           {choices.map((choice) => (
             <button
@@ -367,9 +403,9 @@ function Actions({ view }: { view: TableView }) {
     );
   }
   if (view.phase === "denouement") {
-    // Un défi se joue jusqu'au bout : quand l'un des deux n'a plus rien, la suite est son dénouement.
-    const rival = view.kind === "defi" ? view.seats.find((seat) => seat !== null && seat.bot !== null) ?? null : null;
-    const over = view.kind === "defi" && (me.stack + me.reserve <= 0 || (rival !== null && rival.stack <= 0));
+    // Un défi, la Table des Maîtres : un tournoi se joue jusqu'au bout. Quand le joueur n'a plus
+    // rien, ou plus aucun adversaire, la suite est son dénouement.
+    const over = tournamentDecided(view);
     const next = (
       <Bouton
         variante={dry ? "secondaire" : "principal"}
@@ -378,7 +414,7 @@ function Actions({ view }: { view: TableView }) {
         disabled={off || !o.next}
         onClick={() => void play({ type: "suite" })}
       >
-        {!o.next ? t("On attend les autres…") : over ? t("Fin du défi") : t("Main suivante")}
+        {!o.next ? t("On attend les autres…") : !over ? t("Main suivante") : view.kind === "maitres" ? t("Fin du tournoi") : t("Fin du défi")}
       </Bouton>
     );
     return (
@@ -475,8 +511,12 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   const offset = usePoker((s) => s.offset);
   const notice = usePoker((s) => s.notice);
   const calm = useGame(isCalm);
+  const dore = useGoldenDeck();
   const you = view.you as number;
   const who = useRoster(view);
+  // La Table des Maîtres vient de s'ouvrir sous les yeux du joueur : le tirage se présente, une
+  // fois, le temps de la première triche. (Lu avant que la donne ne consomme ce « tout neuf ».)
+  const [arrival] = useState(() => view.kind === "maitres" && view.handNo <= 1 && usePoker.getState().fresh);
   const events = useTableEvents(view, root);
   const nom = useCallback((seat: number) => (seat === you ? t("toi") : nameInSentence(who(seat))), [you, who]);
 
@@ -507,8 +547,11 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
     calm,
     botAt: (seat) => who(seat)?.bot ?? null,
     big: (amount) => amount >= view.blind * 10,
+    fallen: fallenSeats(view),
   });
   const board = view.phase === "abattage" || outcome !== null;
+  const masters = view.kind === "maitres";
+  const presentation = arrival && masters && view.handNo === 1 && view.phase === "triche";
   const walkover = view.phase === "denouement" && result !== null && !result.showdown;
 
   // Un pot emporté sans abattage : un mot du gagnant, s'il est beau. Décidé d'avance, comme
@@ -535,7 +578,10 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
     <main
       ref={root}
       // Cinq ou six sièges : deux voisins s'assoient sur les côtés du tapis, qui a besoin de plus de place.
-      className={cx("ecran poker-table", board && "poker-table--abattage", view.seats.length >= 5 && "poker-table--grande")}
+      className={cx(
+        "ecran poker-table", board && "poker-table--abattage", view.seats.length >= 5 && "poker-table--grande",
+        masters && "poker-table--maitres", dore && "poker-table--doree",
+      )}
       data-phase={view.phase}
       data-main={view.handNo}
     >
@@ -543,10 +589,14 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
       {offline && <HorsLigne />}
       <div className="poker-table__scene">
         {board ? (
-          <Abattage view={view} who={who} flip={view.phase === "abattage" && sawBefore.current === view.handNo} outcome={outcome} />
+          <Abattage view={view} who={who} flip={view.phase === "abattage" && sawBefore.current === view.handNo} outcome={outcome} dore={dore} />
+        ) : presentation ? (
+          <Presentation view={view} />
         ) : (
           <Tapis view={view} labels={events.labels}>
             <span className="poker-pot__blinde">{blindText(view)}</span>
+            {/* À la Table des Maîtres : combien de maîtres sont encore assis. */}
+            {masters && <span className="poker-pot__blinde poker-pot__maitres">{mastersLeftText(mastersLeft(view).left)}</span>}
           </Tapis>
         )}
       </div>
@@ -576,7 +626,7 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
             <Voix refus={notice?.text ?? null} replique={myMove ? null : replique?.line ?? null} double={view.options.accuse.length > 0 && hasDouble(view)}>
               {promptOf(view, who)}
             </Voix>
-            {!board && view.hand && <MaMain view={view} dealt={events.dealt === view.handNo && !calm} />}
+            {!board && view.hand && <MaMain view={view} dealt={events.dealt === view.handNo && !calm} dore={dore} />}
             {!board && <Infos view={view} />}
           </>
         )}
@@ -721,19 +771,30 @@ export function Table({ code }: { code: string }) {
 
   useEffect(() => watchTable(code), [code]);
 
-  // Parti de soi-même : retour au hall, en disant ce qu'on remporte. La feuille de départ
-  // se referme d'abord ; la table ne recule qu'une fois redevenue l'écran affiché.
-  const quit = left !== null && left.reason === "quitte";
+  // La Table des Maîtres : on se souvient de qui y était assis, et avec quel tapis. Une table
+  // fermée n'a plus personne à ses sièges, et ce sont eux qui saluent sur le panneau de fin.
+  const masters = useRef<SeatView[]>([]);
+  if (view && view.kind === "maitres" && view.you !== null) {
+    const seated = mastersOf(view);
+    if (seated.length > 0) masters.current = seated;
+  }
+  // Ses trois fins ont leur panneau : gagnée, perdue, ou quittée avec son tapis.
+  const end = left !== null && isMastersEnd(left.reason) && (view?.kind === "maitres" || left.reason !== "quitte") ? left.reason : null;
+
+  // Parti de soi-même d'une autre table : retour au hall, en disant ce qu'on remporte. La
+  // feuille de départ se referme d'abord ; la table ne recule qu'une fois redevenue l'écran affiché.
+  const quit = left !== null && left.reason === "quitte" && end === null;
   const onTop = useNav((s) => s.stack[s.index]?.name === "poker-table");
   const leaving = useRef(false);
   useEffect(() => {
-    if (!left || left.reason !== "quitte" || !onTop || leaving.current) return;
+    if (!left || !quit || !onTop || leaving.current) return;
     leaving.current = true;
     toast(t("Tu quittes la table avec {montant}.", { montant: formatEuros(left.payout) }));
     toHall();
-  }, [left, onTop]);
+  }, [left, quit, onTop]);
 
   if (quit) return <main className="ecran poker-table" aria-busy="true" />;
+  if (left && end) return <SortieMaitres reason={end} payout={left.payout} masters={masters.current} onBack={toHall} />;
   if (left || gone || (view && (view.phase === "fermee" || view.you === null))) return <Sortie view={view} left={left} gone={gone} />;
   if (!view) {
     return (

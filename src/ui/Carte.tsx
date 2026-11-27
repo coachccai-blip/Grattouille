@@ -10,6 +10,7 @@
 //   <Carte carte="Td" largeur={72} />       dix de carreau, en grand
 //   <Carte carte={main[0]} cachee={!vue} /> de dos, puis retournée quand `vue` passe à vrai
 //   <Carte />                               une carte inconnue : forcément de dos
+//   <Carte carte={c} cachee dore />         de dos, et ce dos est doré (le jeu de qui a vu la vraie fin)
 //
 // Une carte s'écrit à l'internationale, comme dans shared/poker/cards.ts : la valeur
 // (2 à 9, T, J, Q, K, A) puis la couleur (s pique, h cœur, d carreau, c trèfle). Elle
@@ -77,6 +78,8 @@ interface CarteProps {
   largeur?: number;
   /** Mise en avant : la carte choisie, la carte gagnante. */
   choisie?: boolean;
+  /** Le dos doré : celui du jeu de cartes de qui a vu la vraie fin. */
+  dore?: boolean;
   /** Elle fait entendre son retournement elle-même (sinon, c'est à l'écran d'appeler `playCardFlip`). */
   sonne?: boolean;
   /**
@@ -103,7 +106,7 @@ function Dessin({ cle, x, y, c }: { cle: string; x: number; y: number; c: number
   );
 }
 
-export function Carte({ carte, cachee = false, largeur = 56, choisie = false, sonne = false, label, className, style }: CarteProps) {
+export function Carte({ carte, cachee = false, largeur = 56, choisie = false, dore = false, sonne = false, label, className, style }: CarteProps) {
   const lue = lire(carte);
   const dos = cachee || !lue;
   // Le son du retournement, si on le lui a confié : à chaque changement de côté, pas à l'arrivée.
@@ -119,7 +122,7 @@ export function Carte({ carte, cachee = false, largeur = 56, choisie = false, so
   const rang = lue ? rangAffiche(lue.valeur) : "";
   return (
     <span
-      className={cx("carte", dos && "carte--cachee", lue?.rouge && "carte--rouge", choisie && "carte--choisie", className)}
+      className={cx("carte", dos && "carte--cachee", lue?.rouge && "carte--rouge", choisie && "carte--choisie", dore && "carte--doree", className)}
       style={{ "--carte-l": `${largeur}px`, ...style } as CSSProperties}
       role={nom ? "img" : undefined}
       aria-label={nom}

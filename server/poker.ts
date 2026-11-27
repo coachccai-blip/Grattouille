@@ -27,11 +27,11 @@ import {
   PokerError, type EndedSeat, type LeaveReason, type PokerTableResponse, type Sitter, type TableState,
 } from "../shared/poker";
 import { uniformInt } from "../shared/economy";
-import type { BoardEntry } from "../shared/types";
+import type { BoardEntry, PokerStats } from "../shared/types";
 import { planPublish, publish } from "./board";
 import { ApiError, fail } from "./errors";
 import type { Deps } from "./http";
-import { applyAck, safeAdd, type PlayerRecord, type PokerSession } from "./player";
+import { applyAck, bumpPokerStat, countOf, safeAdd, type PlayerRecord, type PokerSession } from "./player";
 import { commit, unchanged, type Mutation } from "./storage";
 
 const SID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -184,7 +184,14 @@ export async function releaseSeat(deps: Deps, code: string, sid: string, now: nu
 
 type Left = NonNullable<PokerTableResponse["left"]>;
 
-/** Rend un tapis à sa bourse. Sans effet si la bourse ne porte plus cette séance. */
+const STAT_KEYS: readonly (keyof PokerStats)[] = ["hands", "pots", "unmasked", "caught"];
+
+/**
+ * Rend un tapis à sa bourse. Sans effet si la bourse ne porte plus cette séance.
+ * Tout ce qu'une séance rapporte arrive ici, dans cette seule écriture, qui efface la
+ * séance : le tapis, la cagnotte d'un défi relevé, la Table des Maîtres remportée, les
+ * compteurs du poker. Rejouer le versement ne recrédite rien et ne recompte rien.
+ */
 function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<Left | null> {
   const session = p.poker;
   if (!session || session.sid !== ended.sid) return unchanged(null);
@@ -201,6 +208,11 @@ function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<
       p.pokerWins = [...wins, table.place];
     }
   }
+  // La Table des Maîtres remportée : une victoire de plus, une seule par table gagnée.
+  if (ended.reason === "maitres-gagne" && table.kind === "maitres") p.masters = countOf(p.masters) + 1;
+  // Les compteurs de la séance rejoignent ceux du compte. Une entrée d'avant ces compteurs
+  // n'en porte pas : rien n'est alors ajouté au compte, pas même un champ vide.
+  if (ended.stats) for (const key of STAT_KEYS) bumpPokerStat(p, key, countOf(ended.stats[key]));
   p.poker = null;
   return commit({ reason: ended.reason, payout, bonus });
 }
