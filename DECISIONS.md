@@ -451,6 +451,23 @@ pas impacter l'avancée des joueurs actuels ».
   dictionnaire anglais du poker (plus de trois cents phrases) a quitté le démarrage pour
   voyager avec ses écrans.
 
+### Ce qui a été vérifié avant de livrer
+
+- 1 078 tests (19 fichiers), dont ceux qui rejouent des comptes des versions 1.0, 1.1 et
+  2.0 ; `npm run simulate` identique au chiffre près (10,1 heures, aucune partie bloquée).
+- À l'écran, sous Chromium, en français et en anglais, à 360 × 640, 320 × 568 et 390 × 844 :
+  l'ancien parcours du jeu (124 écrans, quatre passes) ne montre aucun changement pour un
+  joueur ordinaire ; les écrans neufs (jusqu'à 143 par passe, six passes) sont sondés un à
+  un — textes qui se recouvrent, coupés, hors écran ou sous 12 px, traductions manquantes.
+  Aucune traduction ne manque. Le seul défaut trouvé (la cagnotte d'un tournoi cachée sous
+  le bouton à 320 px) est corrigé. Ont été joués de bout en bout : la vraie fin, une
+  histoire d'hôte, des tickets semés par un, cinq et dix, six expériences de l'agence, une
+  Table des Maîtres.
+- La répétition depuis l'archive : installation, construction, tests, simulation, puis la
+  fonction empaquetée par l'outil de Netlify, branchée sur le client Blobs — le parcours
+  général, puis les comptes d'avant déposés tels quels dans le store.
+- Ce qui n'a pas pu l'être est à la section 8.
+
 ## 1. Déploiement (jalon 0)
 
 **Voie retenue : la voie B d'abord (déposer le projet entier sur Netlify), la voie A
