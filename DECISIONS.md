@@ -533,6 +533,55 @@ joueurs actuels ».
   octet, leur répétition reste celle-là.)
 - Ce qui n'a pas pu l'être est à la section 8.
 
+## 0 sexies. La pile de Piou : cinq cents tickets au chaud
+
+Demande du propriétaire : « Piou ne peut garder au chaud qu'un maximum de 20 tickets, il
+faut passer le maximum à 500 tickets. »
+
+- **La règle** : `MAX_PENDING` passe de 20 à 500 (`shared/rules.ts`), au serveur comme sur
+  l'appareil. Ce sont les tickets achetés (ou ramassés) et pas encore grattés.
+- **Rien ne bouge pour les joueurs déjà là** : une pile plus haute est seulement permise.
+  Aucun compte n'est réécrit, aucune donnée du jeu ne change ; `npm run simulate` rend le
+  même tableau au chiffre près (le joueur simulé gratte au fur et à mesure : la taille de
+  la pile ne l'a jamais arrêté).
+- **Le coup de chance attend toujours que la pile ait de la place** : de la place, il y en
+  a désormais jusqu'à 500. Qui garde des tickets d'avance trouve donc encore son ticket par
+  terre toutes les huit minutes (avant, plus rien passé 20). C'est ce que la simulation
+  supposait déjà.
+- **Déclarer par paquets.** Une requête déclare au plus 64 tickets grattés (`MAX_ACK`,
+  inchangé : une page restée ouverte avec l'ancien code fonctionne, et une page neuve qui
+  parle un instant à l'ancien serveur aussi). Avec 20 tickets au plus, cela ne se voyait
+  jamais ; avec 500, une rafale en laisse des centaines. L'appareil les déclare donc par
+  paquets de 60, un envoi à la fois ; pendant une rafale, un paquet plein part tout de
+  suite ; avant un achat (ou toute requête qui dépend du solde), tout ce qui a été gratté
+  est déclaré d'abord. Sans cela, un achat juste après une grande rafale aurait été refusé
+  faute d'argent, alors que la bourse affichée le permettait.
+- **La pile « À gratter » se range par ticket.** Cinq cents talons illustrés à la suite
+  seraient illisibles, et lourds pour un téléphone. Une ligne par ticket, leur nombre sur
+  la vignette, un second talon qui dépasse dessous ; ceux trouvés par terre ont leur ligne,
+  juste après. Les lignes suivent l'ordre des comptoirs, du moins cher au plus cher : elles
+  ne bougent pas pendant qu'on gratte. La liste se lit dans l'ordre du grattage : « Gratter
+  le suivant » prend la première ligne, toucher une ligne gratte ses tickets puis les
+  suivantes. Une petite pile se lit comme avant ; seul l'ordre de grattage d'une pile
+  mélangée change (sans effet sur les gains, décidés à l'achat).
+- **Pleine, elle le dit.** Au comptoir : « La pile de Piou est pleine : 500 tickets.
+  Gratte d'abord. » ; presque pleine, ce qui y tient encore (un carnet de dix peut ne plus
+  passer). Piou aussi : « 500 tickets au chaud : ma poche est pleine ! »
+- **La rafale** ne change pas : un peu plus d'une seconde par ticket, soit une dizaine de
+  minutes pour une pile pleine. Toucher l'écran la met en pause.
+- **Le poids** : l'état renvoyé à chaque requête porte la pile, environ 80 octets par
+  ticket, soit 40 Ko pour une pile pleine avant compression. Les lectures de la pile sur
+  l'appareil se font en temps linéaire.
+- **Bac à sable** : `&attente=500` remplit la pile (par carnets de sept, un ticket sur
+  quarante trouvé par terre).
+- **Vérifié** : 1 103 tests, dont `tests/pile.test.ts` (la pile pleine à 500 au serveur ;
+  la déclaration par paquets ; l'achat juste après 200 tickets grattés ; la pile rangée par
+  ticket ; et, de bout en bout, le vrai code du serveur dans le bac à sable : 500 tickets
+  grattés d'une traite, tous déclarés et payés, sans qu'une requête en porte plus de 60).
+  À l'écran, une pile pleine en français et en anglais à 320, 360 et 390 px : le Domaine et
+  l'onglet « Jouer » (« 500 »), la pile, un paquet gratté (« 1/500 »), la rafale et sa
+  pause, le comptoir et son achat refusé. Le premier chargement reste sous les 300 Ko.
+
 ## 1. Déploiement (jalon 0)
 
 **Voie retenue : la voie B d'abord (déposer le projet entier sur Netlify), la voie A

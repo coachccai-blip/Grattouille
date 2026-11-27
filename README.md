@@ -6,7 +6,7 @@ du jeu : rien à acheter, rien à retirer.
 On débarque sans un sou, on ramasse un ticket par terre, et une dizaine d'heures plus
 tard on rachète le kiosque : 30 tickets, 8 lieux du port jusqu'à la Lune, 110 biens à
 s'offrir. On ne reste jamais bloqué : qui n'a plus rien trouve toujours un ticket par
-terre.
+terre. Et Piou, le groom, garde au chaud jusqu'à 500 tickets achetés d'avance.
 
 Et le sport national de Grattouille : le **Poker Tricheur**. Cinq cartes, le droit d'en
 changer une en douce, et celui d'accuser les autres ; des enchères sans limite, du montant
