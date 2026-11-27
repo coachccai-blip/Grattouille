@@ -46,8 +46,10 @@ export default defineConfig({
     target: "es2022",
     cssMinify: true,
     assetsInlineLimit: 0,
-    // Le budget du brief porte sur le poids compressé : 300 Ko de JavaScript au plus
-    // (section 8.7), soit environ 900 Ko avant compression. On en est à 172 Ko compressés.
+    // Le budget du brief porte sur le poids compressé du premier chargement : 300 Ko de
+    // JavaScript au plus (section 8.7). On en est à 289 Ko : le fichier d'entrée et les
+    // morceaux qu'il importe d'emblée. Les écrans chargés à la demande (poker, agence,
+    // souvenirs, trophées, musique…) n'y comptent pas.
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
