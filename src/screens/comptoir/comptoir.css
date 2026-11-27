@@ -301,9 +301,36 @@
 
 .pile__ticket:active { transform: translateY(2px); }
 
+/* Plusieurs tickets du même type : un second talon dépasse dessous, et leur nombre est sur
+   la vignette. (Piou en garde jusqu'à cinq cents : la pile se range par ticket.) */
+.pile__paquet { padding-bottom: 5px; }
+
+.pile__ticket--paquet {
+  box-shadow:
+    0 3px 0 rgba(6, 24, 30, .5),
+    0 8px 0 -3px #E6D9BF,
+    0 9px 0 -3px rgba(6, 24, 30, .45);
+}
+
 .pile__vignette {
+  position: relative;
   flex: none;
   width: 60px;
+}
+
+.pile__nombre {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--bougainvillier-fonce);
+  color: #fff;
+  font: 700 12px/22px var(--texte);
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--ivoire);
 }
 
 .pile__nom {

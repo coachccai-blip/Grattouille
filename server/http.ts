@@ -1,7 +1,7 @@
 // Outils communs aux routes : réponses JSON, lecture du corps, squelette d'une
 // écriture authentifiée (BRIEF.md, sections 15.5, 15.6 et 15.8).
 
-import { MAX_BODY_BYTES } from "../shared/rules";
+import { MAX_ACK, MAX_BODY_BYTES } from "../shared/rules";
 import type { BoardEntry, PlayerState } from "../shared/types";
 import { TICKET_ID_RE, readCredentials, safeEqual } from "./auth";
 import { planPublish, publish } from "./board";
@@ -73,7 +73,7 @@ export function readAck(body: Body, required = false): string[] {
     if (required) fail("BAD_REQUEST");
     return [];
   }
-  if (!Array.isArray(raw) || raw.length > 64) fail("BAD_REQUEST");
+  if (!Array.isArray(raw) || raw.length > MAX_ACK) fail("BAD_REQUEST");
   const out: string[] = [];
   for (const id of raw) {
     if (typeof id !== "string" || !TICKET_ID_RE.test(id)) fail("BAD_REQUEST");

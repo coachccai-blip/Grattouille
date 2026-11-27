@@ -20,17 +20,19 @@
 //   &experiences=12  les N premières expériences de l'Agence Carpe Diem déjà vécues
 //   &victoires=3   N victoires au poker contre chacun des huit hôtes (3 : leurs histoires sont ouvertes)
 //   &victoires=3&hotes=2   … contre les deux premiers hôtes seulement
+//   &attente=500   N tickets déjà achetés, qui attendent dans la pile de Piou (500 au plus) : par
+//                  carnets de sept, des lieux ouverts ; un sur quarante a été trouvé par terre
 
 import { handle, type Deps } from "../../server/app";
-import { cryptoRandom32 } from "../../server/auth";
+import { cryptoRandom32, newTicketId } from "../../server/auth";
 import { toState } from "../../server/player";
 import { MemoryStorage } from "../../server/storage";
 import { CATALOG } from "../../shared/catalog";
 import { EXPERIENCES } from "../../shared/experiences";
 import { PLACES } from "../../shared/places";
-import { multipliers } from "../../shared/economy";
-import { tierOf, type Tier } from "../../shared/rules";
-import { ticketById } from "../../shared/tickets";
+import { HOUSE_MULTIPLIER, drawGain, multipliers } from "../../shared/economy";
+import { MAX_PENDING, houseTicketDef, isPlaceOpen, standingOf, tierOf, type Tier } from "../../shared/rules";
+import { TICKETS, ticketById } from "../../shared/tickets";
 import type { CreatePlayerResponse, TicketsResponse } from "../../shared/types";
 import type { Transport } from "./api";
 
@@ -66,7 +68,7 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
     kiosque: whole("kiosque") > 0, defis: whole("defis"), maitres: whole("maitres"), vraieFin: whole("vraiefin") > 0,
     semes: whole("semes"), joues: whole("joues"), record: whole("record"), jackpots: whole("jackpots"),
     demasques: whole("demasques"), victoires: whole("victoires"), hotes: whole("hotes"),
-    experiences: whole("experiences"),
+    experiences: whole("experiences"), attente: Math.min(whole("attente"), MAX_PENDING),
   };
   const wantsSuite = Object.values(suite).some((value) => value !== false && value !== 0);
   const cheap = [...CATALOG].sort((a, b) => a.price - b.price);
@@ -112,6 +114,22 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
           if (suite.victoires > 0) {
             const beaten = PLACES.slice(0, suite.hotes > 0 ? suite.hotes : PLACES.length);
             p.hostWins = Object.fromEntries(beaten.map((place) => [place.id, suite.victoires]));
+          }
+          if (suite.attente > 0) {
+            // Achetés pour de bon : chacun a son gain, tiré comme au comptoir.
+            const standing = standingOf(p.owned, p.kiosk);
+            const types = TICKETS.filter((x) => isPlaceOpen(x.place, standing));
+            const now = Date.now();
+            for (let i = 0; i < suite.attente; i++) {
+              const house = i % 40 === 39;
+              const def = house ? houseTicketDef(standing) : types[Math.floor(i / 7) % types.length]!;
+              p.pending.push({
+                id: newTicketId(cryptoRandom32), type: def.id,
+                gain: house ? def.price * HOUSE_MULTIPLIER : drawGain(def, cryptoRandom32),
+                seed: cryptoRandom32() >>> 0, at: now, ...(house ? { house: true as const } : {}),
+              });
+            }
+            p.stats.tickets += suite.attente;
           }
         });
         created.state = toState(storage.peek(created.playerId)!);

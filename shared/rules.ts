@@ -9,7 +9,13 @@ import type { Look, LookSlot, PendingTicket, PlaceDef, PlaceId, TicketDef } from
 
 /** On débarque sans un sou : le premier ticket se ramasse par terre. */
 export const START_BALANCE = 0;
-export const MAX_PENDING = 20;
+/**
+ * Les tickets que Piou garde au chaud : achetés (ou ramassés) et pas encore grattés.
+ * Cinq cents au plus. Ce fut vingt jusqu'à la version 2.1 ; le propriétaire du jeu a voulu
+ * qu'on puisse en garder bien plus d'avance. Le client les déclare grattés par paquets
+ * (src/app/store.ts) : une requête n'en porte que soixante-quatre (server/http.ts).
+ */
+export const MAX_PENDING = 500;
 /** Fauché, on trouve un ticket par terre : un toutes les 20 secondes au plus. */
 export const HOUSE_COOLDOWN_MS = 20_000;
 /** Et de temps en temps, un coup de chance : un ticket par terre même sans être fauché. */
@@ -20,6 +26,8 @@ export const BOARD_SIZE = 200;
 export const BOARD_SHOWN = 100;
 export const BOARD_PUBLISH_INTERVAL_MS = 30_000;
 export const MAX_BODY_BYTES = 4_096;
+/** Les tickets grattés qu'une requête déclare au plus (son champ `ack`). */
+export const MAX_ACK = 64;
 
 export const SPECIES = ["renard", "chat", "ours", "lapin", "blaireau", "grenouille", "raton", "herisson"] as const;
 export type SpeciesId = (typeof SPECIES)[number];

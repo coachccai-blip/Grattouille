@@ -91,6 +91,9 @@ export const EN_JEU: Record<string, string> = {
   "À gratter": "To scratch",
   "Gratter {ticket}, {prix}": "Scratch {ticket}, {prix}",
   "Gratter {ticket}, trouvé par terre": "Scratch {ticket}, found on the ground",
+  // La pile se range par ticket : plusieurs du même type font une seule ligne.
+  "Gratter {ticket}, {prix} : {n} tickets": "Scratch {ticket}, {prix}: {n} tickets",
+  "Gratter {ticket}, trouvé par terre : {n} tickets": "Scratch {ticket}, found on the ground: {n} tickets",
   "Trouvé par terre": "Found on the ground",
   "Gratter le suivant": "Scratch the next one",
   "Gratter": "Scratch",

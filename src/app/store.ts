@@ -4,7 +4,9 @@
 //   encore déclarés au serveur.
 // - Les tickets grattés sont déclarés dans le champ `ack` de la requête suivante,
 //   quelle qu'elle soit ; à défaut en quittant l'écran de grattage, au passage en
-//   arrière-plan, ou 3 secondes après le dernier grattage.
+//   arrière-plan, ou 3 secondes après le dernier grattage. Une requête en porte
+//   soixante au plus : la pile de Piou en garde jusqu'à cinq cents, et ce qui dépasse
+//   part d'abord, par paquets (`flushAck`).
 // - Affichage optimiste seulement là où un retour en arrière est simple : porter un
 //   article, changer de résidence. Jamais pour un achat.
 
@@ -15,8 +17,8 @@ import { experienceById } from "../../shared/experiences";
 import { formatEuros, formatInt } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
 import {
-  DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, hostStoryOpen, houseEligible, isPlaceOpen, newlyOpened,
-  normalizeCode,
+  DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_ACK, MAX_PENDING, hostStoryOpen, houseEligible, isPlaceOpen,
+  newlyOpened, normalizeCode,
 } from "../../shared/rules";
 import { TICKETS, ticketById } from "../../shared/tickets";
 import type { LookSlot, PendingTicket, PlaceId, PlayerState } from "../../shared/types";
@@ -111,11 +113,24 @@ const set = useGame.setState;
 // ---------------------------------------------------------------------------
 // Lectures dérivées
 
+/**
+ * Les tickets grattés, en ensemble. La pile peut en compter cinq cents, et ces lectures
+ * reviennent à chaque changement du magasin : on ne refait l'ensemble que quand la liste
+ * change (elle est remplacée, jamais modifiée sur place).
+ */
+let revealedCache: { list: readonly string[]; set: ReadonlySet<string> } | null = null;
+
+function revealedSet(revealed: readonly string[]): ReadonlySet<string> {
+  if (revealedCache?.list !== revealed) revealedCache = { list: revealed, set: new Set(revealed) };
+  return revealedCache.set;
+}
+
 /** Somme des gains des tickets grattés mais pas encore déclarés. */
 function unackedGains(player: PlayerState | null, revealed: readonly string[]): number {
   if (!player || revealed.length === 0) return 0;
+  const seen = revealedSet(revealed);
   let sum = 0;
-  for (const t of player.pending) if (revealed.includes(t.id)) sum += t.gain;
+  for (const t of player.pending) if (seen.has(t.id)) sum += t.gain;
   return sum;
 }
 
@@ -126,7 +141,10 @@ export function displayBalance(s: Pick<GameState, "player" | "revealed">): numbe
 
 /** Les tickets en attente qui restent à gratter : la pile « À gratter ». */
 export function toScratch(s: Pick<GameState, "player" | "revealed">): PendingTicket[] {
-  return (s.player?.pending ?? []).filter((t) => !s.revealed.includes(t.id));
+  const pending = s.player?.pending ?? [];
+  if (s.revealed.length === 0) return [...pending];
+  const seen = revealedSet(s.revealed);
+  return pending.filter((t) => !seen.has(t.id));
 }
 
 export function isCalm(s: Pick<GameState, "settings" | "systemCalm">): boolean {
@@ -279,12 +297,34 @@ function applyState(state: PlayerState): void {
   set({ player: state, revealed, luckyAt: Date.now() + (state.luckyIn ?? 0) });
 }
 
-/** Les tickets grattés à déclarer avec la prochaine requête. */
-function ackList(): string[] {
+/**
+ * Ce qu'une requête déclare au plus : un peu moins que ce que le serveur accepte
+ * (`MAX_ACK`), pour qu'un serveur d'avant une mise à jour l'accepte aussi.
+ */
+export const ACK_BATCH = Math.min(60, MAX_ACK);
+
+/** Tous les tickets grattés pas encore déclarés, dans l'ordre où ils l'ont été. */
+function unacked(): string[] {
   const { player, revealed } = get();
-  if (!player) return [];
+  if (!player || revealed.length === 0) return [];
   const pending = new Set(player.pending.map((t) => t.id));
-  return revealed.filter((id) => pending.has(id)).slice(0, 60);
+  return revealed.filter((id) => pending.has(id));
+}
+
+/** Les tickets grattés à déclarer avec la prochaine requête : un paquet au plus. */
+function ackList(): string[] {
+  return unacked().slice(0, ACK_BATCH);
+}
+
+/**
+ * Envoie une requête qui dépend du solde (un achat, un ticket ramassé...) avec sa
+ * déclaration. Le solde affiché compte tous les tickets grattés ; si un paquet ne suffit
+ * pas à les déclarer, les autres partent d'abord : le serveur voit alors le même solde que
+ * le joueur. Sinon, la requête part tout de suite, comme avant.
+ */
+function withAck<T>(send: (ack: string[]) => Promise<T>): Promise<T> {
+  if (unacked().length <= ACK_BATCH) return send(ackList());
+  return drainTo(ACK_BATCH).then(() => send(ackList()));
 }
 
 function requireAuth(): Auth {
@@ -329,18 +369,39 @@ export async function refresh(): Promise<void> {
 // Déclaration des tickets grattés
 
 let ackTimer = 0;
+/** Les déclarations passent l'une après l'autre : deux paquets ne partent jamais ensemble. */
+let flushing: Promise<void> = Promise.resolve();
 
-/** Déclare maintenant les tickets grattés. Un échec n'est pas grave : ce sera refait. */
-export async function flushAck(): Promise<void> {
+/**
+ * Déclare maintenant les tickets grattés, tous, par paquets : une longue rafale peut en
+ * laisser bien plus qu'une requête n'en porte. Un échec n'est pas grave : ce sera refait.
+ */
+export function flushAck(): Promise<void> {
+  return drainTo(0);
+}
+
+/** Déclare, paquet par paquet, jusqu'à ce qu'il n'en reste que `keep` (la requête qui suit portera le reste). */
+function drainTo(keep: number): Promise<void> {
   window.clearTimeout(ackTimer);
-  const list = ackList();
-  const { auth, online } = get();
-  if (!auth || list.length === 0 || !online) return;
-  try {
-    const { state } = await api.ack(auth, list);
-    applyState(state);
-  } catch (error) {
-    if (error instanceof ApiFailure && error.code === "UNAUTHORIZED") dropSession();
+  const next = flushing.then(() => drainAck(keep));
+  flushing = next.catch(() => undefined);
+  return next;
+}
+
+async function drainAck(keep: number): Promise<void> {
+  // Assez de tours pour la plus haute pile ; un paquet refusé arrête tout, jusqu'à la prochaine fois.
+  for (let tour = 0; tour <= Math.ceil(MAX_PENDING / ACK_BATCH); tour++) {
+    if (unacked().length <= keep) return;
+    const list = ackList();
+    const { auth, online } = get();
+    if (!auth || list.length === 0 || !online) return;
+    try {
+      const { state } = await api.ack(auth, list);
+      applyState(state);
+    } catch (error) {
+      if (error instanceof ApiFailure && error.code === "UNAUTHORIZED") dropSession();
+      return;
+    }
   }
 }
 
@@ -356,7 +417,9 @@ export function markRevealed(ticketId: string, countMs: number, countDelay = 0):
   if (!sandbox) saveRevealed(next);
   set({ revealed: next, countMs, countDelay });
   window.clearTimeout(ackTimer);
-  ackTimer = window.setTimeout(() => void flushAck(), 3000);
+  // Un paquet plein part tout de suite : une longue rafale se déclare au fil de l'eau.
+  if (unacked().length >= ACK_BATCH) void flushAck();
+  else ackTimer = window.setTimeout(() => void flushAck(), 3000);
 }
 
 // ---------------------------------------------------------------------------
@@ -567,7 +630,7 @@ export async function buyTickets(type: string, qty: number): Promise<PendingTick
   }
   const def = ticketById(type)!;
   try {
-    const r = await api.buyTickets(requireAuth(), type, qty, ackList());
+    const r = await withAck((ack) => api.buyTickets(requireAuth(), type, qty, ack));
     applyState(r.state);
     return r.tickets;
   } catch (error) {
@@ -612,7 +675,7 @@ export async function pickUpTicket(): Promise<PendingTicket | null> {
     return null;
   }
   try {
-    const r = await api.foundTicket(requireAuth(), ackList());
+    const r = await withAck((ack) => api.foundTicket(requireAuth(), ack));
     applyState(r.state);
     return r.tickets[0] ?? null;
   } catch (error) {
@@ -665,7 +728,7 @@ export async function sowTickets(type: string, qty = 1, quiet = false): Promise<
   }
   if (!get().player || !ticketById(type)) return false;
   try {
-    const r = await api.sowTickets(requireAuth(), type, qty, ackList());
+    const r = await withAck((ack) => api.sowTickets(requireAuth(), type, qty, ack));
     applyState(r.state);
     return true;
   } catch (error) {
@@ -688,7 +751,7 @@ export function trueEndingDue(s: Pick<GameState, "player">): boolean {
 export async function markTrueEndingSeen(): Promise<boolean> {
   if (!get().player) return false;
   try {
-    const r = await api.storySeen(requireAuth(), "vraie-fin", ackList());
+    const r = await withAck((ack) => api.storySeen(requireAuth(), "vraie-fin", ack));
     applyState(r.state);
     return true;
   } catch (error) {
@@ -801,7 +864,7 @@ export async function liveExperience(id: string): Promise<boolean> {
     return false;
   }
   try {
-    const r = await api.buyExperience(requireAuth(), id, ackList());
+    const r = await withAck((ack) => api.buyExperience(requireAuth(), id, ack));
     applyState(r.state);
     return true;
   } catch (error) {
@@ -849,7 +912,7 @@ export async function buyItem(itemId: string): Promise<boolean> {
   }
   const before = get().player;
   try {
-    const r = await api.buyItem(requireAuth(), itemId, ackList());
+    const r = await withAck((ack) => api.buyItem(requireAuth(), itemId, ack));
     applyState(r.state);
     const opened = newlyOpened(before?.standing ?? 0, r.state.standing).map((p) => p.id);
     const ending = !before?.kiosk && r.state.kiosk;

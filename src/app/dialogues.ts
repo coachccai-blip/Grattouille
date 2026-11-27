@@ -28,7 +28,7 @@
 import { CATALOG, itemById } from "../../shared/catalog";
 import { formatEuros, formatInt } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
-import { registerOf, type Register } from "../../shared/rules";
+import { MAX_PENDING, registerOf, type Register } from "../../shared/rules";
 import type { PlaceId } from "../../shared/types";
 import { lang, pick, type Lang } from "../i18n";
 
@@ -2477,6 +2477,11 @@ const P = {
     fr: "Plus rien à gratter ! Je garde la place au chaud quand même.",
     en: "Nothing left to scratch! I'll keep the spot warm all the same.",
   },
+  /** La pile est pleine : Piou n'en garde pas plus (shared/rules.ts, MAX_PENDING). */
+  pilePleine: {
+    fr: "{n} tickets au chaud : ma poche est pleine ! Grattez-en quelques-uns avant d'en reprendre.",
+    en: "{n} tickets kept warm: my pocket is full! Scratch a few before you buy more.",
+  },
   code: {
     fr: "Pensez à noter votre code de récupération : sans lui, votre fortune reste sur ce téléphone.",
     en: "Do write down your recovery code: without it, your fortune stays on this phone.",
@@ -2614,8 +2619,9 @@ export const PIOU = {
   get trouvePatron(): string {
     return pick(P.trouvePatron);
   },
-  /** La pile « À gratter ». */
+  /** La pile « À gratter ». Pleine, Piou le dit : il n'en gardera pas un de plus. */
   enAttente(n: number): string {
+    if (n >= MAX_PENDING) return fill(pick(P.pilePleine), { n });
     return n === 1 ? pick(P.enAttenteUn) : fill(pick(P.enAttente), { n });
   },
   get pileVide(): string {

@@ -6,7 +6,7 @@ import { sha256Hex } from "../server/auth";
 import { MemoryStorage } from "../server/storage";
 import { CATALOG } from "../shared/catalog";
 import { WEIGHT_TOTAL } from "../shared/economy";
-import { CODE_ALPHABET } from "../shared/rules";
+import { CODE_ALPHABET, MAX_ACK, MAX_PENDING } from "../shared/rules";
 import type { Board, PendingTicket, PlayerState } from "../shared/types";
 
 const ADMIN_KEY = "clef-d-administration-de-test";
@@ -332,24 +332,35 @@ describe("achat de tickets", () => {
     expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 4, pending: [] });
   });
 
-  it("PENDING_FULL : 20 tickets en attente au plus", async () => {
+  it("PENDING_FULL : 500 tickets en attente au plus (20 jusqu'à la version 2.1)", async () => {
+    expect(MAX_PENDING).toBe(500);
     const w = makeWorld();
     const a = await w.signup("Marcel");
     w.storage.poke(a.playerId, (p) => { p.balance = 1000; });
-    await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
-    w.advance(1000);
-    const full = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
-    expect(full.body.state.pending).toHaveLength(20);
-    w.advance(1000);
+    // Cinquante carnets de dix, une seconde d'écart : la pile de Piou se remplit.
+    let full: Reply | null = null;
+    for (let i = 0; i < MAX_PENDING / 10; i++) {
+      full = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
+      expect([i, full.status]).toEqual([i, 200]);
+      w.advance(1000);
+    }
+    expect(full!.body.state.pending).toHaveLength(500);
+    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 500 });
     const r = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1 }, a.auth);
     expect([r.status, r.body.error.code, r.body.error.message]).toEqual([
       409, "PENDING_FULL", "Gratte d'abord tes tickets en attente.",
     ]);
     // En déclarant un ticket gratté dans la même requête, la place se libère.
-    const firstId = full.body.state.pending[0].id;
+    const firstId = full!.body.state.pending[0].id;
     const ok = await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 1, ack: [firstId] }, a.auth);
     expect(ok.status).toBe(200);
-    expect(ok.body.state.pending).toHaveLength(20);
+    expect(ok.body.state.pending).toHaveLength(500);
+    // Une requête déclare 64 tickets au plus : la pile se déclare par paquets.
+    const ids = (ok.body.state.pending as PendingTicket[]).map((t) => t.id);
+    const trop = await w.call("POST", "/api/tickets/ack", { ack: ids.slice(0, MAX_ACK + 1) }, a.auth);
+    expect([trop.status, trop.body.error.code]).toEqual([400, "BAD_REQUEST"]);
+    const paquet = await w.call("POST", "/api/tickets/ack", { ack: ids.slice(0, MAX_ACK) }, a.auth);
+    expect([paquet.status, paquet.body.state.pending.length]).toEqual([200, 500 - MAX_ACK]);
   });
 
   it("TOO_FAST : moins d'une seconde depuis le dernier achat de ticket", async () => {
@@ -564,8 +575,21 @@ describe("ticket trouvé par terre", () => {
     await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
     w.advance(1_000);
     await w.call("POST", "/api/tickets/buy", { type: "tirelire", qty: 10 }, a.auth);
+    // Vingt tickets en attente : la pile était pleine jusqu'à la version 2.1. Piou en garde
+    // désormais cinq cents : la chance passe.
+    const room = await w.call("POST", "/api/tickets/found", {}, a.auth);
+    expect([room.status, room.body.state.pending.length]).toEqual([200, 21]);
+    // La pile pleine, plus rien, même huit minutes plus tard.
+    w.storage.poke(a.playerId, (p) => {
+      const modele = p.pending[0]!;
+      for (let i = p.pending.length; i < MAX_PENDING; i++) p.pending.push({ ...modele, id: `t_${String(i).padStart(12, "0")}` });
+    });
+    w.advance(8 * 60_000);
     const full = await w.call("POST", "/api/tickets/found", {}, a.auth);
     expect([full.status, full.body.error.code]).toEqual([409, "HOUSE_NOT_ELIGIBLE"]);
+    // Un ticket déclaré gratté dans la même requête libère la place.
+    const freed = await w.call("POST", "/api/tickets/found", { ack: [room.body.state.pending[0].id] }, a.auth);
+    expect([freed.status, freed.body.state.pending.length]).toEqual([200, MAX_PENDING]);
   });
 
   it("on ne redescend jamais d'un lieu : le ticket trouvé est celui du meilleur lieu débloqué", async () => {
