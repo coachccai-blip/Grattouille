@@ -240,7 +240,7 @@ export async function createPokerTable(req: Request, deps: Deps): Promise<Respon
  * POST /api/poker/join { code, buyIn, ack? } → { view, state }
  * Rejoindre une table avec son code et une cave. Seules les tables créées par un joueur
  * se rejoignent : une table de la maison ou un défi n'a pas de code à partager. Une table en
- * tournoi se rejoint à la cagnotte exacte, et seulement avant son lancement.
+ * tournoi se rejoint à la cagnotte exacte, et seulement avant son lancement (`TABLE_STARTED` ensuite).
  */
 export async function joinPokerTable(req: Request, deps: Deps): Promise<Response> {
   const body = await readBody(req);
@@ -269,7 +269,7 @@ export async function joinPokerTable(req: Request, deps: Deps): Promise<Response
     // En tournoi, la cave minimale et la cave maximale sont la même somme : la cagnotte exacte.
     if (buyIn < t.minBuyIn || buyIn > t.maxBuyIn) fail("BAD_REQUEST");
     // Un siège déjà réservé à son nom (une requête interrompue) : on le reprend. Un tournoi
-    // lancé entre-temps n'accepte plus personne : le moteur refuse (`TABLE_FULL`).
+    // lancé entre-temps n'accepte plus personne : le moteur refuse (`TABLE_STARTED`).
     return sit(t, sitterOf(me, fresh), now, deps.random32);
   });
   const index = reserved ? seatIndexOf(reserved, me.id) : -1;

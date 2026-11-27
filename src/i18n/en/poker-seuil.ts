@@ -13,6 +13,7 @@ export const EN_POKER_SEUIL: Record<string, string> = {
   "Cette table n'existe pas, ou elle a fermé. Vérifie le code.":
     "This table doesn't exist, or it has closed. Check the code.",
   "Cette table est complète. Attends qu'un siège se libère.": "This table is full. Wait for a seat to free up.",
+  "Cette partie est déjà lancée : on n'y entre plus.": "This game has already started: nobody else can join.",
   "Tu as déjà une place à une table. Quitte-la avant d'en rejoindre une autre.":
     "You already have a seat at a table. Leave it before joining another.",
   "Tu n'as plus de place à cette table.": "You no longer have a seat at this table.",

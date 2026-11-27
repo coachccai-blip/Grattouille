@@ -507,7 +507,8 @@ function Rejoindre() {
       <p className="note">
         {tournament ? t("Blinde de départ : {montant}", { montant: formatEuros(table.blind) }) : t("Blinde : {montant}", { montant: formatEuros(table.blind) })}
         {" · "}
-        {free > 1 ? t("{n} sièges libres", { n: free }) : free === 1 ? t("1 siège libre") : t("Plus un siège")}
+        {/* Un tournoi lancé n'a plus de siège à prendre, même vide : on ne les compte pas. */}
+        {closed ? t("Partie lancée") : free > 1 ? t("{n} sièges libres", { n: free }) : free === 1 ? t("1 siège libre") : t("Plus un siège")}
       </p>
       {/* Le mode de la table, avant de s'y asseoir : son nom, et sa règle en une phrase. */}
       <p className="poker-modes__annonce" data-mode={mode}>

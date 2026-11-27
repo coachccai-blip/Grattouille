@@ -535,11 +535,14 @@ const tourDuMonde: SceneArt = ({ espece, look }) => (
       <path d="M3 -36L10 -58" fill="none" stroke="#7FC6B2" strokeWidth="4" strokeLinecap="round" />
       <circle cx="11" cy="-62" r="4" fill={C.mimosa} />
     </Monument>
-    <Monument angle={-86} d={5.2}>
-      <path d="M-9 0V-48H9V0Z" fill={C.bois} />
-      <path d="M-12 -48H12L0 -68Z" fill={C.boisFonce} />
-      <circle cx="0" cy="-36" r="6" fill={C.ivoire} />
-      <path d="M0 -36V-40M0 -36L3 -34" fill="none" stroke={C.nuit} strokeWidth="1.4" strokeLinecap="round" />
+    {/* La tour de l'horloge, un peu plus petite : couchée sur le bord, sa flèche reste dans l'image */}
+    <Monument angle={-80} d={5.2}>
+      <g transform="scale(0.8)">
+        <path d="M-9 0V-48H9V0Z" fill={C.bois} />
+        <path d="M-12 -48H12L0 -68Z" fill={C.boisFonce} />
+        <circle cx="0" cy="-36" r="6" fill={C.ivoire} />
+        <path d="M0 -36V-40M0 -36L3 -34" fill="none" stroke={C.nuit} strokeWidth="1.4" strokeLinecap="round" />
+      </g>
     </Monument>
     {/* Le globe : les continents défilent, il tourne */}
     <defs>
@@ -556,7 +559,7 @@ const tourDuMonde: SceneArt = ({ espece, look }) => (
     {/* La route de l'avion, puis l'avion, qui boucle la boucle */}
     <circle cx={GX} cy={GY} r="152" fill="none" stroke={C.ivoire} strokeOpacity="0.55" strokeWidth="2" strokeDasharray="3 9" />
     <g {...a("va", { r: -720, t: 7.4, e: "cubic-bezier(.3,0,.2,1)", o: [GX, GY] })}>
-      <g transform={`rotate(64 ${GX} ${GY}) translate(${GX} ${GY - 152})`}>
+      <g transform={`rotate(74 ${GX} ${GY}) translate(${GX} ${GY - 152})`}>
         <path d="M-12 0L-34 -30H-18L10 0ZM-12 0L-34 30H-18L10 0Z" fill={C.grisClair} />
         <path d="M-56 0Q-56 -15 -34 -15H30Q54 -12 62 0Q54 12 30 15H-34Q-56 15 -56 0Z" fill={C.blanc} />
         <path d="M-50 -6L-68 -30H-50L-36 -13Z" fill={C.bougainvillier} />
@@ -564,7 +567,7 @@ const tourDuMonde: SceneArt = ({ espece, look }) => (
         <circle cx="26" cy="-1" r="15" fill={C.nuit} />
         <circle cx="26" cy="-1" r="12.5" fill={C.ciel} />
         <Fenetre x={13.5} y={-13.5} l={25} h={25} rx={12.5}>
-          <g transform={`rotate(-64 26 -1) ${tf(26 - 16.8, -1 - 20, 0.12)}`}><Tete espece={espece} look={look} /></g>
+          <g transform={`rotate(-74 26 -1) ${tf(26 - 16.8, -1 - 20, 0.12)}`}><Tete espece={espece} look={look} /></g>
         </Fenetre>
         <path d={ronds(3.2, [[-22, -3], [-8, -3], [6, -3]])} fill={C.azur} />
       </g>

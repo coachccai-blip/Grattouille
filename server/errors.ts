@@ -24,6 +24,7 @@ const STATUS: Record<ServerErrorCode, number> = {
   HOUSE_NOT_ELIGIBLE: 409,
   CONFLICT: 409,
   TABLE_FULL: 409,
+  TABLE_STARTED: 409,
   ALREADY_SEATED: 409,
   NOT_SEATED: 409,
   BUYIN_UNAFFORDABLE: 409,
@@ -53,6 +54,7 @@ const MESSAGES: Record<ServerErrorCode, string> = {
   // Le Poker Tricheur (POKER.md, section 4).
   TABLE_NOT_FOUND: "Cette table n'existe pas, ou elle a fermé. Vérifie le code.",
   TABLE_FULL: "Cette table est complète. Attends qu'un siège se libère.",
+  TABLE_STARTED: "Cette partie est déjà lancée : on n'y entre plus.",
   ALREADY_SEATED: "Tu es déjà assis à une table. Quitte-la avant d'en rejoindre une autre.",
   NOT_SEATED: "Tu n'es plus assis à cette table. Repasse par le hall pour t'y rasseoir.",
   BUYIN_UNAFFORDABLE: "Ta bourse ne suffit pas pour cette cave. Choisis-en une plus petite, ou une table moins chère.",

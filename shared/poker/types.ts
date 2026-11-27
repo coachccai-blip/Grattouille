@@ -48,6 +48,7 @@ export type Phase = "attente" | "triche" | "encheres" | "abattage" | "denouement
 export type PokerErrorCode =
   | "TABLE_NOT_FOUND"     // 404 : code inconnu, ou table fermée
   | "TABLE_FULL"          // 409 : plus de siège libre
+  | "TABLE_STARTED"       // 409 : tournoi déjà lancé, on n'y entre plus
   | "ALREADY_SEATED"      // 409 : assis à une autre table
   | "NOT_SEATED"          // 409 : pas assis à cette table
   | "BUYIN_UNAFFORDABLE"  // 409 : la bourse ne suffit pas pour la cave

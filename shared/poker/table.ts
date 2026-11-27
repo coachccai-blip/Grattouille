@@ -1022,9 +1022,10 @@ export function sit(state: TableState, who: Sitter, now: number, rng: Random32):
   const { d, t, moved } = open(state, now, rng);
   if (d.phase === "fermee") refuse("TABLE_NOT_FOUND");
   const mine = seatIndexOf(d, who.playerId);
-  // Un tournoi se rejoint avant son lancement ; ensuite plus personne n'entre. Un siège réservé
-  // avant, dont la cagnotte n'est toujours pas posée, ne se paie plus : il sera libéré.
-  if (isMasters(d) && d.started && d.handNo > 0 && (mine < 0 || !isFunded(d.seats[mine]!))) refuse("TABLE_FULL");
+  // Un tournoi se rejoint avant son lancement ; ensuite plus personne n'entre, même s'il reste
+  // un siège libre. Un siège réservé avant, dont la cagnotte n'est toujours pas posée, ne se
+  // paie plus : il sera libéré.
+  if (isMasters(d) && d.started && d.handNo > 0 && (mine < 0 || !isFunded(d.seats[mine]!))) refuse("TABLE_STARTED");
   if (mine >= 0) return done(state, d, moved);
   const free = d.seats.indexOf(null);
   if (free < 0) refuse("TABLE_FULL");

@@ -279,7 +279,7 @@ describe("la tablée des Maîtres", () => {
     t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Ada", species: "chat", look: null }, T0, rng);
     expect([t.phase, t.handNo]).toEqual(["attente", 0]);
     // Complète : personne d'autre ne s'y assoit.
-    expect(refusal(() => sit(t, { playerId: "p_b", sid: "s_1", pseudo: "Bob", species: "chat", look: null }, T0, rng))).toBe("TABLE_FULL");
+    expect(refusal(() => sit(t, { playerId: "p_b", sid: "s_1", pseudo: "Bob", species: "chat", look: null }, T0, rng))).toBe("TABLE_STARTED");
     t = deposit(t, "s_0", 1, MASTERS_BUYIN, T0, rng);
     // Pas besoin de lancer : la première main est donnée, chacun a payé la blinde.
     expect([t.phase, t.handNo, t.hand!.blind, t.hand!.pot]).toEqual(["triche", 1, MASTERS_BLIND, 5 * MASTERS_BLIND]);
@@ -291,7 +291,7 @@ describe("la tablée des Maîtres", () => {
     const view = viewFor(t, "p_a", T0);
     expect(view).toMatchObject({
       kind: "maitres", place: null, difficulty: "difficile", minBuyIn: MASTERS_BUYIN, maxBuyIn: MASTERS_BUYIN,
-      blind: MASTERS_BLIND, rise: { hand: 17, blind: 2 * MASTERS_BLIND }, started: true, you: 0, handNo: 1,
+      blind: MASTERS_BLIND, rise: { hand: 11, blind: 2 * MASTERS_BLIND }, started: true, you: 0, handNo: 1,
     });
     expect(view.options).toMatchObject({ start: false, rebuy: null, cheat: true });
     expect(view.seats.map((s) => s!.bot)).toEqual([null, ...hosts]);
@@ -321,35 +321,35 @@ describe("la tablée des Maîtres", () => {
 // ---------------------------------------------------------------------------
 
 describe("le barème de la blinde", () => {
-  it("elle double de palier en palier : seize mains, puis quatre par quatre, puis deux par deux", () => {
-    expect([...MASTERS_LEVEL_HANDS]).toEqual([16, 4, 4, 4, 2]);
+  it("elle double de palier en palier : dix mains, puis trois par trois, puis deux par deux", () => {
+    expect([...MASTERS_LEVEL_HANDS]).toEqual([10, 3, 3, 2]);
     const span = (times: number, hands: number): number[] => Array.from({ length: hands }, () => times);
     const expected = [
-      ...span(1, 16), ...span(2, 4), ...span(4, 4), ...span(8, 4),
-      ...span(16, 2), ...span(32, 2), ...span(64, 2), ...span(128, 2), ...span(256, 24),
+      ...span(1, 10), ...span(2, 3), ...span(4, 3),
+      ...span(8, 2), ...span(16, 2), ...span(32, 2), ...span(64, 2), ...span(128, 2), ...span(256, 34),
     ];
     expect(Array.from({ length: 60 }, (_, i) => mastersBlind(1, i + 1))).toEqual(expected);
     // Elle cesse de monter dès qu'elle dépasse tout l'argent en jeu : cinq caves de 30 blindes.
-    for (const main of [37, 60, 100, 1_000_000]) expect(mastersBlind(1, main)).toBe(256);
+    for (const main of [27, 60, 100, 1_000_000]) expect(mastersBlind(1, main)).toBe(256);
     expect([mastersBlind(1, 0), mastersBlind(1, -3)]).toEqual([1, 1]);
     // La prochaine hausse : à quelle main, et combien.
-    expect([1, 16, 17, 20, 21, 24, 25, 28, 29, 30, 31, 34, 35, 36].map((main) => mastersRise(1, main))).toEqual([
-      { hand: 17, blind: 2 }, { hand: 17, blind: 2 }, { hand: 21, blind: 4 }, { hand: 21, blind: 4 },
-      { hand: 25, blind: 8 }, { hand: 25, blind: 8 }, { hand: 29, blind: 16 }, { hand: 29, blind: 16 },
-      { hand: 31, blind: 32 }, { hand: 31, blind: 32 }, { hand: 33, blind: 64 }, { hand: 35, blind: 128 },
-      { hand: 37, blind: 256 }, { hand: 37, blind: 256 },
+    expect([1, 10, 11, 13, 14, 16, 17, 18, 19, 20, 21, 24, 25, 26].map((main) => mastersRise(1, main))).toEqual([
+      { hand: 11, blind: 2 }, { hand: 11, blind: 2 }, { hand: 14, blind: 4 }, { hand: 14, blind: 4 },
+      { hand: 17, blind: 8 }, { hand: 17, blind: 8 }, { hand: 19, blind: 16 }, { hand: 19, blind: 16 },
+      { hand: 21, blind: 32 }, { hand: 21, blind: 32 }, { hand: 23, blind: 64 }, { hand: 25, blind: 128 },
+      { hand: 27, blind: 256 }, { hand: 27, blind: 256 },
     ]);
-    for (const main of [37, 38, 500]) expect(mastersRise(1, main)).toBeNull();
+    for (const main of [27, 28, 500]) expect(mastersRise(1, main)).toBeNull();
   });
 
   it("en euros : de 10 Bn€ à 2 560 Bn€, toujours des entiers exacts", () => {
     const real = Array.from({ length: 60 }, (_, i) => mastersBlind(MASTERS_BLIND, i + 1));
     expect(real.every(Number.isSafeInteger)).toBe(true);
-    expect([1, 17, 21, 25, 29, 31, 33, 35, 37].map((main) => real[main - 1]! / BN)).toEqual([10, 20, 40, 80, 160, 320, 640, 1_280, 2_560]);
-    // À la 36e main elle tient encore dans la table ; à la 37e elle la dépasse, et s'arrête là.
-    expect(real[35]!).toBeLessThan(ALL);
-    expect(real[36]!).toBeGreaterThan(ALL);
-    expect(mastersRise(MASTERS_BLIND, 36)).toEqual({ hand: 37, blind: 2_560 * BN });
+    expect([1, 11, 14, 17, 19, 21, 23, 25, 27].map((main) => real[main - 1]! / BN)).toEqual([10, 20, 40, 80, 160, 320, 640, 1_280, 2_560]);
+    // À la 26e main elle tient encore dans la table ; à la 27e elle la dépasse, et s'arrête là.
+    expect(real[25]!).toBeLessThan(ALL);
+    expect(real[26]!).toBeGreaterThan(ALL);
+    expect(mastersRise(MASTERS_BLIND, 26)).toEqual({ hand: 27, blind: 2_560 * BN });
     // Le barème d'un défi : trois mains à la blinde de base, puis elle double toutes les deux mains.
     expect(Array.from({ length: 15 }, (_, i) => challengeBlind(1, i + 1))).toEqual([1, 1, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64, 64]);
   });
@@ -357,28 +357,28 @@ describe("le barème de la blinde", () => {
   it("la vue donne la blinde en vigueur et la main où elle montera, comme dans un défi", () => {
     const rng = rngOf(21);
     const even = [30 * U, 30 * U, 30 * U, 30 * U, 30 * U];
-    // Entre la seizième et la dix-septième main, la vue annonce déjà la blinde de la main qui vient.
-    const between = mastersAt(rng, { played: 16, stacks: even, dealer: 3 });
-    expect([blindAt(between, 16), blindAt(between, 17)]).toEqual([U, 2 * U]);
-    expect([viewFor(between, "p_a", T0).blind, viewFor(between, "p_a", T0).rise]).toEqual([2 * U, { hand: 21, blind: 4 * U }]);
+    // Entre la dixième et la onzième main, la vue annonce déjà la blinde de la main qui vient.
+    const between = mastersAt(rng, { played: 10, stacks: even, dealer: 3 });
+    expect([blindAt(between, 10), blindAt(between, 11)]).toEqual([U, 2 * U]);
+    expect([viewFor(between, "p_a", T0).blind, viewFor(between, "p_a", T0).rise]).toEqual([2 * U, { hand: 14, blind: 4 * U }]);
     let t = advance(between, T0, rng);
-    expect([t.handNo, t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([17, 2 * U, 10 * U, even.map((x) => x - 2 * U)]);
-    expect(t.log.filter((e) => e.hand === 17 && e.kind === "blinde").map((e) => e.amount)).toEqual([2 * U, 2 * U, 2 * U, 2 * U, 2 * U]);
+    expect([t.handNo, t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([11, 2 * U, 10 * U, even.map((x) => x - 2 * U)]);
+    expect(t.log.filter((e) => e.hand === 11 && e.kind === "blinde").map((e) => e.amount)).toEqual([2 * U, 2 * U, 2 * U, 2 * U, 2 * U]);
     // La blinde de base de la table, elle, ne bouge pas.
     expect(t.blind).toBe(U);
     const view = viewFor(t, "p_a", T0);
-    expect([view.blind, view.rise, view.seats.map((s) => s!.committed)]).toEqual([2 * U, { hand: 21, blind: 4 * U }, [2 * U, 2 * U, 2 * U, 2 * U, 2 * U]]);
+    expect([view.blind, view.rise, view.seats.map((s) => s!.committed)]).toEqual([2 * U, { hand: 14, blind: 4 * U }, [2 * U, 2 * U, 2 * U, 2 * U, 2 * U]]);
     // Le donneur est au siège 4 : le joueur parle le premier. La mise minimale suit la blinde en
     // vigueur ; la plus grosse, sans limite, est tout son tapis.
     t = act(hostsSilent(t), "p_a", { type: "franc-jeu" }, T0, rng);
     expect([t.phase, t.dealer, t.hand!.turn]).toEqual(["encheres", 4, 0]);
     expect(viewFor(t, "p_a", T0).options).toMatchObject({ check: true, bet: { min: 2 * U, max: 28 * U }, allIn: true });
     expect(refusal(() => act(t, "p_a", { type: "miser", amount: U }, T0, rng))).toBe("ACTION_IMPOSSIBLE");
-    // Plus loin : 160 Bn€ à la 29e main ; à la 37e, elle ne monte plus et dépasse tous les tapis.
-    const late = viewFor(advance(mastersAt(rng, { played: 28, stacks: [60 * U, 90 * U, 0, 0, 0] }), T0, rng), "p_a", T0);
-    expect([late.handNo, late.blind, late.rise, late.pot]).toEqual([29, 16 * U, { hand: 31, blind: 32 * U }, 32 * U]);
-    const last = viewFor(advance(mastersAt(rng, { played: 36, stacks: [60 * U, 90 * U, 0, 0, 0] }), T0, rng), "p_a", T0);
-    expect([last.handNo, last.blind, last.rise, last.pot]).toEqual([37, 256 * U, null, 150 * U]);
+    // Plus loin : 160 Bn€ à la 19e main ; à la 27e, elle ne monte plus et dépasse tous les tapis.
+    const late = viewFor(advance(mastersAt(rng, { played: 18, stacks: [60 * U, 90 * U, 0, 0, 0] }), T0, rng), "p_a", T0);
+    expect([late.handNo, late.blind, late.rise, late.pot]).toEqual([19, 16 * U, { hand: 21, blind: 32 * U }, 32 * U]);
+    const last = viewFor(advance(mastersAt(rng, { played: 26, stacks: [60 * U, 90 * U, 0, 0, 0] }), T0, rng), "p_a", T0);
+    expect([last.handNo, last.blind, last.rise, last.pot]).toEqual([27, 256 * U, null, 150 * U]);
     expect(last.seats.slice(0, 2).map((s) => [s!.stack, s!.committed, s!.allIn])).toEqual([[0, 60 * U, true], [0, 90 * U, true]]);
   });
 });
@@ -388,15 +388,15 @@ describe("le barème de la blinde", () => {
 describe("un tournoi : la blinde à tapis, l'élimination, pas de recave", () => {
   it("qui n'a plus de quoi payer la blinde pose ce qui lui reste et joue la main à tapis", () => {
     const rng = rngOf(31);
-    // 21e main, blinde de 40 Bn€ : il reste 30 Bn€ au joueur, 20 Bn€ à Hector, un euro à Baron.
-    const t = advance(mastersAt(rng, { played: 20, stacks: [3 * U, 50 * U, 95 * U - 1, 2 * U, 1] }), T0, rng);
-    expect([t.handNo, t.phase, t.hand!.blind]).toEqual([21, "triche", 4 * U]);
+    // 14e main, blinde de 40 Bn€ : il reste 30 Bn€ au joueur, 20 Bn€ à Hector, un euro à Baron.
+    const t = advance(mastersAt(rng, { played: 13, stacks: [3 * U, 50 * U, 95 * U - 1, 2 * U, 1] }), T0, rng);
+    expect([t.handNo, t.phase, t.hand!.blind]).toEqual([14, "triche", 4 * U]);
     expect(t.hand!.pot).toBe(3 * U + 4 * U + 4 * U + 2 * U + 1);
     expect(stacksOf(t)).toEqual([0, 46 * U, 91 * U - 1, 0, 0]);
     expect(chipsOnTable(t)).toBe(ALL);
     // Un euro suffit pour être servi : personne n'est écarté d'office.
     expect(t.hand!.players.map((p) => p.seat).sort()).toEqual([0, 1, 2, 3, 4]);
-    const posted = t.log.filter((e) => e.hand === 21 && e.kind === "blinde").map((e) => [e.seat, e.amount, e.allIn ?? false]).sort();
+    const posted = t.log.filter((e) => e.hand === 14 && e.kind === "blinde").map((e) => [e.seat, e.amount, e.allIn ?? false]).sort();
     expect(posted).toEqual([[0, 3 * U, true], [1, 4 * U, false], [2, 4 * U, false], [3, 2 * U, true], [4, 1, true]]);
     const view = viewFor(t, "p_a", T0);
     expect(view.seats.map((s) => [s!.committed, s!.allIn])).toEqual([[3 * U, true], [4 * U, false], [4 * U, false], [2 * U, true], [1, true]]);
@@ -408,14 +408,14 @@ describe("un tournoi : la blinde à tapis, l'élimination, pas de recave", () =>
 
   it("un seul joueur a encore des jetons : pas d'enchères, ce qu'il a posé de trop lui revient", () => {
     const rng = rngOf(32);
-    // 25e main, blinde de 80 Bn€. Seul Gaspard (siège 1) peut la payer en entier.
-    let t = advance(mastersAt(rng, { played: 24, stacks: [5 * U, 135 * U, 4 * U, 3 * U, 3 * U] }), T0, rng);
+    // 17e main, blinde de 80 Bn€. Seul Gaspard (siège 1) peut la payer en entier.
+    let t = advance(mastersAt(rng, { played: 16, stacks: [5 * U, 135 * U, 4 * U, 3 * U, 3 * U] }), T0, rng);
     expect([t.hand!.blind, t.hand!.pot, stacksOf(t)]).toEqual([8 * U, 23 * U, [0, 127 * U, 0, 0, 0]]);
     t = act(hostsSilent(t), "p_a", { type: "franc-jeu" }, T0, rng);
     // Trois des huit blindes de Gaspard lui reviennent : le plus gros tapis en face n'en a suivi que cinq.
     expect([t.phase, t.hand!.pot, stacksOf(t)]).toEqual(["abattage", 20 * U, [0, 130 * U, 0, 0, 0]]);
-    expect(t.log.find((e) => e.hand === 25 && e.kind === "rendu")).toMatchObject({ seat: 1, amount: 3 * U });
-    expect(t.log.some((e) => e.hand === 25 && ["parole", "mise", "suit", "relance", "couche"].includes(e.kind))).toBe(false);
+    expect(t.log.find((e) => e.hand === 17 && e.kind === "rendu")).toMatchObject({ seat: 1, amount: 3 * U });
+    expect(t.log.some((e) => e.hand === 17 && ["parole", "mise", "suit", "relance", "couche"].includes(e.kind))).toBe(false);
     audited(t);
     // Les pots annexes : chacun ne prétend qu'à ce qu'il a pu suivre.
     const s = hostsSilent(t);
@@ -836,22 +836,23 @@ describe("des tables entières", () => {
     lengths.sort((a, b) => a - b);
     wins.sort((a, b) => a - b);
     const at = (list: number[], share: number) => list[Math.min(list.length - 1, Math.floor(share * list.length))]!;
-    // Le barème est réglé pour qu'une table se dénoue en 15 à 22 mains en médiane. Les robots
-    // misent gros : une table sur dix est finie pour le joueur en une main ou deux.
-    expect(at(lengths, 0.5)).toBeGreaterThanOrEqual(15);
-    expect(at(lengths, 0.5)).toBeLessThanOrEqual(22);
-    expect(at(lengths, 0.9)).toBeLessThanOrEqual(38);
-    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(55);
-    // Un robot à la place du joueur la gagne une fois sur cinq, et il lui faut une trentaine de mains.
+    // Le barème est réglé pour qu'une table se dénoue en 12 à 18 mains en médiane, et neuf fois
+    // sur dix en moins de 26. Les robots misent gros : une table sur dix est finie pour le joueur
+    // en une main ou deux.
+    expect(at(lengths, 0.5)).toBeGreaterThanOrEqual(12);
+    expect(at(lengths, 0.5)).toBeLessThanOrEqual(18);
+    expect(at(lengths, 0.9)).toBeLessThan(26);
+    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(38);
+    // Un robot à la place du joueur la gagne une fois sur cinq, et il lui faut une vingtaine de mains.
     expect(wins.length).toBeGreaterThanOrEqual(25);
-    expect(wins.length).toBeLessThanOrEqual(55);
-    expect(at(wins, 0.5)).toBeGreaterThanOrEqual(25);
-    expect(at(wins, 0.5)).toBeLessThanOrEqual(36);
+    expect(wins.length).toBeLessThanOrEqual(60);
+    expect(at(wins, 0.5)).toBeGreaterThanOrEqual(16);
+    expect(at(wins, 0.5)).toBeLessThanOrEqual(25);
     // Assez de tout pour que ces invariants veuillent dire quelque chose.
     expect(eliminations).toBeGreaterThan(300);
     expect(shortBlinds).toBeGreaterThan(100);
     expect(sidePots).toBeGreaterThan(100);
-    expect(carried).toBeGreaterThan(20);
+    expect(carried).toBeGreaterThan(12);
   });
 
   it("un joueur qui fait n'importe quoi de permis, ou rien du tout : l'argent reste juste, la fin reste nette", () => {
@@ -1024,10 +1025,10 @@ describe("les robots autour de la table", () => {
   });
 
   it("le siège du joueur ne pèse pas sur ses chances : il est accusé aussi souvent qu'un hôte", () => {
-    // 100 tables : les accusations que chaque siège a subies, rapportées aux mains qu'il a jouées.
+    // 150 tables : les accusations que chaque siège a subies, rapportées aux mains qu'il a jouées.
     const suffered = [0, 0, 0, 0, 0];
     const played = [0, 0, 0, 0, 0];
-    for (let seed = 1; seed <= 100; seed++) {
+    for (let seed = 1; seed <= 150; seed++) {
       let seen = 0;
       playMasters(42_000 + seed, (t) => {
         const r = t.result;
@@ -1593,7 +1594,7 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     expect(stacksOf(t)).toEqual([STAKE, STAKE, null, STAKE]);
     const view = viewFor(t, "p_a", T0);
     expect([view.kind, view.format, view.minBuyIn, view.maxBuyIn, view.blind, view.rise]).toEqual([
-      "privee", "tournoi", STAKE, STAKE, 10, { hand: 17, blind: 20 },
+      "privee", "tournoi", STAKE, STAKE, 10, { hand: 11, blind: 20 },
     ]);
     // Qui n'est pas encore assis lit la même chose dans l'aperçu : de quoi remplir la feuille « rejoindre ».
     const preview = viewFor(t, "p_z", T0);
@@ -1630,11 +1631,27 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     expect([t.carry, t.phase]).toEqual([0, "attente"]);
     t = act(t, "p_a", { type: "lancer" }, T0, rng);
     expect([t.started, t.handNo, t.phase, t.seats.filter((seat) => seat === null).length]).toEqual([true, 1, "triche", 2]);
-    expect(refusal(() => sit(t, sitter(3), T0, rng))).toBe("TABLE_FULL");
-    expect(refusal(() => sit(t, sitter(2, "s_9"), T0, rng))).toBe("TABLE_FULL");
+    // Le refus dit pourquoi : la partie est lancée. Ce n'est pas une table « complète ».
+    expect(refusal(() => sit(t, sitter(3), T0, rng))).toBe("TABLE_STARTED");
+    expect(refusal(() => sit(t, sitter(2, "s_9"), T0, rng))).toBe("TABLE_STARTED");
     // Qui est déjà assis ne bouge pas : rejouer sa demande ne change rien.
     expect(sit(t, sitter(1, "s_9"), T0, rng)).toBe(t);
     audited(t);
+  });
+
+  it("avant le lancement, une table sans siège libre est « complète » ; lancée, elle est « déjà lancée »", () => {
+    const rng = rngOf(7);
+    const full = tourney(2, [], 2, rng);
+    expect(refusal(() => sit(full, sitter(2), T0, rng))).toBe("TABLE_FULL");
+    const started = act(full, "p_a", { type: "lancer" }, T0, rng);
+    expect(refusal(() => sit(started, sitter(2), T0, rng))).toBe("TABLE_STARTED");
+    // Une table classique lancée se rejoint tant qu'il reste un siège ; complète, elle le dit.
+    const classic = friends([1000, 1000], rng);
+    expect(refusal(() => sit(classic, sitter(2), T0, rng))).toBe("TABLE_FULL");
+    let roomy = createTable({ code: "ABCDE", kind: "privee", place: null, blind: 10, maxBuyIn: 1000, seats: 3, bots: [], difficulty: "normal" }, T0);
+    for (const i of [0, 1]) roomy = deposit(sit(roomy, sitter(i), T0, rng), `s_${i}`, 1, 500, T0, rng);
+    roomy = act(roomy, "p_a", { type: "lancer" }, T0, rng);
+    expect([roomy.handNo, seatIndexOf(sit(roomy, sitter(2), T0, rng), "p_c")]).toEqual([1, 2]);
   });
 
   it("un siège réservé avant le lancement, jamais payé, ne se paie plus après : il est libéré", () => {
@@ -1644,7 +1661,7 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     t = act(t, "p_a", { type: "lancer" }, T0, rng);
     expect([t.handNo, t.hand!.players.map((p) => p.seat).sort(), t.seats[2]!.seq]).toEqual([1, [0, 1], 0]);
     // Sa demande rejouée est refusée : il n'entrera plus.
-    expect(refusal(() => sit(t, sitter(2), T0 + 1_000, rng))).toBe("TABLE_FULL");
+    expect(refusal(() => sit(t, sitter(2), T0 + 1_000, rng))).toBe("TABLE_STARTED");
     // Au bout de trente secondes, son siège est libéré ; il n'avait rien posé, il n'a rien à reprendre.
     t = advance(t, T0 + RESERVE_MS, rng);
     expect([t.seats[2], owed(t, "p_c"), t.closed]).toEqual([null, [["reserve", 0]], null]);
@@ -1681,18 +1698,18 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     Object.assign(classic, { hand: null, phase: "denouement", nextAt: T0 + 5_000 });
     classic.seats[1]!.stack = 250;
     expect(rebuyRange(classic, 1)).toEqual({ min: 1, max: 750 });
-    // Le même barème : seize mains à la blinde de départ, puis elle double par paliers.
-    expect([1, 16, 17, 20, 21, 25, 29, 31, 33, 35].map((n) => blindAt(t, n))).toEqual([10, 10, 20, 40 / 2, 40, 80, 160, 320, 640, 1280]);
-    for (const n of [1, 16, 17, 21, 25, 29, 31, 33, 35]) expect([n, blindAt(t, n)]).toEqual([n, mastersBlind(10, n)]);
+    // Le même barème : dix mains à la blinde de départ, puis elle double par paliers.
+    expect([1, 10, 11, 13, 14, 17, 19, 21, 23, 25].map((n) => blindAt(t, n))).toEqual([10, 10, 20, 20, 40, 80, 160, 320, 640, 1280]);
+    for (const n of [1, 10, 11, 14, 17, 19, 21, 23, 25]) expect([n, blindAt(t, n)]).toEqual([n, mastersBlind(10, n)]);
     // Elle s'arrête dès qu'elle dépasse tout l'argent en jeu : trente blindes par siège.
     // À trois sièges (900 €) : 1 280 €. À deux (600 €) : 640 €. À six (1 800 €) : 2 560 €, comme à cinq.
-    expect([blindAt(t, 37), blindAt(t, 99), nextRise({ ...t, handNo: 34 }), nextRise({ ...t, handNo: 36 })]).toEqual([1280, 1280, { hand: 35, blind: 1280 }, null]);
+    expect([blindAt(t, 27), blindAt(t, 99), nextRise({ ...t, handNo: 24 }), nextRise({ ...t, handNo: 26 })]).toEqual([1280, 1280, { hand: 25, blind: 1280 }, null]);
     expect([2, 3, 4, 5, 6].map((seats) => mastersBlind(10, 99, seats))).toEqual([640, 1280, 1280, 2560, 2560]);
-    expect([mastersBlind(10, 99), mastersRise(10, 32, 2), mastersRise(10, 33, 2), mastersRise(10, 36, 6)]).toEqual([
-      2560, { hand: 33, blind: 640 }, null, { hand: 37, blind: 2560 },
+    expect([mastersBlind(10, 99), mastersRise(10, 22, 2), mastersRise(10, 23, 2), mastersRise(10, 26, 6)]).toEqual([
+      2560, { hand: 23, blind: 640 }, null, { hand: 27, blind: 2560 },
     ]);
     const duel = launched(2);
-    expect([blindAt(duel, 33), blindAt(duel, 99)]).toEqual([640, 640]);
+    expect([blindAt(duel, 22), blindAt(duel, 23), blindAt(duel, 99)]).toEqual([320, 640, 640]);
   });
 
   it("un joueur à zéro est éliminé : il quitte la table sans rien, la partie continue entre les autres", () => {
@@ -1712,7 +1729,7 @@ describe("une table entre amis jouée en tournoi : le moteur", () => {
     expect([t.closed, t.phase, t.handNo, t.seats[2], t.hand!.players.map((p) => p.seat).sort()]).toEqual([null, "triche", 2, null, [0, 1]]);
     // Sa cagnotte reste en jeu : les deux autres se la disputent.
     expect(chipsOnTable(t)).toBe(3 * STAKE);
-    expect(refusal(() => sit(t, sitter(2, "s_9"), T0 + RESULT_MS, rng))).toBe("TABLE_FULL");
+    expect(refusal(() => sit(t, sitter(2, "s_9"), T0 + RESULT_MS, rng))).toBe("TABLE_STARTED");
     audited(t);
   });
 
@@ -2375,7 +2392,7 @@ describe("s'asseoir à la Table des Maîtres", () => {
     expect(view.code).toMatch(/^[A-HJ-KM-NP-TV-Z2-9]{5}$/);
     expect(view).toMatchObject({
       kind: "maitres", place: null, difficulty: "difficile", minBuyIn: MASTERS_BUYIN, maxBuyIn: MASTERS_BUYIN,
-      blind: MASTERS_BLIND, rise: { hand: 17, blind: 2 * MASTERS_BLIND }, started: true, phase: "triche", handNo: 1,
+      blind: MASTERS_BLIND, rise: { hand: 11, blind: 2 * MASTERS_BLIND }, started: true, phase: "triche", handNo: 1,
       you: 0, pot: 5 * MASTERS_BLIND, closed: null,
     });
     // Cinq sièges : lui, puis quatre hôtes distincts, chacun avec sa cave moins la blinde.
@@ -3074,7 +3091,7 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     expect(r.status).toBe(201);
     const view = r.body.view!;
     expect(view).toMatchObject({
-      kind: "privee", place: null, format: "tournoi", blind: 10, rise: { hand: 17, blind: 20 }, minBuyIn: STAKE, maxBuyIn: STAKE,
+      kind: "privee", place: null, format: "tournoi", blind: 10, rise: { hand: 11, blind: 20 }, minBuyIn: STAKE, maxBuyIn: STAKE,
       difficulty: "facile", started: false, phase: "attente", you: 0, owner: 0, handNo: 0,
     });
     // Le robot a la même cagnotte ; le créateur a payé la sienne, et rien d'autre.
@@ -3141,7 +3158,7 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     const started = await w.poker.act(a, code, { type: "lancer" });
     expect(started.body.view).toMatchObject({ started: true, handNo: 1, phase: "triche", pot: 20 });
     // Ensuite plus personne n'entre, alors qu'il reste deux sièges.
-    expect(await refused(c, STAKE)).toEqual([409, "TABLE_FULL"]);
+    expect(await refused(c, STAKE)).toEqual([409, "TABLE_STARTED"]);
     expect([w.balance(c), w.record(c).poker ?? null, w.table(code)!.seats.map((seat) => seat !== null)]).toEqual([1_000, null, [true, true, false, false]]);
     // Qui est déjà assis peut rejouer sa demande : rien ne change, rien n'est payé deux fois.
     const again = await w.poker.join(b, code, STAKE);
@@ -3149,6 +3166,35 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     // Et personne ne recave.
     expect(((await w.poker.act(b, code, { type: "recaver", amount: 100 })) as Reply).body.error.code).toBe("ACTION_IMPOSSIBLE");
     expect(w.balance(b)).toBe(700);
+  });
+
+  it("TABLE_STARTED : une partie lancée ne se rejoint plus ; TABLE_FULL reste le refus d'une table complète", async () => {
+    const w = makeWorld();
+    const [a, b, c] = [await w.signup("Ada", 1_000), await w.signup("Bob", 1_000), await w.signup("Cléo", 1_000)];
+    // Un tournoi à deux sièges, complet mais pas encore lancé : il n'y a simplement plus de siège.
+    const code = await tournament(w, [a, b], { launch: false });
+    const full = await w.poker.join(c, code, STAKE) as Reply;
+    expect([full.status, full.body]).toEqual([409, { error: { code: "TABLE_FULL", message: "Cette table est complète. Attends qu'un siège se libère." } }]);
+    // Lancé : c'est « déjà lancée » qu'on répond, avec sa propre phrase. Rien n'est payé.
+    expect((await w.poker.act(a, code, { type: "lancer" })).status).toBe(200);
+    const started = await w.poker.join(c, code, STAKE) as Reply;
+    expect([started.status, started.body]).toEqual([409, { error: { code: "TABLE_STARTED", message: "Cette partie est déjà lancée : on n'y entre plus." } }]);
+    // Une phrase pour le joueur : ce qui s'est passé, sans code technique.
+    expect(started.body.error.message).not.toMatch(/[A-Z_]{6,}|Error|undefined|null/);
+    expect(started.body.error.message).toMatch(/\.$/);
+    // Même refus quand un siège s'est libéré en cours de partie (un joueur a abandonné).
+    expect((await w.poker.act(b, code, { type: "quitter" })).body.left).toEqual(GONE);
+    const again = await w.poker.join(c, code, STAKE) as Reply;
+    // (La table a pu fermer entre-temps : Ada, restée seule, a tout remporté.)
+    expect(["TABLE_STARTED", "TABLE_NOT_FOUND"]).toContain(again.body.error.code);
+    expect([w.balance(c), w.record(c).poker ?? null]).toEqual([1_000, null]);
+    // Une table classique lancée, elle, se rejoint tant qu'il reste un siège.
+    const [d, e, f] = [await w.signup("Dan", 5_000), await w.signup("Eve", 5_000), await w.signup("Flo", 5_000)];
+    const classic = (await w.poker.create(d, { blind: 10, maxBuyIn: 1_000, seats: 3, bots: 0, buyIn: 500 })).body.view!.code;
+    expect((await w.poker.join(e, classic, 500)).status).toBe(200);
+    expect((await w.poker.act(d, classic, { type: "lancer" })).body.view!.handNo).toBe(1);
+    const late = await w.poker.join(f, classic, 500);
+    expect([late.status, late.body.view!.you, late.body.view!.format]).toEqual([200, 2, "classique"]);
   });
 
   it("une demande coupée avant de payer, puis la partie lancée : son siège réservé ne se paie plus, il est libéré", async () => {
@@ -3165,7 +3211,7 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     expect([started.body.view!.handNo, started.body.view!.seats[1]!.funded]).toEqual([1, false]);
     // Bob réessaie : trop tard, et il n'a rien payé.
     const retry = await w.poker.join(b, code, STAKE) as Reply;
-    expect([retry.status, retry.body.error.code]).toEqual([409, "TABLE_FULL"]);
+    expect([retry.status, retry.body.error.code]).toEqual([409, "TABLE_STARTED"]);
     expect([w.balance(b), w.record(b).poker ?? null]).toEqual([1_000, null]);
     // Trente secondes après sa réservation, son siège est libéré.
     w.advance(RESERVE_MS);
@@ -3259,7 +3305,7 @@ describe("une table entre amis jouée en tournoi : le serveur", () => {
     // Elle l'apprend à sa requête suivante, et peut encore regarder la table : un aperçu, rien de caché.
     const out = await w.poker.poll(c, code);
     expect([out.status, out.body.left, out.body.view!.you, out.body.view!.hand]).toEqual([200, BEATEN, null, null]);
-    expect(((await w.poker.join(c, code, STAKE)) as Reply).body.error.code).toBe("TABLE_FULL");
+    expect(((await w.poker.join(c, code, STAKE)) as Reply).body.error.code).toBe("TABLE_STARTED");
     expect(w.balance(c)).toBe(700);
 
     // Deuxième main : Bob abandonne. Sa blinde reste au pot, son tapis attend la main suivante.

@@ -242,6 +242,7 @@ const FAILURES: Record<FailureCode, string> = {
   // Le Poker Tricheur (traduits dans src/i18n/en/poker.ts).
   TABLE_NOT_FOUND: "Cette table n'existe pas, ou elle a fermé. Vérifie le code.",
   TABLE_FULL: "Cette table est complète. Attends qu'un siège se libère.",
+  TABLE_STARTED: "Cette partie est déjà lancée : on n'y entre plus.",
   ALREADY_SEATED: "Tu as déjà une place à une table. Quitte-la avant d'en rejoindre une autre.",
   NOT_SEATED: "Tu n'as plus de place à cette table.",
   BUYIN_UNAFFORDABLE: "Ta bourse ne suffit pas pour cette cave.",
