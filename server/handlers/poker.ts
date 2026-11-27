@@ -58,9 +58,9 @@ async function freeFromOtherTable(deps: Deps, me: PlayerRecord, now: number, exc
 // GET /api/poker → le hall
 
 /**
- * GET /api/poker → { seat, blinds, houses, challenges, state }
- * Les tables de la maison et les défis du joueur, l'échelle des blindes que sa bourse
- * permet, et la table où il est assis s'il y en a une.
+ * GET /api/poker → { seat, blinds, houses, challenges, masters, state }
+ * Les tables de la maison et les défis du joueur, la Table des Maîtres (ouverte ou non),
+ * l'échelle des blindes que sa bourse permet, et la table où il est assis s'il y en a une.
  */
 export async function pokerLobby(req: Request, deps: Deps): Promise<Response> {
   let me = await readPlayer(req, deps);
