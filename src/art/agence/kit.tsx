@@ -50,6 +50,9 @@ export interface Mouvement {
   /** Échelle (`s0` : au départ d'un `pulse`). */
   s?: number;
   s0?: number;
+  /** `etire` : l'échelle de départ, en largeur et en hauteur. */
+  sx?: number;
+  sy?: number;
   /** Opacités de départ et d'arrivée. */
   o0?: number;
   o1?: number;
@@ -67,7 +70,7 @@ export interface Mouvement {
 
 /** Les mouvements de film.css. */
 export type Geste =
-  | "va" | "sort" | "passe" | "apparait" | "disparait" | "pop" | "chute" | "eclat"
+  | "va" | "sort" | "passe" | "apparait" | "disparait" | "pop" | "chute" | "eclat" | "etire"
   | "flotte" | "tourne" | "defile" | "pulse" | "clignote" | "saut" | "bat";
 
 const BOUCLES: ReadonlySet<Geste> = new Set(["flotte", "tourne", "defile", "pulse", "clignote", "saut", "bat"]);
@@ -98,6 +101,8 @@ export function a(geste: Geste, m: Mouvement = {}): { className: string; style: 
   if (m.r0 !== undefined) vars["--r0"] = `${m.r0}deg`;
   if (m.s !== undefined) vars["--s"] = String(m.s);
   if (m.s0 !== undefined) vars["--s0"] = String(m.s0);
+  if (m.sx !== undefined) vars["--sx"] = String(m.sx);
+  if (m.sy !== undefined) vars["--sy"] = String(m.sy);
   if (m.o0 !== undefined) vars["--o0"] = String(m.o0);
   if (m.o1 !== undefined) vars["--o1"] = String(m.o1);
   const courbe = m.e ?? (geste === "tourne" || geste === "defile" || geste === "passe" ? "lin" : undefined);

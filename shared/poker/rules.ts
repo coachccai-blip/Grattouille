@@ -122,9 +122,19 @@ export function pickPersonas(count: number, rng: Random32, first?: string): stri
 
 /** Une table de la maison : le joueur, l'hôte du lieu et deux autres personnages. */
 export const HOUSE_SEATS = 4;
-/** Un défi : un tête-à-tête, 30 blindes de base chacun. */
-export const CHALLENGE_BLINDS = 30;
-/** La cagnotte de l'hôte : 100 blindes de base de son lieu, versées une seule fois. */
+/**
+ * Un défi : un tête-à-tête en trois manches. Chacun pose la même mise, le gagnant repart
+ * avec les deux. La mise vaut 25 blindes de départ, à toutes les manches.
+ */
+export const CHALLENGE_BLINDS = 25;
+/** La mise de la première manche : 100 fois la blinde du lieu. Elle double à chaque manche. */
+export const CHALLENGE_STAKE_BLINDS = 100;
+/** Trois manches par hôte ; ensuite le défi se rejoue en « revanche », aux conditions de la troisième. */
+export const CHALLENGE_ROUNDS = 3;
+/**
+ * Avant les trois manches, l'hôte versait une cagnotte de 100 blindes du lieu la première
+ * fois qu'il était ruiné. Elle ne vaut plus que pour une table de défi ouverte avant.
+ */
 export const CHALLENGE_BONUS_BLINDS = 100;
 /**
  * Un défi est un duel court : une dizaine de mains. La blinde y double de palier en palier,
@@ -218,23 +228,36 @@ export function houseOf(place: PlaceId): HouseDef {
   };
 }
 
+/** La manche que joue un joueur qui a déjà battu cet hôte `wins` fois : 1, 2, puis 3 pour toujours. */
+export function challengeRound(wins: number): number {
+  const won = Number.isFinite(wins) && wins > 0 ? Math.floor(wins) : 0;
+  return Math.min(CHALLENGE_ROUNDS, won + 1);
+}
+
 export interface ChallengeDef {
   place: PlaceId;
   host: string;
-  /** La blinde de base : celle des premières mains. Elle monte ensuite (`challengeBlind`). */
+  /** La manche : 1, 2 ou 3. */
+  level: number;
+  /** La blinde de départ de la manche : celle des premières mains. Elle monte ensuite (`challengeBlind`). */
   blind: number;
-  /** La cave du défi : 30 blindes de base, ni plus ni moins, pour le joueur comme pour l'hôte. */
+  /** La mise de chacun : 100 blindes du lieu à la première manche, le double à la deuxième, le quadruple à la troisième. */
   buyIn: number;
-  /** Ce que l'hôte verse la première fois qu'il est ruiné : 100 blindes de base. */
+  /** Ce que l'hôte pose en face : la même mise. (Avant les trois manches : une cagnotte versée à part.) */
   bonus: number;
+  /** Ce que le gagnant emporte : les deux mises. */
+  prize: number;
+  /** L'hôte se défend un cran mieux à chaque manche, sans dépasser « difficile ». */
   difficulty: Difficulty;
 }
 
-export function challengeOf(place: PlaceId): ChallengeDef {
-  const blind = placeBlind(place);
+export function challengeOf(place: PlaceId, level = 1): ChallengeDef {
+  const round = Math.min(CHALLENGE_ROUNDS, Math.max(1, Math.floor(level)));
+  const stake = placeBlind(place) * CHALLENGE_STAKE_BLINDS * 2 ** (round - 1);
+  const harder = Math.min(DIFFICULTIES.length - 1, DIFFICULTIES.indexOf(difficultyOf(place)) + round - 1);
   return {
-    place, host: placeById(place).host, blind,
-    buyIn: blind * CHALLENGE_BLINDS, bonus: blind * CHALLENGE_BONUS_BLINDS, difficulty: difficultyOf(place),
+    place, host: placeById(place).host, level: round, blind: stake / CHALLENGE_BLINDS, buyIn: stake, bonus: stake,
+    prize: 2 * stake, difficulty: DIFFICULTIES[harder]!,
   };
 }
 

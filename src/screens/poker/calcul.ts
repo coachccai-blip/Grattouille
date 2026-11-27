@@ -5,12 +5,12 @@
 import { RANK_CHARS, SUIT_CHARS, type Card } from "../../../shared/poker/cards";
 import { evaluate, type HandCategory } from "../../../shared/poker/hands";
 import {
-  ACCUSE_MS, CHEAT_MS, MAX_BUYIN_BLINDS, MIN_BUYIN_BLINDS, RESTART_MS, RESULT_MS, TABLE_CODE_LENGTH, TURN_MS, WALKOVER_MS,
+  ACCUSE_MS, CHALLENGE_ROUNDS, CHEAT_MS, MAX_BUYIN_BLINDS, MIN_BUYIN_BLINDS, RESTART_MS, RESULT_MS, TABLE_CODE_LENGTH, TURN_MS,
+  WALKOVER_MS,
 } from "../../../shared/poker/rules";
 import type {
   HandResult, LobbyChallenge, LobbyMasters, Options, PokerAction, Range, SeatView, TableView,
 } from "../../../shared/poker/types";
-import { PLACES } from "../../../shared/places";
 import { CODE_ALPHABET, HOST_STORY_WINS } from "../../../shared/rules";
 import type { PlaceId } from "../../../shared/types";
 
@@ -527,8 +527,8 @@ export function tournamentDecided(view: Pick<TableView, "kind" | "phase" | "seat
 export type HostWins = Partial<Record<PlaceId, number>> | null | undefined;
 
 /**
- * Où en est le joueur avec l'hôte d'un lieu. Le battre trois fois au poker (un défi gagné,
- * une Table des Maîtres remportée où il était assis) ouvre son histoire, dans les Souvenirs.
+ * Où en est le joueur avec l'hôte d'un lieu. Le battre trois fois au poker (les trois manches
+ * de son défi) ouvre son histoire, dans les Souvenirs.
  */
 export interface HostStory {
   /** Ses victoires contre cet hôte. */
@@ -555,24 +555,82 @@ export function hostStory(hostWins: HostWins, place: PlaceId): HostStory {
   };
 }
 
-/** Le lieu dont un personnage est l'hôte ; `null` pour qui n'en tient aucun. */
-export function placeOfHost(host: string | null): PlaceId | null {
-  if (!host) return null;
-  return PLACES.find((place) => place.host === host)?.id ?? null;
+// ---------------------------------------------------------------------------
+// Le défi, en trois manches (LOT4.md, section 15)
+
+/** Les étapes d'un défi : ses trois manches, puis la revanche, une fois l'histoire de l'hôte ouverte. */
+export type DuelStage = 1 | 2 | 3 | "revanche";
+
+/** L'étape que joue un joueur qui a déjà battu cet hôte `wins` fois. */
+export function stageOf(wins: number): DuelStage {
+  const won = Number.isFinite(wins) && wins > 0 ? Math.floor(wins) : 0;
+  return won >= CHALLENGE_ROUNDS ? "revanche" : ((won + 1) as 1 | 2 | 3);
+}
+
+/** Ce que le hall sait d'un défi. Un serveur d'avant les trois manches ne rend que la cave et la cagnotte. */
+export type DuelLobby = Pick<LobbyChallenge, "place" | "buyIn"> & Partial<Pick<LobbyChallenge, "level" | "wins" | "stake" | "prize" | "rematch">>;
+
+/** Où en est le défi d'un hôte : l'étape à jouer, ce que chacun pose, ce que le gagnant emporte. */
+export interface Duel {
+  /** L'étape à jouer : la manche (1, 2 ou 3), ou la revanche, aux conditions de la troisième. */
+  stage: DuelStage;
+  /** Les manches qu'il y a à gagner. */
+  rounds: number;
+  /** Les manches gagnées, de 0 à `rounds` : autant de repères pleins. */
+  won: number;
+  /** Ce que chacun pose. */
+  stake: number;
+  /** Ce que le gagnant emporte : les deux mises. */
+  prize: number;
 }
 
 /**
- * Les maîtres dont l'histoire vient de s'ouvrir avec une Table des Maîtres remportée : ils y
- * étaient assis, et la victoire qu'elle leur compte est tout juste la troisième. `hostWins` :
- * le compte d'après la victoire. Dans l'ordre des sièges, chacun une fois.
+ * Le défi d'un hôte, tel que le hall le rend. `hostWins` : les victoires du joueur, pour un
+ * serveur qui ne dit pas encore la manche (elle s'en déduit : aucune victoire, manche 1…).
  */
-export function storiesJustOpened(hostWins: HostWins, hosts: readonly (string | null)[]): string[] {
-  const out: string[] = [];
-  for (const host of hosts) {
-    const place = placeOfHost(host);
-    if (host && place && !out.includes(host) && hostStory(hostWins, place).justOpened) out.push(host);
-  }
-  return out;
+export function duelOf(challenge: DuelLobby, hostWins: HostWins): Duel {
+  const count = (n: unknown): number | null => (typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null);
+  const wins = count(challenge.wins) ?? hostStory(hostWins, challenge.place).wins;
+  const stake = count(challenge.stake) ?? Math.max(0, challenge.buyIn);
+  return {
+    stage: challenge.rematch === true ? "revanche" : stageOf(wins),
+    rounds: CHALLENGE_ROUNDS,
+    won: Math.min(CHALLENGE_ROUNDS, wins),
+    stake,
+    prize: count(challenge.prize) ?? stake * 2,
+  };
+}
+
+/**
+ * L'étape qu'une table de défi vient de jouer, vue du panneau de fin. `level` : la manche que
+ * dit la table (3 aussi pour une revanche) ; `winsAfter` : les victoires contre l'hôte une fois
+ * la table réglée ; `won` : le joueur l'a gagnée.
+ */
+export function playedStage(level: number | undefined, winsAfter: number, won: boolean): DuelStage {
+  const after = Number.isFinite(winsAfter) && winsAfter > 0 ? Math.floor(winsAfter) : 0;
+  const stage = stageOf(Math.max(0, won ? after - 1 : after));
+  // La table dit sa manche : c'est elle qui fait foi pour les deux premières.
+  if (level === 1 || level === 2) return level;
+  if (level === 3) return stage === "revanche" ? "revanche" : 3;
+  return stage;
+}
+
+/**
+ * Dans un défi, au dénouement d'une main : l'hôte vient de prendre l'avantage (`avantage` : il a
+ * désormais le plus gros tapis, ce qui n'était pas le cas avant la main), ou de le perdre
+ * (`recul` : c'est le joueur qui passe devant). `null` : rien n'a basculé, ou ce n'est pas un défi.
+ */
+export function leadShift(view: Pick<TableView, "kind" | "phase" | "seats" | "you" | "result" | "handNo">): "avantage" | "recul" | null {
+  const result = view.result;
+  if (view.kind !== "defi" || view.phase !== "denouement" || !result || result.no !== view.handNo || view.you === null) return null;
+  const me = view.seats[view.you] ?? null;
+  const host = view.seats.find((seat): seat is SeatView => seat !== null && seat.bot !== null) ?? null;
+  if (!me || !host) return null;
+  const net = (seat: number) => result.net.find((n) => n.seat === seat)?.amount ?? 0;
+  const now = Math.sign(host.stack - me.stack);
+  const before = Math.sign(host.stack - net(host.seat) - (me.stack - net(me.seat)));
+  if (now === before || now === 0) return null;
+  return now > 0 ? "avantage" : "recul";
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,8 @@ export interface TableSpec {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
+  /** Défi : la manche (1, 2 ou 3). */
+  level?: number;
   /** La blinde. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
   blind: number;
   /** La cave maximale. En tournoi, c'est la cave tout court : chacun pose exactement cela. */
@@ -84,7 +86,7 @@ export function createTable(spec: TableSpec, now: number): TableState {
     };
     bank += spec.maxBuyIn;
   });
-  return {
+  const table: TableState = {
     v: 1,
     code: spec.code,
     kind: spec.kind,
@@ -116,6 +118,8 @@ export function createTable(spec: TableSpec, now: number): TableState {
     logNo: 0,
     audit: { in: 0, out: 0, bank },
   };
+  if (spec.kind === "defi" && spec.level !== undefined) table.level = spec.level;
+  return table;
 }
 
 // ---------------------------------------------------------------------------
@@ -887,9 +891,6 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
   }
   const claims = (seat: SeatState): boolean => isFunded(seat) && (d.kind !== "maitres" || chipsOf(seat) > 0);
   const seated = seatsAfter(d, d.dealer, d.seats.map((_, i) => i).filter((i) => d.seats[i] !== null && claims(d.seats[i]!)));
-  // Les hôtes de la table, tant que leurs sièges sont là : qui la remporte les a tous battus.
-  const hosts: string[] = [];
-  for (const seat of d.seats) if (seat && seat.bot !== null) hosts.push(seat.bot);
   const shares = new Map(splitPot(d.carry, seated, seated).map((s) => [s.seat, s.amount]));
   if (seated.length === 0) d.audit.bank -= d.carry;
   d.carry = 0;
@@ -903,9 +904,7 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
       const payout = seat.stack + seat.reserve + share;
       // Un siège réservé dont la cave n'est jamais arrivée n'a rien à reprendre.
       const cause: LeaveReason = isFunded(seat) ? reason(seat) : "reserve";
-      const ended = endedOf(seat, index, payout, cause, t);
-      if (cause === "maitres-gagne") ended.beaten = [...hosts];
-      d.ended.push(ended);
+      d.ended.push(endedOf(seat, index, payout, cause, t));
       d.audit.out += payout;
       d.departed.push({ playerId: seat.playerId, seat: index, reason: cause, payout, at: t });
     }

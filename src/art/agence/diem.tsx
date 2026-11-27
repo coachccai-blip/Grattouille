@@ -25,19 +25,22 @@ const KOI = "#EC6530";
  * Madame Diem : carpe koï, veste d'agence et foulard noué. Volubile et enjôleuse : la tête
  * penchée vers le client, les sourcils haut levés par-dessus ses lunettes papillon, les
  * nageoires qui ne tiennent pas en place, et toujours une bulle ou deux en l'air (elle
- * parle). Sa tache rouge sur le front est celle des koïs « tancho » ; son grain de beauté
- * est une tache d'encre.
+ * parle). C'est un poisson, et cela se voit : la tête large, les yeux très écartés, la
+ * bouche en rond et ses deux barbillons, la nageoire du dos en crête, la robe tachée de
+ * rouge et d'encre des koïs.
  */
 export function Diem(props: ArtProps) {
   const ombre = shade(NACRE, -0.13);
+  const ecaille = shade(NACRE, -0.24);
   return (
     <Svg viewBox="0 0 120 120" {...props}>
       <rect width="120" height="120" fill={BASSIN} />
       {/* Elle n'a rien de muet : des bulles montent */}
-      <path d={semis(3.4, [[99, 31]]) + semis(2.1, [[105, 20], [92, 19]])} fill={C.blanc} fillOpacity="0.6" />
+      <path d={semis(3.4, [[101, 30]]) + semis(2.1, [[107, 19], [94, 17]])} fill={C.blanc} fillOpacity="0.6" />
       {/* Les nageoires, en éventail : ses mains parlent avec elle */}
-      <path d="M33 72Q10 60 5 80Q10 78 13 84Q17 79 21 85Q25 80 29 86Q32 80 38 82Z" fill={KOI} />
-      <path d="M87 72Q110 60 115 80Q110 78 107 84Q103 79 99 85Q95 80 91 86Q88 80 82 82Z" fill={shade(KOI, -0.16)} />
+      <path d="M31 74Q8 60 3 80Q8 78 11 84Q15 79 19 85Q23 80 27 86Q30 80 36 83Z" fill={KOI} />
+      <path d="M11 84L24 76M19 85L28 78M27 86L32 80" fill="none" stroke={shade(KOI, -0.2)} strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M89 74Q112 60 117 80Q112 78 109 84Q105 79 101 85Q97 80 93 86Q90 80 84 83Z" fill={shade(KOI, -0.16)} />
       {/* Veste d'agence aux épaules rondes, chemisier, galon d'or */}
       <path d="M12 120V107Q12 89 32 88H88Q108 89 108 107V120Z" fill={C.marine} />
       <path d="M88 88Q108 89 108 107V120H94V92Z" fill={shade(C.marine, -0.28)} />
@@ -46,38 +49,41 @@ export function Diem(props: ArtProps) {
       {/* L'insigne : une petite rose des vents */}
       <path d="M28 101L30 106L35 108L30 110L28 115L26 110L21 108L26 106Z" fill={METAL.or} />
       <g transform="rotate(-5 60 86)">
-        {/* La tête : nacre, plus large aux joues */}
-        <path d="M60 23Q82 23 89 44Q93 62 83 74Q74 84 60 84Q46 84 37 74Q27 62 31 44Q38 23 60 23Z" fill={NACRE} />
-        <path d="M77 28Q85 34 89 44Q93 62 83 74Q74 84 60 84Q73 80 79 69Q86 57 82 43Q81 34 77 28Z" fill={ombre} />
-        {/* La tache du front, et celle de la joue */}
-        <path d="M37.5 43Q41 26.5 60 25.5Q79 26.5 82.5 43Q76 38 70.5 44Q65 37.5 59 43.5Q52 37 46 44Q41.5 39.5 37.5 43Z" fill={KOI} />
-        <path d="M71 27.5Q79.5 31.5 82.5 43Q79 40 76.5 39.8Q76.5 33 71 27.5Z" fill={shade(KOI, -0.16)} />
-        <ellipse cx="41" cy="68" rx="5" ry="4" fill={KOI} />
+        {/* La nageoire du dos, dressée en crête */}
+        <path d="M43 31L45 11L52 22L58 6L63 20L71 9L76 30Q60 20 43 31Z" fill={KOI} />
+        <path d="M49 27L47 15M58 24V9M68 26L70 13" fill="none" stroke={shade(KOI, -0.2)} strokeWidth="1.2" strokeLinecap="round" />
+        {/* La tête : large, nacrée, plus étroite vers la bouche */}
+        <path d="M60 25Q86 25 94 45Q98 60 87 72Q76 84 60 84Q44 84 33 72Q22 60 26 45Q34 25 60 25Z" fill={NACRE} />
+        <path d="M78 29Q90 34 94 45Q98 60 87 72Q76 84 60 84Q74 80 81 69Q89 57 85 44Q83 35 78 29Z" fill={ombre} />
+        {/* La robe : une grande tache rouge sur l'œil, une autre sur la joue, deux taches d'encre */}
+        <path d="M28 47Q34 28 55 26.5Q63 34 56 43Q52 55 40 58Q28 57 28 47Z" fill={KOI} />
+        <path d="M73 63Q85 58 89 67Q84 78 73 78Q67 70 73 63Z" fill={KOI} />
+        <path d="M68 30Q76 28 80 35Q76 40 70 38Q66 34 68 30Z" fill={shade(KOI, -0.16)} />
+        <ellipse cx="71" cy="45" rx="3.2" ry="2.6" fill={C.noir} />
+        <circle cx="46" cy="70" r="2.2" fill={C.noir} />
+        {/* Quelques écailles, sur le front */}
+        <path d="M58 33q3.5 3.5 7 0M54 38.5q3.5 3.5 7 0M62 38.5q3.5 3.5 7 0" fill="none" stroke={ecaille} strokeWidth="1.3" strokeLinecap="round" />
         {/* Les ouïes */}
-        <path d="M35.5 56Q33.5 64 37.5 71M84.5 56Q86.5 64 82.5 71" fill="none" stroke={shade(NACRE, -0.28)} strokeWidth="1.3" strokeLinecap="round" />
-        {/* La bouche en rond de qui ne se tait jamais, et ses barbillons */}
-        <path d="M51.5 73Q45 79 46.5 87.5M68.5 73Q75 79 73.5 87.5" fill="none" stroke={KOI} strokeWidth="1.7" strokeLinecap="round" />
-        <ellipse cx="60" cy="72.5" rx="8.2" ry="5.6" fill={C.rose} />
-        <ellipse cx="60" cy="73" rx="4" ry="2.5" fill={shade(C.rose, -0.5)} />
-        {/* Lunettes papillon : les yeux sont deux points derrière */}
-        <path d="M33.5 51.5Q33 46.5 38 47L52 48.5Q54.5 49 54 53Q53 60.5 45.5 60.5Q35 60.5 33.5 51.5ZM86.5 51.5Q87 46.5 82 47L68 48.5Q65.5 49 66 53Q67 60.5 74.5 60.5Q85 60.5 86.5 51.5Z" fill={C.ciel} fillOpacity="0.55" />
-        <path d="M33.5 51.5Q33 46.5 38 47L52 48.5Q54.5 49 54 53Q53 60.5 45.5 60.5Q35 60.5 33.5 51.5ZM86.5 51.5Q87 46.5 82 47L68 48.5Q65.5 49 66 53Q67 60.5 74.5 60.5Q85 60.5 86.5 51.5ZM54 51.5Q60 48.5 66 51.5" fill="none" stroke={METAL.or} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M34 48.5L28.5 44.5L36.5 46.5ZM86 48.5L91.5 44.5L83.5 46.5Z" fill={METAL.or} />
-        <circle cx="45" cy="54" r="2.7" fill={C.nuit} />
-        <circle cx="75" cy="54" r="2.7" fill={C.nuit} />
+        <path d="M31 57Q29.5 65 34 72M89 57Q90.5 65 86 72" fill="none" stroke={ecaille} strokeWidth="1.5" strokeLinecap="round" />
+        {/* Les barbillons, puis la bouche en rond de qui ne se tait jamais */}
+        <path d="M51 75Q40 77 37 91M69 75Q80 77 83 91" fill="none" stroke={NACRE} strokeWidth="2.3" strokeLinecap="round" />
+        <ellipse cx="60" cy="74" rx="9.5" ry="7" fill="#F2978C" />
+        <ellipse cx="60" cy="74.5" rx="5" ry="3.4" fill={C.prune} />
+        {/* Lunettes papillon : les yeux, très écartés, sont deux points derrière */}
+        <path d="M28 50.5Q27.5 45.5 32.5 46L48 47.5Q50.5 48 50 52Q49 60 41 60Q29.5 60 28 50.5ZM92 50.5Q92.5 45.5 87.5 46L72 47.5Q69.5 48 70 52Q71 60 79 60Q90.5 60 92 50.5Z" fill={C.ciel} fillOpacity="0.5" />
+        <path d="M28 50.5Q27.5 45.5 32.5 46L48 47.5Q50.5 48 50 52Q49 60 41 60Q29.5 60 28 50.5ZM92 50.5Q92.5 45.5 87.5 46L72 47.5Q69.5 48 70 52Q71 60 79 60Q90.5 60 92 50.5ZM50 50.5Q60 47 70 50.5" fill="none" stroke={METAL.or} strokeWidth="2.1" strokeLinejoin="round" />
+        <path d="M28.5 47.5L22.5 43L31 45.5ZM91.5 47.5L97.5 43L89 45.5Z" fill={METAL.or} />
+        <circle cx="40" cy="53" r="2.9" fill={C.nuit} />
+        <circle cx="80" cy="53" r="2.9" fill={C.nuit} />
         {/* Sourcils haut levés : tout l'enchante, surtout ce qu'elle vend */}
-        <path d="M38 41.5Q45 36 52.5 39.5L52 42Q45 39 39.5 43.5Z" fill={C.nuit} />
-        <path d="M82 39.5Q75 34 67.5 38L68 40.5Q75 37.2 80.5 41.5Z" fill={C.nuit} />
-        {/* Le grain de beauté : une tache d'encre */}
-        <circle cx="76.5" cy="66" r="1.9" fill={C.noir} />
-        {/* La nageoire du dos, coiffée en chignon */}
-        <path d="M47 27Q46 13 58 9Q56 15 62 13Q61 19 68 17Q68 23 74 28Q60 21 47 27Z" fill={shade(KOI, -0.16)} />
+        <path d="M32 40Q39 34.5 47 38L46.5 40.5Q39 37.5 33.5 42Z" fill={C.nuit} />
+        <path d="M88 38Q81 32.5 73 36.5L73.5 39Q81 35.8 86.5 40Z" fill={C.nuit} />
       </g>
       {/* Le foulard d'hôtesse, noué de côté, à pois */}
-      <path d="M43 83Q60 92 77 83L75.5 93Q60 101 44.5 93Z" fill={C.bougainvillier} />
-      <path d="M62 93L77 105L68 105.5L70 112Z" fill={C.bougFonce} />
-      <circle cx="62" cy="93.5" r="4.2" fill={C.bougainvillier} />
-      <path d={semis(1.2, [[49, 90.5], [55, 93.5], [70, 91.5]])} fill={C.ivoire} />
+      <path d="M43 84Q60 93 77 84L75.5 94Q60 102 44.5 94Z" fill={C.bougainvillier} />
+      <path d="M62 94L77 106L68 106.5L70 113Z" fill={C.bougFonce} />
+      <circle cx="62" cy="94.5" r="4.2" fill={C.bougainvillier} />
+      <path d={semis(1.2, [[49, 91.5], [55, 94.5], [70, 92.5]])} fill={C.ivoire} />
     </Svg>
   );
 }

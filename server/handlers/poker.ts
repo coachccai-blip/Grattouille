@@ -8,8 +8,8 @@
 
 import { PLACES, isPlaceId } from "../../shared/places";
 import {
-  BLIND_SHARE, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, MAX_SEATS, MIN_SEATS,
-  act, allowedBlinds, challengeOf, createTable, houseOf, isBlind, isCard, isDifficulty, leave, maxBuyIn, minBuyIn,
+  BLIND_SHARE, CHALLENGE_ROUNDS, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, MAX_SEATS, MIN_SEATS,
+  act, allowedBlinds, challengeOf, challengeRound, createTable, houseOf, isBlind, isCard, isDifficulty, leave, maxBuyIn, minBuyIn,
   newTableCode, normalizeTableCode, pickMasters, pickPersonas, rebuyRange, seatIndexOf, sit, viewFor,
   type GameAction, type PokerAction, type PokerLobbyResponse, type PokerPollResponse, type PokerTableResponse,
   type TableSpec, type TableState,
@@ -18,7 +18,7 @@ import { isPlaceOpen, standingOf } from "../../shared/rules";
 import type { PlaceId } from "../../shared/types";
 import { ApiError, fail } from "../errors";
 import { json, readAck, readBody, readPlayer, type Body, type Deps } from "../http";
-import { allChallengesWon, countOf, defisOf, toState, type PlayerRecord } from "../player";
+import { allChallengesWon, countOf, defisOf, hostWinsOf, toState, type PlayerRecord } from "../player";
 import {
   departureOf, engine, newSessionId, payBuyIn, payRebuy, reconcile, releaseSeat, sitterOf, touchTable,
   type Reconciled,
@@ -75,6 +75,7 @@ export async function pokerLobby(req: Request, deps: Deps): Promise<Response> {
   }
   const standing = standingOf(me.owned, me.kiosk);
   const wins = me.pokerWins ?? [];
+  const beaten = hostWinsOf(me);
   const lobby: PokerLobbyResponse = {
     seat,
     blinds: allowedBlinds(me.balance),
@@ -83,9 +84,13 @@ export async function pokerLobby(req: Request, deps: Deps): Promise<Response> {
       return { ...def, open: isPlaceOpen(place.id, standing), affordable: me.balance >= def.minBuyIn };
     }),
     challenges: PLACES.map((place) => {
-      const def = challengeOf(place.id);
+      // La manche à jouer dépend de ses victoires contre cet hôte : une, deux, trois, puis la revanche.
+      const def = challengeOf(place.id, challengeRound(beaten[place.id]));
       return {
-        ...def, open: isPlaceOpen(place.id, standing), won: wins.includes(place.id), affordable: me.balance >= def.buyIn,
+        place: def.place, host: def.host, blind: def.blind, buyIn: def.buyIn, bonus: def.bonus, difficulty: def.difficulty,
+        open: isPlaceOpen(place.id, standing), won: wins.includes(place.id), affordable: me.balance >= def.buyIn,
+        level: def.level, wins: beaten[place.id], stake: def.buyIn, prize: def.prize,
+        rematch: beaten[place.id] >= CHALLENGE_ROUNDS,
       };
     }),
     masters: {
@@ -149,10 +154,12 @@ function readOrder(body: Body, me: PlayerRecord): Order {
     };
   }
   if (body.defi !== undefined) {
-    // Un défi : un tête-à-tête avec l'hôte, 30 blindes de base chacun. La blinde monte au fil du duel.
-    const def = challengeOf(readPlace(body.defi, me));
+    // Un défi : un tête-à-tête avec l'hôte, la même mise chacun. La manche (et donc la mise, qui
+    // double de l'une à l'autre) dépend des victoires du joueur contre cet hôte.
+    const place = readPlace(body.defi, me);
+    const def = challengeOf(place, challengeRound(hostWinsOf(me)[place]));
     return {
-      spec: { kind: "defi", place: def.place, blind: def.blind, maxBuyIn: def.buyIn, seats: 2, difficulty: def.difficulty },
+      spec: { kind: "defi", place: def.place, level: def.level, blind: def.blind, maxBuyIn: def.buyIn, seats: 2, difficulty: def.difficulty },
       bots: 1, host: def.host, buyIn: def.buyIn, minBuyIn: def.buyIn, capped: false,
     };
   }

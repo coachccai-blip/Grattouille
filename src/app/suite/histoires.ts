@@ -1,9 +1,12 @@
 // Les Souvenirs : l'histoire de chacun des huit maîtres des lieux (LOT4.md, section 12).
 //
-// Qui bat trois fois un hôte au poker gagne sa confidence : il raconte, à la première
-// personne, comment il a débarqué à Grattouille-les-Bains sans un sou, ce qu'il a trouvé
-// par terre, et comment il est devenu ce qu'il est. Chaque histoire est un album : une
-// photo par temps, sa légende de la main de l'hôte, et ce qu'il en dit.
+// Qui remporte les trois manches du défi d'un hôte, au poker, gagne sa confidence (LOT4.md,
+// section 15) : il raconte, à la première personne, comment il a débarqué à
+// Grattouille-les-Bains sans un sou, ce qu'il a trouvé par terre, et comment il est devenu
+// ce qu'il est. Chaque histoire est un album : une photo par temps, sa légende de la main
+// de l'hôte, et ce qu'il en dit. Il vient de tout perdre trois fois de suite : sa première
+// phrase le dit, chacun à sa façon (beau joueur, vexé, de mauvaise foi) ; la suite n'en
+// dépend pas, une histoire se revoit longtemps après.
 //
 // Elles se répondent : Gaspard a vendu un parapluie à Ondine (elle dit que c'est elle qui
 // l'a servi) et un autre à Maître Taupin, pour son tunnel ; Hector a servi deux étés de
@@ -74,8 +77,8 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         image: "place:kiosque",
         legende: { fr: "Le Kiosque. Ouvert tous les matins.", en: "The Kiosk. Open every morning." },
         dit: {
-          fr: ["Trois fois plumé ! Ça vaut bien une histoire, mon grand. Pour les histoires, je tutoie. Même les Immensités."],
-          en: ["Fleeced three times! That's worth a story, sunshine. In a story, I skip the titles. Even ‘Your Immensity’."],
+          fr: ["Plumé en trois manches ! Ça vaut une histoire, mon grand. Pour les histoires, je tutoie. Même les Immensités."],
+          en: ["Fleeced in three rounds! That's worth a story, sunshine. In a story, I skip the titles. Even ‘Your Immensity’."],
         },
         bouton: { fr: "Écouter Gaspard", en: "Listen to Gaspard" },
       },
@@ -185,11 +188,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Grand Café. À l'heure creuse.", en: "The Grand Café. In the quiet hour." },
         dit: {
           fr: [
-            "Trois fois battue. C'est le vent du large qui tenait mes cartes. Je ne vois que lui.",
+            "Trois manches, trois fois battue. C'est le vent du large qui tenait mes cartes. Je ne vois que lui.",
             "Asseyez-vous. Je raconte une fois. Je ne répéterai pas : j'ai des verres à essuyer.",
           ],
           en: [
-            "Beaten three times. The sea breeze was holding my cards. I can think of no one else.",
+            "Three rounds, beaten three times. The sea breeze was holding my cards. I can think of no one else.",
             "Sit down. I'll tell it once. I shan't repeat it: I have glasses to dry.",
           ],
         },
@@ -299,11 +302,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Casino. Au bout de la jetée.", en: "The Casino. At the end of the pier." },
         dit: {
           fr: [
-            "Trois défaites. La maison les a comptées. La maison vous doit une explication.",
+            "Trois manches. La maison a doublé la mise deux fois et perdu trois fois. La maison vous doit une explication.",
             "La maison n'en donne jamais. La maison fait une exception.",
           ],
           en: [
-            "Three defeats. The house has counted them. The house owes you an explanation.",
+            "Three rounds. The house doubled the stake twice and lost three times. The house owes you an explanation.",
             "The house never gives one. The house is making an exception.",
           ],
         },
@@ -412,11 +415,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Salon Privé. Très privé.", en: "The Private Salon. Very private." },
         dit: {
           fr: [
-            "Hmpf. Trois fois. On ne bat pas le Baron trois fois sans carton d'invitation. Asseyez-vous quand même.",
+            "Hmpf. Trois manches. On ne bat pas le Baron trois fois sans carton d'invitation. Asseyez-vous quand même.",
             "Je vais vous dire une chose. Une seule. Et je nierai.",
           ],
           en: [
-            "Hmph. Three times. One does not beat the Baron three times without an invitation card. Sit down anyway.",
+            "Hmph. Three rounds. One does not beat the Baron three times without an invitation card. Sit down anyway.",
             "I shall tell you one thing. Just one. And I shall deny it.",
           ],
         },
@@ -526,11 +529,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Cercle. Moustache exigée.", en: "The Club. Moustache required." },
         dit: {
           fr: [
-            "Trois défaites. La moustache l'avait annoncé : elle a frémi dès votre premier jeton. Prenez un fauteuil.",
+            "Trois manches perdues. La moustache l'avait dit : elle a frémi dès votre premier jeton. Prenez un fauteuil.",
             "Un majordome ne parle jamais de lui. J'ai donc parié que je le ferais. Je déteste perdre.",
           ],
           en: [
-            "Three defeats. The moustache saw it coming: it quivered at your very first chip. Do take an armchair.",
+            "Three rounds lost. The moustache saw it coming: it quivered at your very first chip. Do take an armchair.",
             "A butler never speaks of himself. So I bet that I would. I do hate losing.",
           ],
         },
@@ -640,11 +643,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Démesure. À quai.", en: "The Excess. In port." },
         dit: {
           fr: [
-            "Trois fois coulé ! Par vous ! Je vous nomme invité d'honneur. C'est moins salissant que mousse.",
+            "Coulé en trois manches ! Par vous ! Je vous nomme invité d'honneur. C'est moins salissant que mousse.",
             "Montez sur la passerelle. Je vais vous confier un secret d'état-major.",
           ],
           en: [
-            "Sunk three times! By you! I hereby appoint you guest of honour. It's less messy than cabin boy.",
+            "Sunk in three rounds! By you! I hereby appoint you guest of honour. It's less messy than cabin boy.",
             "Come up on the bridge. I shall entrust you with a top-brass secret.",
           ],
         },
@@ -753,11 +756,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "La Banque. Avant l'aube.", en: "The Bank. Before dawn." },
         dit: {
           fr: [
-            "Trois défaites. Je les ai inscrites, tamponnées, classées. En trois exemplaires. Un par défaite.",
+            "Trois manches, trois défaites. Inscrites, tamponnées, classées. En trois exemplaires : un par manche.",
             "Le règlement prévoit, dans ce cas, une confidence. Article unique. Je l'ai rédigé ce matin.",
           ],
           en: [
-            "Three defeats. I have entered, stamped and filed them. In triplicate. One copy per defeat.",
+            "Three rounds, three defeats. Entered, stamped and filed. In triplicate: one copy per round.",
             "In such cases the rules provide for a confidence. One single article. I drafted it this morning.",
           ],
         },
@@ -869,11 +872,11 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Croissant de Lune. Vue sur tout.", en: "The Crescent Moon. A view of everything." },
         dit: {
           fr: [
-            "Trois fois. D'ici, je vous regardais venir. Les trois fois. C'était joli. Approchez du bord.",
+            "Trois manches. D'ici, je vous regardais venir. Les trois fois. C'était joli. Approchez du bord.",
             "Je vais vous dire comment on arrive si haut. Par distraction, bien sûr.",
           ],
           en: [
-            "Three times. From here I watched you coming. All three times. It was pretty. Come closer to the edge.",
+            "Three rounds. From here I watched you coming. All three times. It was pretty. Come closer to the edge.",
             "I shall tell you how one ends up so high. By not paying attention, of course.",
           ],
         },

@@ -291,7 +291,7 @@ const KIOSQUE_AIRS: Record<string, readonly string[]> = {
 const KIOSQUE_FORME = ["A", "A2", "B", "B2", "C", "A2", "D", "D2", "A", "B2", "C", "A2"];
 
 const KIOSQUE: Theme = {
-  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.16, echo: 1 / 3, retour: 0.2,
+  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.16, echo: 2 / 3, retour: 0.15,
   pistes: {
     mandoline: { timbre: PINCE, vol: 1, filtre: ["lowpass", 3600], pan: 0.15, salle: 0.45 },
     sifflet: { timbre: FLUTE, vol: 0.5, pan: -0.2, salle: 0.6 },
@@ -609,7 +609,7 @@ const CERCLE_FORME: readonly (readonly [string, number])[] = [
 ];
 
 const CERCLE: Theme = {
-  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.36, salle: 0.3, echo: 0.25, retour: 0.45,
+  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.3, salle: 0.28, echo: 1, retour: 0.35,
   pistes: {
     clavecin: { timbre: CLAVECIN, vol: 1, filtre: ["lowpass", 4200], pan: 0.15, salle: 0.5 },
     viole: { timbre: VIOLE, vol: 0.42, filtre: ["lowpass", 1100], pan: -0.1, salle: 0.3 },
@@ -830,7 +830,7 @@ const LUNE_ACCORDS: readonly (readonly [nappe: readonly string[], couleurs: read
 const LUNE_LEVER = ["f4", "c5", "g5", "d6"];
 
 const LUNE: Theme = {
-  tempo: 54, pas: 8, division: 2, souple: 0.02, gamme: BLANCHES, phrase: 4, volume: 1, salle: 0.4, echo: 0.75, retour: 0.5,
+  tempo: 54, pas: 8, division: 2, souple: 0.02, gamme: BLANCHES, phrase: 4, volume: 1.06, salle: 0.4, echo: 0.75, retour: 0.5,
   pistes: {
     nappe: { timbre: NAPPE, vol: 0.185, filtre: ["lowpass", 1500], salle: 0.5 },
     verre: { timbre: VERRE, vol: 0.89, pan: 0.2, salle: 0.9 },

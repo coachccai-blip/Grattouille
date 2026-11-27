@@ -23,7 +23,7 @@
 // Chaque requête sur une table commence par ces rattrapages : la suivante répare.
 
 import {
-  BLIND_SHARE, advance, cancel, challengeOf, deposit, seatIndexOf, seatIndexOfSession, settled,
+  BLIND_SHARE, CHALLENGE_BONUS_BLINDS, advance, cancel, deposit, placeBlind, seatIndexOf, seatIndexOfSession, settled,
   PokerError, type EndedSeat, type LeaveReason, type PokerTableResponse, type Sitter, type TableState,
 } from "../shared/poker";
 import { uniformInt } from "../shared/economy";
@@ -31,9 +31,7 @@ import type { BoardEntry, PokerStats } from "../shared/types";
 import { planPublish, publish } from "./board";
 import { ApiError, fail } from "./errors";
 import type { Deps } from "./http";
-import {
-  applyAck, bumpPokerStat, countOf, placeOfHost, recordHostWin, safeAdd, type PlayerRecord, type PokerSession,
-} from "./player";
+import { applyAck, bumpPokerStat, countOf, recordHostWin, safeAdd, type PlayerRecord, type PokerSession } from "./player";
 import { commit, unchanged, type Mutation } from "./storage";
 
 const SID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -206,23 +204,22 @@ function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<
     // Une victoire de plus contre l'hôte du lieu, à chaque défi gagné : trois ouvrent son
     // histoire. À compter avant d'inscrire le lieu parmi les défis relevés (`recordHostWin`).
     recordHostWin(p, table.place);
-    // La cagnotte de l'hôte : une seule fois par lieu.
     const wins = p.pokerWins ?? [];
     if (!wins.includes(table.place)) {
-      bonus = challengeOf(table.place).bonus;
-      p.balance = safeAdd(p.balance, bonus);
+      // Un défi ouvert avant les trois manches (sans manche dans son état) se règle selon ses
+      // règles d'origine : la cagnotte de l'hôte, 100 blindes du lieu, une seule fois. Depuis,
+      // il n'y a plus de cagnotte à part : le gain, c'est la mise que l'hôte a posée.
+      if (table.level === undefined) {
+        bonus = placeBlind(table.place) * CHALLENGE_BONUS_BLINDS;
+        p.balance = safeAdd(p.balance, bonus);
+      }
+      // L'hôte est battu au moins une fois : le défi compte parmi les défis relevés.
       p.pokerWins = [...wins, table.place];
     }
   }
-  if (ended.reason === "maitres-gagne" && table.kind === "maitres") {
-    // La Table des Maîtres remportée : une victoire de plus, une seule par table gagnée…
-    p.masters = countOf(p.masters) + 1;
-    // … et une victoire contre chacun des quatre hôtes qui y étaient assis, éliminés compris.
-    for (const host of new Set(ended.beaten ?? [])) {
-      const place = placeOfHost(host);
-      if (place) recordHostWin(p, place);
-    }
-  }
+  // La Table des Maîtres remportée : une victoire de plus, une seule par table gagnée. Elle ne
+  // compte pas comme une victoire contre ses hôtes : seules les manches d'un défi ouvrent une histoire.
+  if (ended.reason === "maitres-gagne" && table.kind === "maitres") p.masters = countOf(p.masters) + 1;
   // Les compteurs de la séance rejoignent ceux du compte. Une entrée d'avant ces compteurs
   // n'en porte pas : rien n'est alors ajouté au compte, pas même un champ vide.
   if (ended.stats) for (const key of STAT_KEYS) bumpPokerStat(p, key, countOf(ended.stats[key]));

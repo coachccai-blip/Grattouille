@@ -7,8 +7,8 @@ import { PLACES } from "../shared/places";
 import {
   ACCUSE_MS, BLIND_LADDER, BOT_MAX_MS, BOT_MIN_MS, BOT_PERSONAS, CATEGORIES, CHALLENGE_LEVEL_HANDS, CHEAT_MS, DECK,
   IDLE_TABLE_MS, MAX_BLIND, MAX_TABLE_CHIPS, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS,
-  BOT_MAX_POTS, PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
-  cardRank, cardSuit, challengeBlind, challengeOf, challengeRise, chipsOnTable, compareHands, createTable, deposit,
+  BOT_MAX_POTS, CHALLENGE_BLINDS, CHALLENGE_ROUNDS, PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
+  cardRank, cardSuit, challengeBlind, challengeOf, challengeRise, challengeRound, chipsOnTable, compareHands, createTable, deposit,
   difficultyOf, evaluate, handStrength, houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt,
   normalizeTableCode, pickPersonas, placeBlind, playerInHand, possibleSwaps, rebuyRange, seatIndexOf, settled,
   shuffledDeck, sidePots, sit, splitPot, viewFor, viewOfSeat,
@@ -2652,9 +2652,10 @@ describe("tables de la maison et défis", () => {
       expect(houseOf(place.id)).toEqual({
         place: place.id, host: place.host, blind, minBuyIn: 20 * blind, maxBuyIn: 100 * blind, difficulty: difficultyOf(place.id),
       });
-      // Un défi : 30 blindes chacun, et 100 blindes de cagnotte.
+      // Un défi, première manche : chacun pose 100 blindes du lieu, soit 25 blindes de départ ; le gagnant emporte les deux mises.
       expect(challengeOf(place.id)).toEqual({
-        place: place.id, host: place.host, blind, buyIn: 30 * blind, bonus: 100 * blind, difficulty: difficultyOf(place.id),
+        place: place.id, host: place.host, level: 1, blind: 4 * blind, buyIn: 100 * blind, bonus: 100 * blind, prize: 200 * blind,
+        difficulty: difficultyOf(place.id),
       });
       expect(BOT_PERSONAS).toContain(place.host);
     }
@@ -2696,13 +2697,55 @@ describe("tables de la maison et défis", () => {
     for (const bad of ["ABCD", "ABCDEF", "ABCD0", "ABCDI", "ABCDO", "", 12345, null, undefined]) expect(normalizeTableCode(bad)).toBeNull();
   });
 
-  /** Un défi au Kiosque : 30 € chacun, blinde de 1 €. Le joueur est au siège 0, l'hôte au siège 1. */
+  /**
+   * Un défi au Kiosque, aux sommes d'avant les trois manches : 30 € chacun, blinde de 1 €. Le
+   * joueur est au siège 0, l'hôte au siège 1. Les règles du duel ne dépendent pas des sommes.
+   */
   function challenge(rng: Random32): TableState {
-    const def = challengeOf("kiosque");
-    let t = createTable({ code: "ABCDE", kind: "defi", place: "kiosque", blind: def.blind, maxBuyIn: def.buyIn, seats: 2, bots: [def.host], difficulty: def.difficulty }, T0);
+    let t = createTable({ code: "ABCDE", kind: "defi", place: "kiosque", blind: 1, maxBuyIn: 30, seats: 2, bots: ["gaspard"], difficulty: "facile" }, T0);
     t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Ada", species: "chat", look: null }, T0, rng);
-    return deposit(t, "s_0", 1, def.buyIn, T0, rng);
+    return deposit(t, "s_0", 1, 30, T0, rng);
   }
+
+  it("trois manches par hôte : la mise double de l'une à l'autre, la profondeur ne change pas, l'hôte se défend mieux", () => {
+    expect([CHALLENGE_BLINDS, CHALLENGE_ROUNDS]).toEqual([25, 3]);
+    // La manche à jouer se déduit des victoires contre l'hôte ; au-delà de trois, c'est la revanche, aux conditions de la troisième.
+    expect([0, 1, 2, 3, 4, 50, -1, Number.NaN].map(challengeRound)).toEqual([1, 2, 3, 3, 3, 3, 1, 1]);
+    // Au Kiosque : 100 €, 200 €, 400 € ; on repart avec 200 €, 400 €, 800 €.
+    expect([1, 2, 3].map((level) => challengeOf("kiosque", level))).toEqual([
+      { place: "kiosque", host: "gaspard", level: 1, blind: 4, buyIn: 100, bonus: 100, prize: 200, difficulty: "facile" },
+      { place: "kiosque", host: "gaspard", level: 2, blind: 8, buyIn: 200, bonus: 200, prize: 400, difficulty: "normal" },
+      { place: "kiosque", host: "gaspard", level: 3, blind: 16, buyIn: 400, bonus: 400, prize: 800, difficulty: "difficile" },
+    ]);
+    expect([challengeOf("kiosque", 0), challengeOf("kiosque", 9)]).toEqual([challengeOf("kiosque", 1), challengeOf("kiosque", 3)]);
+    // La mise de la première manche, lieu par lieu.
+    expect(PLACES.map((p) => challengeOf(p.id).buyIn)).toEqual([
+      100, 1_000, 10_000, 1_000_000, 100_000_000, 10_000_000_000, 500_000_000_000, 25_000_000_000_000,
+    ]);
+    for (const place of PLACES) {
+      const rounds = [1, 2, 3].map((level) => challengeOf(place.id, level));
+      // Elle double, puis double encore ; l'hôte pose la même ; le gagnant emporte les deux.
+      expect(rounds.map((r) => r.buyIn)).toEqual([rounds[0]!.buyIn, 2 * rounds[0]!.buyIn, 4 * rounds[0]!.buyIn]);
+      for (const r of rounds) {
+        expect([r.bonus, r.prize]).toEqual([r.buyIn, 2 * r.buyIn]);
+        // Toujours 25 blindes de départ, en euros entiers : le duel a la même longueur à toutes les manches.
+        expect([place.id, r.buyIn / r.blind, Number.isSafeInteger(r.blind)]).toEqual([place.id, 25, true]);
+      }
+      // Un cran de plus à chaque manche, sans dépasser « difficile ».
+      const start = ["facile", "normal", "difficile"].indexOf(difficultyOf(place.id));
+      expect(rounds.map((r) => r.difficulty)).toEqual([0, 1, 2].map((k) => ["facile", "normal", "difficile"][Math.min(2, start + k)]));
+    }
+    // La table porte sa manche, et la vue la rend ; ailleurs, le champ n'existe pas.
+    const rng = rngOf(85);
+    const def = challengeOf("cafe", 2);
+    let t = createTable({ code: "ABCDE", kind: "defi", place: "cafe", level: def.level, blind: def.blind, maxBuyIn: def.buyIn, seats: 2, bots: [def.host], difficulty: def.difficulty }, T0);
+    t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Ada", species: "chat", look: null }, T0, rng);
+    t = deposit(t, "s_0", 1, def.buyIn, T0, rng);
+    expect(t).toMatchObject({ kind: "defi", level: 2, blind: 80, minBuyIn: 2_000, maxBuyIn: 2_000, difficulty: "normal", phase: "triche" });
+    expect(viewFor(t, "p_a", T0)).toMatchObject({ level: 2, blind: 80, rise: { hand: 4, blind: 160 } });
+    expect(stacksOf(t)).toEqual([1_920, 1_920]);
+    expect(["level" in challenge(rng), "level" in viewFor(challenge(rng), "p_a", T0), "level" in viewFor(dealt({ stacks: [500, 500] }), "p_a", T0)]).toEqual([false, false, false]);
+  });
 
   it("un défi : un tête-à-tête, 30 blindes chacun, qui part dès que la cave est posée", () => {
     const rng = rngOf(72);
@@ -2735,8 +2778,8 @@ describe("tables de la maison et défis", () => {
       { hand: 12, blind: 32 }, { hand: 14, blind: 64 }, { hand: 14, blind: 64 },
     ]);
     for (const hand of [14, 15, 500]) expect(challengeRise(1, hand)).toBeNull();
-    // La cave et la cagnotte se comptent toujours en blindes de base.
-    expect(challengeOf("kiosque")).toMatchObject({ blind: 1, buyIn: 30, bonus: 100 });
+    // La mise se compte toujours en blindes de départ : vingt-cinq, quelle que soit la manche.
+    expect(challengeOf("kiosque")).toMatchObject({ blind: 4, buyIn: 100, bonus: 100, prize: 200 });
     // Ailleurs que dans un défi, la blinde d'une table ne bouge jamais.
     const table = dealt({ stacks: [500, 500], blind: 5 });
     expect([1, 5, 13, 40].map((hand) => blindAt(table, hand))).toEqual([5, 5, 5, 5]);

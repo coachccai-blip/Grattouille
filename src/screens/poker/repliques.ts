@@ -15,6 +15,7 @@
 
 import { hostName, type Line, type Speaker } from "../../app/dialogues";
 import { lang, type Lang } from "../../i18n";
+import type { DuelStage } from "./calcul";
 
 type Deux<T> = Record<Lang, T>;
 
@@ -22,11 +23,23 @@ type Deux<T> = Record<Lang, T>;
 export type TableMoment = "accuse" | "demasque" | "innocent" | "gagne";
 
 /**
- * Les moments d'un hôte : son défi (avant la première victoire du joueur), la revanche
- * (sa cagnotte est déjà partie), sa ruine (il remet sa cagnotte, `{cagnotte}`), une ruine
- * de plus (il n'a plus rien à remettre), et sa victoire.
+ * Les moments d'un hôte pendant un défi : l'ouverture du duel, quand il prend l'avantage,
+ * quand il le perd, sa victoire, et sa défaite.
  */
-export type HostMoment = "defi" | "revanche" | "ruine" | "ruine-encore" | "vainqueur";
+export type DuelMoment = "ouverture" | "avantage" | "recul" | "victoire" | "defaite";
+
+/** Une réplique par manche, puis celle de la revanche. */
+type ParEtape = readonly [string, string, string, string];
+/** Une réplique par manche : en revanche, on pioche parmi les trois. */
+type ParManche = readonly [string, string, string];
+
+interface DuelVoice {
+  ouverture: ParEtape;
+  avantage: ParManche;
+  recul: ParManche;
+  victoire: ParEtape;
+  defaite: ParEtape;
+}
 
 export type Bot =
   | "gaspard" | "ondine" | "hector" | "baron" | "auguste" | "balthazar" | "taupin" | "selene"
@@ -35,7 +48,6 @@ export type Bot =
 export type Host = Exclude<Bot, "sidonie" | "enzo" | "colette" | "archibald">;
 
 type Voice = Record<TableMoment, readonly string[]>;
-type HostVoice = Record<HostMoment, string>;
 
 // ---------------------------------------------------------------------------
 // À table : accusé, démasqué, innocenté, ou devant un beau pot
@@ -212,136 +224,543 @@ export const TABLE_TALK: Record<Bot, Deux<Voice>> = {
 };
 
 // ---------------------------------------------------------------------------
-// Les défis : chaque hôte provoque, puis remet sa cagnotte, ou garde sa table
+// Les défis, en trois manches (LOT4.md, section 15). La mise double d'une manche à l'autre,
+// et l'hôte change de ton : il toise à la première, il se pique à la deuxième, il joue son
+// va-tout à la troisième. Battu trois fois, il rend les armes et promet de raconter son
+// histoire (elle s'ouvre dans les Souvenirs) ; en revanche, il est beau joueur.
+//
+// Cinq moments : l'ouverture du duel (dite dans le hall, puis à la table), le moment où il
+// prend l'avantage, celui où il le perd (deux répliques de table : 70 caractères au plus),
+// sa victoire et sa défaite (deux bulles : 110 au plus). Chacune a sa version par manche,
+// puis une pour la revanche ; l'avantage et le recul n'en ont que trois, la revanche y pioche.
 
-export const HOST_TALK: Record<Host, Deux<HostVoice>> = {
+export const DUEL_TALK: Record<Host, Deux<DuelVoice>> = {
   gaspard: {
     fr: {
-      defi: "Un tête-à-tête ? Le vieux renard a plus d'un tour dans sa manche. Façon de parler.",
-      revanche: "Encore ! Ma cagnotte est partie, mais ma fierté est restée. On rejoue ?",
-      ruine: "Sapristi ! Plumé à mon propre comptoir. La cagnotte est là : {cagnotte}. Bien joué !",
-      "ruine-encore": "Nom d'une sardine ! Encore plumé. Et plus de cagnotte à donner, cette fois.",
-      vainqueur: "Ha ! Le renard garde son comptoir. La revanche, c'est quand on veut.",
+      ouverture: [
+        "Un tête-à-tête ? Le vieux renard a plus d'un tour dans sa manche. Façon de parler.",
+        "Te revoilà ! Cette fois je pose le double, et je range mon sourire de vendeur.",
+        "Dernière manche, mon grand. Je mets tout le tiroir-caisse. Sapristi, j'ai le trac.",
+        "Pour le plaisir, alors ? Installe-toi. Entre vieux adversaires, on se doit bien ça.",
+      ],
+      avantage: [
+        "Le renard passe devant. Façon de parler.",
+        "Ah ! Je reprends du poil de la bête. Du poil de renard.",
+        "Je mène ! Nom d'une sardine, pourvu que ça dure.",
+      ],
+      recul: [
+        "Tiens, tu passes devant. C'est la politesse de la maison.",
+        "Sapristi. Tu me fais courir, à mon âge.",
+        "Aïe. Le tiroir-caisse fond à vue d'œil.",
+      ],
+      victoire: [
+        "Ha ! Le renard garde son comptoir. La revanche, c'est quand on veut.",
+        "Le double reste au Kiosque ! Reviens, mon grand : je te garde ta place au chaud.",
+        "Ouf ! J'ai eu chaud aux moustaches. La dernière manche t'attend, elle ne bouge pas.",
+        "Celle-là est pour moi. Entre nous, ça fait du bien de temps en temps.",
+      ],
+      defaite: [
+        "Sapristi ! Plumé à mon propre comptoir. Bien joué. La prochaine, je pose le double.",
+        "Nom d'une sardine, deux fois ! Tu as l'œil, mon grand. Il me reste une manche pour me refaire.",
+        "Trois fois ! Je rends les armes, mon grand. Je te dois une histoire : la mienne.",
+        "Encore plumé ! À ce train-là, c'est toi qui tiendras le Kiosque. Façon de parler.",
+      ],
     },
     en: {
-      defi: "A head-to-head? The old fox has a trick or two up his sleeve. So to speak.",
-      revanche: "Again! My kitty is gone, but my pride stayed behind. Another round?",
-      ruine: "Blimey! Fleeced at my own counter. Here's the kitty: {cagnotte}. Well played!",
-      "ruine-encore": "Suffering sardines! Fleeced again. And no kitty left to hand over this time.",
-      vainqueur: "Ha! The fox keeps his counter. A rematch, any time.",
+      ouverture: [
+        "A head-to-head? The old fox has a trick or two up his sleeve. So to speak.",
+        "Back again! This time I'm putting up double, and putting away my salesman's smile.",
+        "Last round, my friend. The whole till goes on the table. Blimey, I've got stage fright.",
+        "Just for fun, then? Pull up a chair. Old opponents owe each other that much.",
+      ],
+      avantage: [
+        "The fox takes the lead. So to speak.",
+        "Ha! The old fox gets his second wind.",
+        "I'm ahead! Suffering sardines, let it last.",
+      ],
+      recul: [
+        "Well, you're in front. Call it the courtesy of the house.",
+        "Blimey. Making me run, at my age.",
+        "Ouch. The till is melting before my eyes.",
+      ],
+      victoire: [
+        "Ha! The fox keeps his counter. A rematch, any time.",
+        "The double stays at the Kiosk! Come back, my friend: I'll keep your seat warm.",
+        "Phew! That singed my whiskers. The last round's still here, it's going nowhere.",
+        "That one's mine. Between us, it does a fox good now and then.",
+      ],
+      defaite: [
+        "Blimey! Fleeced at my own counter. Well played. Next time, I put up double.",
+        "Suffering sardines, twice! You've a sharp eye. I've one round left to win it back.",
+        "Three times! I lay down my cards, my friend. I owe you a story: my own.",
+        "Fleeced again! At this rate you'll be the one running the Kiosk. So to speak.",
+      ],
     },
   },
   ondine: {
     fr: {
-      defi: "Un duel ? Je sers la citronnade d'une patte, et je vous plume de l'autre.",
-      revanche: "Vous revenez. La cagnotte, elle, ne reviendra pas. Citronnade ?",
-      ruine: "Ruinée avant le goûter. Voici la cagnotte : {cagnotte}. La citronnade reste payante.",
-      "ruine-encore": "Encore ruinée. Je note : ne plus jouer avec les habitués.",
-      vainqueur: "La maison gagne. Je vous sers une citronnade : elle console de tout.",
+      ouverture: [
+        "Un duel ? Je sers la citronnade d'une patte, et je vous plume de l'autre.",
+        "Vous revenez. J'ai doublé la mise, et posé le plateau. C'est dire si c'est sérieux.",
+        "Dernière manche. Le Grand Café retient son souffle. Moi aussi, mais ça ne se voit pas.",
+        "Une revanche. Je vous sers, je vous plume, ou l'inverse. On verra bien.",
+      ],
+      avantage: [
+        "Je mène. Ne le dites pas trop fort, ça ferait jaser.",
+        "L'avantage au service. C'est le métier.",
+        "Je passe devant. Je reste calme. C'est ma spécialité.",
+      ],
+      recul: [
+        "Vous menez. Je note. Je note tout.",
+        "Tiens. On me dépasse. C'est nouveau, et c'est désagréable.",
+        "Le plateau tangue. Ça n'arrive jamais.",
+      ],
+      victoire: [
+        "La maison gagne. Je vous sers une citronnade : elle console de tout.",
+        "Le double reste en salle. Revenez : la manche vous attend, la citronnade aussi.",
+        "J'ai tenu. De justesse. Ne le répétez pas en terrasse. Vous retentez quand vous voulez.",
+        "Cette fois, c'est pour moi. Je l'ajoute à l'ardoise des bons souvenirs.",
+      ],
+      defaite: [
+        "Battue avant le goûter. C'est noté. La prochaine fois, je double la mise. Et la vigilance.",
+        "Deux fois. Je commence à vous trouver des qualités. C'est agaçant.",
+        "Trois fois. Je m'incline. Et puisque vous y tenez, je vous raconterai. Sans enthousiasme. Presque.",
+        "Encore vous. Encore battue. À force, je vais finir par sourire.",
+      ],
     },
     en: {
-      defi: "A duel? I serve lemonade with one paw, and fleece you with the other.",
-      revanche: "You're back. The kitty won't be. Lemonade?",
-      ruine: "Ruined before teatime. Here is the kitty: {cagnotte}. The lemonade is still extra.",
-      "ruine-encore": "Ruined again. Note to self: no more cards with the regulars.",
-      vainqueur: "The house wins. Let me pour you a lemonade: it soothes everything.",
+      ouverture: [
+        "A duel? I serve lemonade with one paw, and fleece you with the other.",
+        "You're back. I've doubled the stake, and put down the tray. That's how serious this is.",
+        "Last round. The Grand Café is holding its breath. So am I, though it doesn't show.",
+        "A rematch. I serve you, I fleece you, or the other way round. We shall see.",
+      ],
+      avantage: [
+        "I'm ahead. Not too loud, people will talk.",
+        "Advantage, service. It's the job.",
+        "I take the lead. I stay calm. It's my speciality.",
+      ],
+      recul: [
+        "You're ahead. Noted. I note everything.",
+        "Well. Overtaken. That's new, and I don't care for it.",
+        "The tray is wobbling. That never happens.",
+      ],
+      victoire: [
+        "The house wins. Let me pour you a lemonade: it soothes everything.",
+        "The double stays in the room. Come back: the round will wait, and so will the lemonade.",
+        "I held on. Just. Don't repeat that on the terrace. Try again whenever you like.",
+        "This one is mine. I'll add it to the slate of fond memories.",
+      ],
+      defaite: [
+        "Beaten before teatime. Noted. Next time, I double the stake. And the vigilance.",
+        "Twice. I'm starting to see qualities in you. It's irritating.",
+        "Three times. I yield. And since you insist, I shall tell you my story. Without enthusiasm. Almost.",
+        "You again. Beaten again. Keep this up and I may end up smiling.",
+      ],
     },
   },
   hector: {
     fr: {
-      defi: "Tête-à-tête. La maison ne perd jamais. Elle prête, parfois.",
-      revanche: "Vous revoilà. La maison a noté votre jeu. Tout votre jeu.",
-      ruine: "La maison perd. C'est noté. Sa cagnotte : {cagnotte}. Ne l'ébruitez pas.",
-      "ruine-encore": "La maison perd encore. Elle ouvre une enquête. Sur elle-même.",
-      vainqueur: "La maison gagne. Elle vous remercie. Sobrement.",
+      ouverture: [
+        "Tête-à-tête. La maison ne perd jamais. Elle prête, parfois.",
+        "Deuxième manche. La maison double la mise. Elle a aussi doublé d'attention.",
+        "Dernière manche. La maison joue son va-tout. Il n'était jamais sorti du coffre.",
+        "Une revanche. La maison vous reçoit comme elle reçoit ses habitués. C'est sa plus haute distinction.",
+      ],
+      avantage: [
+        "La maison mène. C'est l'ordre des choses.",
+        "~ Hector aligne ses jetons. Au millimètre.",
+        "La maison respire. Brièvement.",
+      ],
+      recul: [
+        "La maison est menée. Elle le note au crayon.",
+        "~ Hector rajuste sa visière. Deux fois.",
+        "La maison vacille. Elle n'a pas de procédure pour ça.",
+      ],
+      victoire: [
+        "La maison gagne. Elle vous remercie. Sobrement.",
+        "La maison garde le double. Elle vous attend pour la même manche. Sans rancune, par principe.",
+        "La maison a tenu. Elle ne dira pas de combien. La dernière manche reste ouverte.",
+        "La maison gagne celle-ci. Elle s'autorise un sourire. Intérieur.",
+      ],
+      defaite: [
+        "La maison perd. C'est noté. À la prochaine manche, elle double la mise.",
+        "La maison perd encore. Elle ouvre une enquête. Sur elle-même.",
+        "Trois manches. La maison s'incline. Hector, lui, vous doit une histoire. Hors registre.",
+        "La maison perd. Elle commence à en avoir l'habitude. Elle déteste les habitudes.",
+      ],
     },
     en: {
-      defi: "Head-to-head. The house never loses. It lends, occasionally.",
-      revanche: "You again. The house has noted your game. All of it.",
-      ruine: "The house loses. Duly noted. Its kitty: {cagnotte}. Keep it quiet.",
-      "ruine-encore": "The house loses again. It is opening an inquiry. Into itself.",
-      vainqueur: "The house wins. It thanks you. Soberly.",
+      ouverture: [
+        "Head-to-head. The house never loses. It lends, occasionally.",
+        "Second round. The house doubles the stake. It has doubled its attention, too.",
+        "Last round. The house goes all or nothing. That had never left the vault before.",
+        "A rematch. The house receives you as it receives its regulars. It has no higher honour.",
+      ],
+      avantage: [
+        "The house leads. As is only natural.",
+        "~ Hector lines up his chips. To the millimetre.",
+        "The house breathes. Briefly.",
+      ],
+      recul: [
+        "The house is behind. It notes that in pencil.",
+        "~ Hector adjusts his visor. Twice.",
+        "The house wobbles. It has no procedure for that.",
+      ],
+      victoire: [
+        "The house wins. It thanks you. Soberly.",
+        "The house keeps the double. It awaits you for the same round. No hard feelings, on principle.",
+        "The house held. It will not say by how much. The last round remains open.",
+        "The house wins this one. It permits itself a smile. An inward one.",
+      ],
+      defaite: [
+        "The house loses. Duly noted. Next round, it doubles the stake.",
+        "The house loses again. It is opening an inquiry. Into itself.",
+        "Three rounds. The house yields. Hector himself owes you a story. Off the books.",
+        "The house loses. It is getting used to it. It loathes habits.",
+      ],
     },
   },
   baron: {
     fr: {
-      defi: "Hmpf. Un duel. Je ne perds jamais. Et quand je perds, je boude.",
-      revanche: "Hmpf. Encore vous. Plus de cagnotte. Il me reste ma mauvaise humeur.",
-      ruine: "Hmpf. Ruiné. Prenez la cagnotte : {cagnotte}. Je ne pleure pas, c'est le cigare.",
-      "ruine-encore": "Hmpf. Encore ruiné. Sortez. Non, restez. Hmpf.",
-      vainqueur: "Hmpf. Gagné. Ne faites pas cette tête. Je la fais déjà.",
+      ouverture: [
+        "Hmpf. Un duel. Je ne perds jamais. Et quand je perds, je boude.",
+        "Hmpf. Encore vous. Je double la mise. Et je boude d'avance, pour gagner du temps.",
+        "Hmpf. Dernière manche. Je joue tout. Même le cigare. Hmpf. Surtout pas le cigare.",
+        "Hmpf. Une revanche. Asseyez-vous. Vous êtes à peu près tout ce que je supporte.",
+      ],
+      avantage: ["Hmpf. Je mène. Normal.", "Hmpf. Devant. Je ne souris pas, c'est un tic.", "Hmpf. Je mène. Ne touchez à rien."],
+      recul: [
+        "Hmpf. Derrière. Provisoirement.",
+        "Hmpf. Vous menez. Je boude. Je joue quand même.",
+        "Hmpf. Ça sent le roussi. C'est le cigare. Hmpf.",
+      ],
+      victoire: [
+        "Hmpf. Gagné. Ne faites pas cette tête. Je la fais déjà.",
+        "Hmpf. Le double reste ici. Revenez. Hmpf. Je n'ai pas dit s'il vous plaît.",
+        "Hmpf. J'ai eu peur. Ne le répétez pas. La dernière manche vous attend. Moi aussi.",
+        "Hmpf. Gagné. Pour une fois. Laissez-moi savourer. En silence.",
+      ],
+      defaite: [
+        "Hmpf. Battu. Bien joué. Hmpf. La prochaine, je double. Et je boude déjà.",
+        "Hmpf. Deux fois. Je ne pleure pas, c'est le cigare. Il me reste une manche.",
+        "Hmpf. Trois fois. Je me rends. Je vous raconterai. Tout. Hmpf. Ne le dites à personne.",
+        "Hmpf. Encore battu. Sortez. Non, restez. Hmpf.",
+      ],
     },
     en: {
-      defi: "Hmph. A duel. I never lose. And when I lose, I sulk.",
-      revanche: "Hmph. You again. No kitty left. I still have my bad temper.",
-      ruine: "Hmph. Ruined. Take the kitty: {cagnotte}. I'm not crying, it's the cigar.",
-      "ruine-encore": "Hmph. Ruined again. Get out. No, stay. Hmph.",
-      vainqueur: "Hmph. I win. Don't pull that face. I'm already pulling it.",
+      ouverture: [
+        "Hmph. A duel. I never lose. And when I lose, I sulk.",
+        "Hmph. You again. I double the stake. And I'm sulking in advance, to save time.",
+        "Hmph. Last round. I stake the lot. Even the cigar. Hmph. Not the cigar.",
+        "Hmph. A rematch. Sit down. You're very nearly all I can stand.",
+      ],
+      avantage: ["Hmph. I lead. Naturally.", "Hmph. In front. I'm not smiling, it's a twitch.", "Hmph. I'm ahead. Touch nothing."],
+      recul: [
+        "Hmph. Behind. For now.",
+        "Hmph. You lead. I'm sulking. I'm still playing.",
+        "Hmph. Something's burning. It's the cigar. Hmph.",
+      ],
+      victoire: [
+        "Hmph. I win. Don't pull that face. I'm already pulling it.",
+        "Hmph. The double stays here. Come back. Hmph. I didn't say please.",
+        "Hmph. I was worried. Don't repeat that. The last round awaits you. So do I.",
+        "Hmph. I win. For once. Let me savour it. In silence.",
+      ],
+      defaite: [
+        "Hmph. Beaten. Well played. Hmph. Next time I double. And I'm sulking already.",
+        "Hmph. Twice. I'm not crying, it's the cigar. I've one round left.",
+        "Hmph. Three times. I surrender. I shall tell you. Everything. Hmph. Tell no one.",
+        "Hmph. Beaten again. Get out. No, stay. Hmph.",
+      ],
     },
   },
   auguste: {
     fr: {
-      defi: "Un tête-à-tête, à minuit. Je parie sur moi. La moustache aussi.",
-      revanche: "Une revanche ? J'avais parié sur votre retour. J'ai déjà gagné.",
-      ruine: "Le Cercle s'incline. Voici la cagnotte : {cagnotte}. La moustache s'affaisse.",
-      "ruine-encore": "Ruiné de nouveau. J'avais parié le contraire. Deux pertes.",
-      vainqueur: "Le Cercle l'emporte. Avec les honneurs dus à l'adversaire.",
+      ouverture: [
+        "Un tête-à-tête, à minuit. Je parie sur moi. La moustache aussi.",
+        "Vous revoilà. Je double la mise, et la moustache est cirée de frais. Je parie encore sur moi.",
+        "La dernière manche ! Je mise tout, jusqu'à l'honneur du Cercle. La moustache en tremble.",
+        "Une revanche entre gens d'honneur. Je parie que nous y prendrons plaisir. Pari tenu ?",
+      ],
+      avantage: [
+        "Je mène. J'avais parié là-dessus.",
+        "La moustache se redresse. Je passe devant.",
+        "Je mène d'une courte moustache. Qu'elle tienne !",
+      ],
+      recul: [
+        "Vous menez. Pari perdu. Un petit.",
+        "La moustache frémit. Vous prenez le large.",
+        "Diable. La moustache s'affaisse d'un cran.",
+      ],
+      victoire: [
+        "Le Cercle l'emporte. Avec les honneurs dus à l'adversaire.",
+        "Le double reste au Cercle. Je parie que vous reviendrez. La manche vous attend.",
+        "Le Cercle a tenu, d'un poil de moustache. Vous retenterez, je le parie. J'y compte.",
+        "Le Cercle gagne celle-ci. Les honneurs sont partagés, je vous l'accorde.",
+      ],
+      defaite: [
+        "Le Cercle s'incline. J'avais parié le contraire. Je doublerai la mise, pour l'honneur.",
+        "Battu deux fois ! Plus personne ne parie sur moi. Pas même la moustache.",
+        "Trois manches. Le Cercle rend les armes. Je vous dois une histoire : pari tenu, parole donnée.",
+        "Battu de nouveau. J'avais parié sur vous, cette fois. Enfin un pari gagné.",
+      ],
     },
     en: {
-      defi: "A head-to-head, at midnight. My money is on me. So is the moustache's.",
-      revanche: "A rematch? I had a wager on your return. I've won already.",
-      ruine: "The Club bows. Here is the kitty: {cagnotte}. The moustache droops.",
-      "ruine-encore": "Ruined once more. I had wagered otherwise. Two losses.",
-      vainqueur: "The Club prevails. With all honours due to its opponent.",
+      ouverture: [
+        "A head-to-head, at midnight. My money is on me. So is the moustache's.",
+        "Here you are again. I double the stake, and the moustache is freshly waxed. My money is still on me.",
+        "The last round! I stake everything, down to the honour of the Club. The moustache trembles.",
+        "A rematch between people of honour. I wager we shall enjoy it. Are we on?",
+      ],
+      avantage: [
+        "I lead. I had money on that.",
+        "The moustache perks up. I move ahead.",
+        "I lead by a short whisker. May it hold!",
+      ],
+      recul: [
+        "You lead. A wager lost. A small one.",
+        "The moustache quivers. You're pulling away.",
+        "Good heavens. The moustache droops a notch.",
+      ],
+      victoire: [
+        "The Club prevails. With all honours due to its opponent.",
+        "The double stays at the Club. I wager you'll be back. The round awaits you.",
+        "The Club held, by a whisker. You will try again, I'd wager. I'm counting on it.",
+        "The Club wins this one. The honours are shared, I grant you.",
+      ],
+      defaite: [
+        "The Club bows. I had wagered otherwise. I shall double the stake, for honour's sake.",
+        "Beaten twice! Nobody bets on me any more. Not even the moustache.",
+        "Three rounds. The Club lays down its arms. I owe you a story: a wager kept, a word given.",
+        "Beaten once more. I had my money on you, this time. A wager won, at last.",
+      ],
     },
   },
   balthazar: {
     fr: {
-      defi: "Un duel à bord ! Je n'ai jamais perdu en mer. À quai, c'est autre chose.",
-      revanche: "Rembarquez ! La cagnotte a coulé, mais le pavillon flotte.",
-      ruine: "Touché, coulé ! La cagnotte est à vous : {cagnotte}. Je garde le yacht.",
-      "ruine-encore": "Coulé une deuxième fois ! Le yacht est insubmersible. Moi, moins.",
-      vainqueur: "Victoire ! Je fais sonner la corne. Ne le prenez pas pour vous.",
+      ouverture: [
+        "Un duel à bord ! Je n'ai jamais perdu en mer. À quai, c'est autre chose.",
+        "Rembarquez ! Je double la mise et je hisse le grand pavillon. Cette fois, je barre moi-même.",
+        "Dernière manche ! Toutes voiles dehors, je mise la cale entière. Tenez bon la rampe !",
+        "Une revanche ! Montez à bord. Vous connaissez le chemin du pont, et le pont vous connaît.",
+      ],
+      avantage: [
+        "Vent arrière ! Je prends le large.",
+        "Cap tenu ! Le Commodore passe devant.",
+        "Terre en vue ! Je mène d'une encablure.",
+      ],
+      recul: [
+        "Vous virez en tête. Le vent tournera.",
+        "On prend l'eau ! Tous aux pompes !",
+        "Avarie ! Le Commodore écope à la casquette.",
+      ],
+      victoire: [
+        "Victoire ! Je fais sonner la corne. Ne le prenez pas pour vous.",
+        "Le double reste en cale ! Revenez par la passerelle : la manche vous attend à quai.",
+        "J'ai tenu la barre, de justesse ! La dernière manche reste à quai. Je vous y attends.",
+        "Celle-ci est pour le yacht ! Un coup de corne, un seul. Par amitié.",
+      ],
+      defaite: [
+        "Touché ! Belle manœuvre. À la prochaine manche, je double la mise et la vigie.",
+        "Coulé une deuxième fois ! Le yacht est insubmersible. Moi, moins.",
+        "Trois fois par le fond ! J'amène le pavillon. Je vous dois une histoire : celle du Commodore.",
+        "Encore coulé ! À ce compte-là, je vous nomme second. Vingt et un coups de corne !",
+      ],
     },
     en: {
-      defi: "A duel on board! I've never lost at sea. In harbour, that's another matter.",
-      revanche: "Back on board! The kitty has sunk, but the flag still flies.",
-      ruine: "A direct hit! The kitty is yours: {cagnotte}. I'm keeping the yacht.",
-      "ruine-encore": "Sunk a second time! The yacht is unsinkable. I, rather less so.",
-      vainqueur: "Victory! I'm sounding the horn. Don't take it personally.",
+      ouverture: [
+        "A duel on board! I've never lost at sea. In harbour, that's another matter.",
+        "Back on board! I double the stake and hoist the great flag. This time, I take the helm myself.",
+        "Last round! Full sail, I stake the whole hold. Hold on to the rail!",
+        "A rematch! Come aboard. You know the way to the deck, and the deck knows you.",
+      ],
+      avantage: [
+        "Wind astern! I'm pulling away.",
+        "Steady as she goes! The Commodore leads.",
+        "Land ho! I lead by a cable's length.",
+      ],
+      recul: [
+        "You round the buoy first. The wind will turn.",
+        "We're taking on water! All hands to the pumps!",
+        "Damage! The Commodore is bailing with his cap.",
+      ],
+      victoire: [
+        "Victory! I'm sounding the horn. Don't take it personally.",
+        "The double stays in the hold! Come back up the gangway: the round awaits you at the quay.",
+        "I held the helm, only just! The last round stays moored. I'll be waiting there.",
+        "This one is for the yacht! One blast of the horn, just one. Out of friendship.",
+      ],
+      defaite: [
+        "A hit! Fine seamanship. Next round, I double the stake and the lookout.",
+        "Sunk a second time! The yacht is unsinkable. I, rather less so.",
+        "Sent to the bottom three times! I strike my colours. I owe you a story: the Commodore's own.",
+        "Sunk again! At this rate I'm making you first mate. Twenty-one blasts of the horn!",
+      ],
     },
   },
   taupin: {
     fr: {
-      defi: "Un tête-à-tête. Parlez bas. Je ne vois pas vos cartes. Ni les miennes.",
-      revanche: "Vous revenez. J'ai rouvert le registre. La colonne des cagnottes est vide.",
-      ruine: "Le compte y est : zéro pour moi. La cagnotte, {cagnotte}, change de colonne.",
-      "ruine-encore": "Ruiné de nouveau. Je l'inscris. À l'encre rouge.",
-      vainqueur: "La Banque l'emporte. C'est écrit. En tout petit.",
+      ouverture: [
+        "Un tête-à-tête. Parlez bas. Je ne vois pas vos cartes. Ni les miennes.",
+        "Vous revenez. J'ai doublé la mise. Et changé de lunettes. Parlez toujours bas.",
+        "La dernière manche. Je mise tout le coffre. Chut. Même le coffre ne le sait pas.",
+        "Une revanche. Je vous ai ouvert une colonne à votre nom. Elle est très remplie.",
+      ],
+      avantage: [
+        "Je mène. C'est écrit. Au crayon, pour l'instant.",
+        "La colonne de gauche grossit. C'est la mienne.",
+        "Je mène. Chut. Ne le dites pas aux chiffres.",
+      ],
+      recul: [
+        "Vous menez. Je le note. À la mine de plomb.",
+        "Ma colonne maigrit. Je n'aime pas ça. Tout bas.",
+        "L'encre rouge approche. Je l'entends.",
+      ],
+      victoire: [
+        "La Banque l'emporte. C'est écrit. En tout petit.",
+        "Le double reste au coffre. Revenez. J'ai laissé la ligne ouverte. Au crayon.",
+        "La Banque a tenu. À une virgule près. La dernière manche reste inscrite à votre nom.",
+        "Celle-ci est pour la Banque. Je l'inscris. Avec une petite fleur dans la marge.",
+      ],
+      defaite: [
+        "Le compte y est : battu. À la prochaine manche, je double la mise. C'est déjà inscrit.",
+        "Battu deux fois. Je l'inscris. À l'encre rouge. Il me reste une ligne.",
+        "Trois manches. Je referme le registre. Et j'ouvre un autre livre : je vous dois mon histoire.",
+        "Battu de nouveau. Je n'inscris plus rien. Je vous serre la patte. Tout bas.",
+      ],
     },
     en: {
-      defi: "A head-to-head. Speak softly. I can't see your cards. Or mine.",
-      revanche: "You're back. I've reopened the ledger. The kitty column is empty.",
-      ruine: "It all adds up: nought for me. The kitty, {cagnotte}, changes column.",
-      "ruine-encore": "Ruined once more. I'm entering it. In red ink.",
-      vainqueur: "The Bank prevails. It's in writing. In very small print.",
+      ouverture: [
+        "A head-to-head. Speak softly. I can't see your cards. Or mine.",
+        "You're back. I've doubled the stake. And changed my glasses. Do keep your voice down.",
+        "The last round. I stake the whole vault. Hush. Even the vault doesn't know.",
+        "A rematch. I've opened a column in your name. It is very full.",
+      ],
+      avantage: [
+        "I lead. It's in writing. In pencil, for now.",
+        "The left-hand column is growing. That's mine.",
+        "I lead. Hush. Don't tell the figures.",
+      ],
+      recul: [
+        "You lead. I'm noting it. In soft pencil.",
+        "My column is thinning. I don't like it. Quietly.",
+        "The red ink is coming. I can hear it.",
+      ],
+      victoire: [
+        "The Bank prevails. It's in writing. In very small print.",
+        "The double stays in the vault. Come back. I've left the line open. In pencil.",
+        "The Bank held. By a decimal point. The last round is still entered in your name.",
+        "This one is for the Bank. I'm entering it. With a little flower in the margin.",
+      ],
+      defaite: [
+        "It all adds up: beaten. Next round, I double the stake. It's already entered.",
+        "Beaten twice. I'm entering it. In red ink. I've one line left.",
+        "Three rounds. I close the ledger. And open another book: I owe you my story.",
+        "Beaten once more. I'm entering nothing now. I shake your paw. Quietly.",
+      ],
     },
   },
   selene: {
     fr: {
-      defi: "Un duel, ici ? D'en haut, je vois toutes les cartes. Sauf les vôtres. Dommage.",
-      revanche: "Vous revoilà tout là-haut. La cagnotte, elle, est restée en bas.",
-      ruine: "Tiens. Je n'ai plus rien. La cagnotte flotte vers vous : {cagnotte}.",
-      "ruine-encore": "Encore plus rien. Ici, c'est presque normal.",
-      vainqueur: "J'ai gagné. Ou bien est-ce demain ? Ici, on ne sait jamais.",
+      ouverture: [
+        "Un duel, ici ? D'en haut, je vois toutes les cartes. Sauf les vôtres. Dommage.",
+        "Vous revoilà tout là-haut. J'ai doublé la mise : d'ici, tout paraît plus léger, même l'argent.",
+        "La dernière manche. Je mise tout ce qui brille. La Terre s'est tournée pour regarder.",
+        "Une revanche ? Ici, c'est toujours un peu la première fois. Asseyez-vous donc.",
+      ],
+      avantage: [
+        "Je mène. C'est la marée : elle monte pour moi.",
+        "Je passe devant, sur la pointe des pattes.",
+        "Je mène. La Terre retient son souffle. Moi aussi.",
+      ],
+      recul: [
+        "Vous menez. D'ici, on dirait une étoile filante.",
+        "Tiens. Je décroche. C'est mon côté lunaire.",
+        "Je décline. Comme un croissant. C'est de saison.",
+      ],
+      victoire: [
+        "J'ai gagné. Ou bien est-ce demain ? Ici, on ne sait jamais.",
+        "Le double reste sur la Lune. Revenez : ici, la manche ne vieillit pas.",
+        "J'ai tenu. À un rayon près. La dernière manche vous attend, elle flotte encore.",
+        "Celle-ci est pour moi. Je l'accroche là-haut, parmi les jolies soirées.",
+      ],
+      defaite: [
+        "Battue. Tiens. D'en haut, je ne l'avais pas vu venir. La prochaine fois, je double la mise.",
+        "Deux fois. Vous jouez comme on tombe : sans effort. Il me reste une manche, et la nuit entière.",
+        "Trois fois. Je dépose les armes, elles flottent déjà. Je vous dois une histoire. Elle vient de loin.",
+        "Battue encore. Ici, c'est presque une tradition. Elle me plaît bien.",
+      ],
     },
     en: {
-      defi: "A duel, up here? From above, I see every card. Except yours. Pity.",
-      revanche: "Back up here again. The kitty, though, stayed down below.",
-      ruine: "Well. I have nothing left. The kitty is drifting your way: {cagnotte}.",
-      "ruine-encore": "Nothing left, again. Up here, that's almost normal.",
-      vainqueur: "I have won. Or is that tomorrow? One never knows, up here.",
+      ouverture: [
+        "A duel, up here? From above, I see every card. Except yours. Pity.",
+        "Back up here again. I've doubled the stake: from here everything feels lighter, even money.",
+        "The last round. I stake everything that shines. The Earth has turned to watch.",
+        "A rematch? Up here, it's always a little like the first time. Do sit down.",
+      ],
+      avantage: [
+        "I lead. It's the tide: it rises for me.",
+        "I slip ahead, on tiptoe.",
+        "I lead. The Earth is holding its breath. So am I.",
+      ],
+      recul: [
+        "You lead. From here, you look like a shooting star.",
+        "Well. I'm drifting off. It's my lunar side.",
+        "I'm waning. Like a crescent. It's the season.",
+      ],
+      victoire: [
+        "I have won. Or is that tomorrow? One never knows, up here.",
+        "The double stays on the Moon. Come back: up here, the round never ages.",
+        "I held on. By a moonbeam. The last round awaits you, it's still floating.",
+        "This one is mine. I'll hang it up there, among the lovely evenings.",
+      ],
+      defaite: [
+        "Beaten. Well. From above, I didn't see that coming. Next time, I double the stake.",
+        "Twice. You play the way one falls: effortlessly. I've one round left, and the whole night.",
+        "Three times. I lay down my arms, they're floating already. I owe you a story. It comes from afar.",
+        "Beaten again. Up here, that's almost a tradition. I rather like it.",
+      ],
     },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Une table de défi ouverte avant les trois manches se règle comme avant : l'hôte ruiné
+// remet sa cagnotte (`{cagnotte}`), une fois. Plus aucune nouvelle table ne passe par là.
+
+export const KITTY_TALK: Record<Host, Deux<string>> = {
+  gaspard: {
+    fr: "Sapristi ! Plumé à mon propre comptoir. La cagnotte est là : {cagnotte}. Bien joué !",
+    en: "Blimey! Fleeced at my own counter. Here's the kitty: {cagnotte}. Well played!",
+  },
+  ondine: {
+    fr: "Ruinée avant le goûter. Voici la cagnotte : {cagnotte}. La citronnade reste payante.",
+    en: "Ruined before teatime. Here is the kitty: {cagnotte}. The lemonade is still extra.",
+  },
+  hector: {
+    fr: "La maison perd. C'est noté. Sa cagnotte : {cagnotte}. Ne l'ébruitez pas.",
+    en: "The house loses. Duly noted. Its kitty: {cagnotte}. Keep it quiet.",
+  },
+  baron: {
+    fr: "Hmpf. Ruiné. Prenez la cagnotte : {cagnotte}. Je ne pleure pas, c'est le cigare.",
+    en: "Hmph. Ruined. Take the kitty: {cagnotte}. I'm not crying, it's the cigar.",
+  },
+  auguste: {
+    fr: "Le Cercle s'incline. Voici la cagnotte : {cagnotte}. La moustache s'affaisse.",
+    en: "The Club bows. Here is the kitty: {cagnotte}. The moustache droops.",
+  },
+  balthazar: {
+    fr: "Touché, coulé ! La cagnotte est à vous : {cagnotte}. Je garde le yacht.",
+    en: "A direct hit! The kitty is yours: {cagnotte}. I'm keeping the yacht.",
+  },
+  taupin: {
+    fr: "Le compte y est : zéro pour moi. La cagnotte, {cagnotte}, change de colonne.",
+    en: "It all adds up: nought for me. The kitty, {cagnotte}, changes column.",
+  },
+  selene: {
+    fr: "Tiens. Je n'ai plus rien. La cagnotte flotte vers vous : {cagnotte}.",
+    en: "Well. I have nothing left. The kitty is drifting your way: {cagnotte}.",
   },
 };
 
@@ -509,7 +928,7 @@ function isBot(id: string): id is Bot {
 }
 
 function isHost(id: string): id is Host {
-  return id in HOST_TALK;
+  return id in DUEL_TALK;
 }
 
 /**
@@ -522,10 +941,21 @@ export function tableLine(bot: string | null, moment: TableMoment, seed = 0): Li
   return toLine(bot, list[Math.abs(Math.floor(seed)) % list.length]!);
 }
 
-/** Ce qu'un hôte dit de son défi. `cagnotte` : la somme qu'il remet, déjà mise en forme. */
-export function hostLine(host: string, moment: HostMoment, cagnotte = ""): Line | null {
-  if (!isHost(host)) return null;
-  return toLine(host, HOST_TALK[host][lang()][moment].replace(/\{cagnotte\}/g, cagnotte));
+/**
+ * Ce qu'un hôte dit pendant son défi, selon la manche. `seed` : en revanche, l'avantage et
+ * le recul piochent parmi les répliques des trois manches. `null` pour qui n'est pas un hôte.
+ */
+export function duelLine(host: string | null, moment: DuelMoment, stage: DuelStage, seed = 0): Line | null {
+  if (!host || !isHost(host)) return null;
+  const lines: readonly string[] = DUEL_TALK[host][lang()][moment];
+  const index = stage === "revanche" ? (lines.length > 3 ? 3 : Math.abs(Math.floor(seed)) % lines.length) : stage - 1;
+  return toLine(host, lines[index]!);
+}
+
+/** Une table d'avant les trois manches : l'hôte ruiné remet sa cagnotte. `cagnotte` : la somme, déjà mise en forme. */
+export function kittyLine(host: string | null, cagnotte: string): Line | null {
+  if (!host || !isHost(host)) return null;
+  return toLine(host, KITTY_TALK[host][lang()].replace(/\{cagnotte\}/g, cagnotte));
 }
 
 /** Ce qu'un maître dit à la Table des Maîtres. `null` pour qui n'est pas l'un des huit hôtes. */

@@ -103,7 +103,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
   } else if (t.phase === "denouement" || t.phase === "attente") deadline = t.nextAt;
 
   const owner = t.owner === null ? -1 : seatIndexOf(t, t.owner);
-  return {
+  const view: TableView = {
     code: t.code,
     kind: t.kind,
     place: t.place,
@@ -132,6 +132,9 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     result: t.result === null ? null : (JSON.parse(JSON.stringify(t.result)) as HandResult),
     closed: t.closed,
   };
+  // La manche d'un défi : le champ n'existe que là.
+  if (t.kind === "defi" && t.level !== undefined) view.level = t.level;
+  return view;
 }
 
 /** La vue d'un joueur. S'il n'est pas assis à cette table, c'est un aperçu : rien de caché n'y figure. */

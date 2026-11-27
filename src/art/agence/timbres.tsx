@@ -8,7 +8,7 @@
 // cadre de 50 × 62 posé en (5, 5), fond compris. Aucun texte dans les dessins.
 
 import type { ReactNode } from "react";
-import { C, METAL, Svg, shade, type ArtProps } from "../kit";
+import { C, METAL, shade, type ArtProps } from "../kit";
 
 /** Des petits ronds en un seul tracé : bulles, étoiles lointaines, pois. */
 function ronds(r: number, points: [number, number][]): string {
@@ -521,24 +521,37 @@ interface TimbreProps extends ArtProps {
   vecue?: boolean;
 }
 
-/** Le timbre d'une expérience : son image dans un papier dentelé, et son cachet quand elle est vécue. */
+/**
+ * Le timbre d'une expérience : son image dans un papier dentelé. Vécue, il est oblitéré :
+ * le cachet de l'agence mord son coin, en bas à gauche, et déborde un peu du papier
+ * (prévoir une douzaine d'unités de marge de ce côté-là).
+ */
 export function Timbre({ id, vecue = false, className, title }: TimbreProps) {
   const image = IMAGES[id];
   return (
-    <Svg viewBox="0 0 60 72" className={className} title={title}>
+    <svg
+      viewBox="0 0 60 72"
+      className={className}
+      width="100%"
+      overflow="visible"
+      role={title ? "img" : undefined}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+      focusable="false"
+    >
       <path d={PAPIER} fill={C.blanc} />
       <g transform="translate(5 5)">
         <rect width="50" height="62" fill={image?.fond ?? C.brume} />
         {image?.dessin}
       </g>
       {vecue && (
-        <g className="timbre__cachet" fill="none" stroke={C.nuit} strokeOpacity="0.72" strokeLinecap="round">
-          <path d="M2 52q4.5 -3.5 9 0t9 0t9 0M2 58q4.5 -3.5 9 0t9 0t9 0M2 64q4.5 -3.5 9 0t9 0t9 0" strokeWidth="1.5" />
-          <circle cx="44" cy="56" r="13" strokeWidth="1.8" />
-          <circle cx="44" cy="56" r="9.5" strokeWidth="0.9" />
-          <path d="M38.5 56.5L42.5 60.5L50 52" strokeWidth="2.4" strokeLinejoin="round" />
+        <g className="timbre__cachet" fill="none" stroke={C.nuit} strokeOpacity="0.78" strokeLinecap="round">
+          <circle cx="6" cy="63" r="12" fill={C.ivoire} fillOpacity="0.5" strokeWidth="1.8" />
+          <circle cx="6" cy="63" r="8.6" strokeWidth="0.9" />
+          <path d="M1.5 63.5L5 67L11 59.5" strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M20 58q4.5 -3.5 9 0t9 0t9 0t9 0M20 63.5q4.5 -3.5 9 0t9 0t9 0t9 0M20 69q4.5 -3.5 9 0t9 0t9 0t9 0" strokeWidth="1.3" />
         </g>
       )}
-    </Svg>
+    </svg>
   );
 }

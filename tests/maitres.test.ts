@@ -537,8 +537,7 @@ describe("comment finit la table", () => {
     expect(advance(won, T0 + RESULT_MS - 1, rng)).toBe(won);
     const t = advance(won, T0 + RESULT_MS, rng);
     expect([t.phase, t.closed, t.seats, t.handNo]).toEqual(["fermee", "maitres", [null, null, null, null, null], 40]);
-    // Avec tout l'argent de la table, la liste des quatre hôtes battus : la table fermée ne garde aucun siège.
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + RESULT_MS, beaten: [...FOUR] }]);
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + RESULT_MS }]);
     expect(t.departed).toEqual([{ playerId: "p_a", seat: 0, reason: "maitres-gagne", payout: ALL, at: T0 + RESULT_MS }]);
     // Une cave entrée, cinq sorties : les quatre autres venaient des hôtes.
     expect(t.audit).toEqual({ in: MASTERS_BUYIN, out: ALL, bank: 4 * MASTERS_BUYIN });
@@ -555,7 +554,7 @@ describe("comment finit la table", () => {
     // Les deux derniers hôtes se sont démasqués l'un l'autre à tapis : 50 blindes attendent sur la table.
     const t = advance(mastersAt(rng, { played: 30, stacks: [100 * U, 0, 0, 0, 0], carry: 50 * U }), T0, rng);
     expect([t.phase, t.closed]).toEqual(["fermee", "maitres"]);
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0, beaten: [...FOUR] }]);
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 }]);
     expect(t.audit).toEqual({ in: MASTERS_BUYIN, out: ALL, bank: 4 * MASTERS_BUYIN });
     audited(t);
   });
@@ -663,7 +662,7 @@ describe("comment finit la table", () => {
     const won = mastersAt(rng, { played: 40, stacks: [150 * U, 0, 0, 0, 0], nextAt: T0 + RESULT_MS });
     let t = leave(won, "p_a", T0 + 1_000, rng);
     expect([t.phase, t.closed]).toEqual(["fermee", "maitres"]);
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + 1_000, beaten: [...FOUR] }]);
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + 1_000 }]);
     audited(t);
     // Il vient de tout perdre et quitte : c'est perdu, pas quitté.
     const lost = mastersAt(rng, { played: 9, stacks: [0, 60 * U, 40 * U, 30 * U, 20 * U], nextAt: T0 + RESULT_MS });
@@ -1937,13 +1936,13 @@ describe("jouer la Table des Maîtres jusqu'au bout", () => {
     expect(r.body.view).toMatchObject({ phase: "fermee", closed: "maitres", you: null, seats: [null, null, null, null, null] });
     // 1 500 Bn€ : sa cave et celles des quatre hôtes. Pas de cagnotte : le gain, c'est la table.
     expect(r.body.left).toEqual({ reason: "maitres-gagne", payout: ALL, bonus: 0 });
-    const expected = { ...NO_WINS, ...Object.fromEntries(ALL_PLACES.map((id) => [id, 1])) };
-    for (const place of places) expected[place as keyof typeof NO_WINS] = 2;
+    expect(places).toHaveLength(4);
     expect(r.body.state).toMatchObject({
       balance: PURSE - MASTERS_BUYIN + ALL, masters: 1, pokerStats: stat(1, 1),
-      // Une victoire de plus contre chacun des quatre hôtes de la table, et contre eux seuls.
-      hostWins: expected,
+      // Elle ne compte pas comme une victoire contre ses quatre hôtes : seules les manches d'un défi ouvrent une histoire.
+      hostWins: { ...NO_WINS, ...Object.fromEntries(ALL_PLACES.map((id) => [id, 1])) },
     });
+    expect(w.record(a).hostWins).toBeUndefined();
     expect(r.body.state!.poker).toBeUndefined();
     expect(w.record(a)).toMatchObject({ balance: 2_100 * BN, masters: 1, poker: null });
     expect(w.storage.tableCodes()).toEqual([]);
@@ -1960,10 +1959,8 @@ describe("jouer la Table des Maîtres jusqu'au bout", () => {
   it("gagnée deux fois : deux victoires, et la table se rejoue autant qu'on veut", async () => {
     const w = makeWorld();
     const a = await w.master("Marcel");
-    const beaten: Record<string, number> = {};
     for (const wins of [1, 2]) {
       const code = await sitAtMasters(w, a);
-      for (const place of placesAt(w, code)) beaten[place] = (beaten[place] ?? 0) + 1;
       await everyoneAllIn(w, a, code, ACES);
       // Il demande la suite sans attendre la fin de l'affichage : la table se dénoue aussitôt.
       const r = await w.poker.act(a, code, { type: "suite" });
@@ -1971,7 +1968,7 @@ describe("jouer la Table des Maîtres jusqu'au bout", () => {
       expect(r.body.state).toMatchObject({ masters: wins, balance: PURSE + wins * 4 * MASTERS_BUYIN, pokerStats: stat(wins, wins) });
     }
     const state = await w.me(a);
-    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, 1 + (beaten[place] ?? 0)]);
+    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, 1]);
     expect((await w.poker.lobby(a)).body.masters.won).toBe(2);
   });
 
@@ -2112,8 +2109,8 @@ describe("la victoire, comptée une seule fois", () => {
     expect([label, p.balance, p.masters, p.poker, p.pokerStats, w.storage.tableCodes()]).toEqual([
       label, PURSE + 4 * MASTERS_BUYIN, 1, null, { hands: 40, pots: 12, unmasked: 5, caught: 3 }, [],
     ]);
-    // Il avait déjà battu chaque hôte une fois (son défi) : deux victoires contre les quatre de la table, pas trois.
-    expect([label, p.hostWins]).toEqual([label, Object.fromEntries(places.map((id) => [id, 2]))]);
+    // Aucune victoire contre un hôte n'est comptée ici : le compte n'en porte pas la trace.
+    expect([label, places.length, p.hostWins]).toEqual([label, 4, undefined]);
   }
 
   it("rejouer la requête de règlement ne recrédite ni ne recompte", async () => {
@@ -2135,7 +2132,7 @@ describe("la victoire, comptée une seule fois", () => {
     expectWonOnce(w, a, places, "rejoué");
     const state = await w.me(a);
     expect(state).toMatchObject({ masters: 1, balance: 2_100 * BN, pokerStats: { hands: 40, pots: 12, unmasked: 5, caught: 3 } });
-    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, places.includes(place) ? 2 : 1]);
+    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, 1]);
   });
 
   it("coupée à chaque écriture : la table est versée une fois, la victoire comptée une fois", async () => {
@@ -2167,7 +2164,7 @@ describe("la victoire, comptée une seule fois", () => {
         expect([label, p.balance, p.masters, p.poker, p.pokerStats, w.storage.tableCodes()]).toEqual([
           label, PURSE + 4 * MASTERS_BUYIN, 1, null, stat(1, 1), [],
         ]);
-        expect([label, p.hostWins]).toEqual([label, Object.fromEntries(places.map((id) => [id, 2]))]);
+        expect([label, places.length, p.hostWins]).toEqual([label, 4, undefined]);
       },
     });
     expect(cuts).toBeGreaterThanOrEqual(8);
@@ -2401,47 +2398,55 @@ describe("les victoires contre chaque hôte", () => {
     return w.poker.poll(a, code);
   }
 
-  it("trois défis gagnés contre le même hôte : trois victoires, une seule cagnotte", async () => {
+  it("trois manches gagnées contre le même hôte : trois victoires, la mise double de l'une à l'autre", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 100);
     expect((await w.me(a)).hostWins).toEqual(NO_WINS);
-    for (const wins of [1, 2, 3]) {
+    for (const round of [1, 2, 3]) {
+      const stake = 100 * 2 ** (round - 1);
+      expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ level: round, wins: round - 1, stake, prize: 2 * stake });
       const r = await challenge(w, a, ACES);
-      expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: wins === 1 ? 100 : 0 });
-      expect(r.body.state).toMatchObject({ defis: ["kiosque"], hostWins: { ...NO_WINS, kiosque: wins }, pokerStats: stat(wins, wins) });
+      // Chacun a posé la même mise ; le gagnant repart avec les deux. Rien n'est versé à part.
+      expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 2 * stake, bonus: 0 });
+      expect(r.body.state).toMatchObject({ balance: 2 * stake, defis: ["kiosque"], hostWins: { ...NO_WINS, kiosque: round }, pokerStats: stat(round, round) });
     }
-    // 100 − 30 + 60 + 100, puis deux fois + 30.
-    expect(w.record(a)).toMatchObject({ balance: 290, pokerWins: ["kiosque"], hostWins: { kiosque: 3 } });
-    expect((await w.poker.lobby(a)).body.state.hostWins.kiosque).toBe(3);
+    expect(w.record(a)).toMatchObject({ balance: 800, pokerWins: ["kiosque"], hostWins: { kiosque: 3 } });
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ level: 3, wins: 3, rematch: true, stake: 400 });
   });
 
-  it("un compte d'avant, qui avait déjà relevé ce défi, le regagne : deux victoires", async () => {
+  it("un compte d'avant, qui avait déjà relevé ce défi, reprend à la deuxième manche", async () => {
     const w = makeWorld();
-    const a = await w.signup("Ancienne", 100);
-    // En 2.0, seule la première victoire était retenue, dans `pokerWins`.
+    const a = await w.signup("Ancienne", 200);
+    // En 2.0, seule la première victoire était retenue, dans `pokerWins` : elle vaut la première manche gagnée.
     w.storage.poke(a.playerId, (p) => { p.pokerWins = ["kiosque", "lune"]; });
     expect((await w.me(a)).hostWins).toEqual({ ...NO_WINS, kiosque: 1, lune: 1 });
     expect(w.record(a).hostWins).toBeUndefined();
+    const lobby = (await w.poker.lobby(a)).body;
+    expect(lobby.challenges[0]).toMatchObject({ won: true, level: 2, wins: 1, stake: 200, prize: 400, difficulty: "normal" });
+    expect(lobby.challenges[7]).toMatchObject({ won: true, level: 2, wins: 1, stake: 50_000_000_000_000 });
+    expect(lobby.challenges[1]).toMatchObject({ won: false, level: 1, wins: 0, stake: 1_000 });
     const r = await challenge(w, a, ACES);
-    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 0 });
+    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 400, bonus: 0 });
     expect(r.body.state!.hostWins).toEqual({ ...NO_WINS, kiosque: 2, lune: 1 });
-    expect(w.record(a)).toMatchObject({ pokerWins: ["kiosque", "lune"], hostWins: { kiosque: 2 } });
+    expect(w.record(a)).toMatchObject({ balance: 400, pokerWins: ["kiosque", "lune"], hostWins: { kiosque: 2 } });
   });
 
-  it("un défi perdu ou quitté ne compte pas", async () => {
+  it("un défi perdu fait perdre sa mise, un défi quitté rend le tapis : ni l'un ni l'autre ne compte", async () => {
     const w = makeWorld();
-    const a = await w.signup("Marcel", 100);
+    const a = await w.signup("Marcel", 300);
     const lost = await challenge(w, a, WORST);
     expect(lost.body.left).toEqual({ reason: "defi-perdu", payout: 0, bonus: 0 });
-    expect(lost.body.state!.hostWins).toEqual(NO_WINS);
+    expect(lost.body.state).toMatchObject({ balance: 200, hostWins: NO_WINS });
     const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
     const quit = await w.poker.act(a, code, { type: "quitter" });
-    expect(quit.body.left).toEqual({ reason: "quitte", payout: 29, bonus: 0 });
-    expect(quit.body.state!.hostWins).toEqual(NO_WINS);
+    expect(quit.body.left).toEqual({ reason: "quitte", payout: 96, bonus: 0 });
+    expect(quit.body.state).toMatchObject({ balance: 196, hostWins: NO_WINS });
     expect([w.record(a).hostWins, w.record(a).pokerWins ?? []]).toEqual([undefined, []]);
+    // Toujours la première manche.
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ level: 1, wins: 0, stake: 100 });
   });
 
-  it("un défi gagné, coupé à chaque écriture : une victoire, une cagnotte", async () => {
+  it("un défi gagné, coupé à chaque écriture : une victoire, les deux mises, une fois", async () => {
     const cuts = await cutEverywhere({
       setup: async (w) => {
         const a = await w.signup("Marcel", 100);
@@ -2455,7 +2460,7 @@ describe("les victoires contre chaque hôte", () => {
       afterRecovery: (w, { a }, label) => {
         const p = w.record(a);
         expect([label, p.balance, p.pokerWins, p.hostWins, p.pokerStats, p.poker, w.storage.tableCodes()]).toEqual([
-          label, 230, ["kiosque"], { kiosque: 1 }, stat(1, 1), null, [],
+          label, 200, ["kiosque"], { kiosque: 1 }, stat(1, 1), null, [],
         ]);
       },
     });
@@ -2556,7 +2561,7 @@ describe("une table d'avant la mise à jour : le serveur", () => {
     for (const who of [a, c]) for (const key of NEW_FIELDS) expect([key, key in w.record(who)]).toEqual([key, false]);
   });
 
-  it("un vieux défi déjà joué se règle : le tapis, la cagnotte, et une victoire contre l'hôte", async () => {
+  it("un vieux défi déjà joué se règle selon ses règles d'origine : le tapis, la cagnotte, et une victoire contre l'hôte", async () => {
     const w = makeWorld();
     const a = await w.signup("Ancienne", 70);
     w.storage.poke(a.playerId, (p) => { p.poker = { code: "D2K7Q", sid: OLD_SID_A, seq: 1, paid: 30 }; });
@@ -2564,6 +2569,8 @@ describe("une table d'avant la mise à jour : le serveur", () => {
     w.advance(5_000);
     const r = await w.poker.poll(a, "D2K7Q");
     expect(r.body.view).toMatchObject({ phase: "fermee", closed: "defi" });
+    // Ouverte avant les trois manches, la table n'en porte pas : 30 € chacun, et la cagnotte de 100 € versée à part.
+    expect("level" in r.body.view!).toBe(false);
     expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 100 });
     expect(r.body.state).toMatchObject({ balance: 230, defis: ["kiosque"], hostWins: { ...NO_WINS, kiosque: 1 }, pokerStats: stat(0), masters: 0 });
     const record = w.record(a);
@@ -2571,5 +2578,7 @@ describe("une table d'avant la mise à jour : le serveur", () => {
     // La main décisive s'est jouée avant la mise à jour : elle n'a pas été comptée, et rien n'est inventé.
     for (const key of ["masters", "pokerStats", "vraieFin"]) expect([key, key in record]).toEqual([key, false]);
     expect(w.storage.tableCodes()).toEqual([]);
+    // Son prochain défi contre Gaspard est la deuxième manche : 200 €.
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ won: true, level: 2, wins: 1, stake: 200 });
   });
 });

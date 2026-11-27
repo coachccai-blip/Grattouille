@@ -206,10 +206,15 @@ describe("le hall", () => {
       place: "kiosque", host: "gaspard", blind: 1, minBuyIn: 20, maxBuyIn: 100, difficulty: "facile", open: true, affordable: false,
     });
     expect(r.body.challenges).toHaveLength(8);
+    // Première manche : chacun pose 100 blindes du lieu (25 blindes de départ), le gagnant emporte les deux mises.
     expect(r.body.challenges[0]).toEqual({
-      place: "kiosque", host: "gaspard", blind: 1, buyIn: 30, bonus: 100, difficulty: "facile", open: true, won: false, affordable: false,
+      place: "kiosque", host: "gaspard", blind: 4, buyIn: 100, bonus: 100, difficulty: "facile", open: true, won: false, affordable: false,
+      level: 1, wins: 0, stake: 100, prize: 200, rematch: false,
     });
-    expect(r.body.challenges[7]).toMatchObject({ place: "lune", host: "selene", blind: 250_000_000_000, buyIn: 7_500_000_000_000, bonus: 25_000_000_000_000, difficulty: "difficile" });
+    expect(r.body.challenges[7]).toMatchObject({
+      place: "lune", host: "selene", blind: 1_000_000_000_000, buyIn: 25_000_000_000_000, bonus: 25_000_000_000_000,
+      prize: 50_000_000_000_000, difficulty: "difficile", level: 1,
+    });
     expect(r.body.state).toMatchObject({ id: a.playerId, balance: 0 });
     expect(r.body.state.poker).toBeUndefined();
   });
@@ -224,8 +229,8 @@ describe("le hall", () => {
     // 20 € : la cave minimale du Kiosque. 30 € : son défi. 40 € : de quoi créer une table à 1 €.
     expect((await at(19)).houses[0]).toMatchObject({ open: true, affordable: false });
     expect((await at(20)).houses[0]).toMatchObject({ open: true, affordable: true });
-    expect((await at(29)).challenges[0]!.affordable).toBe(false);
-    expect((await at(30)).challenges[0]!.affordable).toBe(true);
+    expect((await at(99)).challenges[0]!.affordable).toBe(false);
+    expect((await at(100)).challenges[0]!.affordable).toBe(true);
     expect((await at(39)).blinds).toEqual([]);
     expect((await at(40)).blinds).toEqual([1]);
     expect((await at(4_000)).blinds).toEqual([1, 2, 5, 10, 20, 50, 100]);
@@ -431,30 +436,33 @@ describe("créer une table", () => {
     expect((await w.poker.lobby(a)).body.seat).toEqual({ code: view.code, kind: "maison", place: "cafe" });
   });
 
-  it("un défi : un tête-à-tête avec l'hôte, 30 blindes chacun", async () => {
+  it("un défi : un tête-à-tête avec l'hôte, la même mise chacun (100 € au Kiosque, 25 blindes de départ)", async () => {
     const w = makeWorld();
-    const a = await w.signup("Marcel", 100);
+    const a = await w.signup("Marcel", 130);
     const r = await w.poker.create(a, { defi: "kiosque" });
     expect(r.status).toBe(201);
-    expect(r.body.view).toMatchObject({ kind: "defi", place: "kiosque", blind: 1, minBuyIn: 30, maxBuyIn: 30, difficulty: "facile", phase: "triche", started: true });
-    expect(r.body.view!.seats.map((s) => [s!.bot, s!.stack])).toEqual([[null, 29], ["gaspard", 29]]);
+    expect(r.body.view).toMatchObject({ kind: "defi", place: "kiosque", level: 1, blind: 4, minBuyIn: 100, maxBuyIn: 100, difficulty: "facile", phase: "triche", started: true });
+    expect(r.body.view!.seats.map((s) => [s!.bot, s!.stack])).toEqual([[null, 96], ["gaspard", 96]]);
     expect(r.body.view!.options.rebuy).toBeNull();
-    expect(r.body.state!.balance).toBe(70);
+    expect(r.body.state!.balance).toBe(30);
     // La blinde du duel monte : la vue dit à quelle main, et combien. Ailleurs, elle ne bouge pas.
-    expect(r.body.view!.rise).toEqual({ hand: 4, blind: 2 });
+    expect(r.body.view!.rise).toEqual({ hand: 4, blind: 8 });
     const b = await w.signup("Lulu", 5_000);
-    expect((await w.poker.create(b, { maison: "kiosque" })).body.view).toMatchObject({ blind: 1, rise: null });
+    const house = (await w.poker.create(b, { maison: "kiosque" })).body.view!;
+    expect(house).toMatchObject({ blind: 1, rise: null });
+    // La manche n'existe que dans un défi.
+    expect("level" in house).toBe(false);
     const c = await w.signup("Zoé", 5_000);
     expect((await w.poker.create(c, { ...PRIVATE, bots: 1 })).body.view).toMatchObject({ blind: 10, rise: null });
   });
 
   it("comme partout, les tickets grattés déclarés avec la requête comptent dans la bourse", async () => {
     const w = makeWorld();
-    const a = await w.signup("Marcel", 10);
+    const a = await w.signup("Marcel", 80);
     w.storage.poke(a.playerId, (p) => {
       p.pending = [{ id: "t_gagnant00000", type: "tirelire", gain: 25, seed: 1, at: T0 }, { id: "t_autre0000000", type: "tirelire", gain: 500, seed: 2, at: T0 }];
     });
-    // 10 € en poche : pas assez. Avec le ticket de 25 € déclaré : 35 €, de quoi relever le défi.
+    // 80 € en poche : pas assez. Avec le ticket de 25 € déclaré : 105 €, de quoi poser la mise du défi.
     expect((await w.poker.create(a, { defi: "kiosque" }) as Reply).body.error.code).toBe("BUYIN_UNAFFORDABLE");
     const r = await w.poker.create(a, { defi: "kiosque", ack: ["t_gagnant00000"] });
     expect(r.status).toBe(201);
@@ -1000,46 +1008,70 @@ describe("les défis de la campagne", () => {
     expect(quiet.body.view!.phase).toBe("denouement");
   }
 
-  it("la première fois que l'hôte est ruiné, il verse sa cagnotte : 100 blindes, une seule fois", async () => {
+  it("gagner un défi : on repart avec les deux mises, sans cagnotte à part ; la manche suivante double", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 100);
-    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ place: "kiosque", won: false, bonus: 100 });
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ place: "kiosque", won: false, level: 1, wins: 0, stake: 100, prize: 200, rematch: false });
 
-    // Premier défi : gagné.
+    // Première manche : 100 € chacun.
     let code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
-    expect(w.balance(a)).toBe(70);
+    expect(w.balance(a)).toBe(0);
     await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
     w.advance(RESULT_MS);
     const won = await w.poker.poll(a, code);
     expect(won.status).toBe(200);
-    expect(won.body.view).toMatchObject({ phase: "fermee", closed: "defi", you: null });
-    expect(won.body.view!.result!.pots).toEqual([{ amount: 60, winners: [{ seat: 0, amount: 60 }], carried: false }]);
-    // Son tapis de 60 €, et la cagnotte de Gaspard : 100 €.
-    expect(won.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 100 });
-    expect(won.body.state).toMatchObject({ balance: 230 });
+    expect(won.body.view).toMatchObject({ phase: "fermee", closed: "defi", you: null, level: 1 });
+    expect(won.body.view!.result!.pots).toEqual([{ amount: 200, winners: [{ seat: 0, amount: 200 }], carried: false }]);
+    // Sa mise et celle de Gaspard : 200 €. Plus rien n'est versé à part.
+    expect(won.body.left).toEqual({ reason: "defi-gagne", payout: 200, bonus: 0 });
+    expect(won.body.state).toMatchObject({ balance: 200, defis: ["kiosque"], hostWins: { kiosque: 1 } });
     expect(won.body.state!.poker).toBeUndefined();
-    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 230, poker: null, pokerWins: ["kiosque"] });
+    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 200, poker: null, pokerWins: ["kiosque"], hostWins: { kiosque: 1 } });
     expect(w.storage.tableCodes()).toEqual([]);
-    const lobby = (await w.poker.lobby(a)).body;
-    expect(lobby.challenges.map((c) => c.won)).toEqual([true, false, false, false, false, false, false, false]);
-    expect(lobby.seat).toBeNull();
     // La table n'existe plus : rien à rejouer, rien à reverser.
     expect((await w.poker.poll(a, code) as Reply).body.error.code).toBe("TABLE_NOT_FOUND");
-    expect(w.balance(a)).toBe(230);
+    expect(w.balance(a)).toBe(200);
 
-    // Deuxième défi au même lieu, gagné encore : le tapis, mais plus de cagnotte.
-    code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    // Deuxième manche : la mise a doublé (200 €, blinde de départ de 8 €), et Gaspard se défend un cran mieux.
+    let lobby = (await w.poker.lobby(a)).body;
+    expect(lobby.challenges[0]).toMatchObject({ won: true, level: 2, wins: 1, blind: 8, stake: 200, buyIn: 200, bonus: 200, prize: 400, difficulty: "normal", affordable: true, rematch: false });
+    expect(lobby.challenges.map((c) => c.won)).toEqual([true, false, false, false, false, false, false, false]);
+    const second = await w.poker.create(a, { defi: "kiosque" });
+    code = second.body.view!.code;
+    expect(second.body.view).toMatchObject({ level: 2, blind: 8, minBuyIn: 200, maxBuyIn: 200, difficulty: "normal", rise: { hand: 4, blind: 16 } });
+    expect(second.body.view!.seats.map((s) => s!.stack)).toEqual([192, 192]);
+    expect(w.balance(a)).toBe(0);
     await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
     w.advance(RESULT_MS);
-    const again = await w.poker.poll(a, code);
-    expect(again.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 0 });
-    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 260, pokerWins: ["kiosque"] });
+    expect((await w.poker.poll(a, code)).body.left).toEqual({ reason: "defi-gagne", payout: 400, bonus: 0 });
+
+    // Troisième manche : encore le double (400 €), au niveau difficile.
+    lobby = (await w.poker.lobby(a)).body;
+    expect(lobby.challenges[0]).toMatchObject({ level: 3, wins: 2, blind: 16, stake: 400, prize: 800, difficulty: "difficile", rematch: false });
+    code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    expect(w.table(code)).toMatchObject({ level: 3, blind: 16, maxBuyIn: 400, difficulty: "difficile" });
+    await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
+    w.advance(RESULT_MS);
+    const third = await w.poker.poll(a, code);
+    expect(third.body.left).toEqual({ reason: "defi-gagne", payout: 800, bonus: 0 });
+    // Trois victoires : son histoire s'ouvre. La bourse : 100 €, puis 200, 400, 800.
+    expect(third.body.state).toMatchObject({ balance: 800, hostWins: { kiosque: 3 }, defis: ["kiosque"] });
+
+    // Ensuite, la revanche : aux conditions de la troisième manche, autant qu'on veut.
+    lobby = (await w.poker.lobby(a)).body;
+    expect(lobby.challenges[0]).toMatchObject({ level: 3, wins: 3, stake: 400, prize: 800, difficulty: "difficile", rematch: true });
+    code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    expect(w.table(code)).toMatchObject({ level: 3, maxBuyIn: 400 });
+    await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
+    w.advance(RESULT_MS);
+    expect((await w.poker.poll(a, code)).body.state).toMatchObject({ balance: 1_200, hostWins: { kiosque: 4 } });
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ level: 3, wins: 4, stake: 400, rematch: true });
   });
 
-  it("un défi perdu coûte sa cave, et se retente autant qu'on veut", async () => {
+  it("un défi perdu coûte sa mise, et se retente à la même manche autant qu'on veut", async () => {
     const w = makeWorld();
-    const a = await w.signup("Marcel", 100);
-    for (const expected of [70, 40, 10]) {
+    const a = await w.signup("Marcel", 350);
+    for (const expected of [250, 150, 50]) {
       const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
       await allIn(w, a, code, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d");
       w.advance(RESULT_MS);
@@ -1049,24 +1081,26 @@ describe("les défis de la campagne", () => {
       expect(w.storage.tableCodes()).toEqual([]);
     }
     expect(w.storage.peek(a.playerId)!.pokerWins ?? []).toEqual([]);
-    expect((await w.poker.lobby(a)).body.challenges[0]!.won).toBe(false);
-    // Plus de quoi poser la cave.
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ won: false, level: 1, wins: 0, stake: 100 });
+    // Plus de quoi poser la mise.
     expect((await w.poker.create(a, { defi: "kiosque" }) as Reply).body.error.code).toBe("BUYIN_UNAFFORDABLE");
   });
 
-  it("quitter un défi en cours : on repart avec son tapis, sans cagnotte", async () => {
+  it("quitter un défi en cours : on repart avec son tapis, sans victoire", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 100);
     const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
     const r = await w.poker.act(a, code, { type: "quitter" });
-    expect(r.body.left).toEqual({ reason: "quitte", payout: 29, bonus: 0 });
+    // Sa blinde (4 €) reste au pot.
+    expect(r.body.left).toEqual({ reason: "quitte", payout: 96, bonus: 0 });
     expect(r.body.view).toMatchObject({ phase: "fermee", closed: "vide" });
-    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 99, poker: null });
+    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 96, poker: null });
     expect(w.storage.peek(a.playerId)!.pokerWins ?? []).toEqual([]);
+    expect((await w.poker.lobby(a)).body.challenges[0]).toMatchObject({ level: 1, wins: 0 });
     expect(w.storage.tableCodes()).toEqual([]);
   });
 
-  it("quitter pendant le dénouement de la dernière main : le défi est gagné quand même, la cagnotte est versée", async () => {
+  it("quitter pendant le dénouement de la dernière main : le défi est gagné quand même", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 100);
     const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
@@ -1076,16 +1110,15 @@ describe("les défis de la campagne", () => {
     const r = await w.poker.act(a, code, { type: "quitter" });
     expect(r.status).toBe(200);
     expect(r.body.view).toMatchObject({ phase: "fermee", closed: "defi", you: null });
-    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 100 });
-    expect(r.body.state).toMatchObject({ balance: 230, defis: ["kiosque"] });
-    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 230, poker: null, pokerWins: ["kiosque"] });
+    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 200, bonus: 0 });
+    expect(r.body.state).toMatchObject({ balance: 200, defis: ["kiosque"], hostWins: { kiosque: 1 } });
     expect(w.storage.tableCodes()).toEqual([]);
-    // Perdu, c'est perdu : partir pendant le dénouement ne rattrape rien.
+    // Perdu, c'est perdu : partir pendant le dénouement ne rattrape rien (deuxième manche : 200 €).
     const again = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
     await allIn(w, a, again, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d");
     const lost = await w.poker.act(a, again, { type: "quitter" });
     expect(lost.body.left).toEqual({ reason: "defi-perdu", payout: 0, bonus: 0 });
-    expect(w.balance(a)).toBe(200);
+    expect(w.balance(a)).toBe(0);
   });
 
   it("un défi de bout en bout par l'API : la blinde double au fil des mains, et le duel finit vite, un tapis à zéro", async () => {
@@ -1096,7 +1129,7 @@ describe("les défis de la campagne", () => {
       const a = await w.signup(pseudo, 1_000, CAFE_GOODS);
       for (let i = pseudo.length * 7; i > 0; i--) w.deps.random32();
       const code = (await w.poker.create(a, { defi: "cafe" })).body.view!.code;
-      expect(w.balance(a)).toBe(700);
+      expect(w.balance(a)).toBe(0);
       const blinds = new Map<number, number>();
       let last: PokerTableResponse | null = null;
       let hands = 0;
@@ -1112,7 +1145,7 @@ describe("les défis de la campagne", () => {
           if (view.rise) {
             expect(view.rise.hand).toBeGreaterThan(view.handNo);
             expect(view.rise.blind).toBe(2 * view.blind);
-          } else expect(view.blind).toBe(640);
+          } else expect(view.blind).toBe(2_560);
           // Personne ne pose plus que la blinde, ni plus que ce qu'il a.
           for (const seat of view.seats) expect(seat!.committed).toBeLessThanOrEqual(view.blind);
         }
@@ -1130,13 +1163,13 @@ describe("les défis de la campagne", () => {
       expect(last!.view).toMatchObject({ phase: "fermee", closed: "defi" });
       expect(["defi-gagne", "defi-perdu"]).toContain(last!.left!.reason);
       const won = last!.left!.reason === "defi-gagne";
-      // 30 blindes de base de cave, 100 de cagnotte : la blinde qui monte n'y change rien.
-      expect(last!.left).toEqual({ reason: won ? "defi-gagne" : "defi-perdu", payout: won ? 600 : 0, bonus: won ? 1_000 : 0 });
-      expect(w.balance(a)).toBe(won ? 700 + 600 + 1_000 : 700);
+      // Les deux mises au gagnant, rien au perdant : la blinde qui monte n'y change rien.
+      expect(last!.left).toEqual({ reason: won ? "defi-gagne" : "defi-perdu", payout: won ? 2_000 : 0, bonus: 0 });
+      expect(w.balance(a)).toBe(won ? 2_000 : 0);
       expect(w.storage.tableCodes()).toEqual([]);
-      // Les paliers : la blinde de base (10 € au Grand Café) trois mains, puis elle double toutes les deux mains.
+      // Les paliers : la blinde de départ (40 € au Grand Café, première manche) trois mains, puis elle double toutes les deux mains.
       for (const [hand, blind] of blinds) {
-        const expected = [10, 10, 10, 20, 20, 40, 40, 80, 80, 160, 160, 320, 320][hand - 1] ?? 640;
+        const expected = [40, 40, 40, 80, 80, 160, 160, 320, 320, 640, 640, 1_280, 1_280][hand - 1] ?? 2_560;
         expect([hand, blind]).toEqual([hand, expected]);
       }
       expect(blinds.size).toBe(hands);
@@ -1156,20 +1189,21 @@ describe("les défis de la campagne", () => {
     const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
     const r = await w.poker.act(a, code, { type: "recaver", amount: 10 }) as Reply;
     expect([r.status, r.body.error.code]).toEqual([409, "ACTION_IMPOSSIBLE"]);
-    expect(w.balance(a)).toBe(970);
+    expect(w.balance(a)).toBe(900);
   });
 
-  it("une cagnotte par lieu : chaque hôte verse la sienne", async () => {
+  it("une mise par lieu : cent fois sa blinde à la première manche", async () => {
     const w = makeWorld();
     const a = await w.signup("Marcel", 10_000, CAFE_GOODS);
     for (const [place, blind] of [["kiosque", 1], ["cafe", 10]] as const) {
       const before = w.balance(a);
       const code = (await w.poker.create(a, { defi: place })).body.view!.code;
+      expect(w.balance(a)).toBe(before - 100 * blind);
       await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
       w.advance(RESULT_MS);
       const won = await w.poker.poll(a, code);
-      expect(won.body.left).toEqual({ reason: "defi-gagne", payout: 60 * blind, bonus: 100 * blind });
-      expect(w.balance(a)).toBe(before + 30 * blind + 100 * blind);
+      expect(won.body.left).toEqual({ reason: "defi-gagne", payout: 200 * blind, bonus: 0 });
+      expect(w.balance(a)).toBe(before + 100 * blind);
     }
     expect(w.storage.peek(a.playerId)!.pokerWins).toEqual(["kiosque", "cafe"]);
   });
@@ -1605,7 +1639,7 @@ describe("l'argent entre la bourse et la table", () => {
     expect(cuts).toBeGreaterThanOrEqual(12);
   });
 
-  it("un défi gagné : coupé à chaque écriture, la cagnotte n'est versée qu'une fois", async () => {
+  it("un défi gagné : coupé à chaque écriture, les deux mises ne sont versées qu'une fois", async () => {
     const cuts = await cutEverywhere({
       setup: async (w) => {
         const a = await w.signup("Marcel", 100);
@@ -1615,8 +1649,8 @@ describe("l'argent entre la bourse et la table", () => {
           t.hand = null;
           t.phase = "denouement";
           t.nextAt = w.now() + RESULT_MS;
-          t.audit.bank -= 30 - t.seats[1]!.stack;
-          t.seats[0]!.stack = 60;
+          t.audit.bank -= 100 - t.seats[1]!.stack;
+          t.seats[0]!.stack = 200;
           t.seats[1]!.stack = 0;
         });
         w.advance(RESULT_MS);
@@ -1626,8 +1660,9 @@ describe("l'argent entre la bourse et la table", () => {
       bots: true,
       request: (w, { a, code }) => w.poker.poll(a, code),
       afterRecovery: async (w, { a }, label) => {
-        // 70 € restés en poche, 60 € de tapis, 100 € de cagnotte : ni plus, ni moins.
-        expect([label, w.storage.peek(a.playerId)!.balance, w.storage.peek(a.playerId)!.pokerWins, w.storage.peek(a.playerId)!.poker]).toEqual([label, 230, ["kiosque"], null]);
+        // Les deux mises, une fois : 200 €, ni plus, ni moins. Et une victoire contre Gaspard, pas deux.
+        expect([label, w.storage.peek(a.playerId)!.balance, w.storage.peek(a.playerId)!.pokerWins, w.storage.peek(a.playerId)!.poker]).toEqual([label, 200, ["kiosque"], null]);
+        expect([label, w.storage.peek(a.playerId)!.hostWins]).toEqual([label, { kiosque: 1 }]);
         expect(w.storage.tableCodes()).toEqual([]);
         expect((await w.poker.lobby(a)).body.challenges[0]!.won).toBe(true);
       },

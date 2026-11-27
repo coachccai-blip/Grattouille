@@ -133,7 +133,7 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
   align-items: center;
   justify-content: center;
   /* Sur un petit écran, le timbre laisse le bouton visible sans faire défiler. */
-  height: min(30vh, 250px);
+  height: min(25vh, 230px);
   overflow: hidden;
   border: 0 solid transparent;
   border-width: 8px 0;
@@ -156,15 +156,21 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
   height: 100%;
 }
 
-.fiche-experience__chapitre {
-  margin-top: var(--e4);
-  color: var(--encre-douce);
-  font: 500 14px/20px var(--texte);
-}
+.fiche-experience__nom { margin-top: var(--e4); }
 
+/* Le prix, et le chapitre du catalogue où l'expérience est rangée. */
 .fiche-experience__prix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--e3);
+  align-items: baseline;
   margin-top: 4px;
   font: 700 20px/24px var(--texte);
+}
+
+.fiche-experience__chapitre {
+  color: var(--encre-douce);
+  font: 500 14px/20px var(--texte);
 }
 
 .fiche-experience__tampon {
@@ -178,7 +184,9 @@ li:nth-child(even) > .experience .experience__timbre { transform: rotate(2.5deg)
 }
 
 /* Le boniment : Madame Diem, en petit, et sa bulle blanche sur le papier. */
-.fiche-experience__diem { margin-top: var(--e4); }
+.fiche-experience__diem { margin-top: var(--e3); }
+
+.fiche-experience .fiche-article__actions { margin-top: var(--e4); }
 
 .fiche-experience__diem .portrait {
   width: 48px;

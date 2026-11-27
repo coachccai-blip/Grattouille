@@ -3,10 +3,11 @@
 //
 // - Les deux fins, à revoir une fois vues. Avant, un mystère : on ne dit pas ce qu'elles sont,
 //   et la deuxième ne se devine qu'après la première.
-// - Les huit maîtres des lieux, dans l'ordre de la Promenade. Battu trois fois au poker (à
-//   son défi, ou à une Table des Maîtres où il était assis), un hôte raconte son histoire.
-//   Avant : ses victoires sur trois, et ce qu'il reste à faire. Un hôte dont le lieu n'est
-//   pas encore ouvert reste dans l'ombre : on ne présente pas quelqu'un avant l'heure.
+// - Les huit maîtres des lieux, dans l'ordre de la Promenade. Le défi d'un hôte, au poker, se
+//   joue en trois manches, de plus en plus chères (LOT4.md, section 15) : qui les remporte
+//   toutes les trois l'entend raconter son histoire. Avant : ses manches gagnées sur trois.
+//   Un hôte dont le lieu n'est pas encore ouvert reste dans l'ombre : on ne présente pas
+//   quelqu'un avant l'heure.
 //
 // Revoir un souvenir ne dit rien au serveur. Ce que l'appareil retient : quelles histoires
 // ont été regardées (« Nouveau » sinon), et si c'était avec leur dernier temps, celui
@@ -36,20 +37,26 @@ import "./souvenirs.css";
 /** Le titre d'une fin qu'on n'a pas vue : le même dans toutes les langues. */
 const INCONNU = "???";
 
-/** Celles à qui l'on dit « bats-la ». */
+/** Celles dont on dit « elle te raconte ». */
 const DAMES = new Set<string>(["ondine", "selene"]);
 
 const versPoker = () => nav.reset([{ name: "promenade" }, { name: "poker" }]);
 
-/** Ce qu'il reste à faire pour ouvrir l'histoire d'un hôte. */
+/** Où en est le défi d'un hôte : ses manches remportées sur trois, et ce qu'il en reste avant son histoire. */
 function resteAFaire(victoires: number, dame: boolean): string {
-  const n = HOST_STORY_WINS - victoires;
-  if (victoires <= 0) return dame ? t("Bats-la {n} fois au poker.", { n }) : t("Bats-le {n} fois au poker.", { n });
-  if (n === 1) return dame ? t("Bats-la encore une fois au poker.") : t("Bats-le encore une fois au poker.");
-  return dame ? t("Bats-la encore {n} fois au poker.", { n }) : t("Bats-le encore {n} fois au poker.", { n });
+  if (victoires <= 0) return t("Son défi au poker : trois manches à remporter.");
+  const manches = { n: victoires, max: HOST_STORY_WINS };
+  if (HOST_STORY_WINS - victoires === 1) {
+    return dame
+      ? t("Manche {n} sur {max} remportée. Encore une, et elle te raconte son histoire.", manches)
+      : t("Manche {n} sur {max} remportée. Encore une, et il te raconte son histoire.", manches);
+  }
+  return dame
+    ? t("Manche {n} sur {max} remportée. Encore deux, et elle te raconte son histoire.", manches)
+    : t("Manche {n} sur {max} remportée. Encore deux, et il te raconte son histoire.", manches);
 }
 
-/** Les victoires sur trois : un pion plein par victoire. */
+/** Les manches remportées sur trois : un pion plein par manche. */
 function Pions({ victoires }: { victoires: number }) {
   return (
     <span className="pions" role="img" aria-label={t("{n} sur {max}", { n: victoires, max: HOST_STORY_WINS })}>
@@ -197,7 +204,7 @@ export function Souvenirs() {
       <section className="rubrique" aria-labelledby="souvenirs-hotes">
         <h2 className="rubrique__titre" id="souvenirs-hotes">{t("Les histoires des hôtes")}</h2>
         <p className="note">
-          {t("Bats trois fois un maître des lieux au poker, à son défi ou à la Table des Maîtres : il te racontera son histoire.")}
+          {t("Remporte les trois manches du défi d'un maître des lieux, au poker : il te racontera son histoire.")}
         </p>
         <ul className="souvenirs__liste">
           {PLACES.map((place) => <li key={place.id}><Hote place={place} player={player} vues={vues} /></li>)}

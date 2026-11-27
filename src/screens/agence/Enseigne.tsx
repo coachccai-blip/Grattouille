@@ -8,7 +8,7 @@
 // n'arrivent qu'en poussant la porte (App.tsx). Le portrait de Madame Diem lui-même
 // arrive un instant après l'enseigne ; sans réseau, le timbre reste bleu, et rien ne casse.
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { EXPERIENCE_COUNT } from "../../../shared/experiences";
 import { nav } from "../../app/nav";
 import { useGame } from "../../app/store";
@@ -16,7 +16,7 @@ import { Icon } from "../../art/icons";
 import { t } from "../../i18n";
 import "./enseigne.css";
 
-const Diem = lazy(() => import("../../art/agence/diem").catch(() => ({ default: () => null })));
+const Diem = lazy<ComponentType>(() => import("../../art/agence/diem").catch(() => ({ default: () => null })));
 
 export function Enseigne() {
   const vecues = useGame((s) => s.player?.experiences.length ?? 0);

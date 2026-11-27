@@ -278,13 +278,6 @@ export interface EndedSeat {
    * ces compteurs).
    */
   stats?: PokerStats;
-  /**
-   * Table des Maîtres remportée (`maitres-gagne`) : les quatre hôtes qui y étaient assis,
-   * éliminés compris, par leur identifiant de personnage. Une table fermée ne garde aucun
-   * siège : c'est ici qu'on les retrouve pour compter au joueur une victoire contre chacun.
-   * Absent de toute autre entrée.
-   */
-  beaten?: string[];
 }
 
 export interface TableState {
@@ -294,6 +287,11 @@ export interface TableState {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
+  /**
+   * Défi : la manche (1, 2 ou 3). Absent de toute autre table, et d'un défi ouvert avant les
+   * trois manches : celui-là se règle selon ses règles d'origine (la cagnotte versée à part).
+   */
+  level?: number;
   /** La blinde de la table. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
   blind: number;
   minBuyIn: number;
@@ -460,6 +458,8 @@ export interface TableView {
   code: string;
   kind: TableKind;
   place: PlaceId | null;
+  /** Défi : la manche qui se joue (1, 2 ou 3). ABSENT hors défi, et d'un défi ouvert avant les trois manches. */
+  level?: number;
   /**
    * La blinde en vigueur : celle de la main en cours, ou de la prochaine entre deux mains.
    * À une table, elle ne change jamais. Dans un défi et à la Table des Maîtres, elle part
@@ -573,16 +573,27 @@ export interface LobbyChallenge {
   place: PlaceId;
   open: boolean;
   host: string;
-  /** La blinde de base du lieu : celle des quatre premières mains du duel. Elle double ensuite de palier en palier. */
+  /** La blinde de départ de la manche à jouer : celle des trois premières mains. Elle double ensuite de palier en palier. */
   blind: number;
-  /** La cave du défi : 30 blindes de base. */
+  /** La mise du joueur à cette manche (c'est `stake` ; gardé pour une page restée ouverte avec l'ancien écran). */
   buyIn: number;
-  /** La cagnotte de l'hôte : 100 blindes de base, versées la première fois qu'il est ruiné. */
+  /** Ce que l'hôte pose en face : la même mise (gardé de même ; ce n'est plus une cagnotte versée à part). */
   bonus: number;
+  /** La difficulté de la manche à jouer : celle du lieu, un cran de plus à chaque manche. */
   difficulty: Difficulty;
-  /** Le défi a déjà été relevé : la cagnotte est versée. On peut le rejouer, sans cagnotte. */
+  /** L'hôte a été battu au moins une fois : ce défi compte parmi les « défis relevés ». */
   won: boolean;
   affordable: boolean;
+  /** La manche à jouer : 1, 2 ou 3 (3 aussi pour une revanche). */
+  level: number;
+  /** Les victoires du joueur contre cet hôte. Trois ouvrent son histoire. */
+  wins: number;
+  /** La mise de chacun à cette manche : 100 blindes du lieu, le double, le quadruple. */
+  stake: number;
+  /** Ce que le gagnant emporte : les deux mises. */
+  prize: number;
+  /** Les trois manches sont gagnées : le défi se rejoue en revanche, aux conditions de la troisième. */
+  rematch: boolean;
 }
 
 /** La Table des Maîtres, dans le hall. */

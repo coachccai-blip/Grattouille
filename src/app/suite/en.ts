@@ -77,19 +77,23 @@ export const EN_ECRANS: Record<string, string> = {
   "Nouveau": "New",
   "Un mot de plus": "One more word",
   "Les histoires des hôtes": "The hosts' stories",
-  "Bats trois fois un maître des lieux au poker, à son défi ou à la Table des Maîtres : il te racontera son histoire.":
-    "Beat a host three times at poker, in their challenge or at the Masters' Table, and they will tell you their story.",
+  "Remporte les trois manches du défi d'un maître des lieux, au poker : il te racontera son histoire.":
+    "Win all three rounds of a host's poker challenge and they will tell you their story.",
   "{lieu} · « {titre} »": "{lieu} · “{titre}”",
   "Revoir l'histoire de {nom} : {titre}": "Watch {nom}'s story again: {titre}",
   "Écouter l'histoire de {nom} : {titre}": "Listen to {nom}'s story: {titre}",
   "Tu ne connais pas encore son hôte.": "You haven't met its host yet.",
   "{n} sur {max}": "{n} out of {max}",
-  "Bats-le {n} fois au poker.": "Beat him {n} times at poker.",
-  "Bats-la {n} fois au poker.": "Beat her {n} times at poker.",
-  "Bats-le encore {n} fois au poker.": "Beat him {n} more times at poker.",
-  "Bats-la encore {n} fois au poker.": "Beat her {n} more times at poker.",
-  "Bats-le encore une fois au poker.": "Beat him once more at poker.",
-  "Bats-la encore une fois au poker.": "Beat her once more at poker.",
+  // Une manche du défi se dit « a round ».
+  "Son défi au poker : trois manches à remporter.": "The poker challenge: three rounds to win.",
+  "Manche {n} sur {max} remportée. Encore deux, et il te raconte son histoire.":
+    "Round {n} of {max} won. Two more and he'll tell you his story.",
+  "Manche {n} sur {max} remportée. Encore deux, et elle te raconte son histoire.":
+    "Round {n} of {max} won. Two more and she'll tell you her story.",
+  "Manche {n} sur {max} remportée. Encore une, et il te raconte son histoire.":
+    "Round {n} of {max} won. One more and he'll tell you his story.",
+  "Manche {n} sur {max} remportée. Encore une, et elle te raconte son histoire.":
+    "Round {n} of {max} won. One more and she'll tell you her story.",
   "Maintenant que tu sais, chacun a ajouté un mot à son histoire.":
     "Now that you know, each of them has added a word to their story.",
   "Revoir un souvenir ne change rien à ton compte.": "Watching a memory again changes nothing in your account.",

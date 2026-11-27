@@ -210,6 +210,7 @@
 .xp-pop { animation-name: xp-pop; }
 .xp-chute { animation-name: xp-chute; }
 .xp-eclat { animation-name: xp-eclat; }
+.xp-etire { animation-name: xp-etire; }
 .xp-flotte { animation-name: xp-flotte; }
 .xp-tourne { animation-name: xp-tourne; }
 .xp-defile { animation-name: xp-defile; }
@@ -270,6 +271,11 @@
   12% { opacity: 1; }
   55% { opacity: 1; }
   100% { opacity: 0; transform: scale(1); }
+}
+
+/* S'étirer ou se tasser, depuis son attache : une ficelle qui raccourcit, une voile qui se gonfle. */
+@keyframes xp-etire {
+  from { transform: scale(var(--sx, 1), var(--sy, 1)); }
 }
 
 /* Flotter, se balancer : autour de sa place. */

@@ -79,12 +79,12 @@ export function FicheExperience({ experience: id }: { experience: string }) {
         </span>
       </div>
 
-      <p className="fiche-experience__chapitre">{pick(chapitreDe(id).titre)}</p>
       <h2 className="t-titre fiche-experience__nom">{nom}</h2>
       <p className="fiche-experience__prix">
         {vecue
           ? <span className="fiche-experience__tampon">{t("Vécue")}</span>
           : <span className="chiffres">{formatEuros(experience.price)}</span>}
+        <span className="fiche-experience__chapitre">{pick(chapitreDe(id).titre)}</span>
       </p>
 
       <div className="bulle fiche-experience__diem">

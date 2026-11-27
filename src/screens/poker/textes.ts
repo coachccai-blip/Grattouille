@@ -11,7 +11,7 @@ import { hostName } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { pick, t } from "../../i18n";
 import { placeShort } from "../../i18n/noms";
-import type { HostStory, TypedBet, Unit } from "./calcul";
+import type { Duel, DuelStage, TypedBet, Unit } from "./calcul";
 
 const CATEGORIES: Record<HandCategory, string> = {
   "carte-haute": "Carte haute",
@@ -190,55 +190,80 @@ export function mastersEnding(reason: MastersEnd, payout: number): MastersEnding
 }
 
 // ---------------------------------------------------------------------------
-// L'histoire de chaque hôte (LOT4.md, section 12) : trois victoires au poker l'ouvrent
+// Le défi, en trois manches (LOT4.md, sections 12 et 15) : la mise double d'une manche à
+// l'autre, et la troisième victoire ouvre l'histoire de l'hôte, dans les Souvenirs
 
-/** Dans le hall, sous la bulle d'un hôte : où en est son histoire. */
-export function storyProgressText(story: HostStory): string {
-  if (story.open) return t("Son histoire t'attend dans tes Souvenirs.");
-  const vars = { n: story.wins, total: story.needed };
-  return story.wins > 1 ? t("Son histoire : {n} victoires sur {total}", vars) : t("Son histoire : {n} victoire sur {total}", vars);
-}
-
-/** Ce qu'il reste à faire pour l'histoire d'un hôte : « Encore 2 victoires et Gaspard te raconte son histoire. » */
-export function storyLeftText(story: HostStory, host: string): string | null {
-  if (story.open || story.left <= 0) return null;
-  const hote = nameInSentence(character(host));
-  return story.left === 1
-    ? t("Encore une victoire et {hote} te raconte son histoire.", { hote })
-    : t("Encore {n} victoires et {hote} te raconte son histoire.", { n: story.left, hote });
+/** « Manche 2 sur 3 » ; une fois les trois gagnées, « Revanche ». */
+export function stageText(duel: Pick<Duel, "stage" | "rounds">): string {
+  return duel.stage === "revanche" ? t("Revanche") : t("Manche {n} sur {total}", { n: duel.stage, total: duel.rounds });
 }
 
 /**
- * Les histoires qui viennent de s'ouvrir, en une phrase : « Gaspard a une histoire à te
- * raconter : elle t'attend dans tes Souvenirs. » `hosts` : les hôtes concernés ; `null` s'il n'y
- * en a pas. Quatre d'un coup, ce sont les quatre maîtres d'une Table des Maîtres : on ne les
- * renomme pas un à un (ils saluent juste au-dessus).
+ * Dans le hall, sous la bulle d'un hôte : la manche à jouer ; en revanche, le rappel que son
+ * histoire attend dans les Souvenirs.
  */
-export function storiesOpenedText(hosts: readonly string[]): string | null {
-  if (hosts.length === 0) return null;
-  if (hosts.length >= 4) return t("Les quatre maîtres ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.");
-  // Le premier nom ouvre la phrase : « Le Baron et le Commodore ont… ».
-  const names = hosts.map((host, i) => (i === 0 ? hostName(host) : nameInSentence(character(host))));
-  if (names.length === 1) return t("{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.", { hote: names[0]! });
-  return t("{hotes} ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.", { hotes: nameList(names) });
+export function duelProgressText(duel: Pick<Duel, "stage" | "rounds">): string {
+  return duel.stage === "revanche" ? t("Son histoire t'attend dans tes Souvenirs.") : stageText(duel);
 }
 
-/** Ce qu'une victoire contre un hôte change à son histoire. `ouverte` : c'est elle qui vient de l'ouvrir. */
-export interface StoryNews {
+/** L'enjeu, sans détour : « Chacun pose 200 €. Le gagnant repart avec 400 €. » */
+export function duelStakesText(duel: Pick<Duel, "stake" | "prize">): string {
+  return t("Chacun pose {mise}. Le gagnant repart avec {gain}.", { mise: formatEuros(duel.stake), gain: formatEuros(duel.prize) });
+}
+
+/** Sur la feuille du défi : ce qu'il y a au bout des trois manches. `host` : l'hôte du lieu. */
+export function duelStoryText(duel: Pick<Duel, "stage">, host: string): string {
+  const hote = nameInSentence(character(host));
+  if (duel.stage === "revanche") return t("Son histoire est déjà dans tes Souvenirs : on rejoue pour l'honneur.");
+  return duel.stage === 3
+    ? t("Gagne cette manche, et {hote} te raconte son histoire.", { hote })
+    : t("Gagne les trois manches, et {hote} te raconte son histoire.", { hote });
+}
+
+/** L'histoire d'un hôte vient de s'ouvrir : « Gaspard a une histoire à te raconter : elle t'attend dans tes Souvenirs. » */
+export function storyOpenedText(host: string): string {
+  return t("{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.", { hote: hostName(host) });
+}
+
+/** Ce qui vient après une manche gagnée. `ouverte` : c'est l'histoire de l'hôte qui s'ouvre. */
+export interface DuelNext {
   texte: string;
   ouverte: boolean;
 }
 
+/** Les mots du panneau de fin d'une manche. */
+export interface DuelEnding {
+  titre: string;
+  /** Gagnée : la manche suivante et sa mise doublée, ou l'histoire qui s'ouvre ; rien après une revanche. */
+  suite: DuelNext | null;
+  /** Perdue : la mise qu'on y laisse, et l'invitation à retenter la même manche. */
+  textes: string[];
+}
+
 /**
- * Au panneau de fin d'un défi gagné. La troisième victoire annonce l'histoire ; les deux
- * premières disent ce qu'il reste ; au-delà de trois, plus rien. `story` : le compte d'après
- * la victoire (à zéro, l'état du joueur ne la porte pas encore : on ne dit rien).
+ * Une manche gagnée. `stage` : celle qui vient de se jouer ; `stake` : ce que chacun y posait
+ * (la suivante en demande le double) ; `host` : l'hôte du lieu.
  */
-export function storyAfterWin(story: HostStory, host: string): StoryNews | null {
-  if (story.wins <= 0) return null;
-  if (story.justOpened) return { texte: storiesOpenedText([host])!, ouverte: true };
-  const texte = storyLeftText(story, host);
-  return texte === null ? null : { texte, ouverte: false };
+export function duelWon(stage: DuelStage, stake: number, host: string): DuelEnding {
+  if (stage === "revanche") return { titre: t("Revanche gagnée !"), suite: null, textes: [] };
+  const titre = t("Manche {n} gagnée !", { n: stage });
+  if (stage === 3) return { titre, suite: { texte: storyOpenedText(host), ouverte: true }, textes: [] };
+  // Sans la mise de la table (une vue perdue en route), on annonce la manche, pas un montant inventé.
+  const texte = stake > 0
+    ? t("Manche {n} : la mise double, {montant}.", { n: stage + 1, montant: formatEuros(stake * 2) })
+    : t("Manche {n} : la mise double.", { n: stage + 1 });
+  return { titre, suite: { texte, ouverte: false }, textes: [] };
+}
+
+/** Une manche perdue : la mise y reste, et la même manche attend. */
+export function duelLost(stage: DuelStage, stake: number): DuelEnding {
+  const textes = stake > 0 ? [t("Tu y laisses ta mise : {montant}.", { montant: formatEuros(stake) })] : [];
+  if (stage === "revanche") return { titre: t("Revanche perdue"), suite: null, textes: [...textes, t("Elle se retente quand tu veux.")] };
+  return {
+    titre: t("Manche {n} perdue", { n: stage }),
+    suite: null,
+    textes: [...textes, t("La manche {n} t'attend : retente-la quand tu veux.", { n: stage })],
+  };
 }
 
 // ---------------------------------------------------------------------------

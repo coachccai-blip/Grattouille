@@ -843,6 +843,17 @@ describe("les Souvenirs : l'histoire de chaque maître des lieux", () => {
     expect(Object.keys(DESSINS).filter((nom) => !servis.has(`dessin:${nom}`))).toEqual([]);
   });
 
+  it("l'hôte vient de perdre les trois manches de son défi : sa première phrase le dit, la suite n'en dépend pas", () => {
+    for (const lieu of LIEUX) {
+      const h = HISTOIRES[lieu];
+      expect([lieu, /trois manches/i.test(h.temps[0]!.dit.fr[0]!), /three rounds/i.test(h.temps[0]!.dit.en[0]!)]).toEqual([lieu, true, true]);
+      // Une histoire se revoit longtemps après : passé la première page, plus un mot des duels ni de leurs mises.
+      const suite = [...h.temps.slice(1), h.apres].flatMap((page) => [...page.dit.fr, ...page.dit.en]).join(" ");
+      // (Au singulier, une manche est celle où le groom prend des notes, et « round » le détour d'une mouette.)
+      expect([lieu, /\bmanches\b|\brounds\b|\bmise\b|\bstake/i.test(suite)]).toEqual([lieu, false]);
+    }
+  });
+
   it("verrouillée à deux victoires, ouverte à trois", () => {
     expect(HOST_STORY_WINS).toBe(3);
     for (const lieu of LIEUX) {
@@ -1188,7 +1199,8 @@ describe("les écrans de la suite et leurs dictionnaires anglais", () => {
     setLang("en");
     expect(mots("Écouter")).toBe(EN_ECRANS["Écouter"]);
     expect(mots("Page {n} sur {max}", { n: 2, max: 6 })).toBe("Page 2 of 6");
-    expect(mots("Bats-la encore {n} fois au poker.", { n: 2 })).toBe("Beat her 2 more times at poker.");
+    expect(mots("Manche {n} sur {max} remportée. Encore une, et elle te raconte son histoire.", { n: 2, max: 3 }))
+      .toBe("Round 2 of 3 won. One more and she'll tell you her story.");
     // Une phrase du jeu, que ces écrans reprennent : même traduction que partout.
     expect(mots("Refermer le souvenir")).toBe(EN_SUITE["Refermer le souvenir"]);
     expect(mots("« {replique} »", { replique: "Hmph." })).toBe("“Hmph.”");
@@ -1277,6 +1289,12 @@ describe("les écrans de la suite et leurs dictionnaires anglais", () => {
     expect(liste).toMatch(/replayMemory\("vraie-fin"\)/);
     expect(liste).toMatch(/nav\.push\(\{ name: "histoire", lieu: place\.id \}\)/);
     expect(lire("src/app/nav.ts")).toMatch(/new Set\(\[[^\]]*"histoire"[^\]]*\]\)/);
+    // Un hôte verrouillé montre ses manches remportées sur trois ; la Table des Maîtres n'y est pour rien.
+    expect(liste).toMatch(/Manche \{n\} sur \{max\} remportée\. Encore une, et (il|elle) te raconte son histoire\./);
+    expect(liste).toMatch(/Son défi au poker : trois manches à remporter\./);
+    for (const source of [liste, lire("src/app/suite/en.ts"), lire("src/app/suite/histoires.ts")]) {
+      expect(/Table des Maîtres|Masters' Table|Bats-l[ea]/.test(source)).toBe(false);
+    }
     const histoire = lire("src/screens/souvenirs/Histoire.tsx");
     expect(histoire).toMatch(/markStorySeen\(lieu\)/);
     expect(histoire).toMatch(/hostStoryOpen\(player\.hostWins, lieu\)/);
