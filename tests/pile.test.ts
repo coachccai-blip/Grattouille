@@ -201,21 +201,23 @@ function ACK(m: { ACK_BATCH: number }): number {
 // ---------------------------------------------------------------------------
 
 describe("la pile « À gratter », rangée par ticket", () => {
-  it("un paquet par ticket, et un pour ceux trouvés par terre, dans l'ordre d'arrivée", async () => {
+  it("un paquet par ticket, ceux trouvés par terre juste après, dans l'ordre des comptoirs", async () => {
     const { paquetsDe, fileDepuis } = await import("../src/screens/a-gratter/AGratter");
+    // Achetés dans le désordre : une Lucarne (10 €), deux Tirelires (1 €), une trouvée par terre, une autre Lucarne.
     const pile = [
-      ticket(0, "tirelire"), ticket(1, "lucarne"), ticket(2, "tirelire"), ticket(3, "tirelire", 3, true),
-      ticket(4, "lucarne"), ticket(5, "tirelire"),
+      ticket(0, "lucarne"), ticket(1, "tirelire"), ticket(2, "tirelire", 3, true), ticket(3, "tirelire"), ticket(4, "lucarne"),
     ];
     const paquets = paquetsDe(pile);
     expect(paquets.map((p) => [p.type, p.house, p.tickets.map((t) => t.seed)])).toEqual([
-      ["tirelire", false, [0, 2, 5]], ["lucarne", false, [1, 4]], ["tirelire", true, [3]],
+      ["tirelire", false, [1, 3]], ["tirelire", true, [2]], ["lucarne", false, [0, 4]],
     ]);
-    // Toucher un paquet : ses tickets d'abord, puis le reste de la pile, dans l'ordre.
-    expect(fileDepuis(paquets[1]!, pile).map((t) => t.seed)).toEqual([1, 4, 0, 2, 3, 5]);
-    expect(fileDepuis(paquets[0]!, pile).map((t) => t.seed)).toEqual([0, 2, 5, 1, 3, 4]);
-    // Rien ne se perd, rien ne se double.
+    // La liste se lit dans l'ordre du grattage ; toucher une ligne fait tourner la pile à partir d'elle.
+    expect(fileDepuis(paquets, 0).map((t) => t.seed)).toEqual([1, 3, 2, 0, 4]);
+    expect(fileDepuis(paquets, 2).map((t) => t.seed)).toEqual([0, 4, 1, 3, 2]);
+    expect(fileDepuis(paquets, 1).map((t) => t.seed)).toEqual([2, 0, 4, 1, 3]);
+    // Rien ne se perd, rien ne se double ; un ticket que ce jeu ne connaît pas passe en dernier.
     expect(paquets.flatMap((p) => p.tickets)).toHaveLength(pile.length);
+    expect(paquetsDe([ticket(9, "inconnu"), ticket(8, "tirelire")]).map((p) => p.type)).toEqual(["tirelire", "inconnu"]);
     expect(paquetsDe([])).toEqual([]);
   });
 
@@ -281,5 +283,62 @@ describe("Piou, quand la pile est pleine", () => {
     i18n.setLang("en");
     expect(PIOU.enAttente(500)).toBe("500 tickets kept warm: my pocket is full! Scratch a few before you buy more.");
     expect(PIOU.enAttente(1)).toBe("I've kept 1 ticket warm for you.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("de bout en bout : le magasin d'état et le vrai serveur, dans le bac à sable", () => {
+  it("cinq cents tickets achetés, grattés d'une traite, tous déclarés et payés, sans qu'une requête en porte trop", async () => {
+    vi.resetModules();
+    vi.stubGlobal("window", { setTimeout, clearTimeout, location: { search: "?bac-a-sable&solde=10&attente=500" } });
+    const api = await import("../src/app/api");
+    const store = await import("../src/app/store");
+    await api.enableSandbox();
+    store.useGame.setState({ sandbox: true, online: true });
+    // Chaque déclaration passe par le vrai serveur, qui refuse plus de 64 tickets par requête.
+    const tailles: number[] = [];
+    const ack = api.api.ack;
+    vi.spyOn(api.api, "ack").mockImplementation((auth, ids) => {
+      tailles.push(ids.length);
+      return ack(auth, ids);
+    });
+    await store.signup("Pileuse", "renard");
+    const etat = () => store.useGame.getState();
+    const pile = etat().player!.pending;
+    expect(pile).toHaveLength(MAX_PENDING);
+    // La pile est pleine : le comptoir le dit avant même de demander, avec son nombre.
+    expect(store.ticketBlocker("tirelire", 1)).toBe("La pile de Piou est pleine : 500 tickets. Gratte d'abord.");
+    const gains = pile.reduce((somme, t) => somme + t.gain, 0);
+    const depart = etat().player!.balance;
+    expect(depart).toBe(10);
+    // Une rafale : chaque ticket gratté rejoint la liste ; un paquet plein part tout de suite.
+    for (const t of pile) store.markRevealed(t.id, 0);
+    expect(store.displayBalance(etat())).toBe(depart + gains);
+    await store.flushAck();
+    expect(etat().player!.pending).toHaveLength(0);
+    expect(etat().player!.balance).toBe(depart + gains);
+    expect(etat().revealed).toEqual([]);
+    expect(Math.max(...tailles)).toBeLessThanOrEqual(60);
+    expect(tailles.reduce((a, b) => a + b, 0)).toBe(MAX_PENDING);
+    // La pile vidée, le comptoir rouvre.
+    expect(store.ticketBlocker("tirelire", 1)).toBeNull();
+  }, 20_000);
+});
+
+describe("le comptoir, quand la pile n'a plus la place", () => {
+  it("pleine, il dit son nombre ; presque pleine, ce qui y tient encore", async () => {
+    const pile = (n: number) => Array.from({ length: n }, (_, i) => ticket(i));
+    let m = await magasin(joueur(pile(MAX_PENDING), { balance: 1_000 }));
+    expect(m.ticketBlocker("tirelire", 1)).toBe("La pile de Piou est pleine : 500 tickets. Gratte d'abord.");
+    m = await magasin(joueur(pile(495), { balance: 1_000 }));
+    expect(m.ticketBlocker("tirelire", 5)).toBeNull();
+    expect(m.ticketBlocker("tirelire", 10)).toBe("Piou n'a plus de place que pour 5 tickets.");
+    m = await magasin(joueur(pile(499), { balance: 1_000 }));
+    expect(m.ticketBlocker("tirelire", 1)).toBeNull();
+    expect(m.ticketBlocker("tirelire", 5)).toBe("Piou n'a plus de place que pour 1 ticket.");
+    // Les tickets déjà grattés ne comptent plus : ils sont payés à la prochaine requête.
+    m = await magasin(joueur(pile(MAX_PENDING), { balance: 1_000 }), pile(10).map((t) => t.id));
+    expect(m.ticketBlocker("tirelire", 10)).toBeNull();
   });
 });

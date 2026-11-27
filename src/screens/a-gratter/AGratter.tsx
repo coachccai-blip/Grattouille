@@ -3,12 +3,14 @@
 //
 // Piou en garde jusqu'à cinq cents (shared/rules.ts) : la pile se range donc par ticket.
 // Les tickets du même type font une seule ligne, avec leur nombre sur la vignette ; ceux
-// trouvés par terre ont la leur. Les lignes suivent l'ordre d'arrivée du premier de
-// chacune. Toucher une ligne gratte ces tickets-là d'abord, puis le reste de la pile.
+// trouvés par terre ont la leur, juste après. Les lignes suivent l'ordre des comptoirs, du
+// moins cher au plus cher : elles ne bougent pas pendant qu'on gratte. La liste se lit dans
+// l'ordre où l'on gratte : « Gratter le suivant » prend le premier ticket de la première
+// ligne ; toucher une ligne gratte ses tickets d'abord, puis les lignes suivantes.
 
 import { useMemo } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
-import { ticketById } from "../../../shared/tickets";
+import { TICKETS, ticketById } from "../../../shared/tickets";
 import type { PendingTicket } from "../../../shared/types";
 import { PIOU, hostName } from "../../app/dialogues";
 import { nav } from "../../app/nav";
@@ -29,7 +31,11 @@ export interface Paquet {
   tickets: PendingTicket[];
 }
 
-/** La pile rangée par ticket, dans l'ordre d'arrivée du premier de chaque paquet. */
+/** Le rang d'un ticket dans l'ordre des comptoirs. Un ticket inconnu passe en dernier. */
+const RANG = new Map(TICKETS.map((def, i) => [def.id, i]));
+const rang = (type: string) => RANG.get(type) ?? TICKETS.length;
+
+/** La pile rangée par ticket : l'ordre des comptoirs, et ceux trouvés par terre juste après ceux achetés. */
 export function paquetsDe(pile: readonly PendingTicket[]): Paquet[] {
   const paquets = new Map<string, Paquet>();
   for (const ticket of pile) {
@@ -42,16 +48,16 @@ export function paquetsDe(pile: readonly PendingTicket[]): Paquet[] {
     }
     paquet.tickets.push(ticket);
   }
-  return [...paquets.values()];
+  return [...paquets.values()].sort((a, b) => rang(a.type) - rang(b.type) || Number(a.house) - Number(b.house));
 }
 
-/** Ce que gratte un appui sur un paquet : ses tickets d'abord, puis le reste de la pile, dans l'ordre. */
-export function fileDepuis(paquet: Paquet, pile: readonly PendingTicket[]): PendingTicket[] {
-  const siens = new Set(paquet.tickets.map((x) => x.id));
-  return [...paquet.tickets, ...pile.filter((x) => !siens.has(x.id))];
+/** Ce que gratte un appui sur la ligne `i` : ses tickets d'abord, puis les lignes suivantes, puis celles d'avant. */
+export function fileDepuis(paquets: readonly Paquet[], i: number): PendingTicket[] {
+  return [...paquets.slice(i), ...paquets.slice(0, i)].flatMap((paquet) => paquet.tickets);
 }
 
-function Ligne({ paquet, pile }: { paquet: Paquet; pile: readonly PendingTicket[] }) {
+function Ligne({ paquets, i }: { paquets: readonly Paquet[]; i: number }) {
+  const paquet = paquets[i]!;
   const def = ticketById(paquet.type);
   if (!def) return null;
   const name = ticketName(def.id);
@@ -65,7 +71,7 @@ function Ligne({ paquet, pile }: { paquet: Paquet; pile: readonly PendingTicket[
       <button
         type="button"
         className={cx("pile__ticket", n > 1 && "pile__ticket--paquet")}
-        onClick={() => nav.push({ name: "grattage", tickets: fileDepuis(paquet, pile) })}
+        onClick={() => nav.push({ name: "grattage", tickets: fileDepuis(paquets, i) })}
         aria-label={label}
       >
         <span className="pile__vignette" aria-hidden="true">
@@ -92,23 +98,25 @@ export function AGratter() {
   const revealed = useGame((s) => s.revealed);
   const pile = useMemo(() => toScratch({ player, revealed }), [player, revealed]);
   const paquets = useMemo(() => paquetsDe(pile), [pile]);
+  // La pile, dans l'ordre où elle se lit : c'est celui du grattage.
+  const file = useMemo(() => fileDepuis(paquets, 0), [paquets]);
   return (
     <main className="ecran a-gratter">
       <Entete titre={t("À gratter")} retour droite={<Bourse />} />
       <BulleLibre pnj="piou" nom={hostName("piou")}>{pile.length > 0 ? PIOU.enAttente(pile.length) : PIOU.pileVide}</BulleLibre>
 
       <ul className="pile cascade">
-        {paquets.map((paquet) => <Ligne key={`${paquet.type}|${paquet.house}`} paquet={paquet} pile={pile} />)}
+        {paquets.map((paquet, i) => <Ligne key={`${paquet.type}|${paquet.house}`} paquets={paquets} i={i} />)}
       </ul>
 
       <div className="a-gratter__actions">
         {pile.length > 0 ? (
           <>
-            <Bouton bloc onClick={() => nav.push({ name: "grattage", tickets: pile })}>
+            <Bouton bloc onClick={() => nav.push({ name: "grattage", tickets: file })}>
               {pile.length > 1 ? t("Gratter le suivant") : t("Gratter")}
             </Bouton>
             {pile.length > 1 && (
-              <Bouton variante="secondaire" bloc onClick={() => nav.push({ name: "grattage", tickets: pile, rafale: true })}>
+              <Bouton variante="secondaire" bloc onClick={() => nav.push({ name: "grattage", tickets: file, rafale: true })}>
                 {t("Tout gratter en rafale")}
               </Bouton>
             )}

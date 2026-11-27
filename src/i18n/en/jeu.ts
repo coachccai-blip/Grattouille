@@ -145,6 +145,10 @@ export const EN_JEU: Record<string, string> = {
   "Hors connexion. Les boutiques rouvrent dès que le réseau revient.":
     "You're offline. The shops reopen as soon as the network is back.",
   "Gratte d'abord tes tickets en attente.": "Scratch the tickets you have first.",
+  // La pile de Piou (500 tickets au plus) : pleine, ou presque.
+  "La pile de Piou est pleine : {max} tickets. Gratte d'abord.": "Piou's pile is full: {max} tickets. Scratch some first.",
+  "Piou n'a plus de place que pour 1 ticket.": "Piou only has room for 1 more ticket.",
+  "Piou n'a plus de place que pour {n} tickets.": "Piou only has room for {n} more tickets.",
   "Il te manque {montant}.": "You're {montant} short.",
   "Il te manque {montant} pour ce carnet. À l'unité, ça passe.":
     "You're {montant} short for this booklet. A single ticket will do.",

@@ -565,7 +565,17 @@ interface Blocker {
 }
 
 const OFFLINE_TICKETS = "Hors connexion. Tu peux gratter tes tickets en attente, pas en acheter.";
-const PENDING_FIRST = "Gratte d'abord tes tickets en attente.";
+/**
+ * La pile de Piou n'a pas la place : pleine (500 tickets), elle le dit avec son nombre ;
+ * presque pleine, elle dit ce qui y tient encore (un carnet de dix peut ne plus passer).
+ */
+function pendingText(waiting: number): string {
+  const room = MAX_PENDING - waiting;
+  if (room <= 0) return t("La pile de Piou est pleine : {max} tickets. Gratte d'abord.", { max: formatInt(MAX_PENDING) });
+  return room === 1
+    ? t("Piou n'a plus de place que pour 1 ticket.")
+    : t("Piou n'a plus de place que pour {n} tickets.", { n: formatInt(room) });
+}
 
 /** « Le Casino ouvre à ★ 130. Il te manque 26 ★ : passe chez Sidonie. » */
 export function lockedText(place: PlaceId, standing: number): string {
@@ -583,7 +593,8 @@ function ticketBlock(type: string, qty: number): Blocker | null {
   if (!s.player || !def) return null;
   if (!s.online) return { text: t(OFFLINE_TICKETS), funds: false };
   if (!isPlaceOpen(def.place, s.player.standing)) return { text: lockedText(def.place, s.player.standing), funds: false };
-  if (toScratch(s).length + qty > MAX_PENDING) return { text: t(PENDING_FIRST), funds: false };
+  const waiting = toScratch(s).length;
+  if (waiting + qty > MAX_PENDING) return { text: pendingText(waiting), funds: false };
   const balance = displayBalance(s);
   const cost = def.price * qty;
   if (balance >= cost) return null;
