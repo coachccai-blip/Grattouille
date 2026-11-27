@@ -20,7 +20,7 @@ import "../bienvenue/bienvenue.css";
 /** Chaque langue se nomme dans sa propre langue : on retrouve la sienne sans savoir lire l'autre. */
 const NOMS_DES_LANGUES: Record<Lang, string> = { fr: "Français", en: "English" };
 
-const VERSION = "2.0";
+const VERSION = "2.1";
 
 /** La pastille de l'entrée des Souvenirs : combien d'histoires attendent d'être écoutées. */
 const PASTILLE: CSSProperties = {

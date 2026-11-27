@@ -60,7 +60,10 @@ export function sceneDe(jeu: Vue, stack: readonly Screen[], index: number): Scen
   const dessus = stack[index] as { name: string; ticket?: unknown; lieu?: unknown } | undefined;
   if (dessus?.name === "fiche-ticket" && typeof dessus.ticket === "string") theme = ticketById(dessus.ticket)?.place ?? theme;
   else if (dessus?.name === "histoire" && isPlaceId(dessus.lieu)) theme = dessus.lieu;
-  return { theme, niveau: isCovered(jeu) ? RETRAIT : 1, ecran, pile: base.name === "grattage" };
+  // Le film d'une expérience de vie et la vignette d'un ticket semé sont de grands moments,
+  // eux aussi : la musique s'y efface à moitié, pour laisser leurs bruitages devant.
+  const retrait = isCovered(jeu) || dessus?.name === "experience" || dessus?.name === "semis";
+  return { theme, niveau: retrait ? RETRAIT : 1, ecran, pile: base.name === "grattage" };
 }
 
 // ---------------------------------------------------------------------------

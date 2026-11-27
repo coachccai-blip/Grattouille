@@ -1170,6 +1170,19 @@ describe("le thème selon l'écran", () => {
     expect(regie.RETRAIT).toBeGreaterThan(0.2);
     expect(regie.RETRAIT).toBeLessThan(0.6);
   });
+
+  it("le film d'une expérience et la vignette d'un ticket semé : la musique s'efface à demi, puis revient", () => {
+    const agence: Screen[] = [{ name: "boutiques" }, { name: "agence" }];
+    const film: Screen[] = [...agence, { name: "experience", experience: "australie", premiere: true }];
+    expect(regie.sceneDe(jeu(), agence, 1)).toMatchObject({ theme: "ville", niveau: 1 });
+    expect(regie.sceneDe(jeu(), film, 2)).toMatchObject({ theme: "ville", niveau: regie.RETRAIT });
+    // La fiche d'une expérience n'est pas un grand moment : la musique y reste.
+    expect(regie.sceneDe(jeu(), [...agence, { name: "fiche-experience", experience: "australie" }], 2)).toMatchObject({ niveau: 1 });
+    const comptoir: Screen[] = [{ name: "promenade" }, { name: "comptoir", place: "cafe" }];
+    const semis: Screen[] = [...comptoir, { name: "semis", ticket: "lucarne", rang: 1, qty: 1 }];
+    expect(regie.sceneDe(jeu(), semis, 2)).toMatchObject({ theme: "cafe", niveau: regie.RETRAIT });
+    expect(regie.sceneDe(jeu(), comptoir, 1)).toMatchObject({ theme: "cafe", niveau: 1 });
+  });
 });
 
 describe("le branchement dans le jeu", () => {
