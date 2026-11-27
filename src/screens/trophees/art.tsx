@@ -1,7 +1,7 @@
 // Les dessins de la vitrine des trophées (BRIEF.md, section 4.5 : papier découpé à la
 // gouache, aplats sans contour, ombres décalées, les métaux pour seuls dégradés).
 //
-// - Douze objets de vitrine, un par famille, et le drap qui couvre ceux qui gardent leur
+// - Treize objets de vitrine, un par famille, et le drap qui couvre ceux qui gardent leur
 //   secret. viewBox 0 0 100 100, comme les trésors de la Galerie ; l'objet est posé sur une
 //   même tablette de bois, qui les rassemble.
 // - La médaille : un ruban aux couleurs de sa famille, un disque dont le métal monte avec
@@ -180,6 +180,33 @@ const valise: Art = (props) => (
   </Svg>
 );
 
+/**
+ * La Boule à neige : le souvenir de l'Agence Carpe Diem. Sous le verre, un palmier, un
+ * croissant de lune (on y va du bord de mer jusque là-haut), et la neige qui retombe.
+ */
+const boule: Art = (props) => (
+  <Svg viewBox="0 0 100 100" {...props}>
+    <Socle />
+    <path d="M26 85L33 67H67L74 85Z" fill={C.bougFonce} />
+    <path d="M50 67H67L74 85H50Z" fill={shade(C.bougFonce, -0.25)} />
+    <rect x="29" y="64" width="42" height="6.5" rx="3.25" fill={METAL.laiton} />
+    <circle cx="50" cy="38" r="30" fill={shade(C.ciel, -0.16)} />
+    <circle cx="50" cy="38" r="27.5" fill={C.ciel} />
+    <path d="M74.7 50A27.5 27.5 0 0 1 25.3 50Q50 40 74.7 50Z" fill={C.blanc} />
+    <path d="M44 51Q45 40 49.5 31" fill="none" stroke={C.bois} strokeWidth="3.4" strokeLinecap="round" />
+    <path
+      d="M49.5 31Q39 24 31 31.5Q41 29.5 49.5 31ZM49.5 31Q43 19.5 33.5 20.5Q43.5 22.5 49.5 31ZM49.5 31Q55 19.5 64.5 20.5Q55.5 23.5 49.5 31ZM49.5 31Q60 25 67 33Q57.5 30 49.5 31Z"
+      fill={C.persienne}
+    />
+    <path d="M67.5 14.5A6.5 6.5 0 1 0 72.5 25A5.2 5.2 0 0 1 67.5 14.5Z" fill={C.mimosa} />
+    <path
+      d="M29.4 38a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0ZM36.4 46a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0ZM56.4 43a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0ZM65.4 39a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0ZM53.4 14a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0ZM70.4 44.5a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0Z"
+      fill={C.blanc}
+    />
+    <path d="M28.5 29Q31.5 19 40.5 14.5" fill="none" stroke={C.blanc} strokeWidth="3" strokeLinecap="round" opacity="0.85" />
+  </Svg>
+);
+
 /** Une clé : l'anneau, la tige, le panneton. Pendue par le haut de l'anneau, en (0, 0). */
 function Cle({ metal, tourne }: { metal: string; tourne: number }) {
   return (
@@ -291,7 +318,7 @@ const mystere: Art = (props) => (
 
 const OBJETS: Record<TrophyId, Art> = {
   tickets: piece, gain: cheque, jackpots: cloche, semeur: poche, mecene: corne, collection: cintre,
-  voyage: valise, patron: cles, defis: gant, limier: loupe, maitres: coupe, legende: as,
+  voyage: valise, experiences: boule, patron: cles, defis: gant, limier: loupe, maitres: coupe, legende: as,
 };
 
 /** L'objet d'une famille dans la vitrine ; sous son drap tant qu'il garde son secret. */
@@ -316,6 +343,8 @@ const RUBANS: Record<TrophyId, readonly [ruban: string, filet: string, email?: s
   mecene: [C.corail, C.ivoire, C.brique],
   collection: [C.azur, C.blanc],
   voyage: [C.marine, C.ciel],
+  // Le lilas des longues soirées d'été, et l'orangé d'une carpe koï.
+  experiences: [C.lilas, C.corail, shade(C.lilas, -0.45)],
   patron: [C.brique, C.paille],
   defis: [C.bordeaux, C.paille],
   limier: [C.ardoise, C.mimosa],
@@ -332,6 +361,8 @@ const EMBLEMES: Record<TrophyId, { d: string; trait?: true }> = {
   mecene: { d: COEUR },
   collection: { d: "M0-2.5V-4a2.5 2.5 0 1 0-2.5-2.5M0-2.5L8 3.5a1.5 1.5 0 0 1-1 2.7H-7a1.5 1.5 0 0 1-1-2.7Z", trait: true },
   voyage: { d: "M3-8.5A8.5 8.5 0 1 0 8.5 3A6.8 6.8 0 0 1 3-8.5Z" },
+  // Une carpe, comme Madame Diem.
+  experiences: { d: "M-9.5 0C-6-5.5 1-6.5 5-1.5L9.5-5.5V5.5L5 1.5C1 6.5-6 5.5-9.5 0ZM-6.4-1.2a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0-2.4 0Z" },
   patron: { d: "M-4.5-2A4 4 0 1 0-4.5 2H2.5V4.5H4.5V2H6V4.5H8.5V-2ZM-9.3 0a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0Z" },
   defis: { d: PIQUE },
   limier: { d: "M-9.5 0Q0-8.5 9.5 0Q0 8.5-9.5 0ZM-3.2 0a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0-6.4 0Z" },

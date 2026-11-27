@@ -254,7 +254,8 @@ describe("parité du français et de l'anglais", () => {
   it("{pseudo} et les autres variables : les mêmes dans les deux langues", () => {
     expect(TOUTES.filter((e) => variables(e.fr).join() !== variables(e.en).join()).map((e) => `${e.ou} : ${e.fr} / ${e.en}`)).toEqual([]);
     // Seules les répliques des hôtes nomment le joueur ; Piou et le générique ne connaissent que leurs propres variables.
-    const connues = ["{pseudo}", "{n}", "{lieu}", "{euros}", "{prix}", "{manque}", "{total}"];
+    // `{nom}` : l'hôte qui a une histoire à raconter (Piou, sur le Domaine).
+    const connues = ["{pseudo}", "{n}", "{lieu}", "{euros}", "{prix}", "{manque}", "{total}", "{nom}"];
     expect(TOUTES.flatMap((e) => variables(e.fr)).filter((v) => !connues.includes(v))).toEqual([]);
     expect(recit().filter((e) => e.fr.includes("{pseudo}")).map((e) => e.ou)).toEqual([]);
   });

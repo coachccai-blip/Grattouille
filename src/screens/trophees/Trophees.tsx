@@ -1,5 +1,5 @@
-// La vitrine des trophées. En haut, le palmarès : combien de médailles sur 38. Puis les
-// douze familles, chacune dans sa vitrine : l'objet exposé, son nom, ce qu'il compte, et
+// La vitrine des trophées. En haut, le palmarès : combien de médailles sur 42. Puis les
+// treize familles, chacune dans sa vitrine : l'objet exposé, son nom, ce qu'il compte, et
 // ses médailles pendues à une tringle de laiton (gagnées en couleur, à gagner en
 // silhouette). On touche une médaille pour lire son nom et ce qu'elle demande sur le
 // cartel ; dessous, la jauge vers le prochain palier.

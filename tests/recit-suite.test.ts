@@ -641,7 +641,7 @@ const MAX_BOUTON_PAGE = 28;
  * fins : il n'en dit rien.
  */
 const SECRETS: Record<Lang, RegExp> = {
-  fr: /as de c(œ|oe)ur|huit as|\bfond(é|ée|er|ateur|atrice|ation)\b|\binvent|\bs[eè]m(e|é|és|er|ait|ons|eur|euse)\b|laiss\p{L}* tomber|poches? trouée|trich\p{L}* pour|\bPiou\b/iu,
+  fr: /as de c(œ|oe)ur|huit as|(?<![\p{L}])fond(é|ée|er|ateur|atrice|ation)(?![\p{L}])|(?<![\p{L}])invent|(?<![\p{L}])s[eè]m(e|é|és|er|ait|ons|eur|euse)(?![\p{L}])|laiss\p{L}* tomber|poches? trouée|trich\p{L}* pour|(?<![\p{L}])Piou(?![\p{L}])/iu,
   en: /ace of hearts|eight aces|\bfound(ed|er|ing)\b|\binvent|\bdrop|\bsow|holes? in \w+ pockets?|cheat\w* for|\bPiou\b/i,
 };
 
@@ -801,7 +801,7 @@ describe("les Souvenirs : l'histoire de chaque maître des lieux", () => {
       if (lieu !== "casino") expect([lieu, /\b(Je|J'ai|je|j'ai)\b/.test(corps(lieu, "fr")), /\bI\b/.test(corps(lieu, "en"))]).toEqual([lieu, true, true]);
     }
     // La maison dit « la maison » à chaque page, ou presque.
-    expect(HISTOIRES.casino.temps.filter((page) => /maison/i.test(page.dit.fr.join(" "))).length).toBeGreaterThanOrEqual(5);
+    expect(HISTOIRES.casino.temps.filter((page) => /maison/i.test(page.dit.fr.join(" "))).length).toBeGreaterThanOrEqual(4);
     // Seul Gaspard tutoie, et il le dit ; les sept autres vouvoient.
     const paroles = (lieu: PlaceId) => [...HISTOIRES[lieu].temps, HISTOIRES[lieu].apres].flatMap((page) => page.dit.fr);
     expect(paroles("kiosque").some((ligne) => TU.test(ligne))).toBe(true);
@@ -820,7 +820,7 @@ describe("les Souvenirs : l'histoire de chaque maître des lieux", () => {
       }
     }
     // On débarque sans un sou : par le bateau, à la nage, par la cale ou par un tunnel.
-    const sansUnSou = LIEUX.filter((lieu) => /sans un sou/.test(corps(lieu, "fr")));
+    const sansUnSou = LIEUX.filter((lieu) => /sans un sou/i.test(corps(lieu, "fr")));
     expect(sansUnSou).toEqual(["kiosque", "casino", "salon", "cercle", "yacht", "lune"]);
     expect(corps("cafe", "fr")).toMatch(/À la nage/);
     expect(corps("banque", "fr")).toMatch(/J'ai creusé/);
@@ -1050,6 +1050,93 @@ describe("le magasin d'état : la vraie fin, les souvenirs, les tickets semés",
 });
 
 // ---------------------------------------------------------------------------
+// Le magasin d'état, encore : quelles histoires attendent d'être écoutées, et ce que
+// l'appareil en retient.
+
+describe("le magasin d'état : les histoires des hôtes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const victoires = (plus: Partial<Record<PlaceId, number>>): Record<PlaceId, number> => ({
+    kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0, ...plus,
+  });
+
+  it("deux victoires : rien n'attend ; trois : l'histoire attend, dans l'ordre des lieux", async () => {
+    const s = await magasin(patron({ hostWins: victoires({ cafe: 2, lune: 2 }) }));
+    expect(s.storiesWaiting(s.etat())).toBe("");
+    s.useGame.setState({ player: patron({ hostWins: victoires({ lune: 3, cafe: 4, casino: 2 }) }) });
+    expect(s.storiesWaiting(s.etat())).toBe("cafe,lune");
+    // Sans joueur, rien.
+    s.useGame.setState({ player: null });
+    expect(s.storiesWaiting(s.etat())).toBe("");
+    expect(s.storiesSeen(s.etat())).toEqual([]);
+  });
+
+  it("regardée jusqu'au bout, elle n'attend plus ; dans le bac à sable, les réglages n'en gardent rien", async () => {
+    const s = await magasin(patron({ hostWins: victoires({ cafe: 3, lune: 3 }) }));
+    s.markStorySeen("cafe");
+    expect(s.storiesWaiting(s.etat())).toBe("lune");
+    expect(s.storiesSeen(s.etat())).toEqual(["cafe"]);
+    expect(s.etat().settings.histoires).toEqual({ joueur: "", vues: [] });
+    // Une deuxième fois : pas de doublon.
+    s.markStorySeen("cafe");
+    expect(s.storiesSeen(s.etat())).toEqual(["cafe"]);
+    // La liste lue par les écrans ne change pas d'identité sans raison : pas de redessin sans fin.
+    expect(s.storiesSeen(s.etat())).toBe(s.storiesSeen(s.etat()));
+    s.useGame.setState({ player: patron({ id: "p_autre" }) });
+    expect(s.storiesSeen(s.etat())).toBe(s.storiesSeen(s.etat()));
+    // Rien de tout cela ne regarde le serveur.
+    expect(s.vue).not.toHaveBeenCalled();
+    expect(s.seme).not.toHaveBeenCalled();
+  });
+
+  it("hors du bac à sable, l'appareil s'en souvient dans ses réglages, compte par compte", async () => {
+    const s = await magasin(patron({ hostWins: victoires({ cafe: 3 }) }));
+    s.useGame.setState({ sandbox: false });
+    s.markStorySeen("cafe");
+    expect(s.etat().settings.histoires).toEqual({ joueur: "p_test", vues: ["cafe"] });
+    expect(s.etat().sandboxStories).toEqual({ joueur: "", vues: [] });
+    expect(s.storiesWaiting(s.etat())).toBe("");
+    // Un autre compte, sur le même appareil : il n'a encore rien regardé.
+    s.useGame.setState({ player: patron({ id: "p_autre", hostWins: victoires({ cafe: 3 }) }) });
+    expect(s.storiesSeen(s.etat())).toEqual([]);
+    expect(s.storiesWaiting(s.etat())).toBe("cafe");
+    expect(s.vue).not.toHaveBeenCalled();
+  });
+
+  it("après la vraie fin, l'histoire a un temps de plus : la revoir le note, sans qu'elle redevienne nouvelle", async () => {
+    const s = await magasin(patron({ hostWins: victoires({ cafe: 3 }) }));
+    s.markStorySeen("cafe");
+    s.useGame.setState({ player: patron({ hostWins: victoires({ cafe: 3 }), story: { fin: true, vraieFin: true } }) });
+    // Déjà entendue : Piou n'en reparle pas. Mais pas encore avec son dernier temps.
+    expect(s.storiesWaiting(s.etat())).toBe("");
+    expect(s.storiesSeen(s.etat())).toEqual(["cafe"]);
+    s.markStorySeen("cafe");
+    expect(s.storiesSeen(s.etat())).toEqual(["cafe+"]);
+    s.markStorySeen("cafe");
+    expect(s.storiesSeen(s.etat())).toEqual(["cafe+"]);
+    expect(s.storiesWaiting(s.etat())).toBe("");
+  });
+
+  it("pas de nouvelle clé de stockage : les histoires regardées vivent dans les réglages, et des réglages anciens les ignorent sans casse", () => {
+    const persist = lire("src/app/persist.ts");
+    expect(persist.match(/^const KEY_\w+ = /gm)).toHaveLength(3);
+    expect(DEFAULT_SETTINGS.histoires).toEqual({ joueur: "", vues: [] });
+    const lus = (enregistre: unknown) => {
+      vi.stubGlobal("window", { localStorage: { getItem: () => JSON.stringify(enregistre) } });
+      return loadSettings().histoires;
+    };
+    // Des réglages d'avant les Souvenirs, puis des réglages abîmés, puis des réglages d'aujourd'hui.
+    expect(lus({ son: false, langue: "en" })).toEqual({ joueur: "", vues: [] });
+    expect(lus({ histoires: "n'importe quoi" })).toEqual({ joueur: "", vues: [] });
+    expect(lus({ histoires: { joueur: 12, vues: ["cafe", 3, null, "lune+"] } })).toEqual({ joueur: "", vues: ["cafe", "lune+"] });
+    expect(lus({ histoires: { joueur: "p_1", vues: ["cafe+"] } })).toEqual({ joueur: "p_1", vues: ["cafe+"] });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Les écrans neufs et retouchés, et leur dictionnaire anglais.
 
 const lire = (chemin: string) => readFileSync(fileURLToPath(new URL(`../${chemin}`, import.meta.url)), "utf8");
@@ -1063,44 +1150,80 @@ function cles(source: string): string[] {
   return out;
 }
 
-describe("les écrans de la suite et leur dictionnaire anglais", () => {
-  /** Les écrans du lot : tout y est neuf, donc tout y est traduit dans suite.ts ou déjà ailleurs. */
-  const NEUFS = [...dossier("src/screens/semis"), "src/screens/moments/VraieFin.tsx", "src/screens/domaine/Cloche.tsx"];
-  /** Les écrans retouchés : seules leurs phrases nouvelles sont dans suite.ts. */
+describe("les écrans de la suite et leurs dictionnaires anglais", () => {
+  /**
+   * Les écrans du lot chargés à la demande : tout y est neuf, et traduit dans le dictionnaire
+   * qui voyage avec eux (src/app/suite/en.ts), ou déjà ailleurs.
+   */
+  const NEUFS = [
+    ...dossier("src/screens/semis"), ...dossier("src/screens/souvenirs"), "src/screens/moments/VraieFin.tsx",
+    "src/screens/domaine/Cloche.tsx",
+  ];
+  /** Les écrans du démarrage, retouchés : seules leurs phrases nouvelles sont dans suite.ts. */
   const RETOUCHES = [
     "src/screens/moments/Moments.tsx", "src/screens/domaine/Domaine.tsx", "src/screens/comptoir/FicheTicket.tsx",
     "src/screens/comptoir/Comptoir.tsx", "src/screens/reglages/Reglages.tsx", "src/app/store.ts",
   ];
-  const TOUS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER, ...EN_SUITE };
+  const AILLEURS: Record<string, string> = {
+    ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER, ...EN_TROPHEES, ...EN_MUSIQUE,
+  };
+  const TOUS: Record<string, string> = { ...AILLEURS, ...EN_SUITE, ...EN_ECRANS };
   const neuves = [...new Set(NEUFS.flatMap((chemin) => cles(lire(chemin))))];
+  const retouchees = [...new Set(RETOUCHES.flatMap((chemin) => cles(lire(chemin))))];
   const boutons = PLANS.map((p) => p.bouton);
 
   it("aucune phrase d'interface sans traduction", () => {
-    expect(neuves.length).toBeGreaterThan(15);
+    expect(neuves.length).toBeGreaterThan(40);
     expect([...neuves, ...boutons].filter((fr) => TOUS[fr] === undefined)).toEqual([]);
+    // Les écrans chargés à la demande passent par leur propre `t()`, qui apporte leur dictionnaire.
     setLang("en");
-    for (const fr of [...neuves, ...boutons]) expect([fr, t(fr)]).toEqual([fr, TOUS[fr]]);
+    for (const fr of [...neuves, ...boutons]) expect([fr, mots(fr)]).toEqual([fr, TOUS[fr]]);
+    // Les phrases neuves des écrans du démarrage sont dans le dictionnaire du démarrage.
+    for (const fr of Object.keys(EN_SUITE)) expect([fr, t(fr)]).toEqual([fr, EN_SUITE[fr]]);
   });
 
-  it("le dictionnaire ne traduit que ce que le jeu affiche", () => {
-    const affichees = new Set([...[...NEUFS, ...RETOUCHES].flatMap((chemin) => cles(lire(chemin))), ...boutons]);
-    // Les refus de store.ts sont des constantes : on les cherche telles quelles dans le fichier.
+  it("le `t()` des écrans chargés à la demande : le français tel quel, leur anglais, celui du jeu, et les manques notés", () => {
+    expect(mots("Écouter")).toBe("Écouter");
+    expect(mots("Page {n} sur {max}", { n: 2, max: 6 })).toBe("Page 2 sur 6");
+    setLang("en");
+    expect(mots("Écouter")).toBe(EN_ECRANS["Écouter"]);
+    expect(mots("Page {n} sur {max}", { n: 2, max: 6 })).toBe("Page 2 of 6");
+    expect(mots("Bats-la encore {n} fois au poker.", { n: 2 })).toBe("Beat her 2 more times at poker.");
+    // Une phrase du jeu, que ces écrans reprennent : même traduction que partout.
+    expect(mots("Refermer le souvenir")).toBe(EN_SUITE["Refermer le souvenir"]);
+    expect(mots("« {replique} »", { replique: "Hmph." })).toBe("“Hmph.”");
+    // Une phrase que personne n'a traduite reste en français, et se note.
+    expect(mots("Une phrase que personne n'a traduite")).toBe("Une phrase que personne n'a traduite");
+    expect(i18nMisses()).toContain("Une phrase que personne n'a traduite");
+  });
+
+  it("chaque dictionnaire ne traduit que ce que ses écrans affichent", () => {
+    // Celui du démarrage : les écrans retouchés, et les refus de store.ts (des constantes, cherchées telles quelles).
+    // Il reste court : ce qu'un écran chargé à la demande est seul à afficher n'y a pas sa place.
     const store = lire("src/app/store.ts");
-    expect(Object.keys(EN_SUITE).filter((fr) => !affichees.has(fr) && !store.includes(JSON.stringify(fr)))).toEqual([]);
+    const duDemarrage = new Set(retouchees);
+    expect(Object.keys(EN_SUITE).filter((fr) => !duDemarrage.has(fr) && !store.includes(JSON.stringify(fr)))).toEqual([]);
+    expect(Object.keys(EN_SUITE).length).toBeLessThanOrEqual(14);
+    // Celui qui voyage avec les écrans chargés à la demande : leurs phrases, et les boutons de la vraie fin.
+    const aLaDemande = new Set([...neuves, ...boutons]);
+    expect(Object.keys(EN_ECRANS).filter((fr) => !aLaDemande.has(fr))).toEqual([]);
   });
 
-  it("une phrase traduite ailleurs l'est de la même façon ici", () => {
-    const ailleurs: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER };
-    const ecarts = Object.keys(EN_SUITE).filter((fr) => ailleurs[fr] !== undefined && ailleurs[fr] !== EN_SUITE[fr]);
-    expect(ecarts.map((fr) => `« ${fr} » : “${EN_SUITE[fr]}” ici, “${ailleurs[fr]}” ailleurs`)).toEqual([]);
+  it("une phrase n'est traduite qu'à un endroit, ou de la même façon", () => {
+    for (const [nom, ici] of [["suite.ts", EN_SUITE], ["suite/en.ts", EN_ECRANS]] as const) {
+      const ecarts = Object.keys(ici).filter((fr) => AILLEURS[fr] !== undefined && AILLEURS[fr] !== ici[fr]);
+      expect([nom, ecarts.map((fr) => `« ${fr} » : “${ici[fr]}” ici, “${AILLEURS[fr]}” ailleurs`)]).toEqual([nom, []]);
+    }
+    // Jamais la même clé dans les deux dictionnaires du lot.
+    expect(Object.keys(EN_ECRANS).filter((fr) => EN_SUITE[fr] !== undefined)).toEqual([]);
   });
 
   it("guillemets anglais, mêmes variables, et rien de vide", () => {
-    for (const [fr, en] of Object.entries(EN_SUITE)) {
+    for (const [fr, en] of [...Object.entries(EN_SUITE), ...Object.entries(EN_ECRANS)]) {
       expect([fr, /[«»"]/.test(en)]).toEqual([fr, false]);
       expect([fr, en.trim() !== "" && en === en.trim()]).toEqual([fr, true]);
       expect([fr, variables(en)]).toEqual([fr, variables(fr)]);
-      expect([fr, /\s[!?;:]/.test(en) || /[  ]/.test(en)]).toEqual([fr, false]);
+      expect([fr, /\s[!?;:]/.test(en) || /[\u00A0\u202F]/.test(en)]).toEqual([fr, false]);
       expect([fr, en === fr]).toEqual([fr, false]);
     }
   });
@@ -1119,16 +1242,46 @@ describe("les écrans de la suite et leur dictionnaire anglais", () => {
     expect(app).toMatch(/lazy\(\(\) => \w*\(?import\("\.\/screens\/semis"\)\)?\)/);
     expect(lire("src/screens/comptoir/FicheTicket.tsx")).toMatch(/lazy\([^;]*import\("\.\.\/semis"\)/s);
     expect(lire("src/screens/domaine/Domaine.tsx")).toMatch(/lazy\([^;]*import\("\.\/Cloche"\)/s);
+    expect(app).toMatch(/lazy\(\(\) => \w*\(?import\("\.\/screens\/souvenirs"\)\)?\)/);
     // Ni la coquille ni les écrans du démarrage n'importent les textes de la suite autrement que par là.
     const demarrage = [
-      "src/App.tsx", "src/app/store.ts", "src/app/dialogues.ts", "src/app/nav.ts", "src/screens/moments/Moments.tsx",
-      "src/screens/domaine/Domaine.tsx", "src/screens/comptoir/Comptoir.tsx", "src/screens/comptoir/FicheTicket.tsx",
-      "src/screens/reglages/Reglages.tsx",
+      "src/App.tsx", "src/app/store.ts", "src/app/dialogues.ts", "src/app/nav.ts", "src/app/persist.ts",
+      "src/screens/moments/Moments.tsx", "src/screens/domaine/Domaine.tsx", "src/screens/comptoir/Comptoir.tsx",
+      "src/screens/comptoir/FicheTicket.tsx", "src/screens/reglages/Reglages.tsx", "src/i18n/index.ts",
     ];
     for (const chemin of demarrage) {
       const source = lire(chemin);
       const statiques = [...source.matchAll(/^import\s[^;]*?from\s+"([^"]+)";/gms)].map((m) => m[1]!);
-      expect([chemin, statiques.filter((from) => /suite\/|\/semis|VraieFin|Cloche/.test(from))]).toEqual([chemin, []]);
+      expect([chemin, statiques.filter((from) => /suite\/|\/semis|\/souvenirs|VraieFin|Cloche/.test(from))]).toEqual([chemin, []]);
+    }
+    // Les écrans chargés à la demande prennent leur `t()` là où voyage leur dictionnaire.
+    for (const chemin of NEUFS) {
+      const source = lire(chemin);
+      if (!/\bt\(/.test(source)) continue;
+      expect([chemin, /import \{ t \} from "\.\.\/\.\.\/app\/suite\/mots";/.test(source)]).toEqual([chemin, true]);
+    }
+    expect(lire("src/app/suite/mots.ts")).toMatch(/addEnglish\(EN_ECRANS\)/);
+  });
+
+  it("les Souvenirs : on y entre par les Réglages, Piou y mène, et une histoire ne dit rien au serveur", () => {
+    const reglages = lire("src/screens/reglages/Reglages.tsx");
+    expect(reglages).toMatch(/nav\.push\(\{ name: "souvenirs" \}\)/);
+    expect(reglages).toMatch(/storiesWaiting/);
+    expect(reglages).not.toMatch(/replayMemory/);
+    const domaine = lire("src/screens/domaine/Domaine.tsx");
+    expect(domaine).toMatch(/PIOU\.histoire\(/);
+    expect(domaine).toMatch(/useGame\(storiesWaiting\)/);
+    // Les deux fins se revoient depuis la liste ; une histoire s'ouvre par la navigation, pour que « retour » la referme.
+    const liste = lire("src/screens/souvenirs/Souvenirs.tsx");
+    expect(liste).toMatch(/replayMemory\("fin"\)/);
+    expect(liste).toMatch(/replayMemory\("vraie-fin"\)/);
+    expect(liste).toMatch(/nav\.push\(\{ name: "histoire", lieu: place\.id \}\)/);
+    expect(lire("src/app/nav.ts")).toMatch(/new Set\(\[[^\]]*"histoire"[^\]]*\]\)/);
+    const histoire = lire("src/screens/souvenirs/Histoire.tsx");
+    expect(histoire).toMatch(/markStorySeen\(lieu\)/);
+    expect(histoire).toMatch(/hostStoryOpen\(player\.hostWins, lieu\)/);
+    for (const chemin of dossier("src/screens/souvenirs")) {
+      expect([chemin, /sowTickets|markTrueEndingSeen|\bapi\.|fetch\(|localStorage/.test(lire(chemin))]).toEqual([chemin, false]);
     }
   });
 

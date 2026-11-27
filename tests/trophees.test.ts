@@ -1,4 +1,4 @@
-// Les trophées côté écrans : les noms et les phrases des douze objets et des 38 médailles
+// Les trophées côté écrans : les noms et les phrases des treize objets et des 42 médailles
 // dans les deux langues, les trophées qui gardent leur secret, ce qui est « déjà vu » et ce
 // qui est « nouveau », la file des annonces, et ce qui reste chargé au démarrage.
 // (Le calcul des médailles lui-même, shared/trophies.ts, est éprouvé dans tests/suite.test.ts.)
@@ -6,6 +6,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EXPERIENCES, EXPERIENCE_COUNT } from "../shared/experiences";
 import { formatEuros, formatInt } from "../shared/format";
 import { PLACES } from "../shared/places";
 import { MEDAL_COUNT, TROPHIES, medalId, medalsOf, type TrophyId } from "../shared/trophies";
@@ -25,7 +26,8 @@ import {
   GROUPE_AU_DELA, annonceSuivante, annoncer, finAnnonce, marquerVues, peutAnnoncer, remettreAnnonce,
 } from "../src/screens/trophees/file";
 import {
-  SECRET, TEXTES, compteDe, ecrire, ficheDe, lireMedaille, nomFamille, nomMedaille, phraseFamille, phraseMedaille, voileDe,
+  EN_VITRINE, SECRET, TEXTES, compteDe, ecrire, ficheDe, lireMedaille, nomFamille, nomMedaille, phraseFamille, phraseMedaille,
+  voileDe,
 } from "../src/screens/trophees/textes";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
@@ -71,16 +73,18 @@ function comble(): PlayerState {
   state.pokerStats.unmasked = 50;
   state.masters = 1;
   state.story = { fin: true, vraieFin: true };
+  state.experiences = EXPERIENCES.map((experience) => experience.id);
   return state;
 }
 
 // ---------------------------------------------------------------------------
 
-describe("les mots des trophées : douze objets, 38 médailles, deux langues", () => {
+describe("les mots des trophées : treize objets, 42 médailles, deux langues", () => {
   it("un texte par famille, et un nom par palier", () => {
     expect(Object.keys(TEXTES).sort()).toEqual([...FAMILLES].sort());
-    expect(MEDAL_COUNT).toBe(38);
-    expect(MEDAILLES).toHaveLength(38);
+    expect(FAMILLES).toHaveLength(13);
+    expect(MEDAL_COUNT).toBe(42);
+    expect(MEDAILLES).toHaveLength(42);
     for (const famille of TROPHIES) expect([famille.id, TEXTES[famille.id].medailles.length]).toEqual([famille.id, famille.tiers.length]);
   });
 
@@ -108,7 +112,7 @@ describe("les mots des trophées : douze objets, 38 médailles, deux langues", (
       expect(doublons(familles.map((nom) => nom.toLowerCase()))).toEqual([]);
       // Une médaille ne porte pas non plus le nom d'un objet.
       expect(medailles.filter((nom) => familles.includes(nom))).toEqual([]);
-      expect(new Set(MEDAILLES.map((medaille) => phraseMedaille(medaille))).size).toBe(38);
+      expect(new Set(MEDAILLES.map((medaille) => phraseMedaille(medaille))).size).toBe(MEDAL_COUNT);
     });
 
     it(`${langue} : la phrase d'une médaille dit son palier, en euros ou en nombre`, () => {
@@ -138,7 +142,7 @@ describe("les mots des trophées : douze objets, 38 médailles, deux langues", (
   it("les deux langues ont la même forme, et aucune ne recopie l'autre", () => {
     for (const id of FAMILLES) {
       const texte = TEXTES[id];
-      const paires = [texte.nom, texte.phrase, ...texte.medailles, texte.palier, ...(texte.voile ? [texte.voile] : []), ...(texte.un ? [texte.un] : [])];
+      const paires = [texte.nom, texte.phrase, ...texte.medailles, texte.palier, ...[texte.voile, texte.un, texte.tout].filter((p) => p !== undefined)];
       for (const paire of paires) {
         expect(Object.keys(paire).sort()).toEqual(["en", "fr"]);
         expect([paire.fr, paire.fr.trim() !== "", paire.en.trim() !== ""]).toEqual([paire.fr, true, true]);
@@ -154,7 +158,7 @@ describe("les mots des trophées : douze objets, 38 médailles, deux langues", (
   it("écriture : guillemets et espaces de chaque langue", () => {
     const tout = FAMILLES.flatMap((id) => {
       const texte = TEXTES[id];
-      return [texte.nom, texte.phrase, ...texte.medailles, texte.palier, ...(texte.voile ? [texte.voile] : []), ...(texte.un ? [texte.un] : [])];
+      return [texte.nom, texte.phrase, ...texte.medailles, texte.palier, ...[texte.voile, texte.un, texte.tout].filter((p) => p !== undefined)];
     });
     // L'anglais s'affiche tel quel : ni guillemet français, ni espace insécable, ni espace avant la ponctuation.
     expect(tout.filter((p) => /[«»\u00A0\u202F]| [!?;:]|"/.test(p.en)).map((p) => p.en)).toEqual([]);
@@ -198,6 +202,79 @@ describe("les mots des trophées : douze objets, 38 médailles, deux langues", (
       for (let i = 1; i < grades.length; i++) expect(grades[i]!).toBeGreaterThan(grades[i - 1]!);
     }
     expect(TROPHIES.find((f) => f.id === "gain")!.tiers.map((_, i) => gradeDe("gain", i + 1))).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("la treizième famille : les expériences de vie de l'Agence Carpe Diem", () => {
+  const famille = TROPHIES.find((f) => f.id === "experiences")!;
+
+  it("quatre médailles, après les lieux ouverts ; la dernière demande les trente expériences", () => {
+    expect(FAMILLES.indexOf("experiences")).toBe(FAMILLES.indexOf("voyage") + 1);
+    expect(famille.tiers).toEqual([1, 10, 20, EXPERIENCE_COUNT]);
+    expect(EXPERIENCE_COUNT).toBe(30);
+    expect(TEXTES.experiences.medailles).toHaveLength(4);
+    // Le métal monte du cuivre à l'étoile à rayons, comme partout.
+    expect(famille.tiers.map((_, i) => gradeDe("experiences", i + 1))).toEqual([1, 3, 4, 6]);
+  });
+
+  it("elle n'a rien de secret : l'agence est ouverte à tout le monde dès le début", () => {
+    const player = neuf();
+    expect(voileDe("experiences", player)).toBe("ouvert");
+    expect(TEXTES.experiences.voile).toBeUndefined();
+    const fiche = ficheDe(famille, player);
+    expect(fiche.nom).toBe("La Boule à neige");
+    expect(fiche.phrase).toContain("Agence Carpe Diem");
+    expect(fiche.medailles.map((m) => m.nom)).toEqual(["Jour cueilli", "Jamais à la maison", "La vie en grand", "Comme une carpe dans l'eau"]);
+    expect(fiche.medailles.every((m) => !m.gagnee)).toBe(true);
+    expect(fiche.progres).toEqual({ value: 0, next: 1, earned: 0, total: 4 });
+    setLang("en");
+    const english = ficheDe(famille, player);
+    expect(english.nom).toBe("The Snow Globe");
+    expect(english.phrase).toContain("Carpe Diem Agency");
+    expect(english.medailles.map((m) => m.nom)).toEqual(["Day Seized", "Never at Home", "Living Large", "Hook, Line and Sinker"]);
+  });
+
+  it("la phrase de chaque médaille : une au singulier, et la dernière dit « toutes »", () => {
+    expect(famille.tiers.map((_, i) => phraseMedaille(medalId("experiences", i + 1)))).toEqual([
+      "1 expérience vécue", "10 expériences vécues", "20 expériences vécues", "Les 30 expériences, toutes vécues",
+    ]);
+    expect(compteDe(famille, 12)).toBe("12 expériences vécues");
+    setLang("en");
+    expect(famille.tiers.map((_, i) => phraseMedaille(medalId("experiences", i + 1)))).toEqual([
+      "1 experience lived", "10 experiences lived", "20 experiences lived", "All 30 experiences lived",
+    ]);
+    // Seule une famille dont le dernier palier vaut « tout » le dit ainsi.
+    expect(FAMILLES.filter((id) => TEXTES[id].tout)).toEqual(["experiences"]);
+  });
+
+  it("douze expériences vécues : deux médailles, la troisième en vue", () => {
+    const player = neuf();
+    player.experiences = EXPERIENCES.slice(0, 12).map((experience) => experience.id);
+    expect(medalsOf(player)).toEqual(["experiences:1", "experiences:2"]);
+    const fiche = ficheDe(famille, player);
+    expect(fiche.medailles.map((m) => m.gagnee)).toEqual([true, true, false, false]);
+    expect(fiche.progres).toEqual({ value: 12, next: 20, earned: 2, total: 4 });
+    // Un identifiant inconnu ou vécu deux fois ne compte pas.
+    player.experiences = ["glace", "glace", "licorne"];
+    expect(ficheDe(famille, player).progres.value).toBe(1);
+    // Les trente : la dernière médaille, et plus rien à atteindre.
+    player.experiences = EXPERIENCES.map((experience) => experience.id);
+    expect(ficheDe(famille, player).progres).toEqual({ value: 30, next: null, earned: 4, total: 4 });
+    expect(medalsOf(player)).toContain("experiences:4");
+  });
+
+  it("une expérience vécue pendant la session s'annonce comme les autres médailles", () => {
+    useGame.setState({ player: null, sandbox: false, settings: { ...DEFAULT_SETTINGS }, phase: "jeu", welcome: false, ending: false, openings: [] });
+    useAnnonces.setState({ attente: [], annonce: null, bac: { joueur: "", vues: [] } });
+    const player = neuf();
+    player.experiences = EXPERIENCES.slice(0, 9).map((experience) => experience.id);
+    useGame.setState({ player });
+    expect(useAnnonces.getState().attente).toEqual([]);
+    useGame.setState({ player: { ...player, experiences: EXPERIENCES.slice(0, 10).map((experience) => experience.id) } });
+    expect(useAnnonces.getState().attente).toEqual(["experiences:2"]);
+    expect(nomMedaille("experiences:2")).toBe("Jamais à la maison");
   });
 });
 
@@ -250,7 +327,7 @@ describe("les trophées qui gardent leur secret", () => {
     });
   }
 
-  it("seuls ces quatre trophées ont un voile, et un compte qui débarque voit les huit autres en clair", () => {
+  it("seuls ces quatre trophées ont un voile, et un compte qui débarque voit les neuf autres en clair", () => {
     expect(FAMILLES.filter((id) => TEXTES[id].voile)).toEqual(["semeur", "mecene", "maitres", "legende"]);
     const player = neuf();
     expect(FAMILLES.filter((id) => voileDe(id, player) !== "ouvert")).toEqual(["semeur", "mecene", "maitres", "legende"]);
@@ -603,45 +680,56 @@ describe("la file des annonces", () => {
     expect([file(), aLEcran()]).toEqual([[], null]);
   });
 
-  it("les 38 médailles peuvent tomber d'un coup sans rien casser : une seule annonce", () => {
+  it("les 42 médailles peuvent tomber d'un coup sans rien casser : une seule annonce", () => {
     useGame.setState({ player: neuf("p_comble0000000000") });
     useGame.setState({ player: comble() });
-    expect(file()).toHaveLength(38);
+    expect(file()).toHaveLength(42);
     expect(annoncer(true)).toBe(true);
-    expect(aLEcran()).toHaveLength(38);
+    expect(aLEcran()).toHaveLength(42);
     expect(file()).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------
 
-describe("le dictionnaire anglais des trophées", () => {
+describe("les dictionnaires anglais des trophées", () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const dir = `${root}src/screens/trophees/`;
   const OTHERS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_POKER };
-  const entries = Object.entries(EN_TROPHEES).map(([fr, en]) => ({ fr, en }));
+  /** Ce qui est chargé au démarrage : la file des annonces, l'entrée du Domaine, le crieur. */
+  const AU_DEMARRAGE = [`${root}src/app/trophees.ts`, `${dir}Entree.tsx`, `${dir}Crieur.tsx`];
+  /** Ce qui arrive avec la vitrine : tout le reste du dossier. */
+  const A_LA_DEMANDE = readdirSync(dir).filter((f) => /\.tsx?$/.test(f)).map((f) => dir + f).filter((f) => !AU_DEMARRAGE.includes(f));
+  const entries = Object.entries({ ...EN_TROPHEES, ...EN_VITRINE }).map(([fr, en]) => ({ fr, en }));
 
-  /** Les phrases passées à t() dans un fichier source. */
-  function keysOf(source: string): string[] {
-    return [...source.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string);
+  /** Les phrases passées à t() dans des fichiers source. */
+  function keysOf(files: readonly string[]): string[] {
+    const sources = files.map((file) => readFileSync(file, "utf8"));
+    return [...new Set(sources.flatMap((source) =>
+      [...source.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string)))];
   }
 
-  function used(): string[] {
-    const files = [...readdirSync(dir).filter((f) => /\.tsx?$/.test(f)).map((f) => dir + f), `${root}src/app/trophees.ts`];
-    return [...new Set(files.flatMap((file) => keysOf(readFileSync(file, "utf8"))))];
-  }
+  it("au démarrage : les quatre phrases de l'entrée du Domaine, et pas une de plus", () => {
+    const keys = keysOf(AU_DEMARRAGE);
+    expect(keys).toContain("Trophées : {n} sur {total}");
+    expect(keys.filter((key) => !(key in EN_TROPHEES))).toEqual([]);
+    expect(Object.keys(EN_TROPHEES).filter((key) => !keys.includes(key))).toEqual([]);
+    expect(Object.keys(EN_TROPHEES)).toHaveLength(4);
+  });
 
-  it("chaque phrase des écrans des trophées a sa traduction", () => {
-    const keys = used();
+  it("à la demande : chaque phrase de la vitrine et de l'annonce a sa traduction, apportée par leur morceau", () => {
+    const keys = keysOf(A_LA_DEMANDE);
     // Le relevé a bien trouvé les écrans.
     expect(keys.length).toBeGreaterThan(15);
     expect(keys).toContain("Trophées");
-    expect(keys.filter((key) => !(key in EN_TROPHEES))).toEqual([]);
-  });
-
-  it("le dictionnaire ne garde aucune phrase que les écrans n'emploient plus", () => {
-    const keys = new Set(used());
-    expect(Object.keys(EN_TROPHEES).filter((key) => !keys.has(key))).toEqual([]);
+    expect(keys).toContain("Nouvelle médaille");
+    expect(keys.filter((key) => !(key in EN_VITRINE))).toEqual([]);
+    // Ni phrase que les écrans n'emploient plus, ni phrase rangée dans les deux dictionnaires.
+    expect(Object.keys(EN_VITRINE).filter((key) => !keys.includes(key))).toEqual([]);
+    expect(Object.keys(EN_VITRINE).filter((key) => key in EN_TROPHEES)).toEqual([]);
+    // Les deux écrans qui parlent chargent bien le module qui apporte l'anglais.
+    for (const file of ["Trophees.tsx", "Annonce.tsx"]) expect(readFileSync(dir + file, "utf8")).toMatch(/from "\.\/textes";/);
+    expect(readFileSync(`${dir}textes.ts`, "utf8")).toMatch(/^addEnglish\(EN_VITRINE\);$/m);
   });
 
   it("t() trouve chaque phrase, et aucune ne contredit un autre dictionnaire", () => {
@@ -708,10 +796,12 @@ describe("le poids : la vitrine n'est chargée qu'à la demande", () => {
     expect(imports(domaine).filter((module) => module.includes("trophees"))).toEqual(["../trophees/Entree"]);
   });
 
-  it("le dictionnaire chargé au démarrage ne porte que les mots de l'interface, pas les 38 noms", () => {
+  it("le dictionnaire chargé au démarrage ne porte ni les 42 noms ni les phrases de la vitrine", () => {
     const values = Object.values(EN_TROPHEES);
     const noms = FAMILLES.flatMap((id) => [TEXTES[id].nom.en, ...TEXTES[id].medailles.map((m) => m.en)]);
     expect(noms.filter((nom) => values.includes(nom))).toEqual([]);
-    expect(Object.keys(EN_TROPHEES).length).toBeLessThan(30);
+    expect(Object.values(EN_VITRINE).filter((phrase) => values.includes(phrase))).toEqual([]);
+    // Et le module du dictionnaire n'importe rien : il ne peut pas tirer la vitrine avec lui.
+    expect(imports(lire("src/i18n/en/trophees.ts"))).toEqual([]);
   });
 });

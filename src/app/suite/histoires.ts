@@ -75,7 +75,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         legende: { fr: "Le Kiosque. Ouvert tous les matins.", en: "The Kiosk. Open every morning." },
         dit: {
           fr: ["Trois fois plumé ! Ça vaut bien une histoire, mon grand. Pour les histoires, je tutoie. Même les Immensités."],
-          en: ["Fleeced three times! That's worth a story, sunshine. In a story, I drop the titles. Even ‘Your Immensity’."],
+          en: ["Fleeced three times! That's worth a story, sunshine. In a story, I skip the titles. Even ‘Your Immensity’."],
         },
         bouton: { fr: "Écouter Gaspard", en: "Listen to Gaspard" },
       },
@@ -292,7 +292,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
   casino: {
     lieu: "casino",
     hote: "hector",
-    titre: { fr: "Deux étés au bout de la jetée", en: "Two summers at the end of the pier" },
+    titre: { fr: "Deux étés au bout de la jetée", en: "Two summers on the pier" },
     temps: [
       {
         image: "place:casino",

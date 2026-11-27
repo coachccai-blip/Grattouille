@@ -1,5 +1,5 @@
 // L'entrée de la vitrine des trophées, posée sur le ciel du Domaine, en haut à droite : une
-// petite plaque de laiton qui dit où en est le joueur (« 12/38 ») et, dessous, une pastille
+// petite plaque de laiton qui dit où en est le joueur (« 12/42 ») et, dessous, une pastille
 // quand des médailles n'ont pas encore été regardées (« 3 nouvelles »). Chargée au
 // démarrage : elle ne connaît ni les dessins ni les noms des médailles, seulement leur compte.
 

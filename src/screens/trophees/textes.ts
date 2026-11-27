@@ -1,10 +1,13 @@
 // Les mots des trophées, en français et en anglais : le nom de chaque objet de la vitrine,
-// la phrase qui dit ce qu'il compte, et le nom de chacune des 38 médailles.
+// la phrase qui dit ce qu'il compte, et le nom de chaque médaille (treize familles,
+// quarante-deux médailles).
 //
 // Ce module n'est chargé qu'avec la vitrine (ou avec la première annonce de médaille) : les
 // deux langues y sont côte à côte, comme les répliques des personnages, pour que rien de
 // tout cela ne pèse sur le démarrage du jeu. Rien n'est figé à l'import : tout se lit dans
-// la langue courante, au moment de l'affichage.
+// la langue courante, au moment de l'affichage. Les phrases d'interface de la vitrine et de
+// l'annonce, elles, passent par `t()` : leur anglais est en bas de ce fichier, et rejoint
+// les dictionnaires du jeu quand ce morceau arrive (`addEnglish`).
 //
 // Deux trophées gardent leur secret : `legende` tant qu'il n'est pas gagné, `maitres` tant
 // que les huit défis ne sont pas relevés. Ils ne livrent alors ni nom, ni phrase, ni
@@ -14,7 +17,7 @@
 import { formatEuros, formatInt } from "../../../shared/format";
 import { medalId, progressOf, trophyById, type TrophyFamily, type TrophyId, type TrophyProgress } from "../../../shared/trophies";
 import type { PlayerState } from "../../../shared/types";
-import { lang, type Lang } from "../../i18n";
+import { addEnglish, lang, type Lang } from "../../i18n";
 
 type Deux = Record<Lang, string>;
 
@@ -31,6 +34,8 @@ interface Texte {
   palier: Deux;
   /** La même chose quand le palier vaut 1. */
   un?: Deux;
+  /** La même chose pour le dernier palier, quand il demande tout. */
+  tout?: Deux;
 }
 
 export const TEXTES: Record<TrophyId, Texte> = {
@@ -136,6 +141,22 @@ export const TEXTES: Record<TrophyId, Texte> = {
       { fr: "Dans la Lune", en: "Over the Moon" },
     ],
     palier: { fr: "{n} lieux ouverts", en: "{n} places open" },
+  },
+  experiences: {
+    nom: { fr: "La Boule à neige", en: "The Snow Globe" },
+    phrase: {
+      fr: "Les expériences vécues à l'Agence Carpe Diem.",
+      en: "The experiences you've lived at the Carpe Diem Agency.",
+    },
+    medailles: [
+      { fr: "Jour cueilli", en: "Day Seized" },
+      { fr: "Jamais à la maison", en: "Never at Home" },
+      { fr: "La vie en grand", en: "Living Large" },
+      { fr: "Comme une carpe dans l'eau", en: "Hook, Line and Sinker" },
+    ],
+    palier: { fr: "{n} expériences vécues", en: "{n} experiences lived" },
+    un: { fr: "1 expérience vécue", en: "1 experience lived" },
+    tout: { fr: "Les {n} expériences, toutes vécues", en: "All {n} experiences lived" },
   },
   patron: {
     nom: { fr: "Les Clés du Kiosque", en: "The Keys to the Kiosk" },
@@ -250,7 +271,10 @@ export function nomMedaille(medaille: string, voile: Voile = "ouvert"): string {
 export function phraseMedaille(medaille: string, voile: Voile = "ouvert"): string {
   const lue = lireMedaille(medaille);
   if (!lue || voile !== "ouvert") return "";
-  return compteDe(lue.famille, lue.famille.tiers[lue.rang - 1]!);
+  const palier = lue.famille.tiers[lue.rang - 1]!;
+  // Le dernier palier d'une famille qui demande tout le dit : « Les 30 expériences, toutes vécues ».
+  const tout = lue.rang === lue.famille.tiers.length ? TEXTES[lue.famille.id].tout : undefined;
+  return tout ? dire(tout).replace("{n}", ecrire(lue.famille, palier)) : compteDe(lue.famille, palier);
 }
 
 /** Une valeur de la famille : un montant en euros, ou un nombre. */
@@ -297,3 +321,34 @@ export function ficheDe(famille: TrophyFamily, player: PlayerState): Fiche {
     progres,
   };
 }
+
+// ---------------------------------------------------------------------------
+// L'anglais des phrases d'interface de la vitrine et de l'annonce.
+// Clé : la phrase française telle qu'elle est passée à `t()`. Valeur : sa traduction.
+// (Celles de l'entrée du Domaine, chargée au démarrage, sont dans src/i18n/en/trophees.ts.)
+
+export const EN_VITRINE: Record<string, string> = {
+  // --- La vitrine
+  "Trophées": "Trophies",
+  "Médailles gagnées": "Medals earned",
+  "Médailles gagnées : {n} sur {total}": "Medals earned: {n} of {total}",
+  "{n} nouvelles médailles à admirer": "{n} new medals to admire",
+  "1 nouvelle médaille à admirer": "1 new medal to admire",
+  "Médailles": "Medals",
+  "Médailles à découvrir": "Medals yet to be discovered",
+  "{nom}, gagnée : {condition}": "{nom}, earned: {condition}",
+  "{nom}, à gagner : {condition}": "{nom}, yet to earn: {condition}",
+  "gagnée": "earned",
+  "à gagner": "to earn",
+  "nouvelle !": "new!",
+  "{valeur} sur {palier}": "{valeur} of {palier}",
+
+  // --- L'annonce d'une médaille
+  "Nouvelle médaille": "New medal",
+  "Nouvelle médaille : {nom}. Voir les trophées": "New medal: {nom}. See the trophies",
+  "D'un seul coup": "All at once",
+  "{n} nouvelles médailles": "{n} new medals",
+  "{n} nouvelles médailles. Voir les trophées": "{n} new medals. See the trophies",
+};
+
+addEnglish(EN_VITRINE);

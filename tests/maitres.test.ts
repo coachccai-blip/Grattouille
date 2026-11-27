@@ -16,7 +16,7 @@ import {
   MASTERS_LEVEL_HANDS, MASTERS_SEATS, MAX_TABLE_CHIPS, RESERVE_MS, RESULT_MS,
   PokerError, act, advance, blindAt, botAccuse, botBet, botCheat, challengeBlind, chipsOnTable, createTable,
   deposit, isOut, isTournament, leave, mastersBlind, mastersRise, nextEventAt, pickMasters, playerInHand, rebuyRange,
-  seatIndexOf, settled, sit, splitPot, viewFor, viewOfSeat,
+  seatIndexOf, seatsAfter, settled, sit, splitPot, viewFor, viewOfSeat,
   type Card, type GameAction, type PokerAction, type PokerLobbyResponse, type PokerTableResponse, type Random32,
   type TableState, type TableView,
 } from "../shared/poker";
@@ -852,6 +852,85 @@ describe("des tables entières", () => {
     expect(shortBlinds).toBeGreaterThan(100);
     expect(sidePots).toBeGreaterThan(100);
     expect(carried).toBeGreaterThan(50);
+  });
+
+  it("un joueur qui fait n'importe quoi de permis, ou rien du tout : l'argent reste juste, la fin reste nette", () => {
+    const reasons = new Map<string, number>();
+    let hands = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const rng = rngOf(43_000 + seed);
+      const pick = (n: number) => rng() % n;
+      // Un joueur sur trois est un flâneur : il laisse passer un tour sur deux. Un sur cinq
+      // s'endort pour de bon au bout d'un moment, et ne touche plus à rien.
+      const lazy = seed % 3 === 0 ? 2 : 14;
+      const asleepFrom = seed % 5 === 0 ? 20 + pick(120) : Infinity;
+      let now = T0;
+      let t = masters(rng, pickMasters(rng));
+      let before = t;
+      const step = (next: TableState) => {
+        if (next === t) return;
+        before = t;
+        t = next;
+        if (t.phase === "fermee") return;
+        sound(t);
+        if (chipsOnTable(t) !== ALL) throw new Error(`jetons : ${chipsOnTable(t)} (graine ${seed})`);
+        if (t.audit.in !== MASTERS_BUYIN || t.audit.out !== 0 || t.audit.bank !== 4 * MASTERS_BUYIN) throw new Error("comptes");
+      };
+      const open = (): boolean => t.phase !== "fermee";
+      for (let guard = 0; guard < 4_000 && open(); guard++) {
+        step(advance(t, now, rng));
+        if (!open()) break;
+        const view = viewFor(t, "p_a", now);
+        now += 500 + pick(2_500);
+        if (guard >= asleepFrom) continue;
+        const o = view.options;
+        let action: GameAction | null = null;
+        if (pick(lazy) === 0) action = null;
+        else if (o.cheat) {
+          const free = DECK.filter((c) => !view.hand!.cards.includes(c));
+          action = pick(2) === 0 ? { type: "tricher", index: pick(5), card: free[pick(free.length)]! } : { type: "franc-jeu" };
+        } else if (o.fold) {
+          const choices: GameAction[] = [];
+          if (o.check) choices.push({ type: "parole" }, { type: "parole" });
+          if (o.call > 0) choices.push({ type: "suivre" }, { type: "suivre" });
+          // Les montants se tirent en blindes de base : un entier 32 bits ne couvre pas ces sommes.
+          if (o.bet) choices.push({ type: "miser", amount: Math.min(o.bet.max, o.bet.min + pick(40) * MASTERS_BLIND) });
+          if (o.raise) choices.push({ type: "relancer", amount: Math.min(o.raise.max, o.raise.min + pick(40) * MASTERS_BLIND) });
+          if (o.allIn) choices.push({ type: "tapis" });
+          if (!o.check) choices.push({ type: "coucher" });
+          action = choices[pick(choices.length)]!;
+        } else if (o.accuse.length > 0) {
+          action = pick(2) === 0 ? { type: "accuser", seat: o.accuse[pick(o.accuse.length)]! } : { type: "rien" };
+        } else if (o.back && pick(3) === 0) action = { type: "retour" };
+        else if (o.next && pick(2) === 0) action = { type: "suite" };
+        // Tout ce que la vue annonce comme permis est accepté.
+        if (action) step(act(t, "p_a", action, view.now, rng, view.step));
+        // De temps en temps, il se lève : entre deux mains ou en plein coup.
+        else if (open() && pick(250) === 0) step(leave(t, "p_a", view.now, rng));
+      }
+      expect([seed, t.phase, t.ended.length]).toEqual([seed, "fermee", 1]);
+      const { reason, payout } = t.ended[0]!;
+      reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+      hands += t.handNo;
+      // Ce que le joueur avait devant lui juste avant, et sa part d'un pot resté là s'il a encore des jetons.
+      const mine = before.seats[0]!.stack;
+      const alive = before.seats.map((seat, i) => (seat!.stack > 0 ? i : -1)).filter((i) => i >= 0);
+      const order = seatsAfter(before, before.dealer, alive);
+      const share = before.hand ? 0 : splitPot(before.carry, order, order).find((x) => x.seat === 0)?.amount ?? 0;
+      const others = before.seats.slice(1).some((seat) => seat!.stack > 0);
+      if (reason === "maitres-gagne") expect([seed, t.closed, payout, others, before.hand]).toEqual([seed, "maitres", ALL, false, null]);
+      else if (reason === "maitres-perdu") expect([seed, t.closed, payout, mine, before.hand]).toEqual([seed, "maitres", 0, 0, null]);
+      else {
+        // Parti de lui-même ou écarté pour absence, la partie n'étant pas jouée : son tapis, rien de plus.
+        expect([seed, ["quitte", "absent"].includes(reason), t.closed, payout]).toEqual([seed, true, "vide", mine + share]);
+        if (!before.hand) expect([seed, mine > 0, others]).toEqual([seed, true, true]);
+      }
+      expect(chipsOnTable(t)).toBe(0);
+      audited(t);
+    }
+    // Toutes les sorties se sont produites.
+    expect([...reasons.keys()].sort()).toEqual(["absent", "maitres-gagne", "maitres-perdu", "quitte"]);
+    expect(hands).toBeGreaterThan(600);
   });
 
   it("le même hasard rejoue la même table, à l'euro près", () => {
