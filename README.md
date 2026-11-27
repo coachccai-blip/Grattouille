@@ -9,9 +9,11 @@ s'offrir. On ne reste jamais bloqué : qui n'a plus rien trouve toujours un tick
 terre.
 
 Et le sport national de Grattouille : le **Poker Tricheur**. Cinq cartes, le droit d'en
-changer une en douce, et celui d'accuser les autres. Entre amis, par tables à code, ou
-contre les personnages du jeu, jusqu'aux défis des hôtes de chaque lieu — et, pour qui les
-a tous ruinés, la **Table des Maîtres** : quatre hôtes tirés au sort, des montants
+changer une en douce, et celui d'accuser les autres ; des enchères sans limite, du montant
+tapé à la main jusqu'au tapis. Entre amis, par tables à code (classiques, ou en tournoi à
+élimination), ou contre les personnages du jeu, jusqu'aux défis des hôtes de chaque lieu :
+trois manches, la mise double à chaque victoire, le gagnant repart avec tout. Et, pour qui
+les a tous battus, la **Table des Maîtres** : quatre hôtes tirés au sort, des montants
 astronomiques, le dernier assis prend tout.
 
 Le Kiosque racheté, l'histoire continue : le Patron laisse tomber à son tour des tickets
