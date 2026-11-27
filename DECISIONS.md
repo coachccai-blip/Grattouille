@@ -511,11 +511,12 @@ joueurs actuels ».
   histoire d'hôte, des tickets semés par un, cinq et dix, six expériences de l'agence, une
   Table des Maîtres.
 - **Les Souvenirs et l'album une fois rangés dans la section Trophées, tout a été repris** :
-  les tests ; les écrans neufs dans les deux langues aux trois tailles (six passes) ;
-  l'ancien parcours en français à 360 px et en anglais à 320 px ; l'album vide, à sa
-  première photo, en cours, plein, et sans réseau ; une photo ouverte, son film revécu.
-  Un album plein (trente photos) défile sans à-coup sur un processeur ralenti six fois, et
-  les trente cartes postales sont identiques, à l'octet près, à celles d'avant.
+  les tests ; les écrans neufs dans les deux langues aux trois tailles (six passes, jusqu'à
+  192 écrans chacune, aucune traduction manquante) ; l'ancien parcours en français à
+  360 px et en anglais à 320 px ; l'album vide, à sa première photo, en cours, plein, et
+  sans réseau ; une photo ouverte, son film revécu. Un album plein (trente photos) défile
+  sans à-coup sur un processeur ralenti six fois, et les trente cartes postales sont
+  identiques, à l'octet près, à celles d'avant.
 - **Un défaut trouvé à cette occasion, et corrigé avant de livrer** : le sélecteur des
   trophées s'appelait « rayons », comme les onglets d'une boutique, et les deux feuilles de
   style se mélangeaient (les onglets de la Boutique en étaient déformés). Ses classes ont
