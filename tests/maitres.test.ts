@@ -279,10 +279,13 @@ describe("la tablée des Maîtres", () => {
     t = sit(t, { playerId: "p_a", sid: "s_0", pseudo: "Ada", species: "chat", look: null }, T0, rng);
     expect([t.phase, t.handNo]).toEqual(["attente", 0]);
     // Complète : personne d'autre ne s'y assoit.
-    expect(refusal(() => sit(t, { playerId: "p_b", sid: "s_1", pseudo: "Bob", species: "chat", look: null }, T0, rng))).toBe("TABLE_STARTED");
+    const bob = { playerId: "p_b", sid: "s_1", pseudo: "Bob", species: "chat", look: null };
+    expect(refusal(() => sit(t, bob, T0, rng))).toBe("TABLE_FULL");
     t = deposit(t, "s_0", 1, MASTERS_BUYIN, T0, rng);
     // Pas besoin de lancer : la première main est donnée, chacun a payé la blinde.
     expect([t.phase, t.handNo, t.hand!.blind, t.hand!.pot]).toEqual(["triche", 1, MASTERS_BLIND, 5 * MASTERS_BLIND]);
+    // Et une fois la partie partie, c'est un tournoi lancé : on n'y entre plus.
+    expect(refusal(() => sit(t, bob, T0, rng))).toBe("TABLE_STARTED");
     expect(t.hand!.players.map((p) => p.seat).sort()).toEqual([0, 1, 2, 3, 4]);
     expect(stacksOf(t)).toEqual(Array.from({ length: 5 }, () => MASTERS_BUYIN - MASTERS_BLIND));
     expect(t.audit).toEqual({ in: MASTERS_BUYIN, out: 0, bank: 4 * MASTERS_BUYIN });
