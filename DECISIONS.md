@@ -580,7 +580,10 @@ faut passer le maximum à 500 tickets. »
   grattés d'une traite, tous déclarés et payés, sans qu'une requête en porte plus de 60).
   À l'écran, une pile pleine en français et en anglais à 320, 360 et 390 px : le Domaine et
   l'onglet « Jouer » (« 500 »), la pile, un paquet gratté (« 1/500 »), la rafale et sa
-  pause, le comptoir et son achat refusé. Le premier chargement reste sous les 300 Ko.
+  pause, le comptoir et son achat refusé. L'ancien parcours du jeu (124 écrans, en français
+  à 360 px et en anglais à 320 px) et la passe complète des écrans de la 2.1 (192 écrans)
+  ne montrent rien de nouveau ; dix-huit écrans existants restent identiques, au pixel
+  près, à ceux de la 2.1 d'origine. Le premier chargement reste sous les 300 Ko.
 
 ## 1. Déploiement (jalon 0)
 
