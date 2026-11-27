@@ -177,15 +177,19 @@ première minute à l'après-fin. Le bouton d'inscription devient « Débarquer 
 Demande du 26 novembre : un poker entre amis, par tables à code, avec l'argent du jeu, où
 chacun peut tricher d'une carte et accuser les autres ; des robots de difficulté réglable ;
 des tables selon le patrimoine ; un retour dans la campagne. « Le sport national de
-Grattouille. » Ce que la demande ne tranchait pas, tranché au plus simple :
+Grattouille. » Ce que la demande ne tranchait pas, tranché au plus simple.
+
+Trois points de cette section ont changé avec la version 2.1 (section 0 quinquies) : les
+enchères sont désormais sans limite, les défis se jouent en trois manches sans prime à
+part, et les robots sont nettement plus forts. Ils sont corrigés ci-dessous.
 
 - **Cinq cartes fermées, une seule triche.** Chacun reçoit cinq cartes et peut en remplacer
   UNE par la carte de son choix, pourvu qu'il ne l'ait pas déjà. Deux joueurs peuvent donc
   montrer la même carte : c'est un indice. Pas de cartes communes, pas de tirage.
 - **Une main en cinq temps** : la blinde (payée par tous), la donne, la triche (secrète et
-  simultanée), un seul tour d'enchères à la limite du pot (trois relances au plus, tapis et
-  pots annexes comme au poker), puis l'abattage, où chaque joueur encore en jeu peut accuser
-  un autre joueur encore en jeu.
+  simultanée), un seul tour d'enchères sans limite (trois relances au plus, tapis et pots
+  annexes comme au poker ; à la limite du pot jusqu'à la version 2.0), puis l'abattage, où
+  chaque joueur encore en jeu peut accuser un autre joueur encore en jeu.
 - **Les accusations.** L'accusé qui a triché est démasqué : il perd toute sa mise, qui reste
   au pot, et sort de la main. L'accusé innocent reçoit de chaque accusateur une somme égale
   à sa propre mise. Un tricheur que personne n'accuse garde son secret : la triche n'est
@@ -201,19 +205,20 @@ Grattouille. » Ce que la demande ne tranchait pas, tranché au plus simple :
 - **Le patrimoine.** Il faut de quoi poser 20 blindes pour s'asseoir, et la blinde d'une
   table créée ne dépasse pas le quarantième de la bourse du créateur.
 - **Les robots** portent le nom et le portrait des personnages. Facile : triche peu et
-  grossièrement, accuse au hasard. Normal : triche une fois sur trois, accuse les mains
-  trop belles et les cartes qu'il tient lui-même. Difficile : triche discrètement, accuse
-  d'après la vraisemblance. Leur argent est fictif : le poker contre des robots crée ou
-  détruit de l'argent, dans des proportions voisines de celles des tickets.
+  grossièrement, accuse au jugé. Normal : solide, accuse les mains trop belles et les cartes
+  qu'il tient lui-même. Difficile : triche discrètement, accuse d'après la vraisemblance,
+  et ne se laisse pas plumer (leurs réglages et leurs mesures : section 0 quinquies). Leur
+  argent est fictif : le poker contre des robots crée ou détruit de l'argent, dans des
+  proportions voisines de celles des tickets.
 - **Les tables de la maison** : une par lieu ouvert, contre l'hôte et deux personnages, à la
   blinde du ticket le moins cher du lieu ; facile au Kiosque et au Grand Café, normal au
   Casino et au Salon, difficile ensuite.
-- **Les défis** (la campagne) : un tête-à-tête contre l'hôte de chaque lieu ouvert, 30
-  blindes chacun. La blinde monte en cours de duel (elle double toutes les quatre mains,
-  puis toutes les deux) et un joueur qui ne peut plus la payer joue son reste à tapis : un
-  duel se dénoue en 14 à 16 mains en médiane. La première fois qu'il ruine l'hôte d'un
-  lieu, le joueur reçoit sa cagnotte : 100 blindes de ce lieu. Huit défis, du Kiosque à la
-  Lune.
+- **Les défis** (la campagne) : un tête-à-tête contre l'hôte de chaque lieu ouvert. La
+  blinde monte en cours de duel et un joueur qui ne peut plus la payer joue son reste à
+  tapis. Huit défis, du Kiosque à la Lune. Depuis la version 2.1, chaque défi se joue en
+  trois manches à mise doublée, sans prime à part (section 0 quinquies) ; jusqu'à la 2.0,
+  c'était 30 blindes chacun et une cagnotte de 100 blindes à la première victoire, qui
+  reste acquise à qui l'a touchée.
 - **Serveur.** Pas de WebSocket : le client interroge sa table (réponse minimale quand rien
   n'a changé). Pas de minuteur côté serveur non plus : chaque requête fait d'abord avancer
   la table jusqu'à l'heure courante (délais échus, tours des robots). Le moteur est pur
@@ -255,7 +260,192 @@ gamifier davantage ».
 - **Aucune animation ne fait attendre** : un écran se touche dès sa deuxième image, et les
   fêtes de gain gardent leurs durées. « Animations réduites » (ou la préférence du système)
   remplace tout mouvement par un fondu bref.
-- **Pas de musique ni de boucle d'ambiance** : choix délibéré, pour ne pas lasser.
+- **Pas de musique** dans la version 2.0 : choix d'alors, pour ne pas lasser. Le
+  propriétaire en a demandé depuis : dix musiques d'ambiance, coupées par un réglage à
+  elles (section 0 quinquies).
+
+## 0 quinquies. La version 2.1 : la suite de l'histoire, le poker repensé, l'agence, les trophées, la musique
+
+Demandes du 27 novembre, arrivées l'une après l'autre : une cinématique de plus pour qui
+a tout acheté et gagné tous les défis (« la version avec Piou en fondateur de la ville »),
+des musiques d'ambiance, le droit de laisser tomber des tickets à son tour, des trophées,
+une table de poker contre quatre hôtes « avec des montants astronomiques » ; puis
+l'histoire de chaque hôte dans les Souvenirs, un magasin d'« expériences de vie », la mise
+libre et le tapis au poker, des robots qui misent gros, des défis en trois manches, deux
+modes de table entre amis, des robots plus forts. Et, dès la première : « attention à ne
+pas impacter l'avancée des joueurs actuels ».
+
+### La règle d'or : rien ne bouge pour les joueurs déjà là
+
+- **Aucune donnée du jeu n'a changé** : ni prix, ni seuil de Standing, ni bien (toujours
+  110), ni ticket, ni tableau de lots. `npm run simulate` rend au chiffre près le tableau
+  de la section 0. Les récompenses de cette version ne se vendent pas et ne donnent pas de
+  Standing.
+- **Aucune migration.** Chaque champ ajouté à l'enregistrement d'un joueur est facultatif
+  (`stats.sown`, `stats.sownValue`, `masters`, `pokerStats`, `hostWins`, `experiences`,
+  `vraieFin`) et reçoit sa valeur par défaut à la lecture (`toState`). Lire un compte ne le
+  réécrit pas ; une écriture ordinaire n'y glisse aucun champ nouveau. Les tests rejouent
+  des enregistrements écrits par les versions 1.0, 1.1 et 2.0 (`tests/suite.test.ts`), et
+  la répétition les dépose tels quels dans le vrai client Blobs avant de les faire lire par
+  la fonction empaquetée.
+- **Rien que des ajouts dans l'API** : trois routes neuves (`POST /api/tickets/sow`,
+  `POST /api/story/seen`, `POST /api/experiences/buy`), des champs en plus dans l'état et
+  dans le hall du poker. Une page restée ouverte avec l'ancien code continue de
+  fonctionner ; une page neuve qui parle un instant à l'ancien serveur complète elle-même
+  ce qui manque (`src/app/etat.ts`). Une table de poker déjà ouverte au moment de la mise à
+  jour se joue et se règle selon ses règles d'origine.
+- **Tout ce qui était mérité est acquis d'emblée.** Les trophées se calculent sur l'état du
+  joueur, rien n'est stocké : un vieux compte a tout de suite les médailles de ce qu'il a
+  déjà fait. Les défis relevés en 2.0 comptent. Un Patron d'avant la mise à jour peut semer
+  dès sa première visite ; s'il avait aussi relevé les huit défis, la vraie fin l'attend
+  sur son Domaine.
+- **Le classement** : seules les Légendes y portent une marque (un as de cœur). Les entrées
+  et la signature de publication des autres comptes gardent leur forme : personne n'est
+  republié pour rien.
+- **Les réglages de l'appareil** gagnent trois champs (musique, médailles vues, histoires
+  écoutées), lus avec une valeur par défaut. Toujours trois clés de stockage local.
+- **Un écran chargé à la demande qui n'arrive pas** (la page était ouverte pendant une mise
+  à jour) se referme et invite à recharger, au lieu d'un écran blanc.
+
+### Semer des tickets
+
+- Dès que le Kiosque est à lui, le joueur peut laisser tomber des tickets pour ceux qui
+  débarquent sans rien : un, cinq ou dix d'un coup, au prix du comptoir, depuis la fiche
+  d'un ticket. Ce ne sont pas ses tickets : rien à gratter, rien de joué, rien de gagné. Sa
+  bourse (et donc sa fortune au classement) baisse d'autant : c'est un don, et c'est voulu.
+- Le reste est du récit : chaque ticket semé est trouvé par un nouveau venu qui dit sa
+  chance, et des protégés écrivent à 1, 3, 8, 15, 30, 60, 120 et 250 tickets semés. Tout se
+  déduit du nombre de tickets semés (le Carnet du Patron) : rien d'autre n'est enregistré.
+- Le geste « Laisser tomber un ticket » du premier générique sème désormais pour de bon une
+  Tirelire de Piou (1 €), quand la bourse le permet.
+- Même délai d'une seconde que pour un achat. Pas de plafond quotidien : semer ne rapporte
+  rien, il n'y a rien à protéger.
+
+### La vraie fin, « Huit as de cœur », et les Souvenirs
+
+- La vraie fin se mérite : le Kiosque et les huit hôtes battus au moins une fois, dans
+  n'importe quel ordre. Elle se joue au retour sur le Domaine et se marque comme vue côté
+  serveur (`story.vraieFin`). On y apprend que Piou, le groom, a fondé la ville.
+- Elle débloque le rang « Légende » à la place de « Patron », le tout premier ticket exposé
+  sous cloche sur le Domaine, un dos de cartes doré au poker, de nouvelles répliques, la
+  marque au classement et une médaille. Rien qui se vende.
+- **Les Souvenirs** sont un écran, ouvert depuis les Réglages : les deux fins à revoir, et
+  l'histoire de chacun des huit hôtes. Une relecture ne rappelle pas le serveur et ne sème
+  rien.
+- **L'histoire d'un hôte** s'ouvre quand on a gagné les trois manches de son défi. Le compte
+  est tenu par le serveur (`hostWins`). Rétroactif autant que possible : un défi relevé
+  avant cette version compte pour la première manche ; les revanches gagnées en 2.0
+  n'étaient pas comptées et ne peuvent pas l'être. Remporter la Table des Maîtres n'ouvre
+  aucune histoire.
+- **Sans divulgâcher** : une histoire peut s'ouvrir avant les deux fins (trois victoires
+  contre Gaspard sont possibles dès le Kiosque). Son corps ne dit ni qui sème les tickets
+  ni qui a fait la ville ; un dernier temps s'y ajoute une fois la vraie fin vue. Un test
+  relit chaque histoire pour s'en assurer.
+
+### Le poker repensé
+
+- **Sans limite.** Le propriétaire voulait miser un montant libre et faire tapis ; avec des
+  enchères plafonnées au pot, cela n'avait pas de sens. Une mise va désormais de la blinde
+  à tout le tapis. Un seul tour, trois relances au plus : le reste ne change pas. L'écran
+  garde trois tailles proposées et gagne une saisie libre (son propre pavé de chiffres et
+  des touches d'unité, pour ne pas taper quinze chiffres) et un bouton Tapis, confirmé.
+- **Des parties plus courtes**, c'était le but. En médiane : un défi se dénoue en 8 à 10
+  mains (15 avant) ; un tapis de 50 blindes double ou disparaît en 13 à 25 mains à une
+  table ordinaire (51 à 166 avant, selon le niveau).
+- **Des robots plus forts**, à la demande du propriétaire (« ils se couchent trop souvent et
+  ne disent pas assez "tricheurs" »). Confiant, un robot mise jusqu'à trois fois le pot ; il
+  lui arrive de bluffer ; il triche pour des mains plausibles. Face à une mise du pot, le
+  robot difficile se couche 17 fois sur 100 (48 avant) et le normal 28 (40 avant). Il accuse
+  un tricheur dont la main le bat 82 fois sur 100 (54 avant) ; le normal 42 (16), le facile
+  35 (10). Ils accusent aussi un peu plus souvent à tort (11, 3 et 9 fois sur 100).
+- **Pousser son tapis à chaque main n'est pas une martingale** : ce joueur-là gagne un défi
+  41 fois sur 100 contre le robot facile, 14 contre le normal, 13 contre le difficile. Qui
+  triche à chaque main pour la meilleure main gagne 58, 37 et 2 fois sur 100. Qui joue bien
+  et triche discrètement : 72, 65 et 45. Mesuré sur 400 défis par case.
+- **Le défi en trois manches** (« un sentiment de progression plutôt que trois fois le même
+  défi »). Chacun pose la même mise et le gagnant repart avec tout : 100 blindes du lieu à
+  la manche 1 (100 € au Kiosque, on repart avec 200 €), le double à la manche 2, encore le
+  double à la manche 3. L'hôte se défend un cran mieux à chaque manche, et ses répliques
+  changent. À la troisième victoire son histoire s'ouvre ; le défi reste ensuite jouable en
+  revanche, aux conditions de la manche 3.
+- **Plus de prime à part** : l'ancienne cagnotte de 100 blindes à la première victoire
+  disparaît (elle reste acquise à qui l'a touchée). La cagnotte est ce que l'hôte pose sur
+  la table ; perdre, c'est perdre sa mise. Sur les trois manches, un hôte rapporte 700
+  blindes de son lieu à qui les gagne toutes (130 avant), et en coûte autant à qui les perd.
+  Entrer coûte plus cher qu'avant : 100 blindes au lieu de 30.
+- **« Les huit défis relevés »** veut toujours dire : chaque hôte battu au moins une fois.
+  C'est ce qui ouvre la Table des Maîtres et la vraie fin.
+- **La Table des Maîtres** : le joueur contre quatre des huit hôtes, tirés au sort, au
+  niveau difficile. Blinde de départ 10 Bn€, cagnotte de 300 Bn€ chacun, pas de recave, la
+  blinde monte, les perdants sont éliminés, le dernier assis remporte tout (1 500 Bn€). Elle
+  se dénoue en 13 mains en médiane (9 tables sur 10 en moins de 22). Un robot à la place
+  du joueur la gagne une fois sur cinq. On peut partir avec son tapis, sans victoire.
+- **Deux modes de table entre amis**, choisis à la création. Classique (le mode par défaut,
+  celui des tables existantes) : chacun choisit sa cave, recave permise, on sort quand on
+  veut. Table des Maîtres : le même tournoi, entre amis — même cagnotte pour tous (30
+  blindes de départ), même barème, on rejoint avant le lancement. Il dure 18 à 21 mains en
+  médiane.
+- **Quitter un tournoi entre amis, c'est abandonner** : le tapis reste sur la table pour le
+  gagnant, sans quoi celui qui mène partirait avec ses gains. Seul humain encore là, on
+  reprend son tapis et la table ferme. Un absent n'est pas écarté tant qu'un autre humain
+  joue : la blinde entame son tapis, il revient quand il veut. Si plus personne n'a de
+  jetons (tous à tapis et démasqués), les joueurs de la dernière main se partagent le pot.
+- **Seule la Table des Maîtres du hall compte pour le trophée** : sinon un tournoi à 1 €
+  entre amis suffirait.
+- **Les compteurs du poker** (`pokerStats` : mains, pots, tricheurs démasqués, fois où l'on
+  s'est fait prendre) n'existaient pas avant : ils partent de zéro pour tout le monde, et
+  sont versés quand on quitte la table.
+- **Limites connues.** Le robot difficile est dur : c'est lui qu'on affronte à la troisième
+  manche de chaque défi, et dès la première à partir du Cercle. Une Table des Maîtres sur
+  dix se dénoue en deux mains. Une page restée ouverte avec l'ancien écran qui rejoindrait
+  un tournoi ne le reconnaîtrait pas. Le tournoi à plusieurs humains a été joué par les
+  tests et par un second joueur piloté dans la même page, pas sur plusieurs téléphones.
+
+### L'Agence Carpe Diem : les expériences de vie
+
+- **Le nom** : l'Agence Carpe Diem, tenue par Madame Diem, une carpe koï. Le jeu de mots
+  tient dans les deux langues. Cinquième enseigne de l'onglet Boutiques.
+- **Trente expériences**, de 3 € (une glace face à la mer) à 500 Bn€ (des vacances pour
+  toute la ville) : `shared/experiences.ts`. Chacune a sa scène animée, en plein écran.
+- **Une expérience n'est pas un bien.** Elle ne donne pas de Standing, n'entre pas dans la
+  collection et ne compte pour rien dans le rachat du Kiosque : la progression existante ne
+  change pas. Elle se vit une fois ; on la revit ensuite gratuitement.
+- **Son prix reste compté dans la fortune**, comme celui d'un bien : s'offrir un voyage ne
+  fait pas reculer au classement. (Semer un ticket, au contraire, est un don.)
+
+### Les trophées
+
+- Treize familles, quarante-deux médailles : tickets joués, plus gros gain sur un seul
+  ticket, jackpots, tickets semés et leur valeur, collection, lieux ouverts, expériences
+  vécues (la dernière médaille les demande toutes), Kiosque, défis de poker, tricheurs
+  démasqués, Table des Maîtres, vraie fin. `shared/trophies.ts` est une fonction pure de
+  l'état du joueur.
+- Les trophées liés à la suite de l'histoire restent sous un drap tant qu'ils ne sont pas à
+  portée, pour ne rien divulgâcher.
+- Les médailles déjà vues sont retenues sur l'appareil. À la première visite après la mise
+  à jour, pas de rafale d'annonces : une pastille sur le Domaine.
+- Seul le trophée des tricheurs démasqués ne peut pas être rétroactif : ils n'étaient pas
+  comptés en 2.0.
+
+### Les musiques d'ambiance
+
+- Dix thèmes synthétisés (Web Audio, aucun fichier) : un par lieu, joué à son comptoir et
+  pendant qu'on y gratte, un pour les écrans principaux, un pour le poker. Chaque tonalité
+  contient les cinq notes des bruitages.
+- Un réglage « Musique », indépendant de « Son », allumé par défaut. Rien ne démarre avant
+  le premier geste ; tout se tait quand la page est cachée. Le moteur et les partitions
+  sont chargés à la demande.
+- **Composées à l'aveugle** : vérifiées par la mesure (niveau, saturation, nombre de voix,
+  fuites), jamais écoutées dans l'environnement de travail. Leur niveau, placé un peu sous
+  les bruitages d'interface, est un pari : il tient à une constante (`NIVEAU`, dans
+  `src/fx/musique/moteur.ts`).
+
+### Le poids
+
+- Le premier chargement reste sous les 300 Ko de JavaScript compressé du brief. Tout écran
+  neuf est chargé à la demande, avec ses dessins et ses textes dans les deux langues ; le
+  dictionnaire anglais du poker (plus de trois cents phrases) a quitté le démarrage pour
+  voyager avec ses écrans.
 
 ## 1. Déploiement (jalon 0)
 
@@ -457,4 +647,8 @@ Rien de ceci n'a pu être fait depuis l'environnement de travail :
 - les noms des trente tickets, à revérifier avant d'ouvrir au public (section 16.7) : ils
   ont été choisis pour ne reprendre aucun titre existant, sans recherche d'antériorité ;
 - la durée d'une partie : dix heures sont une mesure de simulation (1 515 tickets à 24
-  secondes), pas une partie jouée de bout en bout par une personne.
+  secondes), pas une partie jouée de bout en bout par une personne ;
+- les musiques : composées et mesurées, jamais écoutées (section 0 quinquies) ;
+- le poker à plusieurs sur de vrais téléphones, en particulier un tournoi entre amis ;
+- l'agrément des robots renforcés : leurs taux sont mesurés par simulation contre des
+  profils de joueur écrits à la main, pas contre des personnes.
