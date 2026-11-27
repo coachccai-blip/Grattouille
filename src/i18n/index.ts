@@ -37,6 +37,14 @@ const EN: Record<string, string> = {
   ...EN_SUITE, ...EN_TROPHEES, ...EN_MUSIQUE,
 };
 
+/**
+ * Ajoute des traductions anglaises. Un écran chargé à la demande apporte ainsi son propre
+ * dictionnaire avec lui, au lieu de peser sur le premier chargement.
+ */
+export function addEnglish(dictionary: Record<string, string>): void {
+  Object.assign(EN, dictionary);
+}
+
 let current: Lang = "fr";
 /** Les phrases demandées en anglais et absentes des dictionnaires : elles restent en français. */
 const misses = new Set<string>();

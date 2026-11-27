@@ -10,10 +10,21 @@ terre.
 
 Et le sport national de Grattouille : le **Poker Tricheur**. Cinq cartes, le droit d'en
 changer une en douce, et celui d'accuser les autres. Entre amis, par tables à code, ou
-contre les personnages du jeu, jusqu'aux défis des hôtes de chaque lieu.
+contre les personnages du jeu, jusqu'aux défis des hôtes de chaque lieu — et, pour qui les
+a tous ruinés, la **Table des Maîtres** : quatre hôtes tirés au sort, des montants
+astronomiques, le dernier assis prend tout.
 
-Le jeu se joue en français ou en anglais (Réglages, ou l'écran de bienvenue), avec le son
-et des animations partout, que les réglages permettent de couper.
+Le Kiosque racheté, l'histoire continue : le Patron laisse tomber à son tour des tickets
+pour ceux qui débarquent sans rien, et une **vraie fin** attend qui a tout acheté et relevé
+les huit défis. Trente-huit **trophées** jalonnent le tout.
+
+Le jeu se joue en français ou en anglais (Réglages, ou l'écran de bienvenue), avec le son,
+une musique d'ambiance par lieu et des animations partout, que les réglages permettent de
+couper.
+
+Une mise à jour ne retire rien à personne : les comptes existants gardent leur bourse,
+leurs biens et leurs défis, et reçoivent d'emblée les trophées qu'ils avaient déjà mérités
+(`DECISIONS.md`, section 0 quinquies).
 
 Le cahier des charges d'origine est dans [`BRIEF.md`](BRIEF.md). Les choix que le brief
 laissait ouverts, et l'extension qui a doublé le jeu (section 0), sont consignés dans
@@ -71,7 +82,7 @@ npm run dev        # http://localhost:5173, avec une API en mémoire
 | `npm run dev` | Serveur de développement. `/api/*` est servi en mémoire : rien à installer d'autre. |
 | `npm run build` | Vérifie les types puis construit `dist/`. |
 | `npm run serve` | Sert `dist/` et l'API en mémoire sur http://localhost:4173, comme en ligne. |
-| `npm test` | Les tests : économie, moteurs de tickets, règles, serveur, stockage Blobs, simulation, typographie, traductions, dialogues, sons, poker. |
+| `npm test` | Les tests : économie, moteurs de tickets, règles, serveur, stockage Blobs, simulation, typographie, traductions, dialogues, sons, musiques, poker, trophées, et la compatibilité des comptes des versions passées. |
 | `npm run simulate` | Simule des parties complètes, compare au tableau de référence (`DECISIONS.md`, section 0) et vérifie qu'aucune ne reste bloquée. |
 | `npm run zip` | Fabrique `livraison/grattouille-netlify.zip`, l'archive à déposer sur Netlify. |
 
@@ -85,13 +96,19 @@ local, isolé de la production.
   `?bac-a-sable&palier=jackpot` pour voir une fête de jackpot. Pour tout voir d'un coup,
   les huit lieux ouverts et le Kiosque à portée :
   `?bac-a-sable&solde=600000000000000&biens=110`.
+- Pour voir la suite de l'histoire sans tout rejouer, le bac à sable accepte aussi
+  `&kiosque=1` (déjà Patron), `&defis=8` (défis de poker relevés), `&maitres=1` (Table des
+  Maîtres remportée), `&vraiefin=1` (vraie fin vue), `&semes=40` (tickets semés),
+  `&joues=1600`, `&record=2000000`, `&jackpots=5`, `&demasques=10` (trophées). Un Patron prêt
+  pour la vraie fin et la Table des Maîtres :
+  `?bac-a-sable&solde=900000000000000&biens=110&kiosque=1&defis=8`.
 - `?planche` : la planche de contrôle des illustrations et des tickets.
 
 ## Organisation
 
 ```
-shared/              les chiffres du jeu : économie, tickets, lieux, catalogue, règles
-shared/poker/        le Poker Tricheur : règles pures, combinaisons, robots
+shared/              les chiffres du jeu : économie, tickets, lieux, catalogue, règles, trophées
+shared/poker/        le Poker Tricheur : règles pures, combinaisons, robots, Table des Maîtres
 server/              la logique du serveur (comptes, tickets, boutiques, classement, poker)
 netlify/functions/   api.mts, le point d'entrée unique de /api/*
 src/app/             magasin d'état, client d'API, navigation, bac à sable
@@ -100,7 +117,7 @@ src/scratch/         le grattage sur canvas
 src/ticket/          le ticket et ses 30 habillages
 src/art/             toutes les illustrations, en SVG
 src/i18n/            les deux langues : traduction, noms, dictionnaires anglais
-src/fx/              sons synthétisés, particules, vibrations
+src/fx/              sons et musiques synthétisés, particules, vibrations
 src/screens/         un dossier par écran
 src/ui/              boutons, bourse, feuilles, en-têtes
 src/jsx/             la fabrique JSX : celle de React, plus la typographie française
