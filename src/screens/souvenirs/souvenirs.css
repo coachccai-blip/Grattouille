@@ -1,0 +1,387 @@
+/* Les Souvenirs : la liste (les deux fins, les huit maîtres des lieux), puis l'album d'une
+   histoire, en plein écran comme les grands moments. Transformations et opacité seulement. */
+
+.souvenirs { padding-bottom: calc(var(--bas) + var(--e7)); }
+
+.souvenirs__chapeau {
+  margin-top: var(--e3);
+  color: var(--ecume);
+  font: 400 16px/22px var(--texte);
+  text-wrap: balance;
+}
+
+.souvenirs .rubrique__titre {
+  color: var(--ecume);
+  font: 700 20px/24px var(--texte);
+}
+
+.souvenirs__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.souvenirs .bouton--secondaire { align-self: flex-start; }
+
+.souvenirs__pied { margin-top: var(--e5); }
+
+/* ---------------------------------------------------------------- Un souvenir */
+
+.souvenir {
+  display: flex;
+  gap: var(--e3);
+  align-items: center;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px var(--e3);
+  border-radius: 16px;
+  background: var(--lagune);
+  color: var(--ecume);
+  text-align: left;
+}
+
+button.souvenir {
+  box-shadow: 0 3px 0 rgba(6, 24, 30, .55);
+  transition: transform var(--t-appui) linear;
+}
+
+button.souvenir:active { transform: translateY(2px); }
+
+/* Pas encore là : une case en creux, un filet pointillé. */
+.souvenir--ferme {
+  background: none;
+  box-shadow: inset 0 0 0 2px rgba(180, 205, 208, .28);
+}
+
+.souvenir__image {
+  flex: none;
+  width: 56px;
+  height: 56px;
+}
+
+/* Un hôte qui n'a pas encore parlé : son portrait est là, éteint. */
+.souvenir__image--attend { opacity: .55; }
+
+.souvenir__image--mystere {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(180, 205, 208, .14);
+  color: var(--brume);
+}
+
+/* Le Kiosque, cadré sur son comptoir : la vignette de la première fin. */
+.souvenir__image--vue {
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(#BEE7F5, #FDF3D0);
+  box-shadow: 0 0 0 3px var(--ivoire);
+}
+
+.souvenir__image--vue svg { display: block; width: 100%; }
+
+/* L'as de cœur de la vraie fin. */
+.souvenir__image--carte {
+  display: grid;
+  place-items: center;
+}
+
+.souvenir__image--carte .carte {
+  --carte-l: 38px;
+  transform: rotate(-6deg);
+}
+
+.souvenir__texte {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.souvenir__nom { font: 700 17px/22px var(--texte); }
+
+.souvenir__sous {
+  color: var(--brume);
+  font: 400 14px/19px var(--texte);
+}
+
+.souvenir__pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--e2);
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* « Revoir », « Écouter » : ce que fait la carte quand on la touche. */
+.souvenir__action {
+  color: var(--mimosa);
+  font: 700 14px/20px var(--texte);
+}
+
+.souvenir__marque {
+  padding: 1px 9px;
+  border-radius: 99px;
+  background: var(--bougainvillier-fonce);
+  color: #fff;
+  font: 500 12px/18px var(--texte);
+  white-space: nowrap;
+}
+
+.souvenir__reste {
+  color: var(--ecume);
+  font: 500 14px/19px var(--texte);
+}
+
+.souvenir__chevron {
+  flex: none;
+  color: var(--brume);
+}
+
+/* Les victoires sur trois : trois pions, pleins quand ils sont gagnés. */
+.pions {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.pion {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--brume);
+  border-radius: 50%;
+}
+
+.pion--gagne {
+  border-color: var(--mimosa);
+  background: var(--mimosa);
+}
+
+/* ---------------------------------------------------------------- L'album d'une histoire */
+
+/* Pas de rideau : on ouvre un album, on ne lève pas un décor. */
+.moment--histoire { animation: fondu 160ms linear both; }
+.moment--histoire::after { display: none; }
+
+/* La page de l'album : le ciel du lieu, et la photo posée dessus. Elle prend toute la place
+   que le texte laisse ; la photo se règle sur elle. */
+.histoire__album {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  padding: calc(var(--haut) + 14px) 22px 40px;
+  overflow: hidden;
+  background-size: 100% 100%;
+  container-type: size;
+}
+
+/* Un voile de papier kraft sur le ciel : c'est un album, pas une fenêtre. */
+.histoire__album::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(14, 47, 58, .1), rgba(14, 47, 58, .38));
+  pointer-events: none;
+}
+
+/* La photo : un tirage à bord blanc, posé un peu de travers, une fois d'un côté, une fois de
+   l'autre. Sa largeur suit la place libre (la hauteur de l'album, moins sa légende). */
+.histoire__photo {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: min(100%, 280px);
+  margin: 0;
+  padding: 6px 6px 0;
+  border-radius: 3px;
+  background: var(--ivoire);
+  box-shadow: var(--ombre-papier);
+  transform: rotate(-2deg);
+  animation: histoire-photo 420ms var(--sortie) both;
+}
+
+@supports (width: 1cqw) {
+  .histoire__photo { width: max(120px, min(100cqw, (100cqh - 58px) * 1.4286, 400px)); }
+}
+
+.histoire__photo--penchee {
+  transform: rotate(1.6deg);
+  animation-name: histoire-photo-penchee;
+}
+
+@keyframes histoire-photo {
+  from { opacity: 0; transform: translateY(18px) rotate(-7deg) scale(.94); }
+  to { opacity: 1; transform: rotate(-2deg); }
+}
+
+@keyframes histoire-photo-penchee {
+  from { opacity: 0; transform: translateY(18px) rotate(6deg) scale(.94); }
+  to { opacity: 1; transform: rotate(1.6deg); }
+}
+
+.calme .histoire__photo { animation: fondu 200ms linear both; }
+
+/* L'image, dans son cadre : dix sur sept. */
+.histoire__vue {
+  position: relative;
+  aspect-ratio: 10 / 7;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--creme, #FBEBD3);
+  background-size: 100% 100%;
+}
+
+.histoire__vue > svg,
+.histoire__vue > img {
+  position: absolute;
+  display: block;
+}
+
+/* Un dessin de l'album remplit le cadre. */
+.histoire__vue--dessin > svg { inset: 0; width: 100%; height: 100%; }
+
+/* Une façade, une maison, le banc du quai : posés en bas, sous leur ciel. */
+.histoire__vue--ciel > svg,
+.histoire__vue--ciel > img {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+}
+
+/* Un portrait : cadré serré sur le visage, les épaules hors champ. */
+.histoire__vue--portrait > svg,
+.histoire__vue--portrait > img {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+}
+
+/* La mouette : en plein ciel, d'une aile à l'autre. */
+.histoire__vue--vol > svg {
+  top: 7%;
+  left: 6%;
+  width: 88%;
+  height: 86%;
+}
+
+/* Un objet, un symbole : posé au milieu du papier. Une constellation : au milieu de la nuit. */
+.histoire__vue--objet,
+.histoire__vue--ticket {
+  background: radial-gradient(ellipse at 50% 40%, #FFF7E6, #F1DDB3);
+}
+
+.histoire__vue--nuit { background: radial-gradient(ellipse at 50% 40%, #24306B, #0B1230); }
+
+.histoire__vue--objet > svg,
+.histoire__vue--objet > img,
+.histoire__vue--nuit > svg {
+  top: 9%;
+  left: 50%;
+  width: auto;
+  max-width: 96%;
+  height: 82%;
+  transform: translateX(-50%);
+}
+
+/* Un ticket : sa vignette, comme un ticket posé de biais. */
+.histoire__vue--ticket > svg,
+.histoire__vue--ticket > img {
+  top: 50%;
+  left: 50%;
+  width: 72%;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 5px 0 rgba(14, 47, 58, .22);
+  transform: translate(-50%, -50%) rotate(-5deg);
+}
+
+.histoire__legende {
+  padding: 6px 4px 8px;
+  color: var(--encre-douce);
+  font: italic 500 14px/18px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Sous l'album, celui qui raconte : son médaillon à cheval sur le filet de laiton, son nom,
+   son lieu, la page. Puis ses bulles, sur toute la largeur. */
+.histoire__corps {
+  flex: 0 0 auto;
+  padding-top: var(--e3);
+}
+
+.histoire__qui {
+  position: relative;
+  display: flex;
+  gap: var(--e2);
+  align-items: center;
+  min-height: 44px;
+  padding-left: 80px;
+}
+
+/* La croix : refermer l'album avant la fin. */
+.histoire__fermer {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -6px;
+  border-radius: 50%;
+  background: rgba(180, 205, 208, .14);
+  color: var(--ecume);
+}
+
+.histoire__portrait {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 68px;
+  height: 68px;
+}
+
+.histoire__nom {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.histoire__nom .t-fort { font: 700 18px/22px var(--texte); }
+
+.histoire__ou {
+  display: flex;
+  gap: var(--e2);
+  justify-content: space-between;
+  color: var(--brume);
+  font: 400 14px/18px var(--texte);
+}
+
+.histoire__page { white-space: nowrap; }
+
+.histoire__titre {
+  color: var(--mimosa);
+  font: 400 clamp(24px, 7.4vw, 30px)/1.12 var(--titre);
+  text-wrap: balance;
+}
+
+.histoire__bulles { align-items: stretch; }
+
+/* Les bulles pointent vers le médaillon, au-dessus d'elles. */
+.histoire__bulles .bulle__texte { margin-top: 0; }
+
+/* Le dernier temps, celui d'après la vraie fin : la page s'assombrit, le filet reste. */
+.histoire--apres .histoire__album::before {
+  background: linear-gradient(rgba(14, 47, 58, .3), rgba(14, 47, 58, .62));
+}

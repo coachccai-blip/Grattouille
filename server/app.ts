@@ -3,6 +3,7 @@
 // bac à sable passent tous par ici (BRIEF.md, section 15.5).
 
 import { ApiError, fail } from "./errors";
+import { buyExperience } from "./handlers/experiences";
 import { ackTickets, buyTickets, foundTicket, sowTickets } from "./handlers/tickets";
 import { ban, health, leaderboard } from "./handlers/misc";
 import { storySeen } from "./handlers/story";
@@ -29,6 +30,8 @@ const ROUTES: Record<string, Handler> = {
   "POST /api/story/seen": storySeen,
   "POST /api/shop/buy": buyItem,
   "POST /api/look": setLook,
+  // L'Agence Carpe Diem : les expériences de vie.
+  "POST /api/experiences/buy": buyExperience,
   "GET /api/leaderboard": leaderboard,
   // Le Poker Tricheur (POKER.md, section 4).
   "GET /api/poker": pokerLobby,

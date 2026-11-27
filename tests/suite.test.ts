@@ -6,6 +6,7 @@ import { handle, type Deps } from "../server/app";
 import { hostWinsOf, placeOfHost, recordHostWin, toState, type PlayerRecord } from "../server/player";
 import { MemoryStorage } from "../server/storage";
 import { CATALOG, KIOSK } from "../shared/catalog";
+import { EXPERIENCES, EXPERIENCE_COUNT, experienceById, experiencesValue, knownExperiences } from "../shared/experiences";
 import { PLACES } from "../shared/places";
 import {
   BOARD_PUBLISH_INTERVAL_MS, BUY_COOLDOWN_MS, HOST_STORY_WINS, LUCKY_FIND_MS, hostStoryOpen, standingOf,
@@ -176,6 +177,7 @@ describe("les comptes déjà là : rien ne bouge", () => {
       expect(state.stats.sown).toBe(0);
       expect(state.stats.sownValue).toBe(0);
       expect(state.masters).toBe(0);
+      expect(state.experiences).toEqual([]);
       expect(state.pokerStats).toEqual({ hands: 0, pots: 0, unmasked: 0, caught: 0 });
       expect(state.story).toEqual({ fin: legacy.kiosk, vraieFin: false });
       // Les défis déjà relevés sont rendus dans l'ordre des lieux.
@@ -555,6 +557,127 @@ describe("les victoires contre chaque hôte : trois ouvrent son histoire", () =>
 
 // ---------------------------------------------------------------------------
 
+describe("l'Agence Carpe Diem : les expériences de vie", () => {
+  it("trente expériences, du pas cher à l'astronomiquement cher, par prix croissant", () => {
+    expect(EXPERIENCES).toHaveLength(30);
+    expect(EXPERIENCE_COUNT).toBe(30);
+    expect(new Set(EXPERIENCES.map((x) => x.id)).size).toBe(30);
+    expect(new Set(EXPERIENCES.map((x) => x.name)).size).toBe(30);
+    for (const x of EXPERIENCES) {
+      expect(x.id).toMatch(/^[a-z]+(-[a-z]+)*$/);
+      expect(Number.isSafeInteger(x.price) && x.price > 0).toBe(true);
+      expect(experienceById(x.id)).toBe(x);
+    }
+    for (let i = 1; i < EXPERIENCES.length; i++) expect(EXPERIENCES[i]!.price).toBeGreaterThan(EXPERIENCES[i - 1]!.price);
+    // À la portée d'un compte qui débarque (le premier ticket trouvé rapporte 5 €), et bien au-delà du Kiosque.
+    expect(EXPERIENCES[0]!.price).toBeLessThanOrEqual(5);
+    expect(EXPERIENCES.at(-1)!.price).toBeGreaterThan(KIOSK.price);
+    // Celles que le propriétaire du jeu a nommées.
+    for (const id of ["australie", "japon-coree", "tour-du-monde", "soiree-lune"]) expect(experienceById(id)).toBeDefined();
+    // Aucune ne porte l'identifiant d'un bien : les deux listes ne se mélangent pas.
+    expect(EXPERIENCES.filter((x) => ALL_ITEMS.includes(x.id) || x.id === KIOSK.id)).toEqual([]);
+  });
+
+  it("tout additionné, la somme reste un entier exact", () => {
+    const total = experiencesValue(EXPERIENCES.map((x) => x.id));
+    expect(Number.isSafeInteger(total)).toBe(true);
+    expect(total).toBe(EXPERIENCES.reduce((sum, x) => sum + x.price, 0));
+    // Doublons et identifiants inconnus ne comptent pas.
+    expect(experiencesValue(["glace", "glace", "inconnue"])).toBe(3);
+    expect(knownExperiences(["balade-en-pedalo", "inconnue", "glace", "balade-en-pedalo", 7])).toEqual(["balade-en-pedalo", "glace"]);
+    // L'identifiant d'un bien n'est pas celui d'une expérience.
+    expect(knownExperiences(["pedalo", "comete"])).toEqual([]);
+    expect(knownExperiences(undefined)).toEqual([]);
+  });
+
+  it("vivre une expérience coûte son prix, sans toucher ni au Standing ni à la collection ni à la fortune", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Voyageuse");
+    w.storage.poke(a.playerId, (p) => { p.balance = 5_000; p.owned = ALL_ITEMS.slice(0, 5); });
+    const before: PlayerState = (await w.call("GET", "/api/me", undefined, a.auth)).body.state;
+    const r = await w.call("POST", "/api/experiences/buy", { id: "australie" }, a.auth);
+    expect(r.status).toBe(200);
+    const after: PlayerState = r.body.state;
+    expect(after.balance).toBe(5_000 - 3_500);
+    expect(after.experiences).toEqual(["australie"]);
+    // Ce n'est pas un bien : ni étoile, ni pièce de collection, ni tenue.
+    expect(after.standing).toBe(before.standing);
+    expect(after.owned).toEqual(before.owned);
+    expect(after.look).toEqual(before.look);
+    expect(after.kiosk).toBe(false);
+    // Ce qu'elle a coûté reste dans la fortune : s'offrir un voyage ne fait pas reculer au classement.
+    expect(after.fortune).toBe(before.fortune);
+    expect(after.stats).toEqual(before.stats);
+  });
+
+  it("une expérience se vit une fois", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Voyageuse");
+    w.storage.poke(a.playerId, (p) => { p.balance = 100; });
+    expect((await w.call("POST", "/api/experiences/buy", { id: "glace" }, a.auth)).status).toBe(200);
+    const again = await w.call("POST", "/api/experiences/buy", { id: "glace" }, a.auth);
+    expect([again.status, again.body.error.code]).toEqual([409, "ALREADY_OWNED"]);
+    expect(w.storage.peek(a.playerId)!.balance).toBe(97);
+    expect(w.storage.peek(a.playerId)!.experiences).toEqual(["glace"]);
+    // Une autre, dans la foulée : pas de délai entre deux expériences.
+    const next = await w.call("POST", "/api/experiences/buy", { id: "balade-en-pedalo" }, a.auth);
+    expect(next.body.state.experiences).toEqual(["glace", "balade-en-pedalo"]);
+  });
+
+  it("refuse faute d'argent, sans compte, ou pour une expérience qui n'existe pas", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Voyageuse");
+    w.storage.poke(a.playerId, (p) => { p.balance = 7; });
+    const poor = await w.call("POST", "/api/experiences/buy", { id: "balade-en-pedalo" }, a.auth);
+    expect([poor.status, poor.body.error.code]).toEqual([409, "INSUFFICIENT_FUNDS"]);
+    for (const body of [{ id: "atlantide" }, { id: 3 }, {}, { id: "canotier" }, { id: "pedalo" }]) {
+      const r = await w.call("POST", "/api/experiences/buy", body, a.auth);
+      expect([body, r.status, r.body.error.code]).toEqual([body, 400, "BAD_REQUEST"]);
+    }
+    expect((await w.call("POST", "/api/experiences/buy", { id: "glace" })).status).toBe(401);
+    expect(w.storage.peek(a.playerId)!.balance).toBe(7);
+    expect(w.storage.peek(a.playerId)!.experiences).toBeUndefined();
+  });
+
+  it("les gains déclarés avec la demande comptent dans la bourse", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Voyageuse");
+    w.storage.poke(a.playerId, (p) => { p.pending.push({ id: "t_bbbbbbbbbbbb", type: "tirelire", gain: 10, seed: 1, at: T0 }); });
+    const r = await w.call("POST", "/api/experiences/buy", { id: "balade-en-pedalo", ack: ["t_bbbbbbbbbbbb"] }, a.auth);
+    expect(r.status).toBe(200);
+    expect(r.body.state.balance).toBe(2);
+  });
+
+  it("les trente vécues : le Kiosque n'en dépend pas, la collection non plus", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Voyageuse");
+    const total = EXPERIENCES.reduce((sum, x) => sum + x.price, 0);
+    w.storage.poke(a.playerId, (p) => { p.balance = total; });
+    for (const x of EXPERIENCES) expect((await w.call("POST", "/api/experiences/buy", { id: x.id }, a.auth)).status).toBe(200);
+    const state: PlayerState = (await w.call("GET", "/api/me", undefined, a.auth)).body.state;
+    expect(state.balance).toBe(0);
+    expect(state.experiences).toEqual(EXPERIENCES.map((x) => x.id));
+    expect(state.fortune).toBe(total);
+    expect(state.standing).toBe(0);
+    expect(medalsOf(state).filter((m) => m.startsWith("experiences:"))).toEqual(
+      ["experiences:1", "experiences:2", "experiences:3", "experiences:4"],
+    );
+    // Sans la collection, le Kiosque reste fermé : les expériences ne remplacent aucun bien.
+    const kiosk = await w.call("POST", "/api/shop/buy", { itemId: KIOSK.id }, a.auth);
+    expect(kiosk.body.error.code).toBe("KIOSK_LOCKED");
+  });
+
+  it("un compte sans expérience garde la fortune et la signature de classement d'avant", async () => {
+    const w = makeWorld();
+    const a = await w.patron("Patronne", 1_000);
+    const record = w.storage.peek(a.playerId)!;
+    expect(record.experiences).toBeUndefined();
+    expect(a.state.fortune).toBe(1_000 + CATALOG.reduce((sum, i) => sum + i.price, 0) + KIOSK.price);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 /** Un état vierge, celui d'un compte qui débarque. */
 function fresh(): PlayerState {
   return {
@@ -564,16 +687,17 @@ function fresh(): PlayerState {
     stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0, sown: 0, sownValue: 0 },
     createdAt: T0, luckyIn: 0, defis: [], masters: 0, story: { fin: false, vraieFin: false },
     pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
-    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 }, experiences: [],
   };
 }
 
 describe("trophées", () => {
-  it("douze familles, trente-huit médailles, des paliers croissants", () => {
+  it("treize familles, quarante-deux médailles, des paliers croissants", () => {
     expect(TROPHIES.map((f) => f.id)).toEqual([
-      "tickets", "gain", "jackpots", "semeur", "mecene", "collection", "voyage", "patron", "defis", "limier", "maitres", "legende",
+      "tickets", "gain", "jackpots", "semeur", "mecene", "collection", "voyage", "experiences", "patron", "defis", "limier",
+      "maitres", "legende",
     ]);
-    expect(MEDAL_COUNT).toBe(38);
+    expect(MEDAL_COUNT).toBe(42);
     for (const family of TROPHIES) {
       expect(family.tiers.length).toBeGreaterThan(0);
       for (let i = 1; i < family.tiers.length; i++) expect(family.tiers[i]!).toBeGreaterThan(family.tiers[i - 1]!);
@@ -588,6 +712,8 @@ describe("trophées", () => {
     expect(top("collection")).toBe(CATALOG.length);
     expect(top("voyage")).toBe(PLACES.length);
     expect(top("defis")).toBe(PLACES.length);
+    // La dernière médaille des expériences les demande toutes.
+    expect(top("experiences")).toBe(EXPERIENCES.length);
     // Le plus gros lot du jeu dépasse le dernier palier du « gain sur un seul ticket ».
     expect(top("gain")).toBeLessThanOrEqual(ticketById("gratte-ciel")!.price * 1_000);
   });
@@ -638,7 +764,7 @@ describe("trophées", () => {
     expect(medalsOf(state)).toEqual(expect.arrayContaining(["patron:1", "maitres:1", "legende:1"]));
   });
 
-  it("tout gagné : trente-huit médailles, toutes différentes", () => {
+  it("tout gagné : quarante-deux médailles, toutes différentes", () => {
     const state = fresh();
     state.stats = {
       tickets: 5_000, winners: 0, wagered: 0, won: 0, bestGain: 1e15, bestTicket: "gratte-ciel", jackpots: 25,
@@ -651,9 +777,10 @@ describe("trophées", () => {
     state.pokerStats.unmasked = 50;
     state.masters = 1;
     state.story = { fin: true, vraieFin: true };
+    state.experiences = EXPERIENCES.map((experience) => experience.id);
     const medals = medalsOf(state);
-    expect(medals).toHaveLength(38);
-    expect(new Set(medals).size).toBe(38);
+    expect(medals).toHaveLength(42);
+    expect(new Set(medals).size).toBe(42);
     for (const family of TROPHIES) expect(progressOf(state, family.id).next).toBeNull();
   });
 
@@ -672,7 +799,7 @@ describe("trophées", () => {
     expect(progressOf(fresh(), "inconnu")).toEqual({ value: 0, next: null, earned: 0, total: 0 });
     // L'état d'un serveur plus ancien, sans les champs ajoutés depuis.
     const old = fresh() as unknown as Record<string, unknown>;
-    delete old.defis; delete old.masters; delete old.story; delete old.pokerStats;
+    delete old.defis; delete old.masters; delete old.story; delete old.pokerStats; delete old.experiences;
     expect(medalsOf(old as unknown as PlayerState)).toEqual([]);
   });
 });

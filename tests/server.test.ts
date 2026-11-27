@@ -118,8 +118,8 @@ describe("création de compte", () => {
     expect(JSON.stringify(record)).not.toContain(a.code);
     const me = await w.call("GET", "/api/me", undefined, a.auth);
     expect(Object.keys(me.body.state).sort()).toEqual([
-      "balance", "createdAt", "defis", "fortune", "hostWins", "id", "kiosk", "look", "luckyIn", "masters", "owned",
-      "pending", "pokerStats", "pseudo", "species", "standing", "stats", "story",
+      "balance", "createdAt", "defis", "experiences", "fortune", "hostWins", "id", "kiosk", "look", "luckyIn", "masters",
+      "owned", "pending", "pokerStats", "pseudo", "species", "standing", "stats", "story",
     ]);
     expect(JSON.stringify(me.body)).not.toContain(record.codeHash);
   });

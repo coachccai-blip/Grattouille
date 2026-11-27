@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { KIOSK, itemById } from "../../shared/catalog";
+import { experienceById } from "../../shared/experiences";
 import { formatEuros, formatInt } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
 import {
@@ -767,6 +768,53 @@ export function markStorySeen(place: PlaceId): void {
   const histoires = { joueur: s.player.id, vues: [...seen.filter((v) => v !== place), mark] };
   if (s.sandbox) set({ sandboxStories: histoires });
   else patchSettings({ histoires });
+}
+
+// ---------------------------------------------------------------------------
+// L'Agence Carpe Diem : les expériences de vie
+
+/** Pourquoi une expérience ne peut pas être vécue, vu de l'appareil. `null` : rien ne s'y oppose. */
+export function experienceBlocker(id: string): string | null {
+  const s = get();
+  const experience = experienceById(id);
+  if (!s.player || !experience) return null;
+  if (s.player.experiences.includes(id)) return t("Tu as déjà vécu cette expérience.");
+  if (!s.online) return t("Hors connexion. Les voyages attendront.");
+  const balance = displayBalance(s);
+  if (balance >= experience.price) return null;
+  return t("Il te manque {montant} pour vivre ça.", { montant: formatEuros(experience.price - balance) });
+}
+
+/**
+ * S'offrir une expérience de vie. Rend vrai si elle est vécue : à l'écran de la jouer.
+ * Un refus s'affiche ici.
+ */
+export async function liveExperience(id: string): Promise<boolean> {
+  const s = get();
+  const experience = experienceById(id);
+  if (!s.player || !experience) return false;
+  const blocker = experienceBlocker(id);
+  if (blocker) {
+    if (s.online && !s.player.experiences.includes(id)) flashPurse();
+    toast(blocker, "erreur");
+    return false;
+  }
+  try {
+    const r = await api.buyExperience(requireAuth(), id, ackList());
+    applyState(r.state);
+    return true;
+  } catch (error) {
+    await recover(error);
+    if (error instanceof ApiFailure && error.code === "INSUFFICIENT_FUNDS") {
+      flashPurse();
+      toast(experienceBlocker(id) ?? failureText(error), "erreur");
+    } else if (error instanceof ApiFailure && error.code === "ALREADY_OWNED") {
+      toast(t("Tu as déjà vécu cette expérience."), "erreur");
+    } else {
+      toast(failureText(error), "erreur");
+    }
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

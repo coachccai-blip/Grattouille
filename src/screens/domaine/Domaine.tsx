@@ -12,13 +12,13 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { CATALOG, COLLECTION_SIZE, KIOSK, itemById } from "../../../shared/catalog";
 import { formatEuros } from "../../../shared/format";
-import { PLACES } from "../../../shared/places";
+import { PLACES, placeById } from "../../../shared/places";
 import { bestPlace, collectionComplete, nextPlace } from "../../../shared/rules";
-import type { PlayerState, ShopId } from "../../../shared/types";
+import type { PlaceId, PlayerState, ShopId } from "../../../shared/types";
 import { PIOU, hostName } from "../../app/dialogues";
 import { skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { displayBalance, isBroke, isCalm, patchSettings, toScratch, useFound, useGame } from "../../app/store";
+import { displayBalance, isBroke, isCalm, patchSettings, storiesWaiting, toScratch, useFound, useGame } from "../../app/store";
 import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
@@ -68,6 +68,7 @@ const versPile = () => nav.push({ name: "a-gratter" });
 const versClassement = () => nav.reset([{ name: "classement" }]);
 const versCarnet = () => nav.push({ name: "carnet" });
 const versPoker = () => nav.reset([{ name: "promenade" }, { name: "poker" }]);
+const versSouvenirs = () => nav.push({ name: "souvenirs" });
 
 /** Le chemin que Piou indique : un lien sous sa phrase. */
 function Chemin({ vers, attente, children }: { vers: () => void; attente?: boolean; children: ReactNode }) {
@@ -91,6 +92,8 @@ function Conseil({ player, found, busy, pickUp }: {
   const broke = useGame(isBroke);
   const codeNote = useGame((s) => s.settings.codeNote);
   const sandbox = useGame((s) => s.sandbox);
+  /** Les lieux dont l'hôte, battu trois fois au poker, a une histoire que le joueur n'a pas encore écoutée. */
+  const histoires = useGame(storiesWaiting);
 
   const avis = ((): Avis => {
     // Un ticket traîne par terre : c'est la première chose à dire.
@@ -121,6 +124,14 @@ function Conseil({ player, found, busy, pickUp }: {
             <Chemin vers={() => patchSettings({ codeNote: true })}>{t("Plus tard")}</Chemin>
           </span>
         ),
+      };
+    }
+    // Un maître des lieux battu trois fois a une histoire à raconter : Piou le glisse tant qu'elle attend.
+    if (histoires) {
+      const [premier, ...autres] = histoires.split(",") as PlaceId[];
+      return {
+        texte: PIOU.histoire(hostName(placeById(premier!).host), autres.length > 0),
+        actions: <Chemin vers={versSouvenirs}>{t("Ouvrir mes Souvenirs")}</Chemin>,
       };
     }
     // Après la fin : le Patron sème à son tour, huit maîtres des lieux restent à ruiner (il

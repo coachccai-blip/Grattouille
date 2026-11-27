@@ -4,6 +4,7 @@
 // par ici : ce qui manque reçoit sa valeur par défaut, et le reste du code lit l'état
 // sans précaution.
 
+import { knownExperiences } from "../../shared/experiences";
 import { PLACES } from "../../shared/places";
 import type { PlaceId, PlayerState, PokerStats } from "../../shared/types";
 
@@ -27,6 +28,7 @@ export function completeState(raw: PlayerState): PlayerState {
     defis,
     masters: count(partial.masters),
     hostWins,
+    experiences: knownExperiences(partial.experiences),
     story: { fin: partial.story?.fin === true || raw.kiosk === true, vraieFin: partial.story?.vraieFin === true },
     pokerStats: {
       hands: count(poker.hands), pots: count(poker.pots), unmasked: count(poker.unmasked), caught: count(poker.caught),

@@ -37,7 +37,7 @@ export type Son = "ticket" | "gain" | "cle" | "mouette" | "porte" | "tampon" | "
 export interface Temps {
   /**
    * La photo : une illustration du registre (`place:cafe`, `pnj:piou`, `item:smoking`,
-   * `ticket:tirelire`, `symbole:pie:bouton`, `decor:banc`) ou un dessin de l'album
+   * `ticket:vingt-et-un`, `symbole:pie:bouton`, `decor:banc`) ou un dessin de l'album
    * (`dessin:parapluies`, voir src/art/suite/histoires.tsx).
    */
   image: string;
@@ -211,7 +211,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         bouton: { fr: "Un citron ?", en: "A lemon?" },
       },
       {
-        image: "ticket:tirelire",
+        image: "dessin:ticket",
         legende: { fr: "Le ticket. Arrivé de face.", en: "The ticket. It came head-on." },
         dit: {
           fr: [
@@ -368,7 +368,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
             "And you are always home on time.",
           ],
         },
-        bouton: { fr: "Et la maison gagne toujours ?", en: "Does the house always win?" },
+        bouton: { fr: "La maison gagne toujours ?", en: "Does the house always win?" },
       },
       {
         image: "ticket:vingt-et-un",
@@ -727,7 +727,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
       },
     ],
     apres: {
-      image: "symbole:constellation:homard",
+      image: "symbole:mets:homard",
       legende: { fr: "Le homard. Il a pris la cabine.", en: "The lobster. He took the cabin." },
       dit: {
         fr: [
@@ -780,7 +780,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
         bouton: { fr: "Et alors ?", en: "And then?" },
       },
       {
-        image: "ticket:tirelire",
+        image: "dessin:ticket",
         legende: { fr: "Pièce numéro 1. Non grattée.", en: "Item number 1. Unscratched." },
         dit: {
           fr: [
@@ -842,7 +842,7 @@ export const HISTOIRES: Record<PlaceId, Histoire> = {
       },
     ],
     apres: {
-      image: "ticket:tirelire",
+      image: "dessin:ticket",
       legende: { fr: "Propriétaire : quatre lettres.", en: "Owner: four letters." },
       dit: {
         fr: [

@@ -683,7 +683,7 @@ function walkover(d: TableState, t: number): void {
     carry: d.carry,
     until: t + WALKOVER_MS,
   };
-  tally(d, h, new Set(winner && h.pot > 0 ? [winner.seat] : []), [], new Set());
+  tally(d, h, new Set(winner ? [winner.seat] : []), [], new Set());
   finishHand(d, t, WALKOVER_MS);
 }
 
@@ -766,8 +766,8 @@ function resolve(d: TableState, t: number): void {
     carry,
     until: t + RESULT_MS,
   };
-  // Un euro ne se coupe pas : à égalité sur un tout petit pot, on peut gagner sans rien ramasser.
-  tally(d, h, new Set([...won].filter(([, amount]) => amount > 0).map(([seat]) => seat)), accusations, unmasked);
+  // Qui gagne un pot en ramasse toujours au moins un euro : chaque prétendant y a mis le sien.
+  tally(d, h, new Set(won.keys()), accusations, unmasked);
   finishHand(d, t, RESULT_MS);
 }
 

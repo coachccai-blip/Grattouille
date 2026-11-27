@@ -162,6 +162,10 @@ export const api = {
   buyItem: (auth: Auth, itemId: string, ack: string[]) =>
     call<StateResponse>({ method: "POST", path: "/api/shop/buy", auth, body: { itemId, ack } }),
 
+  /** S'offrir une expérience de vie à l'Agence Carpe Diem. */
+  buyExperience: (auth: Auth, id: string, ack: string[]) =>
+    call<StateResponse>({ method: "POST", path: "/api/experiences/buy", auth, body: { id, ack } }),
+
   setLook: (auth: Auth, change: { look?: Partial<Look>; species?: string }) =>
     call<StateResponse>({ method: "POST", path: "/api/look", auth, body: change }),
 

@@ -408,7 +408,12 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
   /** Écrit la prochaine mesure du thème dans sa file. */
   function ecrit(b: Boucle): void {
     const { theme } = b;
-    theme.mesure(b.mesure, b.plume);
+    try {
+      theme.mesure(b.mesure, b.plume);
+    } catch {
+      // Une mesure qui ne s'écrit pas, c'est un silence : la musique continue à la suivante.
+      passees++;
+    }
     b.mesure++;
     b.tMesure += (theme.pas * 60) / theme.tempo / theme.division;
     b.file.sort((x, y) => x.t - y.t);
@@ -515,8 +520,13 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
       let k = 0;
       const attendent: Ecrite[] = [];
       while (k < b.file.length && b.file[k]!.t < limite) {
-        const plusTard = sonne(b, b.file[k++]!);
-        if (plusTard) attendent.push(plusTard);
+        try {
+          const plusTard = sonne(b, b.file[k++]!);
+          if (plusTard) attendent.push(plusTard);
+        } catch {
+          // Une note que le navigateur refuse est passée : elle ne fait pas taire les autres.
+          passees++;
+        }
       }
       b.file.splice(0, k);
       if (attendent.length > 0) {

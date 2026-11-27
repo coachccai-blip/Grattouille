@@ -1,5 +1,6 @@
 // Anglais — les écrans de la suite de l'histoire : le geste du Patron, la vignette d'un
-// ticket semé, les lettres des protégés, le Carnet, la vraie fin, le premier ticket sous cloche.
+// ticket semé, les lettres des protégés, le Carnet, la vraie fin, le premier ticket sous cloche,
+// les Souvenirs et l'album d'une histoire.
 // Clé : la phrase française telle qu'elle est passée à `t()`. Valeur : sa traduction.
 //
 // Ce dictionnaire-ci ne pèse pas sur le démarrage : il n'est chargé qu'avec ces écrans,
@@ -60,4 +61,42 @@ export const EN_ECRANS: Record<string, string> = {
   "Promis": "Promise",
   "Lever les yeux": "Look up",
   "Retourner au Domaine": "Back to the Estate",
+
+  // --- Les Souvenirs : la liste (src/screens/souvenirs/Souvenirs.tsx)
+  "Ce que tu as vécu à Grattouille, et ce que les maîtres des lieux veulent bien te raconter.":
+    "What you have lived through in Grattouille, and what the hosts are willing to tell you.",
+  "Les fins de l'histoire": "The endings",
+  "Huit as de cœur": "Eight aces of hearts",
+  "Le jour où Gaspard t'a remis les clés.": "The day Gaspard handed you the keys.",
+  "Le matin où ils t'attendaient tous sur le quai.": "The morning they were all waiting for you on the quay.",
+  "L'histoire a une fin. Elle n'est pas pour tout de suite.": "The story has an ending. Not for a while yet.",
+  "Il paraît que l'histoire a une autre fin.": "They say the story has another ending.",
+  "Revoir": "Watch again",
+  "Revoir : {titre}": "Watch again: {titre}",
+  "Écouter": "Listen",
+  "Nouveau": "New",
+  "Un mot de plus": "One more word",
+  "Les histoires des hôtes": "The hosts' stories",
+  "Bats trois fois un maître des lieux au poker, à son défi ou à la Table des Maîtres : il te racontera son histoire.":
+    "Beat a host three times at poker, in their challenge or at the Masters' Table, and they will tell you their story.",
+  "{lieu} · « {titre} »": "{lieu} · “{titre}”",
+  "Revoir l'histoire de {nom} : {titre}": "Watch {nom}'s story again: {titre}",
+  "Écouter l'histoire de {nom} : {titre}": "Listen to {nom}'s story: {titre}",
+  "Tu ne connais pas encore son hôte.": "You haven't met its host yet.",
+  "{n} sur {max}": "{n} out of {max}",
+  "Bats-le {n} fois au poker.": "Beat him {n} times at poker.",
+  "Bats-la {n} fois au poker.": "Beat her {n} times at poker.",
+  "Bats-le encore {n} fois au poker.": "Beat him {n} more times at poker.",
+  "Bats-la encore {n} fois au poker.": "Beat her {n} more times at poker.",
+  "Bats-le encore une fois au poker.": "Beat him once more at poker.",
+  "Bats-la encore une fois au poker.": "Beat her once more at poker.",
+  "Maintenant que tu sais, chacun a ajouté un mot à son histoire.":
+    "Now that you know, each of them has added a word to their story.",
+  "Revoir un souvenir ne change rien à ton compte.": "Watching a memory again changes nothing in your account.",
+
+  // --- L'histoire d'un hôte, son album (src/screens/souvenirs/Histoire.tsx). Les répliques, les légendes
+  //     et les boutons des pages ont leurs deux versions dans src/app/suite/histoires.ts.
+  "L'histoire de {nom}": "{nom}'s story",
+  "Page {n} sur {max}": "Page {n} of {max}",
+  "Maintenant que tu sais": "Now that you know",
 };

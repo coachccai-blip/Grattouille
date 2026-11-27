@@ -1144,6 +1144,29 @@ describe("les compteurs du poker : ce que la table retient pour chaque joueur", 
     audited(t);
   });
 
+  it("un siège libéré en pleine main et repris aussitôt : le nouveau venu n'a pas joué cette main", () => {
+    const rng = rngOf(78);
+    let t = withHands(friends([1000, 1000, 1000], rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    t = leave(allFair(t), "p_c", T0, rng);
+    // Un autre joueur prend le siège tout de suite : il attend la main suivante.
+    t = sit(t, { playerId: "p_d", sid: "s_3", pseudo: "Joueur 3", species: "chat", look: null }, T0, rng);
+    t = deposit(t, "s_3", 1, 1000, T0, rng);
+    expect([seatIndexOf(t, "p_d"), playerInHand(t, 2)]).toEqual([2, null]);
+    t = allQuiet(checkAround(t));
+    expect([t.phase, t.result!.no]).toEqual(["denouement", 1]);
+    // La main s'est finie sous ses yeux, pas dans ses compteurs.
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1), null]);
+    // À la suivante, il est servi, et compté comme les autres.
+    const now = T0 + RESULT_MS;
+    const who = (seat: number): string => (seat === 2 ? "p_d" : IDS[seat]!);
+    t = withHands(advance(t, now, rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    for (const seat of [0, 1, 2]) t = act(t, who(seat), { type: "franc-jeu" }, now, rng);
+    for (let guard = 0; guard < 6 && t.phase === "encheres"; guard++) t = act(t, who(t.hand!.turn!), { type: "parole" }, now, rng);
+    for (const seat of [0, 1, 2]) t = act(t, who(seat), { type: "rien" }, now, rng);
+    expect([t.phase, t.result!.no]).toEqual(["denouement", 2]);
+    expect(statsOf(t)).toEqual([stat(2, 2), stat(2), stat(1)]);
+  });
+
   it("une main annulée par la fermeture de la table ne compte pour personne", () => {
     const rng = rngOf(76);
     let t = withHands(friends([1000, 1000], rng), { 0: ACES, 1: KINGS });
@@ -1420,6 +1443,8 @@ describe("une table d'avant la mise à jour : le moteur", () => {
     const rng = rngOf(83);
     const old = oldChallenge(T0, "p_a");
     expect(viewFor(old, "p_a", T0)).toMatchObject({ kind: "defi", place: "kiosque", blind: 2, rise: { hand: 9, blind: 4 }, phase: "denouement" });
+    // L'hôte n'a plus rien, mais `out` n'existe qu'à la Table des Maîtres : la vue d'un défi n'a pas changé.
+    expect(viewFor(old, "p_a", T0).seats.map((s) => [s!.stack, "out" in s!])).toEqual([[60, false], [0, false]]);
     const won = { sid: OLD_SID_A, playerId: "p_a", seat: 0, payout: 60, received: 30, reason: "defi-gagne" };
     const waited = advance(old, T0 + 5_000, rng);
     expect([waited.phase, waited.closed, waited.ended]).toEqual(["fermee", "defi", [{ ...won, at: T0 + 5_000 }]]);

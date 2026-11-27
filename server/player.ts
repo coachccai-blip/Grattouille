@@ -2,6 +2,7 @@
 // (BRIEF.md, sections 15.3 et 15.4).
 
 import { JACKPOT_MULTIPLIER } from "../shared/economy";
+import { experiencesValue, knownExperiences } from "../shared/experiences";
 import { PLACES } from "../shared/places";
 import { LUCKY_FIND_MS, emptyLook, fortuneOf, standingOf, START_BALANCE } from "../shared/rules";
 import { ticketById } from "../shared/tickets";
@@ -60,6 +61,8 @@ export interface PlayerRecord {
   pokerStats?: Partial<PokerStats>;
   /** La vraie fin, « Huit as de cœur », a été vue. Absent : pas encore. */
   vraieFin?: boolean;
+  /** Les expériences de vie vécues à l'Agence Carpe Diem. Absent : aucune. */
+  experiences?: string[];
 
   // Les champs suivants ne sont jamais envoyés au client.
   pseudoKey: string;
@@ -114,9 +117,12 @@ export function safeAdd(a: number, b: number): number {
 /**
  * La fortune d'un joueur. L'argent posé sur une table de poker compte pour ce qu'il a
  * coûté : s'asseoir ne change pas la fortune, c'est en quittant la table qu'elle bouge.
+ * Une expérience vécue compte pour ce qu'elle a coûté, comme un bien : s'offrir un voyage
+ * ne fait pas reculer au classement.
  */
 export function fortune(r: PlayerRecord): number {
-  return safeAdd(fortuneOf(r), r.poker?.paid ?? 0);
+  const lived = r.experiences && r.experiences.length > 0 ? experiencesValue(r.experiences) : 0;
+  return safeAdd(safeAdd(fortuneOf(r), r.poker?.paid ?? 0), lived);
 }
 
 /** Un compteur enregistré, ou zéro s'il manque (compte d'avant) ou s'il est illisible. */
@@ -203,6 +209,7 @@ export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState 
     defis: defisOf(r),
     masters: countOf(r.masters),
     hostWins: hostWinsOf(r),
+    experiences: knownExperiences(r.experiences),
     story: { fin: r.kiosk, vraieFin: r.vraieFin === true },
     pokerStats: pokerStatsOf(r),
   };

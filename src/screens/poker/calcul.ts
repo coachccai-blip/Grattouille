@@ -11,7 +11,7 @@ import type {
   HandResult, LobbyChallenge, LobbyMasters, Options, PokerAction, Range, SeatView, TableView,
 } from "../../../shared/poker/types";
 import { PLACES } from "../../../shared/places";
-import { CODE_ALPHABET, HOST_STORY_WINS, hostStoryOpen } from "../../../shared/rules";
+import { CODE_ALPHABET, HOST_STORY_WINS } from "../../../shared/rules";
 import type { PlaceId } from "../../../shared/types";
 
 // ---------------------------------------------------------------------------
@@ -405,6 +405,7 @@ export interface HostStory {
   justOpened: boolean;
 }
 
+/** La même règle que `hostStoryOpen` (shared/rules.ts), sur un compte remis d'aplomb : un état de travers vaut zéro. */
 export function hostStory(hostWins: HostWins, place: PlaceId): HostStory {
   const raw = hostWins?.[place];
   const wins = typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
@@ -412,7 +413,7 @@ export function hostStory(hostWins: HostWins, place: PlaceId): HostStory {
     wins,
     needed: HOST_STORY_WINS,
     left: Math.max(0, HOST_STORY_WINS - wins),
-    open: hostStoryOpen(hostWins ?? undefined, place),
+    open: wins >= HOST_STORY_WINS,
     justOpened: wins === HOST_STORY_WINS,
   };
 }

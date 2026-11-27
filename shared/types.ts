@@ -101,6 +101,8 @@ export interface PlayerState {      // ce que le client reçoit
    * histoire dans les Souvenirs.
    */
   hostWins: Record<PlaceId, number>;
+  /** Les expériences de vie déjà vécues (Agence Carpe Diem), dans l'ordre où elles l'ont été. */
+  experiences: string[];
   story: StoryState;
   pokerStats: PokerStats;
 }

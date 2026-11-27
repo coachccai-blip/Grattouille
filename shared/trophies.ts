@@ -3,6 +3,7 @@
 // si bien qu'un compte créé avant les trophées reçoit d'emblée tout ce qu'il a mérité.
 // Le nom et la phrase de chaque trophée sont du ressort de l'écran (deux langues).
 
+import { EXPERIENCE_COUNT, knownExperiences } from "./experiences";
 import { PLACES } from "./places";
 import type { PlayerState } from "./types";
 
@@ -12,7 +13,7 @@ const BN = 1_000 * MD;
 
 export type TrophyId =
   | "tickets" | "gain" | "jackpots" | "semeur" | "mecene" | "collection"
-  | "voyage" | "patron" | "defis" | "limier" | "maitres" | "legende";
+  | "voyage" | "experiences" | "patron" | "defis" | "limier" | "maitres" | "legende";
 
 /** Ce que compte une famille : un nombre de fois, ou une somme en euros. */
 export type TrophyUnit = "nombre" | "euros";
@@ -44,6 +45,11 @@ export const TROPHIES: readonly TrophyFamily[] = [
   {
     id: "voyage", unit: "nombre", tiers: [2, 4, 8],
     value: (s) => PLACES.filter((place) => n(s.standing) >= place.standing).length,
+  },
+  // Les expériences de vie de l'Agence Carpe Diem : la dernière médaille les demande toutes.
+  {
+    id: "experiences", unit: "nombre", tiers: [1, 10, 20, EXPERIENCE_COUNT],
+    value: (s) => knownExperiences(s.experiences).length,
   },
   { id: "patron", unit: "nombre", tiers: [1], value: (s) => (s.kiosk === true ? 1 : 0) },
   // Le Poker Tricheur.

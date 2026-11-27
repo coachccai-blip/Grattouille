@@ -12,7 +12,9 @@
 // bémol). Un bruitage tombe donc toujours juste sur la musique.
 
 import type { PlaceId } from "../../../shared/types";
-import { accord, brode, classe, echelle, grave, lis, plaque, rang, sort, ton, type Accord } from "./solfege";
+import {
+  accord, brode, classe, echelle, grave, lis, plaque, rang, sort, suite, ton, type Accord, type Broderie, type Note,
+} from "./solfege";
 import {
   ACCORDEON, BALAI, BASSE, CHARLEY, CLAVECIN, CLAVIER, CONTREBASSE, FLUTE, GUITARE, LAME, NAPPE, PIED, PINCE, RHODES,
   RIDE, SHAKER, TAPE, TIC, VERRE, VIBRA, VIOLE, type Piste,
@@ -115,6 +117,32 @@ function alterne(a: Accord, plancher: number): number {
   return grave(a.basse !== a.tons[0] ? a.tons[0]! : (a.tons[2] ?? a.tons[1] ?? a.tons[0]!), plancher);
 }
 
+/**
+ * Une mesure de chorus improvisé. Les phrases vont par quatre mesures, comme on parle :
+ * une question, la même tournure reprise un peu plus bas (ou plus haut), un développement,
+ * puis la chute. La reprise rejoue le tirage de la question : le même rythme, les mêmes
+ * intervalles, posés sur l'accord du moment. `cle` : où le soliste range son fil.
+ */
+function improvise(p: Plume, cle: string, k: number, o: Pick<Broderie, "notes" | "accord" | "pas" | "temps" | "densite">): readonly Note[] {
+  const place = k % 4;
+  const milieu = Math.floor(o.notes.length / 2);
+  if (place !== 1) {
+    p.m[`${cle}Graine`] = Math.floor(p.alea() * 0x7fffffff);
+    p.m[`${cle}Depart`] = p.m[cle] ?? milieu;
+  }
+  const question = p.m[`${cle}Depart`] ?? milieu;
+  const depart = place === 1 ? question + (p.alea() < 0.7 ? -1 : 1) * (p.alea() < 0.5 ? 1 : 2) : question;
+  const phrase = brode({
+    ...o,
+    alea: suite(p.m[`${cle}Graine`] ?? 1),
+    depart,
+    densite: place === 2 ? Math.min(1, o.densite + 0.15) : o.densite,
+    cadence: place === 3,
+  });
+  p.m[cle] = phrase.fin;
+  return phrase.notes;
+}
+
 // ---------------------------------------------------------------------------
 // La ville : le thème de Grattouille. Do majeur, une promenade de bord de mer : une
 // boîte à musique chante, un ukulélé gratte les contretemps, la basse descend la gamme.
@@ -201,11 +229,9 @@ const VILLE: Theme = {
     } else {
       // L'interlude : la boîte à musique rêvasse sur la gamme des bruitages.
       const notes = echelle([0, 2, 4, 7, 9], 72, 88);
-      const phraseLibre = brode({
-        alea: p.alea, notes, accord: a1, pas: 8, temps: 2, depart: p.m.lame ?? 4, densite: 0.5, cadence: k % 4 === 3,
-      });
-      p.m.lame = phraseLibre.fin;
-      for (const [pas, t, duree, appui] of phraseLibre.notes) p.n("lame", pas, t, duree + 0.6, appui * 0.8);
+      for (const [pas, t, duree, appui] of improvise(p, "lame", k, { notes, accord: a1, pas: 8, temps: 2, densite: 0.55 })) {
+        p.n("lame", pas, t, duree + 0.6, appui * 0.8);
+      }
     }
   },
 };
@@ -441,12 +467,14 @@ const CASINO: Theme = {
     const marche = [racine, a2 !== a1 ? racine + 4 : pasDeux, a2 !== a1 ? pasDeux : pasTrois, approche];
     marche.forEach((i, temps) => {
       const t = gamme[Math.max(0, Math.min(gamme.length - 1, i))]!;
-      p.n("basse", temps * 3, t, 2.5, temps === 0 ? 1 : 0.85);
+      p.n("basse", temps * 3, t, 2.4, temps === 0 ? 1 : 0.85);
       // Une note fantôme sur la levée, de temps en temps : c'est elle qui fait avancer.
-      if (temps > 0 && p.alea() < 0.2) p.n("basse", temps * 3 + 2, t, 0.8, 0.4);
+      if (temps > 0 && p.alea() < 0.2) p.n("basse", temps * 3 + 2, t, 0.5, 0.4);
     });
 
-    frappe(p, "ride", "x..o.-x..o.-", 1, 1.5);
+    // « Ting, ting-a-ting » : les temps sonnent, les levées sont brèves.
+    frappe(p, "ride", "x..o..x..o..", 1, 1.5);
+    frappe(p, "ride", ".....-.....-", 1, 0.8);
     frappe(p, "charley", "...x.....x..", 1, 0.5);
 
     // Le piano ponctue : jamais deux mesures pareilles.
@@ -465,12 +493,9 @@ const CASINO: Theme = {
     } else {
       // Le chorus : le vibraphone improvise, par phrases de quatre mesures.
       const notes = echelle([9, 0, 2, 4, 7], 69, 88);
-      const solo = brode({
-        alea: p.alea, notes, accord: a1, pas: 12, temps: 3, depart: p.m.solo ?? 5,
-        densite: k % 4 === 0 ? 0.5 : 0.75, cadence: k % 4 === 3,
-      });
-      p.m.solo = solo.fin;
-      for (const [pas, t, duree, appui] of solo.notes) p.n("vibra", pas, t, duree + 0.5, appui * 0.85);
+      for (const [pas, t, duree, appui] of improvise(p, "solo", k, { notes, accord: a1, pas: 12, temps: 3, densite: 0.65 })) {
+        p.n("vibra", pas, t, duree + 0.5, appui * 0.85);
+      }
     }
   },
 };
@@ -535,12 +560,9 @@ const SALON: Theme = {
       chante(p, "flute", SALON_AIRS[section]![k]!, 1);
     } else {
       const notes = echelle([0, 2, 4, 7, 9], 67, 88);
-      const reponse = brode({
-        alea: p.alea, notes, accord: a1, pas: 8, temps: 2, depart: p.m.vibra ?? 6,
-        densite: k % 2 === 0 ? 0.55 : 0.3, cadence: k % 4 === 3,
-      });
-      p.m.vibra = reponse.fin;
-      for (const [pas, t, duree, appui] of reponse.notes) p.n("vibra", pas, t, duree + 0.6, appui * 0.85);
+      for (const [pas, t, duree, appui] of improvise(p, "vibra", k, { notes, accord: a1, pas: 8, temps: 2, densite: 0.45 })) {
+        p.n("vibra", pas, t, duree + 0.6, appui * 0.85);
+      }
     }
   },
 };
@@ -731,8 +753,8 @@ const BANQUE: Theme = {
     rouage: { timbre: LAME, vol: 0.55, pan: 0.2, salle: 0.45 },
     carillon: { timbre: VERRE, vol: 0.6, pan: -0.25, salle: 0.8 },
     pendule: { timbre: VIBRA, vol: 0.85, filtre: ["lowpass", 900], salle: 0.3 },
-    tic: { timbre: TIC, vol: 0.9, pan: -0.15, salle: 0.25 },
-    tac: { timbre: TIC, vol: 0.77, pan: 0.15, salle: 0.25 },
+    tic: { timbre: TIC, vol: 0.7, pan: -0.15, salle: 0.25 },
+    tac: { timbre: TIC, vol: 0.6, pan: 0.15, salle: 0.25 },
   },
   airs: [],
   mesure(n, p) {
@@ -897,12 +919,7 @@ const POKER: Theme = {
       });
     } else {
       const notes = echelle([2, 5, 7, 9, 0], 69, 89);
-      const solo = brode({
-        alea: p.alea, notes, accord: a, pas: 12, temps: 3, depart: p.m.solo ?? 4,
-        densite: k % 2 === 0 ? 0.6 : 0.4, cadence: k % 4 === 3 || k % 4 === 1,
-      });
-      p.m.solo = solo.fin;
-      solo.notes.forEach(([pas, t, duree, appui], i) => {
+      improvise(p, "solo", k, { notes, accord: a, pas: 12, temps: 3, densite: 0.5 }).forEach(([pas, t, duree, appui], i) => {
         const tiree = i === 0 && UN_BEMOL.includes(classe(t - 2)) && p.alea() < 0.5;
         p.n("guitare", pas, t, duree + 1, appui * 0.85, tiree ? -2 : 0);
       });

@@ -1,11 +1,12 @@
 // Réglages (BRIEF.md, sections 3, 11 et 12.2) : langue, son, vibrations, animations
 // réduites, code de récupération, carnet de bord, à propos, suppression du compte.
 
-import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { formatEuros, formatInt } from "../../../shared/format";
 import { formatCode, pseudoKey } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
-import { deleteAccount, failureText, patchSettings, replayMemory, toast, useGame } from "../../app/store";
+import { nav } from "../../app/nav";
+import { deleteAccount, failureText, patchSettings, storiesWaiting, toast, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
 import { playClick, playRefuse } from "../../fx/audio";
 import { hapticsAvailable } from "../../fx/haptics";
@@ -20,6 +21,12 @@ import "../bienvenue/bienvenue.css";
 const NOMS_DES_LANGUES: Record<Lang, string> = { fr: "Français", en: "English" };
 
 const VERSION = "2.0";
+
+/** La pastille de l'entrée des Souvenirs : combien d'histoires attendent d'être écoutées. */
+const PASTILLE: CSSProperties = {
+  minWidth: 22, height: 22, padding: "0 6px", borderRadius: 99, background: "var(--bougainvillier-fonce)", color: "#fff",
+  font: "700 12px/22px var(--texte)", textAlign: "center",
+};
 
 /**
  * Changer de langue remonte tout l'écran (main.tsx). Ce que les réglages avaient en
@@ -39,6 +46,8 @@ export function Reglages() {
   const settings = useGame((s) => s.settings);
   const systemCalm = useGame((s) => s.systemCalm);
   const sandbox = useGame((s) => s.sandbox);
+  /** Les histoires d'hôtes ouvertes et pas encore écoutées. */
+  const histoires = useGame((s) => storiesWaiting(s).split(",").filter(Boolean).length);
   const [retour] = useState(() => reprise);
   const [codeShown, setCodeShown] = useState(retour?.codeShown ?? false);
   const [deleting, setDeleting] = useState(retour?.deleting ?? false);
@@ -216,23 +225,20 @@ export function Reglages() {
         </dl>
       </section>
 
-      {/* Les fins déjà vues se revoient : un souvenir ne dit rien au serveur, et ne sème rien. */}
-      {player.story.fin && (
-        <section className="rubrique" aria-labelledby="reglages-souvenirs">
-          <h2 className="rubrique__titre" id="reglages-souvenirs">{t("Souvenirs")}</h2>
-          <p>{t("Les fins de l'histoire que tu as vues. Les revoir ne change rien à ton compte.")}</p>
-          <Bouton variante="secondaire" onClick={() => replayMemory("fin")} aria-label={t("Revoir : {titre}", { titre: t("Le Kiosque est à toi") })}>
-            {t("Le Kiosque est à toi")}
-          </Bouton>
-          {player.story.vraieFin ? (
-            <Bouton variante="secondaire" onClick={() => replayMemory("vraie-fin")} aria-label={t("Revoir : {titre}", { titre: t("Huit as de cœur") })}>
-              {t("Huit as de cœur")}
-            </Bouton>
-          ) : (
-            <p className="note">{t("Il paraît que l'histoire a une autre fin.")}</p>
-          )}
-        </section>
-      )}
+      {/* Les Souvenirs ont leur écran (chargé à la demande) : les fins à revoir, et l'histoire de chaque
+          hôte battu trois fois au poker. La pastille compte celles qui attendent d'être écoutées. */}
+      <section className="rubrique" aria-labelledby="reglages-souvenirs">
+        <h2 className="rubrique__titre" id="reglages-souvenirs">{t("Souvenirs")}</h2>
+        <p>{t("Les fins de l'histoire, et ce que les maîtres des lieux racontent à qui les bat trois fois au poker.")}</p>
+        <Bouton
+          variante="secondaire"
+          onClick={() => nav.push({ name: "souvenirs" })}
+          aria-label={histoires > 0 ? t("Ouvrir mes Souvenirs ({n})", { n: histoires }) : undefined}
+        >
+          {t("Ouvrir mes Souvenirs")}
+          {histoires > 0 && <span style={PASTILLE} aria-hidden="true">{histoires}</span>}
+        </Bouton>
+      </section>
 
       <section className="rubrique" aria-labelledby="reglages-apropos">
         <h2 className="rubrique__titre" id="reglages-apropos">{t("À propos")}</h2>

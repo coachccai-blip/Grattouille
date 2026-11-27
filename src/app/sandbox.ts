@@ -17,6 +17,7 @@
 //   &semes=40      N tickets déjà semés (d'une valeur de 100 € pièce)
 //   &joues=1600    N tickets déjà joués ; &record=2000000 : son plus gros gain sur un ticket
 //   &jackpots=5    N jackpots ; &demasques=10 : N tricheurs démasqués au poker
+//   &experiences=12  les N premières expériences de l'Agence Carpe Diem déjà vécues
 //   &victoires=3   N victoires au poker contre chacun des huit hôtes (3 : leurs histoires sont ouvertes)
 //   &victoires=3&hotes=2   … contre les deux premiers hôtes seulement
 
@@ -25,6 +26,7 @@ import { cryptoRandom32 } from "../../server/auth";
 import { toState } from "../../server/player";
 import { MemoryStorage } from "../../server/storage";
 import { CATALOG } from "../../shared/catalog";
+import { EXPERIENCES } from "../../shared/experiences";
 import { PLACES } from "../../shared/places";
 import { multipliers } from "../../shared/economy";
 import { tierOf, type Tier } from "../../shared/rules";
@@ -64,6 +66,7 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
     kiosque: whole("kiosque") > 0, defis: whole("defis"), maitres: whole("maitres"), vraieFin: whole("vraiefin") > 0,
     semes: whole("semes"), joues: whole("joues"), record: whole("record"), jackpots: whole("jackpots"),
     demasques: whole("demasques"), victoires: whole("victoires"), hotes: whole("hotes"),
+    experiences: whole("experiences"),
   };
   const wantsSuite = Object.values(suite).some((value) => value !== false && value !== 0);
   const cheap = [...CATALOG].sort((a, b) => a.price - b.price);
@@ -105,6 +108,7 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
           }
           if (suite.jackpots > 0) p.stats.jackpots = suite.jackpots;
           if (suite.demasques > 0) p.pokerStats = { ...p.pokerStats, unmasked: suite.demasques };
+          if (suite.experiences > 0) p.experiences = EXPERIENCES.slice(0, suite.experiences).map((x) => x.id);
           if (suite.victoires > 0) {
             const beaten = PLACES.slice(0, suite.hotes > 0 ? suite.hotes : PLACES.length);
             p.hostWins = Object.fromEntries(beaten.map((place) => [place.id, suite.victoires]));

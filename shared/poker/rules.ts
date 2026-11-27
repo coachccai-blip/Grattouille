@@ -269,9 +269,9 @@ export function pickMasters(rng: Random32): string[] {
  * mains par palier (16, 32, 64, 128 fois ; 256 fois à partir de la 53e main, où elle s'arrête).
  * Le dernier nombre de la liste vaut pour tous les paliers suivants.
  *
- * Réglé par simulation, le joueur tenu par un robot difficile (3 000 tables) : la table se
- * dénoue pour lui en 31 mains en médiane (10 au 10e centile, 45 au 90e) ; il la gagne une
- * fois sur cinq, en 42 mains en médiane.
+ * Réglé par simulation, le joueur tenu par un robot difficile (deux séries de 3 000 tables) :
+ * la table se dénoue pour lui en 30 à 31 mains en médiane (10 au 10e centile, 45 au 90e) ;
+ * il la gagne une fois sur cinq, en 42 mains en médiane.
  */
 export const MASTERS_LEVEL_HANDS: readonly number[] = [12, 10, 8, 6, 4];
 

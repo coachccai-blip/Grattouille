@@ -117,6 +117,31 @@ function Bateau({ className, title }: ArtProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Un ticket par terre, sur les pavés du quai : c'est par là que tout commence, pour tout le monde.
+
+function TicketParTerre({ className, title }: ArtProps) {
+  return (
+    <Svg viewBox={VUE} className={className} title={title}>
+      <rect width="200" height="140" fill={C.pierre} />
+      {/* Le bord du quai, et la mer qui clapote */}
+      <rect width="200" height="26" fill={C.mer} />
+      <path d="M0 14H34L40 11L46 14H110L116 11L122 14H200V17H0Z" fill={shade(C.mer, 0.25)} />
+      <rect y="26" width="200" height="7" fill={shade(C.pierre, -0.22)} />
+      {/* Les pavés */}
+      <path d="M0 66H200M0 102H200M38 33V66M104 33V66M168 33V66M70 66V102M140 66V102M24 102V140M96 102V140M172 102V140" fill="none" stroke={shade(C.pierre, -0.14)} strokeWidth="2" />
+      <path d="M44 38H98V41H44ZM110 72H134V75H110ZM30 108H90V111H30Z" fill={shade(C.pierre, 0.3)} />
+      {/* Le ticket, son ombre, son éclat */}
+      <g transform="translate(104 86) rotate(-13) scale(2.3)">
+        <rect x="-13.5" y="-7" width="30" height="20" rx="2.5" fill={C.nuit} fillOpacity="0.2" />
+      </g>
+      <Ticket transform="translate(100 80) rotate(-13) scale(2.3)" />
+      <path d="M150 44L152.200 51.800L160 54L152.200 56.200L150 64L147.800 56.200L140 54L147.800 51.800Z" fill={C.blanc} />
+      <path d="M46 118L47.300 122.700L52 124L47.300 125.300L46 130L44.700 125.300L40 124L44.700 122.700Z" fill={C.blanc} />
+    </Svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Ondine : la traversée sur le dos, derrière le bateau, un citron sur le ventre.
 
 function Citron({ className, title }: ArtProps) {
@@ -352,11 +377,12 @@ function Registre({ className, title }: ArtProps) {
 
 function Echelle({ className, title }: ArtProps) {
   const nuit = "#1B1440";
+  // Deux montants, du quai à la pointe du croissant, et neuf barreaux de l'un à l'autre.
   const barreaux: string[] = [];
   for (let i = 1; i <= 9; i++) {
-    const x = 50 + i * 8.6;
-    const y = 126 - i * 7.6;
-    barreaux.push(`M${x - 3.4} ${y - 3}L${x + 3.4} ${y + 3}`);
+    const x = 53 + i * 7.85;
+    const y = 128 - i * 6.95;
+    barreaux.push(`M${+x.toFixed(1)} ${+y.toFixed(1)}l6.8 6`);
   }
   return (
     <Svg viewBox={VUE} className={className} title={title}>
@@ -399,6 +425,7 @@ function Livraison({ className, title }: ArtProps): ReactNode {
 export const DESSINS: Record<string, Art> = {
   parapluies: Parapluies,
   bateau: Bateau,
+  ticket: TicketParTerre,
   citron: Citron,
   poteau: Poteau,
   coussin: Coussin,

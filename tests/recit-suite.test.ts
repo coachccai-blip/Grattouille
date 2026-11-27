@@ -632,7 +632,7 @@ function patron(plus: Partial<PlayerState> = {}): PlayerState {
     stats: { tickets: 12, winners: 5, wagered: 100, won: 300, bestGain: 50, bestTicket: "tirelire", jackpots: 0, sown: 0, sownValue: 0 },
     createdAt: 0, luckyIn: 60_000, defis: PLACES.map((p) => p.id), masters: 0, story: { fin: true, vraieFin: false },
     pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
-    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 }, experiences: [],
     ...plus,
   };
 }

@@ -49,7 +49,7 @@ function neuf(id = "p_0000000000000000"): PlayerState {
     stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0, sown: 0, sownValue: 0 },
     createdAt: 0, luckyIn: 0, defis: [], masters: 0, story: { fin: false, vraieFin: false },
     pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
-    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 }, experiences: [],
   };
 }
 

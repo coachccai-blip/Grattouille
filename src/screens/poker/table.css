@@ -944,10 +944,11 @@
   flex-direction: column;
   gap: var(--e4);
   justify-content: center;
-  /* Sur un écran court, un panneau bien rempli défile au lieu de se couper : son bouton reste à portée. */
+  /* Sur un écran court, un panneau bien rempli défile au lieu de se couper : son bouton reste à portée
+     (et garde sa tranche, sous lui, quand il touche le bas). */
   justify-content: safe center;
   min-height: 0;
-  padding: 0 8px;
+  padding: 0 8px 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1311,11 +1312,11 @@
   .poker-rangee__cartes { padding: 1px 3px 1px 0; }
 
   /* Le panneau de fin se serre aussi : la bulle de l'hôte, sa cagnotte, son histoire et le bouton tiennent. */
-  .poker-sortie { gap: 12px; }
+  .poker-sortie { gap: 10px; }
 
   /* La Table des Maîtres gagnée, avec des histoires qui s'ouvrent : c'est le panneau le plus rempli.
-     Leur cartouche s'écrit plus petit, et tout tient sans défiler jusqu'à trois noms. */
-  .poker-fete .poker-sortie--histoires { gap: 10px; }
+     Leur cartouche s'écrit plus petit, et tout tient sans défiler, trois noms compris. */
+  .poker-fete .poker-sortie--histoires { gap: 6px; }
 
   .poker-fete .poker-sortie > .poker-sortie__histoire--ouverte {
     padding: 6px 10px 7px;

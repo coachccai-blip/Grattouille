@@ -2534,6 +2534,17 @@ const P = {
     fr: "Bonjour, Légende ! Pas un mot, hein ? Officiellement, je suis groom, et ce sont les poches trouées.",
     en: "Morning, Legend! Not a word, mind. Officially, I'm the bellboy, and it's the holes in the pockets.",
   },
+  // Les Souvenirs : un maître des lieux battu trois fois au poker a une histoire à raconter.
+  histoire: {
+    fr: [
+      "{nom} a une histoire pour vous ! Trois défaites, ça délie les langues. C'est dans vos Souvenirs.",
+      "{nom} et d'autres ont une histoire pour vous ! Vite, vite : c'est dans vos Souvenirs.",
+    ],
+    en: [
+      "{nom} has a story for you! Three defeats will loosen any tongue. It's in your Memories.",
+      "{nom} and others have a story for you! Quick, quick: it's in your Memories.",
+    ],
+  },
 } satisfies Record<string, Deux<string | readonly string[]>>;
 
 /** Ce que Piou dit. Chaque valeur se lit dans la langue courante, au moment où on la demande. */
@@ -2641,6 +2652,10 @@ export const PIOU = {
   /** Après la vraie fin : le secret se garde. */
   get legende(): string {
     return pick(P.legende);
+  },
+  /** Un hôte battu trois fois a une histoire à raconter. `nom` : le premier qui attend ; `autres` : il n'est pas le seul. */
+  histoire(nom: string, autres: boolean): string {
+    return fill(pick(P.histoire)[autres ? 1 : 0]!, { nom });
   },
 };
 
