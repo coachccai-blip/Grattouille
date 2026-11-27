@@ -328,8 +328,8 @@ export const PLANS: readonly Plan[] = [
     temps: "pluie",
     image: "bateau",
     recit: {
-      fr: "Une corne de brume : le bateau du matin accoste. Quelqu'un débarque sans un sou, et regarde par terre.",
-      en: "A foghorn: the morning boat is coming in. Someone steps ashore without a penny, and looks down.",
+      fr: "Une mouette crie : le bateau du matin accoste. Quelqu'un débarque sans un sou, et regarde par terre.",
+      en: "A seagull cries: the morning boat is coming in. Someone steps ashore without a penny, and looks down.",
     },
     repliques: [
       {

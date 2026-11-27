@@ -6,8 +6,8 @@ import { formatEuros, formatInt } from "../../../shared/format";
 import { hostName } from "../../app/dialogues";
 import { nav } from "../../app/nav";
 import { useGame } from "../../app/store";
+import { t } from "../../app/suite/mots";
 import { motDeGaspard, nouvellesDe, paliersAtteints, prochainPalier } from "../../app/suite/semis";
-import { t } from "../../i18n";
 import { Bouton } from "../../ui/Bouton";
 import { Barre, BulleLibre, Entete } from "../../ui/Commun";
 import { Lettre, Tete } from "./Vignette";
@@ -59,7 +59,7 @@ export function Carnet() {
           <div className="carnet__prochain">
             <p>
               {courrier.length === 0
-                ? (prochain > 1 ? t("Le premier t'écrira à {n} tickets semés.", { n: formatInt(prochain) }) : t("Le premier t'écrira dès ton premier ticket semé."))
+                ? t("Le premier t'écrira dès ton premier ticket semé.")
                 : t("Prochaine lettre à {n} tickets semés.", { n: formatInt(prochain) })}
             </p>
             <Barre value={sown} max={prochain} />

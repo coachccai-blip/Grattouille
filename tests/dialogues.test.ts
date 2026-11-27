@@ -18,6 +18,7 @@ import { setLang, t, type Lang } from "../src/i18n";
 import { EN_BOUTIQUES } from "../src/i18n/en/boutiques";
 import { EN_JEU } from "../src/i18n/en/jeu";
 import { EN_RECIT } from "../src/i18n/en/recit";
+import { EN_SUITE } from "../src/i18n/en/suite";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
 import { placeShort } from "../src/i18n/noms";
 
@@ -610,11 +611,13 @@ function cles(source: string): string[] {
 describe("les écrans du récit et leur dictionnaire anglais", () => {
   const sources = ECRANS.map((chemin) => ({ chemin, source: lire(chemin) }));
   const utilisees = [...new Set(sources.flatMap((s) => cles(s.source)))];
-  const TOUS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS };
+  // Les phrases de la suite de l'histoire (le Carnet du Patron, les souvenirs) ont leur
+  // propre dictionnaire, gardé par tests/recit-suite.test.ts.
+  const TOUS: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_BOUTIQUES, ...EN_TICKETS, ...EN_SUITE };
 
   it("chaque phrase affichée a sa traduction", () => {
     expect(utilisees.length).toBeGreaterThan(40);
-    expect(utilisees.filter((fr) => EN_RECIT[fr] === undefined)).toEqual([]);
+    expect(utilisees.filter((fr) => EN_RECIT[fr] === undefined && EN_SUITE[fr] === undefined)).toEqual([]);
     setLang("en");
     for (const fr of utilisees) expect([fr, t(fr)]).toEqual([fr, TOUS[fr]]);
   });
@@ -673,9 +676,13 @@ describe("les écrans du récit et leur dictionnaire anglais", () => {
     for (const attendu of ["chapterOf(", "placeMoment(", "placeName(", "ouverture(", "FIN.question", "FIN.aveu", "PIOU.nouveauVenu", "closeEnding"]) {
       expect([attendu, moments.includes(attendu)]).toEqual([attendu, true]);
     }
-    // Le geste du générique est tout symbolique : il ne demande rien au serveur.
+    // Le geste du générique sème un vrai ticket, sans bruit et sans attendre : La Tirelire de
+    // Piou, si la bourse le permet. Il ne ramasse rien, n'achète rien, et ne parle pas au
+    // serveur autrement. Revu en souvenir, il ne sème pas.
     const fin = moments.slice(moments.indexOf("export function Fin()"));
     expect(/pickUpTicket|usePickUp|api\.|buyTickets|fetch\(/.test(fin)).toBe(false);
+    expect(fin).toMatch(/if \(!relecture\) void sowTickets\("tirelire", 1, true\);/);
+    expect(fin.match(/sowTickets\(/g)?.length).toBe(1);
   });
 });
 

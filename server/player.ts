@@ -51,6 +51,11 @@ export interface PlayerRecord {
   pokerWins?: string[];
   /** Combien de fois la Table des Maîtres a été remportée. Absent : jamais. */
   masters?: number;
+  /**
+   * Les victoires au poker contre l'hôte de chaque lieu, comptées depuis la version 2.1.
+   * Absent d'un compte d'avant : voir `hostWinsOf`.
+   */
+  hostWins?: Partial<Record<string, number>>;
   /** Les compteurs du poker. Absents d'un compte d'avant : ils valent zéro. */
   pokerStats?: Partial<PokerStats>;
   /** La vraie fin, « Huit as de cœur », a été vue. Absent : pas encore. */
@@ -130,6 +135,34 @@ export function allChallengesWon(r: Pick<PlayerRecord, "pokerWins">): boolean {
   return defisOf(r).length === PLACES.length;
 }
 
+/**
+ * Les victoires contre l'hôte de chaque lieu. Avant la version 2.1, seule la première
+ * victoire d'un défi était retenue (`pokerWins`) : elle compte pour une, si bien qu'un
+ * compte d'avant ne repart pas de zéro.
+ */
+export function hostWinsOf(r: Pick<PlayerRecord, "hostWins" | "pokerWins">): Record<PlaceId, number> {
+  const first = r.pokerWins ?? [];
+  const out = {} as Record<PlaceId, number>;
+  for (const place of PLACES) {
+    out[place.id] = Math.max(countOf(r.hostWins?.[place.id]), first.includes(place.id) ? 1 : 0);
+  }
+  return out;
+}
+
+/**
+ * Une victoire de plus contre l'hôte d'un lieu. À appeler AVANT d'inscrire un défi relevé
+ * pour la première fois dans `pokerWins` : la victoire en cours n'est ainsi comptée qu'une
+ * fois, et celle d'un compte d'avant (déjà dans `pokerWins`) reste acquise.
+ */
+export function recordHostWin(r: PlayerRecord, place: PlaceId): void {
+  r.hostWins = { ...r.hostWins, [place]: safeAdd(hostWinsOf(r)[place], 1) };
+}
+
+/** Le lieu que tient un hôte (« gaspard » → le Kiosque), ou `null` si ce n'est pas un hôte. */
+export function placeOfHost(host: string): PlaceId | null {
+  return PLACES.find((place) => place.host === host)?.id ?? null;
+}
+
 /** La vraie fin se mérite : le Kiosque est à lui et les huit défis sont relevés. */
 export function trueEndingEarned(r: Pick<PlayerRecord, "kiosk" | "pokerWins">): boolean {
   return r.kiosk && allChallengesWon(r);
@@ -169,6 +202,7 @@ export function toState(r: PlayerRecord, now: number = Date.now()): PlayerState 
     luckyIn: Math.max(0, LUCKY_FIND_MS - (now - r.lastHouseAt)),
     defis: defisOf(r),
     masters: countOf(r.masters),
+    hostWins: hostWinsOf(r),
     story: { fin: r.kiosk, vraieFin: r.vraieFin === true },
     pokerStats: pokerStatsOf(r),
   };

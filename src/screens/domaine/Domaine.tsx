@@ -9,9 +9,10 @@
 // progression est dans la bulle : l'information n'est écrite qu'une fois à l'écran, et
 // l'écran tient sans défiler.
 
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { CATALOG, COLLECTION_SIZE, KIOSK, itemById } from "../../../shared/catalog";
 import { formatEuros } from "../../../shared/format";
+import { PLACES } from "../../../shared/places";
 import { bestPlace, collectionComplete, nextPlace } from "../../../shared/rules";
 import type { PlayerState, ShopId } from "../../../shared/types";
 import { PIOU, hostName } from "../../app/dialogues";
@@ -30,6 +31,9 @@ import { Barre, BulleLibre, Entete, Phrase } from "../../ui/Commun";
 import { useFoundSparkle, usePickUp } from "../../ui/Trouve";
 import { EntreeTrophees } from "../trophees/Entree";
 import "./domaine.css";
+
+/** Le tout premier ticket, sous cloche : exposé chez qui a vu la vraie fin. Son dessin n'arrive que pour lui. */
+const Cloche = lazy((): Promise<{ default: ComponentType }> => import("./Cloche").catch(() => ({ default: () => null })));
 
 /** Les trois trésors les plus chers, pour la console. */
 function topTreasures(owned: readonly string[]): string[] {
@@ -62,6 +66,8 @@ const versJeu = () => nav.reset([{ name: "promenade" }]);
 const versKiosque = () => nav.reset([{ name: "promenade" }, { name: "comptoir", place: "kiosque" }]);
 const versPile = () => nav.push({ name: "a-gratter" });
 const versClassement = () => nav.reset([{ name: "classement" }]);
+const versCarnet = () => nav.push({ name: "carnet" });
+const versPoker = () => nav.reset([{ name: "promenade" }, { name: "poker" }]);
 
 /** Le chemin que Piou indique : un lien sous sa phrase. */
 function Chemin({ vers, attente, children }: { vers: () => void; attente?: boolean; children: ReactNode }) {
@@ -117,9 +123,24 @@ function Conseil({ player, found, busy, pickUp }: {
         ),
       };
     }
-    // Après la fin : il reste une fortune à faire grossir.
+    // Après la fin : le Patron sème à son tour, huit maîtres des lieux restent à ruiner (il
+    // paraît que personne n'y est arrivé), et il reste une fortune à faire grossir. Piou passe
+    // d'un sujet à l'autre à mesure qu'on joue : la phrase ne change pas tant qu'on ne fait rien.
     if (player.kiosk) {
-      return { texte: PIOU.patron, actions: <Chemin vers={versClassement}>{t("Voir le classement")}</Chemin> };
+      const { stats, defis, story } = player;
+      const tour = (stats.tickets + stats.sown + player.pokerStats.hands) % 4;
+      const carnet = <Chemin vers={versCarnet}>{t("Ouvrir le Carnet du Patron")}</Chemin>;
+      const indice = defis.length < PLACES.length
+        ? {
+          texte: PIOU.maitres(defis.length),
+          barre: { value: defis.length, max: PLACES.length },
+          actions: <Chemin vers={versPoker}>{t("Aller au Poker Tricheur")}</Chemin>,
+        }
+        : null;
+      if (tour === 3) return { texte: PIOU.patron, actions: <Chemin vers={versClassement}>{t("Voir le classement")}</Chemin> };
+      // Tant qu'il n'a presque rien semé, Piou dit d'abord comment on s'y prend.
+      if (stats.sown < 2 ? tour !== 1 : tour === 1) return { texte: PIOU.semeur(stats.sown), actions: carnet };
+      return indice ?? (story.vraieFin ? { texte: PIOU.legende } : { texte: PIOU.semeur(stats.sown), actions: carnet });
     }
 
     // Les premiers euros, et encore rien à soi : une ficelle chez Mlle Sidonie, ou d'abord un tour au Kiosque.
@@ -188,6 +209,7 @@ export function Domaine() {
   const treasures = topTreasures(player.owned);
   const ownsResidences = player.owned.some((id) => itemById(id)?.slot === "residence");
   const ownsVehicles = player.owned.some((id) => itemById(id)?.slot === "vehicule");
+  const legende = player.kiosk && player.story.vraieFin;
 
   return (
     <main className="ecran ecran--onglets domaine cascade">
@@ -245,16 +267,33 @@ export function Domaine() {
         )}
         {/* Les entrées posées sur le ciel, en haut à droite : les trophées (une autre peut venir à côté). */}
         <div className="domaine__entrees">
+          {/* Le Carnet du Patron : ce qu'il a semé, et les nouvelles de ses protégés. */}
+          {player.kiosk && (
+            <button type="button" className="entree-carnet" onClick={versCarnet} aria-label={t("Ouvrir le Carnet du Patron")}>
+              <span className="entree-carnet__plaque" aria-hidden="true">
+                <svg width="16" height="20" viewBox="0 0 16 20" focusable="false">
+                  <rect x="2" y="1" width="13" height="18" rx="2" fill="#1F6F57" />
+                  <rect x="5.500" y="5" width="7" height="4" rx="1" fill="#FFF7E6" />
+                  <path d="M0.800 5H4M0.800 10H4M0.800 15H4" fill="none" stroke="#C99A3A" strokeWidth="1.600" strokeLinecap="round" />
+                </svg>
+                {t("Carnet")}
+              </span>
+            </button>
+          )}
           <EntreeTrophees />
         </div>
       </div>
 
-      <div className="domaine__identite">
+      <div className={cx("domaine__identite", legende && "domaine__identite--legende")}>
         <h2 className="t-titre">{player.pseudo}</h2>
         <p className="domaine__fortune">
-          <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron")}>{rankName(player.standing, player.kiosk)}</span>
+          <span className={cx("domaine__rang", player.kiosk && "domaine__rang--patron", legende && "domaine__rang--legende")}>
+            {rankName(player.standing, player.kiosk, player.story.vraieFin)}
+          </span>
           {t("Fortune :")} <strong className="chiffres">{formatEuros(fortune)}</strong>
         </p>
+        {/* La vraie fin vue, le tout premier ticket est exposé sous cloche, à côté du nom. */}
+        {legende && <Suspense fallback={null}><Cloche /></Suspense>}
       </div>
 
       <Conseil player={player} found={found} busy={busy} pickUp={pickUp} />

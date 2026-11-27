@@ -3,11 +3,13 @@
 
 import { describe, expect, it } from "vitest";
 import { handle, type Deps } from "../server/app";
-import { toState, type PlayerRecord } from "../server/player";
+import { hostWinsOf, placeOfHost, recordHostWin, toState, type PlayerRecord } from "../server/player";
 import { MemoryStorage } from "../server/storage";
 import { CATALOG, KIOSK } from "../shared/catalog";
 import { PLACES } from "../shared/places";
-import { BOARD_PUBLISH_INTERVAL_MS, BUY_COOLDOWN_MS, LUCKY_FIND_MS, standingOf } from "../shared/rules";
+import {
+  BOARD_PUBLISH_INTERVAL_MS, BUY_COOLDOWN_MS, HOST_STORY_WINS, LUCKY_FIND_MS, hostStoryOpen, standingOf,
+} from "../shared/rules";
 import { ticketById } from "../shared/tickets";
 import { MEDAL_COUNT, TROPHIES, medalsOf, newMedals, progressOf, trophyById } from "../shared/trophies";
 import type { PlayerState } from "../shared/types";
@@ -178,6 +180,9 @@ describe("les comptes déjà là : rien ne bouge", () => {
       expect(state.story).toEqual({ fin: legacy.kiosk, vraieFin: false });
       // Les défis déjà relevés sont rendus dans l'ordre des lieux.
       expect(state.defis).toEqual(version === "2.0" ? ["kiosque", "cafe", "casino"] : []);
+      // Chaque défi déjà relevé compte pour une victoire contre son hôte : personne ne repart de zéro.
+      const one = version === "2.0" ? 1 : 0;
+      expect(state.hostWins).toEqual({ kiosque: one, cafe: one, casino: one, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 });
       expect(state.poker).toBeUndefined();
     });
   }
@@ -490,6 +495,66 @@ describe("POST /api/story/seen : la vraie fin", () => {
 
 // ---------------------------------------------------------------------------
 
+describe("les victoires contre chaque hôte : trois ouvrent son histoire", () => {
+  const record = (plus: Record<string, unknown> = {}) =>
+    ({ ...recordV20(), id: "p_0123456789abcdef", pseudoKey: "x", codeHash: "x", pokerWins: undefined, ...plus }) as unknown as PlayerRecord;
+
+  it("un compte qui n'a jamais joué au poker : zéro partout, et rien d'écrit", () => {
+    const r = record();
+    expect(hostWinsOf(r)).toEqual({ kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 });
+    expect(r.hostWins).toBeUndefined();
+  });
+
+  it("la première victoire d'un compte neuf compte pour une, pas pour deux", () => {
+    const r = record();
+    // L'ordre du serveur : la victoire d'abord, puis l'inscription du défi relevé.
+    recordHostWin(r, "cafe");
+    r.pokerWins = ["cafe"];
+    expect(hostWinsOf(r).cafe).toBe(1);
+    recordHostWin(r, "cafe");
+    expect(hostWinsOf(r).cafe).toBe(2);
+    recordHostWin(r, "cafe");
+    expect(hostWinsOf(r).cafe).toBe(3);
+    expect(hostWinsOf(r).kiosque).toBe(0);
+  });
+
+  it("un défi relevé avant la version 2.1 reste acquis : la victoire suivante est la deuxième", () => {
+    const r = record({ pokerWins: ["kiosque", "lune"] });
+    expect(hostWinsOf(r)).toMatchObject({ kiosque: 1, lune: 1, cafe: 0 });
+    recordHostWin(r, "kiosque");
+    expect(hostWinsOf(r).kiosque).toBe(2);
+    // L'autre défi d'avant n'a pas bougé, et n'a pas été recopié pour rien.
+    expect(hostWinsOf(r).lune).toBe(1);
+    expect(r.hostWins).toEqual({ kiosque: 2 });
+  });
+
+  it("trois victoires ouvrent l'histoire, pas deux", () => {
+    expect(HOST_STORY_WINS).toBe(3);
+    const r = record({ pokerWins: ["casino"] });
+    expect(hostStoryOpen(toState(r, T0).hostWins, "casino")).toBe(false);
+    recordHostWin(r, "casino");
+    expect(hostStoryOpen(toState(r, T0).hostWins, "casino")).toBe(false);
+    recordHostWin(r, "casino");
+    expect(toState(r, T0).hostWins.casino).toBe(3);
+    expect(hostStoryOpen(toState(r, T0).hostWins, "casino")).toBe(true);
+    expect(hostStoryOpen(toState(r, T0).hostWins, "salon")).toBe(false);
+    expect(hostStoryOpen(undefined, "casino")).toBe(false);
+  });
+
+  it("chaque hôte tient un lieu, et un seul", () => {
+    expect(PLACES.map((place) => placeOfHost(place.host))).toEqual(ALL_PLACES);
+    expect(placeOfHost("piou")).toBeNull();
+    expect(placeOfHost("")).toBeNull();
+  });
+
+  it("des compteurs illisibles dans l'enregistrement retombent sur ce qui est sûr", () => {
+    const r = record({ pokerWins: ["yacht"], hostWins: { yacht: "beaucoup", banque: -3, lune: 2.9 } });
+    expect(hostWinsOf(r)).toMatchObject({ yacht: 1, banque: 0, lune: 2 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 /** Un état vierge, celui d'un compte qui débarque. */
 function fresh(): PlayerState {
   return {
@@ -499,6 +564,7 @@ function fresh(): PlayerState {
     stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0, sown: 0, sownValue: 0 },
     createdAt: T0, luckyIn: 0, defis: [], masters: 0, story: { fin: false, vraieFin: false },
     pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
   };
 }
 
@@ -625,6 +691,7 @@ describe("l'appareil complète l'état d'un serveur plus ancien", () => {
     });
     expect(state.defis).toEqual([]);
     expect(state.masters).toBe(0);
+    expect(state.hostWins).toEqual({ kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 });
     expect(state.story).toEqual({ fin: true, vraieFin: false });
     expect(state.pokerStats).toEqual({ hands: 0, pots: 0, unmasked: 0, caught: 0 });
   });
@@ -635,6 +702,7 @@ describe("l'appareil complète l'état d'un serveur plus ancien", () => {
     full.defis = ["kiosque", "lune"]; full.masters = 2; full.kiosk = true;
     full.story = { fin: true, vraieFin: true };
     full.pokerStats = { hands: 30, pots: 11, unmasked: 4, caught: 2 };
+    full.hostWins = { kiosque: 3, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 5 };
     full.poker = { code: "ABCD" };
     expect(completeState(full)).toEqual(full);
   });
@@ -642,7 +710,10 @@ describe("l'appareil complète l'état d'un serveur plus ancien", () => {
   it("des valeurs illisibles retombent sur zéro, des lieux inconnus sont écartés", () => {
     const odd = fresh() as unknown as Record<string, unknown>;
     odd.masters = "3"; odd.defis = ["lune", "atlantide", "kiosque"]; odd.pokerStats = { hands: -4, pots: 2.9 };
+    odd.hostWins = { cafe: 4.7, lune: "9", atlantide: 3, casino: -2 };
     const state = completeState(odd as unknown as PlayerState);
+    // Un défi relevé compte pour une victoire, même si le serveur n'en dit rien.
+    expect(state.hostWins).toEqual({ kiosque: 1, cafe: 4, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 1 });
     expect(state.masters).toBe(0);
     expect(state.defis).toEqual(["kiosque", "lune"]);
     expect(state.pokerStats).toEqual({ hands: 0, pots: 2, unmasked: 0, caught: 0 });

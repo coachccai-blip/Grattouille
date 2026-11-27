@@ -101,7 +101,12 @@
 
 .trophee__objet {
   flex: none;
-  width: 76px;
+  width: 84px;
+}
+
+/* Écran étroit : l'objet se fait un peu plus petit, son nom et sa phrase y gagnent une ligne. */
+@media (max-width: 340px) {
+  .trophee__objet { width: 70px; }
 }
 
 .trophee__qui {
@@ -124,7 +129,7 @@
 .trophee__tringle {
   display: block;
   height: 4px;
-  margin: 12px -8px 0;
+  margin: 10px -8px 0;
   border-radius: 2px;
   background: var(--laiton);
   box-shadow: 0 2px 0 rgba(6, 24, 30, .5);
@@ -142,13 +147,11 @@
   display: block;
   flex: 0 1 52px;
   min-width: 44px;
-  padding: 0 3px 8px;
+  padding: 0 3px 6px;
   /* La silhouette d'une médaille à gagner prend cette couleur. */
   color: rgba(230, 242, 240, .2);
   transition: transform var(--t-appui) linear;
 }
-
-.medaille svg { filter: none; }
 
 button.medaille:active { transform: translateY(2px); }
 
@@ -178,13 +181,23 @@ button.medaille:active { transform: translateY(2px); }
   right: 0;
   z-index: 1;
   color: #fff;
-  animation: trouve-brille 1600ms ease-in-out infinite;
+  animation: medaille-brille 2600ms ease-in-out 500ms both;
 }
 
 @keyframes medaille-balance {
   0%, 100% { transform: rotate(0deg); }
   25% { transform: rotate(7deg); }
   75% { transform: rotate(-7deg); }
+}
+
+/* L'éclat scintille trois fois, puis reste allumé : pas de boucle. */
+@keyframes medaille-brille {
+  0% { opacity: 0; transform: scale(.4) rotate(0deg); }
+  20% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+  40% { opacity: .4; transform: scale(.7) rotate(0deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(20deg); }
+  80% { opacity: .5; transform: scale(.8) rotate(0deg); }
+  100% { opacity: 1; transform: none; }
 }
 
 .calme .medaille--neuve svg,
@@ -196,7 +209,7 @@ button.medaille:active { transform: translateY(2px); }
   grid-template-columns: 1fr auto;
   gap: 0 10px;
   align-items: baseline;
-  padding: 8px 12px 9px;
+  padding: 7px 12px 8px;
   border-radius: 4px;
   background: var(--ivoire);
   color: var(--nuit);
@@ -228,7 +241,7 @@ button.medaille:active { transform: translateY(2px); }
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .trophee__progres .barre {
@@ -257,8 +270,9 @@ button.medaille:active { transform: translateY(2px); }
 
 /* ---------------------------------------------------------------- L'annonce d'une médaille */
 
-/* Un carton de papier descend prendre, quelques secondes, la place de la barre d'en-tête :
-   rien d'autre n'est recouvert. Au-dessus des feuilles et des messages, sous les grands moments. */
+/* Un carton de papier descend prendre, quelques secondes, la place de la barre d'en-tête, à sa
+   hauteur exacte (`--annonce-h`, mesurée par Annonce.tsx) : rien d'autre n'est recouvert.
+   Au-dessus des feuilles et des messages, sous les grands moments. */
 .annonce {
   position: fixed;
   top: calc(var(--haut) + var(--e2));
@@ -290,12 +304,13 @@ button.medaille:active { transform: translateY(2px); }
   gap: 10px;
   align-items: center;
   width: 100%;
-  min-height: 56px;
+  min-height: var(--annonce-h, 56px);
   padding: 3px 16px 3px 10px;
   border-radius: 6px;
   color: var(--nuit);
   text-align: left;
-  box-shadow: var(--ombre-papier), inset 0 0 0 2px var(--mimosa);
+  /* Une ombre courte : sous la barre vient parfois un titre, qu'elle ne doit pas ternir. */
+  box-shadow: var(--ombre-posee), inset 0 0 0 2px var(--mimosa);
   transition: transform var(--t-appui) linear;
 }
 
@@ -309,20 +324,25 @@ button.medaille:active { transform: translateY(2px); }
   align-items: center;
 }
 
+/* La médaille prend la hauteur du carton ; sa largeur suit (48 sur 66). */
+.annonce__medailles {
+  --medaille-h: calc(var(--annonce-h, 56px) - 6px);
+}
+
 .annonce__medailles svg {
-  width: 36px;
-  height: 48px;
+  width: calc(var(--medaille-h) * .727);
+  height: var(--medaille-h);
 }
 
 /* Plusieurs médailles d'un coup : elles se chevauchent comme sur une poitrine de général. */
-.annonce__carton--groupe .annonce__medailles svg + svg { margin-left: -18px; }
+.annonce__carton--groupe .annonce__medailles svg + svg { margin-left: calc(var(--medaille-h) * -.37); }
 
 .annonce__eclat {
   position: absolute;
   top: 6px;
   right: -4px;
   color: #fff;
-  animation: trouve-brille 1400ms ease-in-out 2 both;
+  animation: medaille-brille 2600ms ease-in-out 300ms both;
 }
 
 .calme .annonce__eclat { animation: none; }
@@ -341,4 +361,5 @@ button.medaille:active { transform: translateY(2px); }
   font: 500 12px/16px var(--texte);
 }
 
-.annonce__nom { font: 700 16px/20px var(--texte); }
+/* Le plus long des noms tient sur une ligne dès 320 px de large. */
+.annonce__nom { font: 700 clamp(14px, 4.6vw, 16px)/18px var(--texte); }

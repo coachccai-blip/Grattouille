@@ -40,7 +40,7 @@ const piece: Art = (props) => (
       <rect x="15" y="20" width="52" height="58" rx="5" fill={C.ivoire} />
       <path d="M15 34V25Q15 20 20 20H62Q67 20 67 25V34Z" fill={C.bougainvillier} />
       <rect x="21" y="41" width="40" height="29" rx="3" fill={METAL.argent} />
-      <path d="M26 63L34 47L39 61L47 46L51 60L57 48" fill="none" stroke={C.ivoire} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M26 64L33 48M36 65L45 46M48 63L54 50" fill="none" stroke={C.ivoire} strokeWidth="5.5" strokeLinecap="round" />
     </g>
     <circle cx="68" cy="62" r="22" fill={C.mimosaFonce} />
     <circle cx="66" cy="60" r="22" fill={METAL.or} />
@@ -90,25 +90,25 @@ const cloche: Art = (props) => (
   </Svg>
 );
 
-/** La Poche trouée : un pan de tweed sous cadre, et le ticket qui s'échappe par le trou. */
+/** La Poche trouée : un pan de tweed sous cadre, et le ticket qui s'échappe par la pointe de la poche. */
 const poche: Art = (props) => (
   <Svg viewBox="0 0 100 100" {...props}>
     <Socle />
-    <rect x="19" y="6" width="62" height="66" rx="2" fill={C.bois} />
-    <path d="M81 6V72H19L24 67H76V11Z" fill={C.boisFonce} />
-    <rect x="24" y="11" width="52" height="56" fill={C.ardoise} />
+    <rect x="17" y="5" width="66" height="68" rx="2" fill={C.bois} />
+    <path d="M83 5V73H17L22 68H78V10Z" fill={C.boisFonce} />
+    <rect x="22" y="10" width="56" height="58" fill={C.marine} />
     <path
-      d="M24 21l6.5-5 6.5 5 6.5-5 6.5 5 6.5-5 6.5 5 6.5-5 6.5 5M24 65l6.5-5 6.5 5 6.5-5 6.5 5 6.5-5 6.5 5 6.5-5 6.5 5"
-      fill="none" stroke={shade(C.ardoise, 0.22)} strokeWidth="1.4"
+      d="M22 19l7-5 7 5 7-5 7 5 7-5 7 5 7-5 7 5M22 66l7-5 7 5 7-5 7 5 7-5 7 5 7-5 7 5"
+      fill="none" stroke={shade(C.marine, 0.28)} strokeWidth="1.6"
     />
-    <path d="M33 27H67V53Q67 59 61 59H39Q33 59 33 53Z" fill={shade(C.ardoise, 0.25)} />
-    <path d="M33 27H67V33H33Z" fill={shade(C.ardoise, 0.45)} />
-    <ellipse cx="50" cy="56" rx="10" ry="4.5" fill={C.nuit} />
-    <g transform="rotate(13 52 70)">
-      <rect x="42.5" y="56" width="19" height="29" rx="2.5" fill={C.mimosaFonce} transform="translate(1.5 1.5)" />
-      <rect x="42.5" y="56" width="19" height="29" rx="2.5" fill={C.mimosa} />
-      <path d="M42.5 65H61.5" fill="none" stroke={C.mimosaFonce} strokeWidth="1.4" strokeDasharray="2 2" />
-      <path d={ETOILE} transform="translate(52 75) scale(0.55)" fill={C.mimosaFonce} />
+    <path d="M31 24H69V48L50 60L31 48Z" fill={shade(C.marine, 0.38)} />
+    <path d="M31 24H69V31H31Z" fill={shade(C.marine, 0.6)} />
+    <path d="M40 53.5L50 60L60 53.5Q50 49 40 53.5Z" fill="#06181E" />
+    <g transform="rotate(12 51 72)">
+      <rect x="41.5" y="56" width="19" height="30" rx="2.5" fill={C.mimosaFonce} transform="translate(1.5 1.5)" />
+      <rect x="41.5" y="56" width="19" height="30" rx="2.5" fill={C.mimosa} />
+      <path d="M41.5 65H60.5" fill="none" stroke={C.mimosaFonce} strokeWidth="1.4" strokeDasharray="2 2" />
+      <path d={ETOILE} transform="translate(51 76) scale(0.55)" fill={C.mimosaFonce} />
     </g>
   </Svg>
 );
@@ -258,7 +258,7 @@ const coupe: Art = (props) => (
 );
 
 /** Les angles de l'éventail : huit cartes, de gauche à droite. */
-const EVENTAIL = [-42, -30, -18, -6, 6, 18, 30, 42];
+const EVENTAIL = [-33, -23.6, -14.1, -4.7, 4.7, 14.1, 23.6, 33];
 
 /** Les Huit As de cœur : c'est comme ça qu'on se reconnaît, à Grattouille. */
 const as: Art = (props) => (
@@ -266,9 +266,9 @@ const as: Art = (props) => (
     <Socle />
     {EVENTAIL.map((angle) => (
       <g key={angle} transform={`rotate(${angle} 50 88)`}>
-        <rect x="39.5" y="14" width="24" height="60" rx="3" fill={shade(C.ivoire, -0.25)} />
-        <rect x="38" y="14" width="24" height="60" rx="3" fill={C.ivoire} />
-        <path d={COEUR} transform="translate(50 27) scale(0.7)" fill={C.cerise} />
+        <rect x="36" y="18" width="24" height="56" rx="3" fill={shade(C.ivoire, -0.32)} />
+        <rect x="38" y="18" width="24" height="56" rx="3" fill={C.ivoire} />
+        <path d={COEUR} transform="translate(50 30) scale(0.7)" fill={C.cerise} />
       </g>
     ))}
     <path d="M36 72H64L66 84H34Z" fill={METAL.or} />
@@ -303,13 +303,17 @@ export function Objet({ famille, voile = false, ...props }: ArtProps & { famille
 // ---------------------------------------------------------------------------
 // La médaille
 
-/** Le ruban de chaque famille : sa couleur, et son filet. */
-const RUBANS: Record<TrophyId, readonly [string, string]> = {
-  tickets: [C.mimosa, C.blanc],
+/**
+ * Le ruban de chaque famille : sa couleur et son filet. L'émail des plus hautes médailles
+ * reprend la couleur du ruban, un ton plus bas ; une troisième couleur le remplace quand
+ * celle du ruban ne trancherait pas sur l'or.
+ */
+const RUBANS: Record<TrophyId, readonly [ruban: string, filet: string, email?: string]> = {
+  tickets: [C.mimosa, C.blanc, C.marine],
   gain: [C.persienne, C.ivoire],
   jackpots: [C.bougainvillier, C.mimosa],
-  semeur: [C.amande, C.persFonce],
-  mecene: [C.corail, C.ivoire],
+  semeur: [C.amande, C.persFonce, C.persFonce],
+  mecene: [C.corail, C.ivoire, C.brique],
   collection: [C.azur, C.blanc],
   voyage: [C.marine, C.ciel],
   patron: [C.brique, C.paille],
@@ -348,7 +352,7 @@ function rayons(pointes: number, grand: number, petit: number): string {
 
 /** Le bord dentelé de l'avant-dernier grade, et l'étoile à rayons du dernier. */
 const DENTELE = rayons(18, 19.5, 17);
-const RAYONS = rayons(8, 21.5, 16.5);
+const RAYONS = rayons(12, 23.5, 18);
 
 /**
  * Le grade d'une médaille, de 1 à 6 : le premier palier d'une famille est de cuivre, son
@@ -390,7 +394,7 @@ export function Medaille({ famille, rang, gagnee = true, secrete = false, ...pro
       </>
     );
   } else {
-    const [ruban, filet] = RUBANS[famille];
+    const [ruban, filet, email = shade(ruban, -0.15)] = RUBANS[famille];
     const metal = grade === 1 ? METAL.cuivre : grade === 2 ? METAL.argent : METAL.or;
     const ombre = grade === 1 ? "#8A4A22" : grade === 2 ? "#7E8790" : "#9A6F0E";
     const emaille = grade >= 4;
@@ -405,7 +409,7 @@ export function Medaille({ famille, rang, gagnee = true, secrete = false, ...pro
         <circle cx="25.2" cy="43.5" r="16" fill={ombre} />
         <circle cx="24" cy="42" r="16" fill={metal} />
         {emaille
-          ? <circle cx="24" cy="42" r="12" fill={shade(ruban, -0.15)} />
+          ? <circle cx="24" cy="42" r="12" fill={email} />
           : <circle cx="24" cy="42" r="12.5" fill="none" stroke={ombre} strokeWidth="1.3" />}
         <path
           d={embleme.d}
@@ -418,5 +422,5 @@ export function Medaille({ famille, rang, gagnee = true, secrete = false, ...pro
       </>
     );
   }
-  return <Svg viewBox="0 0 48 64" {...props}>{corps}</Svg>;
+  return <Svg viewBox="0 0 48 66" {...props}>{corps}</Svg>;
 }

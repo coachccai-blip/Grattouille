@@ -656,16 +656,23 @@ describe("la Table des Maîtres, à la table", () => {
     expect(fallenSeats({ ...view, result: null })).toEqual([]);
   });
 
-  it("le tournoi est joué quand le joueur n'a plus rien, ou plus aucun maître", () => {
-    expect(tournamentDecided({ kind: "maitres", you: 0, seats: table() })).toBe(false);
-    expect(tournamentDecided({ kind: "maitres", you: 0, seats: table({ 1: { stack: 0, out: true }, 2: { stack: 0, out: true }, 3: { stack: 0, out: true } }) })).toBe(false);
-    expect(tournamentDecided({ kind: "maitres", you: 0, seats: table({ 0: { stack: 1500 }, 1: { stack: 0 }, 2: { stack: 0 }, 3: { stack: 0 }, 4: { stack: 0 } }) })).toBe(true);
-    expect(tournamentDecided({ kind: "maitres", you: 0, seats: table({ 0: { stack: 0 } }) })).toBe(true);
+  it("le tournoi est joué quand, au dénouement, le joueur n'a plus rien, ou plus aucun maître", () => {
+    const end = { kind: "maitres" as const, phase: "denouement" as const, you: 0 };
+    const allOut = table({ 0: { stack: 1500 }, 1: { stack: 0 }, 2: { stack: 0 }, 3: { stack: 0 }, 4: { stack: 0 } });
+    expect(tournamentDecided({ ...end, seats: table() })).toBe(false);
+    expect(tournamentDecided({ ...end, seats: table({ 1: { stack: 0, out: true }, 2: { stack: 0, out: true }, 3: { stack: 0, out: true } }) })).toBe(false);
+    expect(tournamentDecided({ ...end, seats: allOut })).toBe(true);
+    expect(tournamentDecided({ ...end, seats: table({ 0: { stack: 0 } }) })).toBe(true);
+    // Pendant une main, un joueur à tapis n'a plus rien devant lui et joue encore : rien n'est joué.
+    for (const phase of ["triche", "encheres", "abattage", "attente"] as const) {
+      expect([phase, tournamentDecided({ ...end, phase, seats: table({ 0: { stack: 0, allIn: true } }) })]).toEqual([phase, false]);
+      expect([phase, tournamentDecided({ ...end, phase, seats: allOut })]).toEqual([phase, false]);
+    }
     // Un défi se juge de la même façon ; une table ordinaire, jamais.
-    expect(tournamentDecided({ kind: "defi", you: 0, seats: [seat(0), seat(1, { bot: "gaspard", stack: 0 })] })).toBe(true);
-    expect(tournamentDecided({ kind: "defi", you: 0, seats: [seat(0), seat(1, { bot: "gaspard" })] })).toBe(false);
-    expect(tournamentDecided({ kind: "maison", you: 0, seats: table({ 0: { stack: 0 } }) })).toBe(false);
-    expect(tournamentDecided({ kind: "maitres", you: null, seats: table() })).toBe(false);
+    expect(tournamentDecided({ ...end, kind: "defi", seats: [seat(0), seat(1, { bot: "gaspard", stack: 0 })] })).toBe(true);
+    expect(tournamentDecided({ ...end, kind: "defi", seats: [seat(0), seat(1, { bot: "gaspard" })] })).toBe(false);
+    expect(tournamentDecided({ ...end, kind: "maison", seats: table({ 0: { stack: 0 } }) })).toBe(false);
+    expect(tournamentDecided({ ...end, you: null, seats: table() })).toBe(false);
   });
 
   it("ses trois fins : gagnée, perdue, quittée", () => {
@@ -710,8 +717,12 @@ describe("la Table des Maîtres, à la table", () => {
 describe("les mots des huit maîtres à la Table des Maîtres, dans les deux langues", () => {
   const HOSTS = Object.keys(MASTERS_TALK) as Host[];
   const MOMENTS: readonly MastersMoment[] = ["assis", "elimine", "victoire", "defaite"];
-  /** À table et sur le panneau de la victoire (quatre maîtres d'un coup) : deux lignes. Raccompagner le joueur : une bulle. */
-  const MAX: Record<MastersMoment, number> = { assis: 70, elimine: 70, victoire: 70, defaite: 110 };
+  /**
+   * En s'asseyant, les quatre maîtres parlent ensemble, à la place du tapis : deux lignes chacun sur un
+   * écran de 320 px, nom compris. À table et sur le panneau de la victoire : deux lignes. Raccompagner
+   * le joueur : une bulle.
+   */
+  const MAX: Record<MastersMoment, number> = { assis: 60, elimine: 70, victoire: 70, defaite: 110 };
   const lines = (langue: Lang) => HOSTS.flatMap((host) => MOMENTS.map((m) => MASTERS_TALK[host][langue][m]));
 
   it("les huit hôtes, pas un de plus : c'est parmi eux que la tablée est tirée", () => {
@@ -727,7 +738,7 @@ describe("les mots des huit maîtres à la Table des Maîtres, dans les deux lan
     }
   });
 
-  it("chaque mot tient dans sa place : 70 caractères à table, 110 pour raccompagner le joueur", () => {
+  it("chaque mot tient dans sa place : 60 caractères en s'asseyant, 70 à table, 110 pour raccompagner le joueur", () => {
     const tooLong: string[] = [];
     for (const host of HOSTS) {
       for (const langue of LANGUES) {
@@ -1101,7 +1112,6 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
 
   it("à la Table des Maîtres, jusqu'au bout : cinq sièges, pas de recave, des sièges éliminés, et une fin", async () => {
     const ends = new Set<string>();
-    let rises = 0;
     let fallen = 0;
     for (const seed of [7, 21, 404, 2027, 31_337, 90_210]) {
       const out = new Set<number>();
@@ -1121,7 +1131,6 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
         expect(v.options.rebuy).toBeNull();
         // La blinde ne fait que monter, et sa prochaine hausse est annoncée plus haut qu'elle.
         expect(v.blind).toBeGreaterThanOrEqual(lastBlind);
-        if (v.blind > lastBlind && lastBlind > 0) rises++;
         lastBlind = v.blind;
         if (v.rise) {
           expect(v.rise.blind).toBeGreaterThan(v.blind);
@@ -1162,8 +1171,7 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
     }
     // Un joueur qui touche ses boutons au hasard perd presque toujours : au moins cette fin-là est jouée ici.
     expect(ends.has("maitres-perdu")).toBe(true);
-    // Sur ces tables, la blinde a monté, et des maîtres ont été éliminés sous les yeux du joueur.
-    expect(rises).toBeGreaterThan(0);
+    // Sur ces tables, des maîtres ont été éliminés sous les yeux du joueur.
     expect(fallen).toBeGreaterThan(0);
   });
 
@@ -1197,7 +1205,7 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
   }
 
   it("la Table des Maîtres remportée pour de vrai : toute la table, un trophée de plus, et les maîtres qui saluent", async () => {
-    let won: { payout: number; masters: readonly string[]; hands: number } | null = null;
+    let won: { payout: number; masters: readonly string[]; hands: number; blind: number; announced: boolean } | null = null;
     // Ce joueur-là gagne plus d'une table sur deux : en dix tables, il en gagne une (à mille contre un près).
     for (const seed of [7_919, 15_838, 23_757, 31_676, 39_595, 47_514, 55_433, 63_352, 71_271, 79_190]) {
       const { w, auth } = await master(seed, MASTERS_BUYIN);
@@ -1210,7 +1218,16 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       let state: PokerTableResponse["state"];
       // Ce que l'écran montrerait au dernier dénouement : le bouton change de nom, le dernier maître a son mot.
       let lastWord = false;
+      // La blinde en vigueur, et sa hausse : toujours annoncée avant d'arriver, à la main dite.
+      let blind = view.blind;
+      let announced = true;
+      let rise = view.rise;
       for (let step = 0; step < 40_000 && !left; step++) {
+        if (view.phase !== "fermee") {
+          if (view.blind > blind) announced &&= rise !== null && rise.blind === view.blind && rise.hand <= view.handNo + 1;
+          blind = view.blind;
+          rise = view.rise;
+        }
         if (view.phase === "denouement" && tournamentDecided(view) && view.seats[view.you!]!.stack > 0) {
           lastWord = fallenSeats(view).some((index) => mastersLine(view.seats[index]!.bot, "elimine") !== null);
         }
@@ -1243,16 +1260,68 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       const lobby = await w.call<PokerLobbyResponse>("GET", "/api/poker", undefined, auth);
       expect(mastersCard(lobby.body, lobby.body.state.balance)).toMatchObject({ open: true, won: 1, short: 0 });
       expect(lobby.body.seat).toBeNull();
-      won = { payout: left!.payout, masters: seated, hands: view.handNo };
+      won = { payout: left!.payout, masters: seated, hands: view.handNo, blind, announced };
       break;
     }
     expect(won).not.toBeNull();
+    // Une table gagnée dure : la blinde a monté en chemin, et l'écran l'avait annoncée chaque fois.
+    if (won!.hands > 12) expect(won!.blind).toBeGreaterThan(MASTERS_BLIND);
+    expect(won!.announced).toBe(true);
     // Le panneau de la victoire : le montant tel qu'il s'écrit, et un mot de chacun des quatre maîtres.
     expect(mastersEnding("maitres-gagne", won!.payout).texte).toBe(`Tu remportes 1${THIN}500${NBSP}Bn€.`);
     expect(won!.masters.map((bot) => mastersLine(bot, "victoire")?.speaker)).toEqual(won!.masters);
     setLang("en");
     expect(mastersEnding("maitres-gagne", won!.payout).texte).toBe("You win €1,500T.");
     for (const bot of won!.masters) expect(mastersLine(bot, "victoire")?.text).toBe(MASTERS_TALK[bot as Host].en.victoire);
+  });
+
+  it("se lever pendant le dernier dénouement ne change rien : le résultat est acquis, l'écran y va sans feuille", async () => {
+    const reasons = new Set<string>();
+    // Un joueur qui tape au hasard perd, un joueur qui connaît la table en gagne plus d'une sur deux :
+    // on joue jusqu'à avoir quitté ainsi une table gagnée et une table perdue.
+    const tables: readonly (readonly [number, "hasard" | "limier"])[] = [
+      [7, "hasard"], [21, "hasard"],
+      [7_919, "limier"], [15_838, "limier"], [23_757, "limier"], [31_676, "limier"], [39_595, "limier"], [47_514, "limier"],
+      [55_433, "limier"], [63_352, "limier"],
+    ];
+    for (const [seed, policy] of tables) {
+      if (reasons.has("maitres-gagne") && reasons.has("maitres-perdu")) break;
+      const { w, auth } = await master(seed, MASTERS_BUYIN);
+      const opened = await w.call<PokerTableResponse>("POST", "/api/poker/tables", { maitres: true }, auth);
+      let view = opened.body.view!;
+      let left: PokerTableResponse["left"];
+      for (let step = 0; step < 40_000 && !left; step++) {
+        // Le tournoi est joué : la croix de l'en-tête quitte aussitôt, sans rien demander.
+        if (tournamentDecided(view)) {
+          const mine = view.seats[view.you!]!;
+          const r = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action: { type: "quitter" } }, auth);
+          expect(r.status).toBe(200);
+          left = r.body.left;
+          // Ni « quitte », ni un tapis rendu : la table gagnée est gagnée, la table perdue est perdue.
+          expect(left).toEqual(mine.stack > 0
+            ? { reason: "maitres-gagne", payout: MASTERS_BUYIN * MASTERS_SEATS, bonus: 0 }
+            : { reason: "maitres-perdu", payout: 0, bonus: 0 });
+          expect(r.body.state?.masters).toBe(mine.stack > 0 ? 1 : 0);
+          break;
+        }
+        const action = policy === "hasard" ? tap(view, w.pick) : sleuth(view);
+        if (action) {
+          const r = await w.call<PokerTableResponse>("POST", "/api/poker/act", { code: view.code, action, step: view.step }, auth);
+          if (r.status === 200 && r.body.view) view = r.body.view;
+          left = r.body.left;
+          continue;
+        }
+        w.tick(1_000);
+        const r = await w.call<PokerTableResponse | { unchanged: true }>("GET", `/api/poker/table?code=${view.code}&v=${view.version}`, undefined, auth);
+        if ("unchanged" in r.body) continue;
+        if (r.body.view) view = r.body.view;
+        left = r.body.left;
+      }
+      expect(left).toBeDefined();
+      reasons.add(left!.reason);
+    }
+    // Les deux fins ont été quittées ainsi, au moins une fois chacune.
+    expect([...reasons].sort()).toEqual(["maitres-gagne", "maitres-perdu"]);
   });
 
   it("quitter la Table des Maîtres : on repart avec son tapis, sans la victoire", async () => {

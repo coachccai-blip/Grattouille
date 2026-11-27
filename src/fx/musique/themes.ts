@@ -100,6 +100,16 @@ function dessous(a: Accord, midi: number): number {
   return midi - 12;
 }
 
+/** La note voisine dans la gamme : `de` degrés plus haut, ou plus bas. C'est par elle qu'une basse rejoint l'accord suivant. */
+function voisine(gamme: readonly number[], midi: number, de: number): number {
+  let t = midi;
+  for (let reste = Math.abs(de); reste > 0; ) {
+    t += Math.sign(de);
+    if (gamme.includes(classe(t))) reste--;
+  }
+  return t;
+}
+
 /** La basse qui alterne : la quinte de l'accord, ou sa fondamentale quand il est renversé. */
 function alterne(a: Accord, plancher: number): number {
   return grave(a.basse !== a.tons[0] ? a.tons[0]! : (a.tons[2] ?? a.tons[1] ?? a.tons[0]!), plancher);
@@ -143,12 +153,12 @@ const VILLE_AIRS: Record<string, readonly string[]> = {
 const VILLE_FORME = ["A", "A2", "B", "A3", "A", "C", "B", "A2", "C", "A2", "B", "A3"];
 
 const VILLE: Theme = {
-  tempo: 104, pas: 8, division: 2, souple: 0.005, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.5,
+  tempo: 104, pas: 8, division: 2, souple: 0.005, gamme: BLANCHES, phrase: 8, volume: 1.16, salle: 0.5,
   pistes: {
     lame: { timbre: LAME, vol: 1, pan: 0.12, salle: 0.5 },
-    basse: { timbre: BASSE, vol: 0.85, filtre: ["lowpass", 800] },
-    uku: { timbre: PINCE, vol: 0.38, filtre: ["lowpass", 3200], pan: -0.3, salle: 0.3 },
-    shaker: { timbre: SHAKER, vol: 0.22, filtre: ["bandpass", 6200, 1.2], pan: 0.35 },
+    basse: { timbre: BASSE, vol: 0.58, filtre: ["lowpass", 800] },
+    uku: { timbre: PINCE, vol: 0.66, filtre: ["lowpass", 3200], pan: -0.3, salle: 0.3 },
+    shaker: { timbre: SHAKER, vol: 0.88, filtre: ["bandpass", 6200, 1.2], pan: 0.35 },
   },
   airs: Object.values(VILLE_AIRS),
   mesure(n, p) {
@@ -165,7 +175,7 @@ const VILLE: Theme = {
     p.n("basse", 0, b1, 3, 1);
     if (vif) p.n("basse", 3, b1, 1, 0.55);
     p.n("basse", 4, a2 !== a1 ? grave(a2.basse, 43) : alterne(a1, 43), vif ? 2 : 3, 0.85);
-    if (vif && k < 7 && sort(n) < 0.5) p.n("basse", 7, grave(harmonie(accords[k + 1]!)[0].basse, 43) - (sort(n + 1) < 0.5 ? 2 : -2), 1, 0.5);
+    if (vif && k < 7 && sort(n) < 0.5) p.n("basse", 7, voisine(BLANCHES, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n + 1) < 0.5 ? -1 : 1), 1, 0.5);
 
     // Le ukulélé : les contretemps, un aller et un retour. Dans le pont, il égrène l'accord.
     const v1 = plaque(a1, 64, 3);
@@ -233,13 +243,13 @@ const KIOSQUE_AIRS: Record<string, readonly string[]> = {
 const KIOSQUE_FORME = ["A", "A2", "B", "B2", "C", "A2", "A", "B", "A2", "C", "B2", "A2"];
 
 const KIOSQUE: Theme = {
-  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1, salle: 0.4,
+  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.5,
   pistes: {
-    mandoline: { timbre: PINCE, vol: 0.95, filtre: ["lowpass", 3600], pan: 0.15, salle: 0.45 },
+    mandoline: { timbre: PINCE, vol: 1, filtre: ["lowpass", 3600], pan: 0.15, salle: 0.45 },
     sifflet: { timbre: FLUTE, vol: 0.5, pan: -0.2, salle: 0.6 },
-    basse: { timbre: CONTREBASSE, vol: 0.95, filtre: ["lowpass", 900] },
-    pompe: { timbre: PINCE, vol: 0.36, filtre: ["lowpass", 2600], pan: -0.3, salle: 0.3 },
-    tambourin: { timbre: SHAKER, vol: 0.2, filtre: ["bandpass", 5200, 1], pan: 0.3 },
+    basse: { timbre: CONTREBASSE, vol: 0.6, filtre: ["lowpass", 900] },
+    pompe: { timbre: PINCE, vol: 0.44, filtre: ["lowpass", 2600], pan: -0.3, salle: 0.3 },
+    tambourin: { timbre: SHAKER, vol: 0.95, filtre: ["bandpass", 5200, 1], pan: 0.3 },
   },
   airs: Object.values(KIOSQUE_AIRS),
   mesure(n, p) {
@@ -317,30 +327,37 @@ const CAFE_AIRS: Record<string, readonly string[]> = {
 const CAFE_FORME = ["A", "A2", "B", "A2", "A", "C", "B", "A2"];
 
 const CAFE: Theme = {
-  tempo: 168, pas: 6, division: 2, souple: 0.005, gamme: UN_BEMOL, phrase: 16, volume: 1, salle: 0.35,
+  tempo: 168, pas: 6, division: 2, souple: 0.005, gamme: UN_BEMOL, phrase: 16, volume: 1, salle: 0.45,
   pistes: {
     accordeon: { timbre: ACCORDEON, vol: 0.6, filtre: ["lowpass", 2600], pan: 0.1, salle: 0.4 },
-    second: { timbre: CLAVIER, vol: 0.34, filtre: ["lowpass", 1800], pan: 0.3, salle: 0.4 },
-    basse: { timbre: CONTREBASSE, vol: 1, filtre: ["lowpass", 900] },
-    pompe: { timbre: PINCE, vol: 0.4, filtre: ["lowpass", 2400], pan: -0.3, salle: 0.25 },
+    second: { timbre: CLAVIER, vol: 0.42, filtre: ["lowpass", 1800], pan: 0.3, salle: 0.4 },
+    basse: { timbre: CONTREBASSE, vol: 0.9, filtre: ["lowpass", 900] },
+    pompe: { timbre: PINCE, vol: 0.63, filtre: ["lowpass", 2400], pan: -0.3, salle: 0.25 },
   },
   airs: Object.values(CAFE_AIRS),
   mesure(n, p) {
-    const section = CAFE_FORME[Math.floor(n / 16) % CAFE_FORME.length]!;
+    const phrase = Math.floor(n / 16);
+    const section = CAFE_FORME[phrase % CAFE_FORME.length]!;
     const k = n % 16;
     const accords = CAFE_ACCORDS[section[0]!]!;
     const a = accord(accords[k]!);
 
     // « Poum, tchac, tchac » : la basse alterne fondamentale et quinte tant que l'accord dure.
     const redite = k > 0 && accords[k - 1] === accords[k];
-    p.n("basse", 0, redite ? alterne(a, 41) : grave(a.basse, 41), 1.8, 1);
     const v = plaque(a, 57, 3);
     plaquer(p, "pompe", 2, v, 0.8, 0.8, 0.05);
     plaquer(p, "pompe", 4, v, 0.8, 0.7, 0.05);
-    // La dernière mesure d'une phrase : la basse remonte vers la suivante.
     if (k % 8 === 7) {
-      p.n("basse", 2, grave(a.tons[1]!, 41), 1.6, 0.6);
-      p.n("basse", 4, grave(a.tons[2] ?? a.tons[0]!, 41), 1.6, 0.7);
+      // La dernière mesure d'une phrase : la basse marche, de degré en degré, vers l'accord qui suit.
+      const suivants = k === 15 ? CAFE_ACCORDS[CAFE_FORME[(phrase + 1) % CAFE_FORME.length]![0]!]! : accords;
+      const b0 = grave(a.basse, 41);
+      const but = grave(accord(suivants[(k + 1) % 16]!).basse, 41);
+      const sens = b0 < but ? -1 : 1;
+      p.n("basse", 0, b0, 1.8, 1);
+      p.n("basse", 2, voisine(UN_BEMOL, but, 2 * sens), 1.8, 0.75);
+      p.n("basse", 4, voisine(UN_BEMOL, but, sens), 1.8, 0.8);
+    } else {
+      p.n("basse", 0, redite ? alterne(a, 41) : grave(a.basse, 41), 1.8, 1);
     }
 
     const air = CAFE_AIRS[section]![k]!;
@@ -379,13 +396,13 @@ const CASINO_POMPES: readonly (readonly (readonly [number, number])[])[] = [
 const CASINO_FORME = ["tete", "tete", "chorus", "tete", "chorus", "chorus"];
 
 const CASINO: Theme = {
-  tempo: 132, pas: 12, division: 3, souple: 0.006, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.4,
+  tempo: 132, pas: 12, division: 3, souple: 0.006, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.6,
   pistes: {
     vibra: { timbre: VIBRA, vol: 0.9, pan: 0.15, salle: 0.5 },
-    basse: { timbre: CONTREBASSE, vol: 1, filtre: ["lowpass", 1000] },
-    piano: { timbre: RHODES, vol: 0.3, filtre: ["lowpass", 2400], pan: -0.3, salle: 0.35 },
-    ride: { timbre: RIDE, vol: 0.13, filtre: ["highpass", 6000], pan: 0.3, salle: 0.2 },
-    charley: { timbre: CHARLEY, vol: 0.16, filtre: ["highpass", 7500], pan: -0.2 },
+    basse: { timbre: CONTREBASSE, vol: 0.78, filtre: ["lowpass", 1000] },
+    piano: { timbre: RHODES, vol: 0.39, filtre: ["lowpass", 2400], pan: -0.3, salle: 0.35 },
+    ride: { timbre: RIDE, vol: 0.44, filtre: ["highpass", 6000], pan: 0.3, salle: 0.2 },
+    charley: { timbre: CHARLEY, vol: 0.69, filtre: ["highpass", 7500], pan: -0.2 },
   },
   airs: Object.values(CASINO_AIRS),
   mesure(n, p) {
@@ -402,15 +419,13 @@ const CASINO: Theme = {
     const cible = rang(gamme, grave(suivant.basse, 43));
     const pasDeux = a2 !== a1 ? rang(gamme, grave(a2.basse, 43)) : racine + (p.alea() < 0.5 ? 2 : 1) * (p.alea() < 0.3 ? -1 : 1);
     const pasTrois = a2 !== a1 ? pasDeux : racine + (pasDeux > racine ? 4 : -3);
-    const marche = [
-      racine,
-      a2 !== a1 ? racine + 4 : pasDeux,
-      a2 !== a1 ? pasDeux : pasTrois,
-      cible + (pasTrois >= cible ? 1 : -1),
-    ];
+    // La note d'approche vient du côté où se trouve la basse ; jamais la même note deux fois de suite.
+    let approche = cible + (pasTrois >= cible ? 1 : -1);
+    if (approche === pasTrois) approche = cible + (pasTrois >= cible ? -1 : 1);
+    const marche = [racine, a2 !== a1 ? racine + 4 : pasDeux, a2 !== a1 ? pasDeux : pasTrois, approche];
     marche.forEach((i, temps) => {
       const t = gamme[Math.max(0, Math.min(gamme.length - 1, i))]!;
-      p.n("basse", temps * 3, t, 2.7, temps === 0 ? 1 : 0.85);
+      p.n("basse", temps * 3, t, 2.5, temps === 0 ? 1 : 0.85);
       // Une note fantôme sur la levée, de temps en temps : c'est elle qui fait avancer.
       if (temps > 0 && p.alea() < 0.2) p.n("basse", temps * 3 + 2, t, 0.8, 0.4);
     });
@@ -420,12 +435,17 @@ const CASINO: Theme = {
 
     // Le piano ponctue : jamais deux mesures pareilles.
     const pompe = CASINO_POMPES[Math.floor(p.alea() * CASINO_POMPES.length)]!;
+    const annonce = p.m.annonce === 1;
+    p.m.annonce = 0;
     for (const [pas, duree] of pompe) {
+      // L'accord annoncé à la fin de la mesure précédente sonne encore : on ne le rejoue pas.
+      if (annonce && pas < 3) continue;
+      if (pas === 11) p.m.annonce = 1;
       plaquer(p, "piano", pas, plaque(pas === 11 ? suivant : pas < 6 ? a1 : a2, 60, 3), duree, pas === 11 ? 0.7 : 0.9);
     }
 
     if (section === "tete") {
-      chante(p, "vibra", CASINO_AIRS.tete![k]!, 1, 0, 0.8);
+      chante(p, "vibra", CASINO_AIRS.tete![k]!, 1, 0, 0.5);
     } else {
       // Le chorus : le vibraphone improvise, par phrases de quatre mesures.
       const notes = echelle([9, 0, 2, 4, 7], 69, 88);
@@ -434,7 +454,7 @@ const CASINO: Theme = {
         densite: k % 4 === 0 ? 0.5 : 0.75, cadence: k % 4 === 3,
       });
       p.m.solo = solo.fin;
-      for (const [pas, t, duree, appui] of solo.notes) p.n("vibra", pas, t, duree + 0.8, appui * 0.85);
+      for (const [pas, t, duree, appui] of solo.notes) p.n("vibra", pas, t, duree + 0.5, appui * 0.85);
     }
   },
 };
@@ -463,14 +483,14 @@ const SALON_AIRS: Record<string, readonly string[]> = {
 const SALON_FORME = ["A", "A-", "B", "A", "B-", "A-"];
 
 const SALON: Theme = {
-  tempo: 84, pas: 8, division: 2, souple: 0.007, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.6,
+  tempo: 84, pas: 8, division: 2, souple: 0.007, gamme: BLANCHES, phrase: 8, volume: 1.05, salle: 0.8,
   pistes: {
     flute: { timbre: FLUTE, vol: 0.62, pan: 0.15, salle: 0.6 },
-    vibra: { timbre: VIBRA, vol: 0.55, pan: 0.25, salle: 0.6 },
+    vibra: { timbre: VIBRA, vol: 1, pan: 0.25, salle: 0.6 },
     piano: { timbre: RHODES, vol: 0.34, filtre: ["lowpass", 2000], pan: -0.25, salle: 0.4 },
-    basse: { timbre: BASSE, vol: 0.9, filtre: ["lowpass", 700] },
-    shaker: { timbre: SHAKER, vol: 0.14, filtre: ["bandpass", 5600, 1.2], pan: 0.35 },
-    bois: { timbre: TAPE, vol: 0.12, filtre: ["bandpass", 1900, 2.5], pan: -0.35, salle: 0.3 },
+    basse: { timbre: BASSE, vol: 0.54, filtre: ["lowpass", 700] },
+    shaker: { timbre: SHAKER, vol: 0.78, filtre: ["bandpass", 5600, 1.2], pan: 0.35 },
+    bois: { timbre: TAPE, vol: 1.2, filtre: ["bandpass", 1900, 1.6], pan: -0.35, salle: 0.3 },
   },
   airs: Object.values(SALON_AIRS),
   mesure(n, p) {
@@ -487,9 +507,9 @@ const SALON: Theme = {
     p.n("basse", 7, alterne(a2, 43), 0.9, 0.55);
 
     // Le piano électrique : trois accords par mesure, sur le rythme 3 + 3 + 2.
-    plaquer(p, "piano", 0, plaque(a1, 62, 3), 2.6, 0.9, 0.04);
-    plaquer(p, "piano", 3, plaque(a1, 62, 3), 2.6, 0.7, 0.04);
-    plaquer(p, "piano", 6, plaque(a2, 62, 3), 1.8, 0.8, 0.04);
+    plaquer(p, "piano", 0, plaque(a1, 62, 3), 2.2, 0.9, 0.04);
+    plaquer(p, "piano", 3, plaque(a1, 62, 3), 2.2, 0.7, 0.04);
+    plaquer(p, "piano", 6, plaque(a2, 62, 3), 1.3, 0.8, 0.04);
 
     frappe(p, "shaker", "o-x-o-x-", 1, 0.5);
     // La clave, sur deux mesures.
@@ -504,7 +524,7 @@ const SALON: Theme = {
         densite: k % 2 === 0 ? 0.55 : 0.3, cadence: k % 4 === 3,
       });
       p.m.vibra = reponse.fin;
-      for (const [pas, t, duree, appui] of reponse.notes) p.n("vibra", pas, t, duree + 1, appui * 0.85);
+      for (const [pas, t, duree, appui] of reponse.notes) p.n("vibra", pas, t, duree + 0.6, appui * 0.85);
     }
   },
 };
@@ -532,10 +552,10 @@ const CERCLE_FORME: readonly (readonly [string, number])[] = [
 ];
 
 const CERCLE: Theme = {
-  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1, salle: 0.7,
+  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.36, salle: 1.2,
   pistes: {
-    clavecin: { timbre: CLAVECIN, vol: 0.5, filtre: ["lowpass", 4200], pan: 0.15, salle: 0.5 },
-    viole: { timbre: VIOLE, vol: 0.62, filtre: ["lowpass", 1100], pan: -0.1, salle: 0.3 },
+    clavecin: { timbre: CLAVECIN, vol: 1, filtre: ["lowpass", 4200], pan: 0.15, salle: 0.5 },
+    viole: { timbre: VIOLE, vol: 0.42, filtre: ["lowpass", 1100], pan: -0.1, salle: 0.3 },
     orgue: { timbre: FLUTE, vol: 0.42, pan: -0.25, salle: 0.7 },
   },
   airs: Object.values(CERCLE_AIRS),
@@ -551,16 +571,17 @@ const CERCLE: Theme = {
     const [a1, a2] = harmonie((variation === "majeur" ? CERCLE_MAJEUR : CERCLE_SOL)[k]!);
 
     // La basse de viole : une note par mesure, tenue.
-    p.n("viole", 0, grave(a1.basse, 45), 11.6, 1);
+    const basse = grave(a1.basse, 45);
+    p.n("viole", 0, basse, 11, 1);
     const v1 = plaque(a1, 62, 3);
     const v2 = plaque(a2, 62, 3);
     const main = (pas: number) => (pas < 6 ? v1 : v2);
 
     if (variation === "expose") {
       // L'accord arpégé sur le premier temps, repris sur le deuxième, une note sur le troisième.
-      plaquer(p, "clavecin", 0, [grave(a1.basse, 50), ...v1], 3.6, 0.9, 0.24);
+      plaquer(p, "clavecin", 0, [basse, ...v1], 3.6, 0.9, 0.24);
       plaquer(p, "clavecin", 4, [v1[1]!, v1[2]!], 3, 0.6);
-      p.n("clavecin", 8, v2[2]!, 2, 0.7);
+      p.n("clavecin", 8, v2[2]!, 3.5, 0.7);
       p.n("clavecin", 10, v2[1]!, 2, 0.6);
     } else if (variation === "doubles") {
       // Les doubles croches : la gamme monte de l'accord, et redescend.
@@ -568,30 +589,32 @@ const CERCLE: Theme = {
       const pied = rang(gamme, v1[k % 2]!);
       for (let i = 0; i < 12; i++) {
         const marche = k % 2 === 0 ? (i < 6 ? i : 12 - i) : (i < 6 ? 7 - i : i - 5);
-        p.n("clavecin", i, gamme[Math.min(gamme.length - 1, pied + marche)]!, 1.3, i % 4 === 0 ? 0.7 : 0.5);
+        p.n("clavecin", i, gamme[Math.min(gamme.length - 1, pied + marche)]!, 1.8, i % 4 === 0 ? 0.7 : 0.5);
       }
-      plaquer(p, "clavecin", 0, [grave(a1.basse, 50), grave(a1.tons[2] ?? a1.tons[1]!, 53)], 5, 0.6);
-      plaquer(p, "clavecin", 6, [grave(a2.basse, 50), grave(a2.tons[2] ?? a2.tons[1]!, 53)], 5, 0.5);
+      // La main gauche : la basse et sa quinte, deux fois par mesure.
+      plaquer(p, "clavecin", 0, [basse, grave(a1.tons[2] ?? a1.tons[1]!, basse + 1)], 5, 0.6);
+      plaquer(p, "clavecin", 6, [grave(a2.basse, 45), grave(a2.tons[2] ?? a2.tons[1]!, grave(a2.basse, 45) + 1)], 5, 0.5);
     } else if (variation === "pointe") {
       // Le rythme pointé d'une ouverture à la française.
       for (const [pas, duree] of [[0, 2.8], [4, 2.8], [8, 3.8]] as const) plaquer(p, "clavecin", pas, main(pas), duree, 0.8, 0.12);
       p.n("clavecin", 3, v1[2]!, 0.9, 0.55);
       p.n("clavecin", 7, v2[2]!, 0.9, 0.55);
-      p.n("clavecin", 0, grave(a1.basse, 50), 5, 0.7);
+      p.n("clavecin", 0, basse, 5, 0.7);
     } else {
       // Les croches : l'accord brisé, sous le chant quand il y en a un.
       const doux = variation === "croches" ? 1 : 0.62;
       for (let i = 0; i < 6; i++) {
         const v = main(i * 2);
         const t = [v[0]!, v[1]!, v[2]!, v[1]!, v[0]! + 12, v[1]!][(i + (tour % 2) * (k % 2)) % 6]!;
-        p.n("clavecin", i * 2, t, 2.2, (i === 0 ? 0.85 : 0.6) * doux);
+        // Les cordes sonnent l'une sur l'autre, comme sous les sautereaux d'un vrai clavecin.
+        p.n("clavecin", i * 2, t, variation === "majeur" ? 2.6 : 3.6, (i === 0 ? 0.85 : 0.6) * doux);
       }
-      p.n("clavecin", 0, grave(a1.basse, 50), 4, 0.6 * doux);
+      p.n("clavecin", 0, basse, 4, 0.6 * doux);
       const air = CERCLE_AIRS[variation];
       if (air) {
         chante(p, variation === "majeur" ? "clavecin" : "orgue", air[k]!, variation === "majeur" ? 0.95 : 1);
         // Dans l'éclaircie en fa majeur, l'orgue tient l'accord.
-        if (variation === "majeur") plaquer(p, "orgue", 0, plaque(a1, 57, 2), 11.5, 0.55);
+        if (variation === "majeur") plaquer(p, "orgue", 0, plaque(a1, 57, 2), 11, 0.55);
       }
     }
   },
@@ -621,14 +644,14 @@ const YACHT_AIRS: Record<string, readonly string[]> = {
 const YACHT_FORME = ["A-", "A", "B", "A", "A-", "B", "A", "A-"];
 
 const YACHT: Theme = {
-  tempo: 96, pas: 16, division: 4, balance: 0.12, souple: 0.004, gamme: UN_DIESE, phrase: 8, volume: 1, salle: 0.45,
+  tempo: 96, pas: 16, division: 4, balance: 0.12, souple: 0.004, gamme: UN_DIESE, phrase: 8, volume: 1, salle: 0.7,
   pistes: {
     clavier: { timbre: CLAVIER, vol: 0.55, filtre: ["lowpass", 2200], pan: 0.15, salle: 0.6 },
-    piano: { timbre: RHODES, vol: 0.33, filtre: ["lowpass", 2200], pan: -0.25, salle: 0.4 },
-    basse: { timbre: BASSE, vol: 0.9, filtre: ["lowpass", 650] },
-    pied: { timbre: PIED, vol: 0.9 },
-    clap: { timbre: TAPE, vol: 0.2, filtre: ["bandpass", 1700, 1.4], pan: 0.1, salle: 0.3 },
-    charley: { timbre: CHARLEY, vol: 0.12, filtre: ["highpass", 7500], pan: 0.3 },
+    piano: { timbre: RHODES, vol: 0.43, filtre: ["lowpass", 2200], pan: -0.25, salle: 0.4 },
+    basse: { timbre: BASSE, vol: 0.65, filtre: ["lowpass", 650] },
+    pied: { timbre: PIED, vol: 1 },
+    clap: { timbre: TAPE, vol: 1.3, filtre: ["bandpass", 1700, 0.8], pan: 0.1, salle: 0.3 },
+    charley: { timbre: CHARLEY, vol: 0.48, filtre: ["highpass", 7500], pan: 0.3 },
   },
   airs: Object.values(YACHT_AIRS),
   mesure(n, p) {
@@ -649,7 +672,7 @@ const YACHT: Theme = {
     if (p.alea() < 0.85) p.n("basse", 6, b + 12, 1.2, 0.7);
     p.n("basse", 10, b, 1.8, 0.9);
     p.n("basse", 12, alterne(a, 40), 1.8, 0.7);
-    p.n("basse", 14, grave(suivant.basse, 40) + (p.alea() < 0.5 ? -2 : 2 + (suivant.tons[1]! - suivant.tons[0]! + 12) % 12 - 2), 1.6, 0.6);
+    p.n("basse", 14, voisine(UN_DIESE, grave(suivant.basse, 40), p.alea() < 0.5 ? -1 : 1), 1.6, 0.6);
 
     // Le piano électrique : l'accord posé, puis une ponctuation.
     const v = plaque(a, 59, 3);
@@ -687,13 +710,13 @@ const BANQUE_ROUAGES: readonly (readonly number[])[] = [[0, 1, 2, 3, 2, 1], [0, 
 const BANQUE_CLOCHES = [ton("a5"), ton("c6"), ton("d6"), ton("e6")];
 
 const BANQUE: Theme = {
-  tempo: 120, pas: 8, division: 2, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.6,
+  tempo: 120, pas: 8, division: 2, gamme: BLANCHES, phrase: 8, volume: 1.6, salle: 1,
   pistes: {
     rouage: { timbre: LAME, vol: 0.55, pan: 0.2, salle: 0.45 },
-    carillon: { timbre: VERRE, vol: 0.5, pan: -0.25, salle: 0.8 },
+    carillon: { timbre: VERRE, vol: 0.6, pan: -0.25, salle: 0.8 },
     pendule: { timbre: VIBRA, vol: 0.85, filtre: ["lowpass", 900], salle: 0.3 },
-    tic: { timbre: TIC, vol: 0.2, pan: -0.15, salle: 0.25 },
-    tac: { timbre: TIC, vol: 0.17, pan: 0.15, salle: 0.25 },
+    tic: { timbre: TIC, vol: 0.9, pan: -0.15, salle: 0.25 },
+    tac: { timbre: TIC, vol: 0.77, pan: 0.15, salle: 0.25 },
   },
   airs: [],
   mesure(n, p) {
@@ -715,7 +738,7 @@ const BANQUE: Theme = {
     // Le rouage : des croches sur l'accord. Il se tait deux mesures sur huit, et l'horloge reste seule.
     const rouage = BANQUE_ROUAGES[phrase % BANQUE_ROUAGES.length]!;
     if (n % 8 < 6) {
-      const notes = echelle(a.tons, 64, 86);
+      const notes = echelle(a.tons.slice(0, 3), 64, 86);
       for (let i = 0; i < 8; i++) {
         const cran = rouage[(n * 8 + i) % rouage.length]!;
         p.n("rouage", i, notes[Math.min(notes.length - 1, cran)]!, 1.5, i === 0 ? 0.9 : i % 2 ? 0.5 : 0.65);
@@ -752,9 +775,9 @@ const LUNE_LEVER = ["f4", "c5", "g5", "d6"];
 const LUNE: Theme = {
   tempo: 54, pas: 8, division: 2, souple: 0.02, gamme: BLANCHES, phrase: 4, volume: 1, salle: 1,
   pistes: {
-    nappe: { timbre: NAPPE, vol: 0.34, filtre: ["lowpass", 1500], salle: 0.5 },
-    verre: { timbre: VERRE, vol: 0.5, pan: 0.2, salle: 0.9 },
-    etoile: { timbre: LAME, vol: 0.2, pan: -0.4, salle: 1 },
+    nappe: { timbre: NAPPE, vol: 0.185, filtre: ["lowpass", 1500], salle: 0.5 },
+    verre: { timbre: VERRE, vol: 0.89, pan: 0.2, salle: 0.9 },
+    etoile: { timbre: LAME, vol: 0.9, pan: -0.4, salle: 1 },
   },
   airs: [],
   mesure(n, p) {
@@ -804,13 +827,13 @@ const POKER_AIRS: Record<string, readonly string[]> = {
 const POKER_FORME = ["tete", "chorus", "tete", "chorus", "chorus"];
 
 const POKER: Theme = {
-  tempo: 60, pas: 12, division: 3, souple: 0.008, gamme: UN_BEMOL, phrase: 12, volume: 1, salle: 0.6,
+  tempo: 60, pas: 12, division: 3, souple: 0.008, gamme: UN_BEMOL, phrase: 12, volume: 1.3, salle: 0.6,
   pistes: {
     guitare: { timbre: GUITARE, vol: 0.85, filtre: ["lowpass", 2600], pan: 0.15, salle: 0.6 },
-    piano: { timbre: RHODES, vol: 0.3, filtre: ["lowpass", 1900], pan: -0.3, salle: 0.4 },
-    basse: { timbre: CONTREBASSE, vol: 1, filtre: ["lowpass", 900] },
-    balai: { timbre: BALAI, vol: 0.1, filtre: ["bandpass", 3200, 0.6], pan: 0.2, salle: 0.3 },
-    tape: { timbre: TAPE, vol: 0.14, filtre: ["bandpass", 2300, 0.9], pan: -0.1, salle: 0.3 },
+    piano: { timbre: RHODES, vol: 0.43, filtre: ["lowpass", 1900], pan: -0.3, salle: 0.4 },
+    basse: { timbre: CONTREBASSE, vol: 0.9, filtre: ["lowpass", 900] },
+    balai: { timbre: BALAI, vol: 0.53, filtre: ["bandpass", 3200, 0.6], pan: 0.2, salle: 0.3 },
+    tape: { timbre: TAPE, vol: 1.3, filtre: ["bandpass", 2300, 0.7], pan: -0.1, salle: 0.3 },
   },
   airs: Object.values(POKER_AIRS),
   mesure(n, p) {
@@ -828,9 +851,10 @@ const POKER: Theme = {
     const gamme = echelle(UN_BEMOL, 38, 62);
     const racine = rang(gamme, grave(a.basse, 43));
     const cible = rang(gamme, grave(suivant.basse, 43));
-    const marche = k % 4 === 3
-      ? [racine, racine + 2, racine + 4, cible + (racine + 4 >= cible ? 1 : -1)]
-      : [racine, racine, racine + (p.alea() < 0.5 ? 4 : 2), cible + (racine + 2 >= cible ? 1 : -1)];
+    const troisieme = racine + (k % 4 === 3 || p.alea() < 0.5 ? 4 : 2);
+    let approche = cible + (troisieme >= cible ? 1 : -1);
+    if (approche === troisieme) approche = cible + (troisieme >= cible ? -1 : 1);
+    const marche = [racine, k % 4 === 3 ? racine + 2 : racine, troisieme, approche];
     marche.forEach((i, temps) => {
       const t = gamme[Math.max(0, Math.min(gamme.length - 1, i))]!;
       if (temps === 1 && k % 4 !== 3) p.n("basse", 5, t, 0.9, 0.45);
@@ -839,9 +863,10 @@ const POKER: Theme = {
 
     // Le piano électrique : sur les temps faibles, deux et quatre.
     const v = plaque(a, 62, 3);
+    const annonce = p.alea() < 0.25;
     plaquer(p, "piano", 3, v, 2, 0.8, 0.05);
-    plaquer(p, "piano", 9, v, 2, 0.7, 0.05);
-    if (p.alea() < 0.25) plaquer(p, "piano", 11, plaque(suivant, 62, 3), 1.6, 0.5);
+    plaquer(p, "piano", 9, v, annonce ? 1.2 : 2, 0.7, 0.05);
+    if (annonce) plaquer(p, "piano", 11, plaque(suivant, 62, 3), 0.8, 0.5);
 
     if (section === "tete") {
       // La première note de chaque phrase est tirée par en dessous : la corde qu'on tend.

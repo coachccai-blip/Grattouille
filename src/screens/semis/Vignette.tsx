@@ -12,6 +12,7 @@ import { formatInt } from "../../../shared/format";
 import { ticketById } from "../../../shared/tickets";
 import { skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
+import { t } from "../../app/suite/mots";
 import {
   ditLaFoule, ditLeNouveauVenu, foule, nouvellesDe, paliersFranchis, type NouveauVenu, type Nouvelles,
 } from "../../app/suite/semis";
@@ -19,7 +20,6 @@ import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
 import { playCoin, playPickUp, playStamp } from "../../fx/audio";
-import { t } from "../../i18n";
 import { placeName } from "../../i18n/noms";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";

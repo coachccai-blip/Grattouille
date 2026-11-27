@@ -497,6 +497,9 @@
 /* Couché : la main s'efface. */
 .poker-main--couchee { opacity: .4; }
 
+/* La donne d'un jeu doré : tant que ses cartes sont de dos, la combinaison ne se dit pas (sa place est gardée). */
+.poker-main--dos ~ .poker-moi__infos .poker-moi__combi { visibility: hidden; }
+
 /* La carte glissée : une petite étoile bougainvillier dans le coin, que le joueur est seul à voir. */
 .poker-carte--glissee::after {
   content: "";
@@ -978,6 +981,52 @@
   --feutre-fonce: #3E1531;
 }
 
+/* Les quatre maîtres s'assoient aux quatre coins du tapis, et tout le milieu est au pot : la
+   blinde, sa prochaine hausse et le compte des maîtres encore assis y tiennent sans se serrer,
+   même sur un écran étroit. La parole tourne toujours de gauche à droite, par le haut. */
+.poker-table--maitres .poker-tapis--cotes {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__haut,
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__milieu { display: contents; }
+
+.poker-table--maitres .poker-tapis--cotes .poker-siege { width: 88px; }
+
+/* Les huit hôtes ont des noms connus, et le plus long (« The Commodore ») a tout juste la
+   largeur d'un siège : il s'écrit d'un seul tenant, jamais coupé, sur toutes les tailles d'écran. */
+.poker-table--maitres .poker-tapis--cotes .poker-siege__nom {
+  display: block;
+  max-width: none;
+  overflow: visible;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  word-break: normal;
+}
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__haut > .poker-siege:first-child { grid-area: 1 / 1; }
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__haut > .poker-siege:last-child { grid-area: 1 / 3; }
+
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__milieu > .poker-siege:first-child {
+  grid-area: 2 / 1;
+  align-self: end;
+}
+
+.poker-table--maitres .poker-tapis--cotes .poker-tapis__milieu > .poker-siege:last-child {
+  grid-area: 2 / 3;
+  align-self: end;
+}
+
+/* Le pot, au milieu du feutre (qui commence sous les têtes d'en haut). Posé au-dessus du
+   feutre, comme les sièges : les deux rangées qui le portaient n'ont plus de boîte. */
+.poker-table--maitres .poker-tapis--cotes .poker-pot {
+  position: relative;
+  grid-area: 1 / 2 / 3 / 3;
+  align-self: center;
+  margin-top: 22px;
+}
+
 /* Le tirage : les quatre maîtres que le sort a désignés, chacun avec son mot en s'asseyant.
    Il prend la place du tapis le temps de la première triche, dans le même cadre. */
 .poker-presentation {
@@ -1076,6 +1125,15 @@
   white-space: nowrap;
   animation: poker-fete-grossit 1400ms var(--rebond) both;
 }
+
+/* Les milliers se détachent : à cette taille, l'espace fine de l'Abril Fatface ne se voit pas.
+   (Chaque groupe de chiffres garde l'écriture du montant, pas celle du mot posé au-dessus.) */
+.poker-fete__somme strong span {
+  color: inherit;
+  font: inherit;
+}
+
+.poker-fete__somme strong .poker-fete__mille { margin-left: .14em; }
 
 @keyframes poker-fete-grossit {
   0% { transform: scale(.6); }
@@ -1181,6 +1239,21 @@
   .poker-actions .bouton { min-height: 48px; }
   .poker-mise { min-height: 44px; }
 
+  /* Le tirage de la Table des Maîtres se serre aussi : quatre maîtres, deux lignes chacun, sans défiler. */
+  .poker-presentation {
+    gap: 4px;
+    padding: 6px 6px 4px;
+  }
+
+  .poker-presentation__maitres { gap: 4px; }
+
+  .poker-presentation__maitre {
+    min-height: 46px;
+    padding: 3px 8px;
+  }
+
+  .poker-presentation__maitre p { line-height: 16px; }
+
   /* À l'abattage, les rangées se serrent : quatre mains et leurs verdicts tiennent sans défiler. */
   .poker-abattage {
     gap: 4px;
@@ -1224,4 +1297,24 @@
     padding: 4px 10px;
     font-size: 13px;
   }
+
+  /* Des sommes à rallonge sur un écran étroit : la plus large qui soit (« 444,44 Md€ ») tient
+     encore tout entière dans sa mise, d'un corps un peu plus petit et de marges plus fines. */
+  .poker-mises--longues .poker-mise {
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+
+  .poker-mises--longues .poker-mise__somme { font-size: 14px; }
+
+  /* À la Table des Maîtres, toutes les sommes sont à rallonge : le pot tient entre les sièges
+     des côtés, le tapis et la mise du joueur laissent sa place au nom de sa combinaison, et
+     « Suivre : 444,44 Bn€ » reste sur une ligne. */
+  .poker-table--maitres .poker-tapis--cotes .poker-pot__somme {
+    padding: 4px 10px;
+    font-size: 15px;
+  }
+
+  .poker-table--maitres .poker-moi__chiffre { font-size: 14px; }
+  .poker-table--maitres .poker-actions__rang--parole .bouton--principal { font-size: 15px; }
 }

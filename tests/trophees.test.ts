@@ -12,10 +12,7 @@ import { MEDAL_COUNT, TROPHIES, medalId, medalsOf, type TrophyId } from "../shar
 import type { PlayerState } from "../shared/types";
 import { DEFAULT_SETTINGS, loadSettings } from "../src/app/persist";
 import { useGame } from "../src/app/store";
-import {
-  GROUPE_AU_DELA, annonceSuivante, annoncer, finAnnonce, gagneesEntre, marquerVues, medaillesNouvelles, oublierAnnonces,
-  peutAnnoncer, useAnnonces, vuesDe,
-} from "../src/app/trophees";
+import { gagneesEntre, medaillesNouvelles, oublierAnnonces, useAnnonces, vuesDe } from "../src/app/trophees";
 import { i18nMisses, setLang, t, type Lang } from "../src/i18n";
 import { EN_BOUTIQUES } from "../src/i18n/en/boutiques";
 import { EN_JEU } from "../src/i18n/en/jeu";
@@ -24,6 +21,9 @@ import { EN_RECIT } from "../src/i18n/en/recit";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
 import { EN_TROPHEES } from "../src/i18n/en/trophees";
 import { gradeDe } from "../src/screens/trophees/art";
+import {
+  GROUPE_AU_DELA, annonceSuivante, annoncer, finAnnonce, marquerVues, peutAnnoncer, remettreAnnonce,
+} from "../src/screens/trophees/file";
 import {
   SECRET, TEXTES, compteDe, ecrire, ficheDe, lireMedaille, nomFamille, nomMedaille, phraseFamille, phraseMedaille, voileDe,
 } from "../src/screens/trophees/textes";
@@ -49,6 +49,7 @@ function neuf(id = "p_0000000000000000"): PlayerState {
     stats: { tickets: 0, winners: 0, wagered: 0, won: 0, bestGain: 0, bestTicket: null, jackpots: 0, sown: 0, sownValue: 0 },
     createdAt: 0, luckyIn: 0, defis: [], masters: 0, story: { fin: false, vraieFin: false },
     pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
   };
 }
 
@@ -523,6 +524,24 @@ describe("la file des annonces", () => {
     expect(aLEcran()).toEqual(["tickets:2", "gain:1", "gain:2", "gain:3"]);
   });
 
+  it("une annonce interrompue par un grand moment repasse après, en tête de file", () => {
+    let player = neuf();
+    useGame.setState({ player });
+    player = devient(player, (p) => { p.stats.tickets = 100; });
+    expect(annoncer(true)).toBe(true);
+    expect(aLEcran()).toEqual(["tickets:1"]);
+    remettreAnnonce();
+    expect(aLEcran()).toBeNull();
+    expect(file()).toEqual(["tickets:1", "tickets:2"]);
+    expect(annoncer(false)).toBe(false);
+    expect(annoncer(true)).toBe(true);
+    expect(aLEcran()).toEqual(["tickets:1"]);
+    // Sans annonce à l'écran, rien à remettre.
+    finAnnonce();
+    remettreAnnonce();
+    expect([aLEcran(), file()]).toEqual([null, ["tickets:2"]]);
+  });
+
   it("rien pendant un grand moment : l'annonce attend que le rideau se lève", () => {
     expect(peutAnnoncer(LIBRE)).toBe(true);
     expect(peutAnnoncer({ ...LIBRE, welcome: true })).toBe(false);
@@ -665,19 +684,21 @@ describe("le poids : la vitrine n'est chargée qu'à la demande", () => {
     [...source.matchAll(/^import\s+(?!type\b)[^;]*?from\s+"([^"]+)";/gm)].map((m) => m[1]!);
 
   /** Ce qui n'arrive qu'avec la vitrine : les dessins, les noms, l'écran, le carton de l'annonce. */
-  const LOURD = /\/(art|textes|Trophees|Annonce|index)$|screens\/trophees$/;
+  const LOURD = /\/(art|textes|file|Trophees|Annonces?|index)$|screens\/trophees$/;
 
   it("ce qui reste au démarrage n'importe ni les dessins ni les noms", () => {
     for (const file of ["src/app/trophees.ts", "src/screens/trophees/Entree.tsx", "src/screens/trophees/Crieur.tsx"]) {
       expect([file, imports(lire(file)).filter((module) => LOURD.test(module))]).toEqual([file, []]);
     }
-    // Le crieur va chercher le carton de l'annonce quand il en a besoin, pas avant.
+    // Le crieur va chercher de quoi annoncer quand il en a besoin, pas avant.
     expect(lire("src/screens/trophees/Crieur.tsx")).toMatch(/import\("\.\/index"\)/);
+    // Et il ne pèse presque rien : quelques lignes, sans dessin ni minuterie.
+    expect(lire("src/screens/trophees/Crieur.tsx").replace(/^\s*\/\/.*$/gm, "").length).toBeLessThan(1200);
   });
 
   it("la coquille et le Domaine ne montent que le crieur, l'entrée, et l'écran à la demande", () => {
     const app = lire("src/App.tsx");
-    expect(app).toMatch(/lazy\(\(\) => import\("\.\/screens\/trophees"\)/);
+    expect(app).toMatch(/lazy\(\(\) => (?:ouAbsent\()?import\("\.\/screens\/trophees"\)/);
     expect(imports(app).filter((module) => module.includes("trophees"))).toEqual(["./screens/trophees/Crieur"]);
     const domaine = lire("src/screens/domaine/Domaine.tsx");
     expect(imports(domaine).filter((module) => module.includes("trophees"))).toEqual(["../trophees/Entree"]);

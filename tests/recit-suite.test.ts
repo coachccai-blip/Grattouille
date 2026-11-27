@@ -6,13 +6,13 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CATALOG } from "../shared/catalog";
 import { formatInt } from "../shared/format";
 import { PLACES } from "../shared/places";
 import { SPECIES } from "../shared/rules";
 import { TICKETS, ticketsOfPlace } from "../shared/tickets";
-import type { PlaceId } from "../shared/types";
+import type { PlaceId, PlayerState } from "../shared/types";
 import { PIOU, TEXTES, legendGreeting, legendLine } from "../src/app/dialogues";
 import {
   PALIERS, TEXTES_SEMIS, ditLaFoule, ditLeNouveauVenu, foule, nouveauVenu, nouvellesDe, paliersAtteints,
@@ -132,6 +132,12 @@ describe("les nouveaux venus : qui trouve le ticket semé", () => {
       expect([premier, new Set(dix.map((v) => v.espece)).size >= 5]).toEqual([premier, true]);
     }
     expect(foule(4, 5).map((v) => v.rang)).toEqual([4, 5, 6, 7, 8]);
+    // Quarante tickets de suite : quarante prénoms différents. Et quand un prénom revient, c'est un autre animal.
+    for (const premier of [1, 2, 9, 77, 500]) {
+      expect([premier, new Set(foule(premier, 40).map((v) => v.prenom)).size]).toEqual([premier, 40]);
+      expect([premier, nouveauVenu(premier).prenom, nouveauVenu(premier + 40).prenom]).toEqual([premier, nouveauVenu(premier).prenom, nouveauVenu(premier).prenom]);
+      expect([premier, nouveauVenu(premier).espece === nouveauVenu(premier + 40).espece]).toEqual([premier, false]);
+    }
     const cent = RANGS.slice(0, 100).map(nouveauVenu);
     expect(new Set(cent.map((v) => v.espece)).size).toBe(SPECIES.length);
     expect(new Set(cent.map((v) => v.prenom)).size).toBe(TEXTES_SEMIS.prenoms.length);
@@ -614,6 +620,187 @@ describe("le mot de chaque maître des lieux à la Légende", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Le magasin d'état : quand la vraie fin se lève, ce qu'un souvenir ne fait pas, ce qu'un
+// ticket semé change. Chaque test repart d'un magasin neuf, branché sur une fausse API.
+
+/** Un Patron qui possède tout : `plus` règle ce qui change d'un test à l'autre. */
+function patron(plus: Partial<PlayerState> = {}): PlayerState {
+  return {
+    id: "p_test", pseudo: "Zabeth", species: "renard", balance: 1_000, pending: [], owned: CATALOG.map((item) => item.id),
+    look: { chapeau: null, lunettes: null, tenue: null, accessoire: null, vehicule: null, residence: null },
+    kiosk: true, standing: 80_000, fortune: 1_000,
+    stats: { tickets: 12, winners: 5, wagered: 100, won: 300, bestGain: 50, bestTicket: "tirelire", jackpots: 0, sown: 0, sownValue: 0 },
+    createdAt: 0, luckyIn: 60_000, defis: PLACES.map((p) => p.id), masters: 0, story: { fin: true, vraieFin: false },
+    pokerStats: { hands: 0, pots: 0, unmasked: 0, caught: 0 },
+    hostWins: { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 },
+    ...plus,
+  };
+}
+
+/** Un magasin neuf, sa fausse API, et un joueur dedans. */
+async function magasin(player: PlayerState) {
+  vi.resetModules();
+  // Le magasin programme ses messages avec les minuteurs de la fenêtre : ici, ceux de Node.
+  vi.stubGlobal("window", { setTimeout, clearTimeout, location: { search: "" } });
+  const store = await import("../src/app/store");
+  const { api, ApiFailure } = await import("../src/app/api");
+  store.useGame.setState({ phase: "jeu", sandbox: true, online: true, auth: { playerId: player.id, code: "CODE" }, player, toast: null });
+  const vue = vi.spyOn(api, "storySeen");
+  const seme = vi.spyOn(api, "sowTickets");
+  vi.spyOn(api, "me").mockRejectedValue(new ApiFailure("NETWORK"));
+  return { ...store, ApiFailure, vue, seme, etat: () => store.useGame.getState() };
+}
+
+describe("le magasin d'état : la vraie fin, les souvenirs, les tickets semés", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("la vraie fin se mérite : le Kiosque et les huit défis, et elle ne se doit qu'une fois", async () => {
+    const m = await magasin(patron());
+    expect(m.trueEndingDue(m.etat())).toBe(true);
+    expect(m.trueEndingDue({ player: patron({ kiosk: false }) })).toBe(false);
+    expect(m.trueEndingDue({ player: patron({ defis: PLACES.slice(0, 7).map((p) => p.id) }) })).toBe(false);
+    expect(m.trueEndingDue({ player: patron({ story: { fin: true, vraieFin: true } }) })).toBe(false);
+    expect(m.trueEndingDue({ player: null })).toBe(false);
+    // Semer, c'est l'affaire du Patron, avec ou sans défis.
+    expect(m.canSow(m.etat())).toBe(true);
+    expect(m.canSow({ player: patron({ kiosk: false }) })).toBe(false);
+    expect(m.canSow({ player: null })).toBe(false);
+  });
+
+  it("elle se lève quand elle est due, couvre le jeu, et se referme une fois le serveur prévenu", async () => {
+    const m = await magasin(patron());
+    m.vue.mockImplementation(async () => ({ state: patron({ story: { fin: true, vraieFin: true } }) }));
+    expect(m.isCovered(m.etat())).toBe(false);
+    m.openTrueEnding();
+    expect([m.etat().trueEnding, m.etat().replay, m.isCovered(m.etat())]).toEqual([true, false, true]);
+    // La rouvrir pendant qu'elle se joue ne change rien.
+    m.openTrueEnding();
+    expect(m.vue).not.toHaveBeenCalled();
+    // La cinématique prévient le serveur à la toute fin, puis rend la main.
+    expect(await m.markTrueEndingSeen()).toBe(true);
+    m.closeTrueEnding();
+    expect([m.etat().trueEnding, m.isCovered(m.etat()), m.etat().player?.story.vraieFin]).toEqual([false, false, true]);
+    expect(m.vue).toHaveBeenCalledTimes(1);
+    // Elle n'est plus due : revenir sur le Domaine ne la relance pas.
+    m.openTrueEnding();
+    expect(m.etat().trueEnding).toBe(false);
+    expect(m.vue).toHaveBeenCalledTimes(1);
+  });
+
+  it("qui ne l'a pas méritée ne la voit pas", async () => {
+    for (const player of [patron({ kiosk: false }), patron({ defis: [] }), patron({ story: { fin: true, vraieFin: true } })]) {
+      const m = await magasin(player);
+      m.openTrueEnding();
+      expect(m.etat().trueEnding).toBe(false);
+      expect(m.vue).not.toHaveBeenCalled();
+    }
+  });
+
+  it("sans réseau à la fin : elle ne recommence pas à chaque passage, on redit seulement au serveur qu'elle a été vue", async () => {
+    const m = await magasin(patron());
+    m.vue.mockRejectedValue(new m.ApiFailure("NETWORK"));
+    m.openTrueEnding();
+    expect(await m.markTrueEndingSeen()).toBe(false);
+    m.closeTrueEnding();
+    // Toujours due, mais déjà vue jusqu'au bout depuis le lancement : pas de seconde séance.
+    expect([m.etat().trueEnding, m.trueEndingDue(m.etat())]).toEqual([false, true]);
+    m.openTrueEnding();
+    expect(m.etat().trueEnding).toBe(false);
+    expect(m.vue).toHaveBeenCalledTimes(2);
+    // Le réseau revient : au passage suivant, le serveur l'apprend, et le joueur devient Légende.
+    m.vue.mockImplementation(async () => ({ state: patron({ story: { fin: true, vraieFin: true } }) }));
+    m.openTrueEnding();
+    await vi.waitFor(() => expect(m.etat().player?.story.vraieFin).toBe(true));
+    expect(m.etat().trueEnding).toBe(false);
+  });
+
+  it("son morceau du jeu n'est pas arrivé : elle se referme sans être comptée comme vue, et se relèvera", async () => {
+    const m = await magasin(patron());
+    m.openTrueEnding();
+    m.closeTrueEnding(false);
+    expect(m.etat().trueEnding).toBe(false);
+    m.openTrueEnding();
+    expect(m.etat().trueEnding).toBe(true);
+    expect(m.vue).not.toHaveBeenCalled();
+  });
+
+  it("un souvenir ne dit rien au serveur, et ne compte pas pour une vraie séance", async () => {
+    const m = await magasin(patron());
+    // Le premier générique, revu : il couvre le jeu, puis se referme.
+    m.replayMemory("fin");
+    expect([m.etat().ending, m.etat().replay, m.etat().trueEnding, m.isCovered(m.etat())]).toEqual([true, true, false, true]);
+    m.closeMemory();
+    expect([m.etat().ending, m.etat().replay, m.isCovered(m.etat())]).toEqual([false, false, false]);
+    // La vraie fin, revue.
+    m.replayMemory("vraie-fin");
+    expect([m.etat().trueEnding, m.etat().replay, m.etat().ending]).toEqual([true, true, false]);
+    m.closeTrueEnding();
+    expect([m.etat().trueEnding, m.etat().replay]).toEqual([false, false]);
+    expect(m.vue).not.toHaveBeenCalled();
+    expect(m.seme).not.toHaveBeenCalled();
+    // Ce compte la doit encore pour de bon : le souvenir ne l'en a pas privé.
+    m.openTrueEnding();
+    expect([m.etat().trueEnding, m.etat().replay]).toEqual([true, false]);
+  });
+
+  it("le premier générique, lui, reste ce qu'il était : closeEnding le referme", async () => {
+    const m = await magasin(patron());
+    m.useGame.setState({ ending: true });
+    expect(m.isCovered(m.etat())).toBe(true);
+    m.closeEnding();
+    expect([m.etat().ending, m.etat().replay]).toEqual([false, false]);
+  });
+
+  it("semer : la bourse baisse, le compteur monte, et rien d'autre ne bouge", async () => {
+    const m = await magasin(patron());
+    m.seme.mockImplementation(async (_auth, _type, qty) => ({
+      state: patron({ balance: 1_000 - qty * 10, stats: { ...patron().stats, sown: qty, sownValue: qty * 10 } }),
+    }));
+    expect(m.sowBlocker("lucarne", 5)).toBeNull();
+    expect(await m.sowTickets("lucarne", 5)).toBe(true);
+    expect(m.seme).toHaveBeenCalledWith({ playerId: "p_test", code: "CODE" }, "lucarne", 5, []);
+    const { player } = m.etat();
+    expect([player?.balance, player?.stats.sown, player?.stats.sownValue, player?.stats.tickets, player?.pending.length]).toEqual([950, 5, 50, 12, 0]);
+    expect(m.etat().toast).toBeNull();
+  });
+
+  it("le geste du générique est silencieux : bourse vide, pas un mot, pas un appel", async () => {
+    const m = await magasin(patron({ balance: 0 }));
+    expect(await m.sowTickets("tirelire", 1, true)).toBe(false);
+    expect(m.seme).not.toHaveBeenCalled();
+    expect([m.etat().toast, m.etat().purseFlash]).toEqual([null, 0]);
+    // Au comptoir, le même refus se dit : il manque de quoi, et la bourse clignote.
+    expect(await m.sowTickets("tirelire", 1)).toBe(false);
+    expect(m.etat().toast?.kind).toBe("erreur");
+    expect(m.etat().toast?.text).toMatch(/^Il te manque 1.€ pour semer ça\.$/);
+    expect(m.etat().purseFlash).toBe(1);
+    expect(m.seme).not.toHaveBeenCalled();
+  });
+
+  it("le geste du générique reste silencieux quand le serveur refuse ou ne répond pas", async () => {
+    for (const code of ["NETWORK", "TOO_FAST", "INSUFFICIENT_FUNDS"] as const) {
+      const m = await magasin(patron());
+      m.seme.mockRejectedValue(new m.ApiFailure(code));
+      expect(await m.sowTickets("tirelire", 1, true)).toBe(false);
+      expect([code, m.etat().toast, m.etat().purseFlash]).toEqual([code, null, 0]);
+    }
+  });
+
+  it("qui n'est pas Patron ne sème pas : le refus est dit, et rien ne part", async () => {
+    const m = await magasin(patron({ kiosk: false }));
+    expect(m.sowBlocker("tirelire", 1)).toBe("Seul le Patron du Kiosque laisse tomber des tickets pour les nouveaux venus.");
+    expect(await m.sowTickets("tirelire", 1)).toBe(false);
+    expect(m.seme).not.toHaveBeenCalled();
+    // Hors connexion non plus.
+    m.useGame.setState({ player: patron(), online: false });
+    expect(m.sowBlocker("tirelire", 1)).toBe("Hors connexion. Les tickets à semer attendront.");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Les écrans neufs et retouchés, et leur dictionnaire anglais.
 
 const lire = (chemin: string) => readFileSync(fileURLToPath(new URL(`../${chemin}`, import.meta.url)), "utf8");
@@ -679,8 +866,10 @@ describe("les écrans de la suite et leur dictionnaire anglais", () => {
 
   it("les modules de la suite ne pèsent pas sur le démarrage : ils se chargent à la demande", () => {
     const app = lire("src/App.tsx");
-    expect(app).toMatch(/lazy\(\(\) => import\("\.\/screens\/moments\/VraieFin"\)\)/);
-    expect(app).toMatch(/lazy\(\(\) => import\("\.\/screens\/semis"\)\)/);
+    expect(app).toMatch(/lazy\(\(\) => \w*\(?import\("\.\/screens\/moments\/VraieFin"\)\)?\)/);
+    expect(app).toMatch(/lazy\(\(\) => \w*\(?import\("\.\/screens\/semis"\)\)?\)/);
+    expect(lire("src/screens/comptoir/FicheTicket.tsx")).toMatch(/lazy\([^;]*import\("\.\.\/semis"\)/s);
+    expect(lire("src/screens/domaine/Domaine.tsx")).toMatch(/lazy\([^;]*import\("\.\/Cloche"\)/s);
     // Ni la coquille ni les écrans du démarrage n'importent les textes de la suite autrement que par là.
     const demarrage = [
       "src/App.tsx", "src/app/store.ts", "src/app/dialogues.ts", "src/app/nav.ts", "src/screens/moments/Moments.tsx",

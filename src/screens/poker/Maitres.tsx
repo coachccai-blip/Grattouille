@@ -5,6 +5,7 @@
 // Quittée, on repart avec son tapis, sans la victoire.
 
 import { useEffect, useRef, type CSSProperties } from "react";
+import { THIN, formatEuros } from "../../../shared/format";
 import type { SeatView, TableView } from "../../../shared/poker/types";
 import { isCalm, useGame } from "../../app/store";
 import { playTier } from "../../fx/audio";
@@ -13,7 +14,7 @@ import { Fx } from "../../fx/particles";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
-import { Bourse, Compteur } from "../../ui/Bourse";
+import { Bourse, useCompte } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
 import { neighbours } from "./calcul";
 import { Tete } from "./parts";
@@ -42,8 +43,8 @@ function Mot({ bot, moment }: { bot: string | null; moment: "assis" | "victoire"
 export function Presentation({ view }: { view: TableView }) {
   const masters = mastersOf(view);
   return (
-    <section className="poker-abattage poker-presentation" aria-label={t("Les maîtres de ce soir")}>
-      <h2 className="poker-presentation__titre">{t("Tes adversaires, tirés au sort")}</h2>
+    <section className="poker-abattage poker-presentation" aria-labelledby="poker-presentation-titre">
+      <h2 id="poker-presentation-titre" className="poker-presentation__titre">{t("Tes adversaires, tirés au sort")}</h2>
       <ul className="poker-presentation__maitres">
         {masters.map((seat, i) => {
           const who = identityOf(seat);
@@ -84,6 +85,21 @@ function hostOfTheTable(masters: readonly SeatView[]): SeatView | null {
 /** Le montant de la victoire défile en autant de millisecondes, pendant la fanfare. */
 const ROLL_MS = 2_200;
 
+/**
+ * Le montant remporté, en grand : il défile de zéro à sa valeur, et les pièces tintent. Ses
+ * milliers se détachent d'un petit blanc (l'espace fine ne se voit pas dans un titre de cette taille).
+ */
+function Somme({ valeur, ms }: { valeur: number; ms: number }) {
+  const shown = useCompte(valeur, ms, true, { depart: 0 });
+  return (
+    <>
+      {formatEuros(shown).split(THIN).map((group, i) => (
+        <span key={i} className={i > 0 ? "poker-fete__mille" : undefined}>{group}</span>
+      ))}
+    </>
+  );
+}
+
 export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) {
   const calm = useGame(isCalm);
   const won = reason === "maitres-gagne";
@@ -121,7 +137,7 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
           <p className="poker-sortie__cagnotte poker-fete__somme">
             <span aria-hidden="true">{ending.somme}</span>
             <strong className="t-gain chiffres" aria-hidden="true">
-              <Compteur valeur={payout} ms={calm ? 0 : ROLL_MS} sonne depart={0} />
+              <Somme valeur={payout} ms={calm ? 0 : ROLL_MS} />
             </strong>
             {/* La phrase entière, dite une fois : le montant qui défile ne se lit pas chiffre à chiffre. */}
             <span className="invisible" role="status">{ending.texte}</span>

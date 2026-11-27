@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent }
 import { formatEuros, formatInt } from "../../../shared/format";
 import { formatCode, pseudoKey } from "../../../shared/rules";
 import { ticketById } from "../../../shared/tickets";
-import { deleteAccount, failureText, patchSettings, toast, useGame } from "../../app/store";
+import { deleteAccount, failureText, patchSettings, replayMemory, toast, useGame } from "../../app/store";
 import { Icon } from "../../art/icons";
 import { playClick, playRefuse } from "../../fx/audio";
 import { hapticsAvailable } from "../../fx/haptics";
@@ -147,6 +147,12 @@ export function Reglages() {
       <div className="rubrique reglages__confort">
         <Interrupteur icon={settings.son ? "son" : "son-coupe"} label={t("Son")} checked={settings.son} onChange={(son) => patchSettings({ son })} />
         <Interrupteur
+          icon={settings.musique ? "son" : "son-coupe"}
+          label={t("Musique")}
+          checked={settings.musique}
+          onChange={(musique) => patchSettings({ musique })}
+        />
+        <Interrupteur
           icon="vibration"
           label={t("Vibrations")}
           aide={hapticsAvailable() ? undefined : t("Ce navigateur ne sait pas faire vibrer le téléphone.")}
@@ -209,6 +215,24 @@ export function Reglages() {
           <div><dt>{t("Jackpots")}</dt><dd className="chiffres">{formatInt(player.stats.jackpots)}</dd></div>
         </dl>
       </section>
+
+      {/* Les fins déjà vues se revoient : un souvenir ne dit rien au serveur, et ne sème rien. */}
+      {player.story.fin && (
+        <section className="rubrique" aria-labelledby="reglages-souvenirs">
+          <h2 className="rubrique__titre" id="reglages-souvenirs">{t("Souvenirs")}</h2>
+          <p>{t("Les fins de l'histoire que tu as vues. Les revoir ne change rien à ton compte.")}</p>
+          <Bouton variante="secondaire" onClick={() => replayMemory("fin")} aria-label={t("Revoir : {titre}", { titre: t("Le Kiosque est à toi") })}>
+            {t("Le Kiosque est à toi")}
+          </Bouton>
+          {player.story.vraieFin ? (
+            <Bouton variante="secondaire" onClick={() => replayMemory("vraie-fin")} aria-label={t("Revoir : {titre}", { titre: t("Huit as de cœur") })}>
+              {t("Huit as de cœur")}
+            </Bouton>
+          ) : (
+            <p className="note">{t("Il paraît que l'histoire a une autre fin.")}</p>
+          )}
+        </section>
+      )}
 
       <section className="rubrique" aria-labelledby="reglages-apropos">
         <h2 className="rubrique__titre" id="reglages-apropos">{t("À propos")}</h2>

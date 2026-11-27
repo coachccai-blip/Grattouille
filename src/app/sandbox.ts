@@ -17,6 +17,8 @@
 //   &semes=40      N tickets déjà semés (d'une valeur de 100 € pièce)
 //   &joues=1600    N tickets déjà joués ; &record=2000000 : son plus gros gain sur un ticket
 //   &jackpots=5    N jackpots ; &demasques=10 : N tricheurs démasqués au poker
+//   &victoires=3   N victoires au poker contre chacun des huit hôtes (3 : leurs histoires sont ouvertes)
+//   &victoires=3&hotes=2   … contre les deux premiers hôtes seulement
 
 import { handle, type Deps } from "../../server/app";
 import { cryptoRandom32 } from "../../server/auth";
@@ -61,7 +63,7 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
   const suite = {
     kiosque: whole("kiosque") > 0, defis: whole("defis"), maitres: whole("maitres"), vraieFin: whole("vraiefin") > 0,
     semes: whole("semes"), joues: whole("joues"), record: whole("record"), jackpots: whole("jackpots"),
-    demasques: whole("demasques"),
+    demasques: whole("demasques"), victoires: whole("victoires"), hotes: whole("hotes"),
   };
   const wantsSuite = Object.values(suite).some((value) => value !== false && value !== 0);
   const cheap = [...CATALOG].sort((a, b) => a.price - b.price);
@@ -103,6 +105,10 @@ export function createSandboxTransport(params: URLSearchParams): Transport {
           }
           if (suite.jackpots > 0) p.stats.jackpots = suite.jackpots;
           if (suite.demasques > 0) p.pokerStats = { ...p.pokerStats, unmasked: suite.demasques };
+          if (suite.victoires > 0) {
+            const beaten = PLACES.slice(0, suite.hotes > 0 ? suite.hotes : PLACES.length);
+            p.hostWins = Object.fromEntries(beaten.map((place) => [place.id, suite.victoires]));
+          }
         });
         created.state = toState(storage.peek(created.playerId)!);
       }

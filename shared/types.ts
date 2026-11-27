@@ -95,6 +95,12 @@ export interface PlayerState {      // ce que le client reçoit
   defis: PlaceId[];
   /** Combien de fois la Table des Maîtres a été remportée. */
   masters: number;
+  /**
+   * Les victoires au poker contre l'hôte de chaque lieu : un défi gagné, ou une Table des
+   * Maîtres remportée où il était assis. Trois victoires (`HOST_STORY_WINS`) ouvrent son
+   * histoire dans les Souvenirs.
+   */
+  hostWins: Record<PlaceId, number>;
   story: StoryState;
   pokerStats: PokerStats;
 }

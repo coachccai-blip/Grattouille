@@ -27,21 +27,61 @@ function Calot() {
   );
 }
 
+/**
+ * Piou lui-même, dans le repère de son médaillon (120 × 120). `nu` : il a ôté son calot,
+ * et le tient à bout d'aile. Dessous, trois plumes en épi que personne n'avait jamais
+ * vues ; ses sourcils se posent : il raconte.
+ */
+function Moineau({ nu }: { nu: boolean }) {
+  const plume = shade(C.bois, -0.12);
+  const sombre = shade(plume, -0.22);
+  return (
+    <>
+      {/* Les ailes : elles battent d'ordinaire ; tête nue, l'une est au repos, l'autre lève le calot */}
+      {nu ? (
+        <path d="M30 106Q14 100 14 82Q20 86 23 92Q25 86 29 85Q30 94 36 100ZM90 104Q112 96 110 66Q104 70 101 78Q99 70 94 68Q92 80 84 92Z" fill={sombre} />
+      ) : (
+        <path d="M30 104Q8 96 10 66Q16 70 19 78Q21 70 26 68Q28 80 36 92ZM90 104Q112 96 110 66Q104 70 101 78Q99 70 94 68Q92 80 84 92Z" fill={sombre} />
+      )}
+      {/* Veste de groom à boutons de laiton */}
+      <path d="M22 122V110Q22 92 42 92H78Q98 92 98 110V122Z" fill={C.cerise} />
+      <path d="M78 92Q98 92 98 110V122H86V96Z" fill={shade(C.cerise, -0.25)} />
+      <path d={semis(2.6, [[52, 105], [68, 105], [54, 115], [66, 115]])} fill={METAL.laiton} />
+      <g transform={nu ? undefined : "rotate(5 60 86)"}>
+        {/* Tête nue : trois plumes en épi */}
+        {nu && <path d="M57 27Q52 14 57 7Q61 16 60 27ZM61 27Q62 12 69 9Q68 19 64 28ZM55 28Q46 20 46 13Q53 18 58 27Z" fill={sombre} />}
+        {/* Tête ronde : calotte brune jusqu'aux yeux, joues crème tachées */}
+        <ellipse cx="60" cy="54" rx="32" ry="30" fill={plume} />
+        <path d="M31.5 58Q33 53 41 53H79Q87 53 88.5 58Q88 80 60 82.5Q32 80 31.5 58Z" fill={C.creme} />
+        <path d={semis(2.3, [[39.5, 69], [80.5, 69]])} fill={shade(plume, -0.3)} />
+        {/* Petit bec conique, en deux tons */}
+        <path d="M55.5 63.5L60 70.5L64.5 63.5Z" fill={shade(C.mimosaFonce, -0.3)} />
+        <path d="M53 59.5Q60 54.5 67 59.5L60 65Z" fill={C.mimosaFonce} />
+        <circle cx="46" cy="60" r="2.8" fill={C.nuit} />
+        <circle cx="74" cy="60" r="2.8" fill={C.nuit} />
+        {/* Les sourcils : haut perchés d'ordinaire, posés quand il raconte */}
+        {nu ? (
+          <path d="M39 51.5Q46 47.5 53 48.5L52.6 51.2Q46 50.4 40.2 54ZM81 51.5Q74 47.5 67 48.5L67.4 51.2Q74 50.4 79.8 54Z" fill={C.creme} />
+        ) : (
+          <path d="M39 48Q46 41.5 53 45.5L52.2 48.5Q46 45 40.8 50.6ZM81 48Q74 41.5 67 45.5L67.8 48.5Q74 45 79.2 50.6Z" fill={C.creme} />
+        )}
+        {!nu && <g transform="rotate(-14 60 30)"><Calot /></g>}
+      </g>
+      {/* Col officier */}
+      <path d="M44 83.5Q60 89.5 76 83.5V90.5Q60 97 44 90.5Z" fill={METAL.laiton} />
+      {/* Le calot, levé à bout d'aile : sur le ciel, on ne voit que lui */}
+      {nu && <g transform="translate(53 31) rotate(20 60 23)"><Calot /></g>}
+    </>
+  );
+}
+
 interface PiouProps extends ArtProps {
-  /** Où est son calot : sur sa tête, comme toujours, ou dans son aile, contre le cœur. */
+  /** Où est son calot : sur sa tête, comme toujours, ou levé à bout d'aile. */
   calot: "tete" | "aile";
 }
 
-/**
- * Piou, en grand, sur le quai du premier matin. C'est le moineau du médaillon (pnj.tsx),
- * redessiné ici pour qu'on puisse lui ôter son calot : dessous, trois plumes en épi, que
- * personne n'avait jamais vues. Tête nue, il ne bat plus des ailes et ses sourcils se
- * posent : il raconte.
- */
+/** Piou, en grand, sur le quai du premier matin : le moineau du médaillon (pnj.tsx), à qui l'on peut ôter son calot. */
 export function PiouConteur({ calot, className, title }: PiouProps) {
-  const plume = shade(C.bois, -0.12);
-  const sombre = shade(plume, -0.22);
-  const nu = calot === "aile";
   return (
     <Svg viewBox="0 0 400 260" className={className} title={title}>
       {/* La mer et le quai, comme au premier jour */}
@@ -53,50 +93,18 @@ export function PiouConteur({ calot, className, title }: PiouProps) {
       <path d="M52 150V112L78 150Z" fill={C.blanc} />
       <path d="M48 150V122L32 150Z" fill={C.craie} />
       <path d="M26 152H86L79 162H33Z" fill={C.cerise} />
-      <path d="M318 44Q326 34 334 44Q342 34 350 44Q342 40 334 48Q326 40 318 44ZM268 74Q274 66 280 74Q286 66 292 74Q286 71 280 77Q274 71 268 74Z" fill={C.blanc} />
-      {/* Piou : le médaillon agrandi, sans son fond */}
-      <g transform="translate(95 50) scale(1.75)">
-        {/* Les ailes : elles battent quand il porte son calot ; tête nue, l'une est au repos, l'autre tient le calot */}
-        {nu ? (
-          <path d="M30 106Q14 100 14 82Q20 86 23 92Q25 86 29 85Q30 94 36 100Z" fill={sombre} />
-        ) : (
-          <path d="M30 104Q8 96 10 66Q16 70 19 78Q21 70 26 68Q28 80 36 92ZM90 104Q112 96 110 66Q104 70 101 78Q99 70 94 68Q92 80 84 92Z" fill={sombre} />
-        )}
-        {/* Veste de groom à boutons de laiton */}
-        <path d="M22 122V110Q22 92 42 92H78Q98 92 98 110V122Z" fill={C.cerise} />
-        <path d="M78 92Q98 92 98 110V122H86V96Z" fill={shade(C.cerise, -0.25)} />
-        <path d={semis(2.6, nu ? [[52, 105], [54, 115]] : [[52, 105], [68, 105], [54, 115], [66, 115]])} fill={METAL.laiton} />
-        <g transform={nu ? undefined : "rotate(5 60 86)"}>
-          {/* Tête nue : trois plumes en épi */}
-          {nu && <path d="M57 27Q52 14 57 7Q61 16 60 27ZM61 27Q62 12 69 9Q68 19 64 28ZM55 28Q46 20 46 13Q53 18 58 27Z" fill={sombre} />}
-          {/* Tête ronde : calotte brune jusqu'aux yeux, joues crème tachées */}
-          <ellipse cx="60" cy="54" rx="32" ry="30" fill={plume} />
-          <path d="M31.5 58Q33 53 41 53H79Q87 53 88.5 58Q88 80 60 82.5Q32 80 31.5 58Z" fill={C.creme} />
-          <path d={semis(2.3, [[39.5, 69], [80.5, 69]])} fill={shade(plume, -0.3)} />
-          {/* Petit bec conique, en deux tons */}
-          <path d="M55.5 63.5L60 70.5L64.5 63.5Z" fill={shade(C.mimosaFonce, -0.3)} />
-          <path d="M53 59.5Q60 54.5 67 59.5L60 65Z" fill={C.mimosaFonce} />
-          <circle cx="46" cy="60" r="2.8" fill={C.nuit} />
-          <circle cx="74" cy="60" r="2.8" fill={C.nuit} />
-          {/* Les sourcils : haut perchés d'ordinaire, posés quand il raconte */}
-          {nu ? (
-            <path d="M39 51.5Q46 47.5 53 48.5L52.6 51.2Q46 50.4 40.2 54ZM81 51.5Q74 47.5 67 48.5L67.4 51.2Q74 50.4 79.8 54Z" fill={C.creme} />
-          ) : (
-            <path d="M39 48Q46 41.5 53 45.5L52.2 48.5Q46 45 40.8 50.6ZM81 48Q74 41.5 67 45.5L67.8 48.5Q74 45 79.2 50.6Z" fill={C.creme} />
-          )}
-          {!nu && <g transform="rotate(-14 60 30)"><Calot /></g>}
-        </g>
-        {/* Col officier */}
-        <path d="M44 83.5Q60 89.5 76 83.5V90.5Q60 97 44 90.5Z" fill={METAL.laiton} />
-        {/* Le calot, contre le cœur, et l'aile qui le tient */}
-        {nu && (
-          <>
-            <g transform="translate(13 82) rotate(8 60 22)"><Calot /></g>
-            <path d="M98 100Q104 116 92 122H78Q84 110 84 98Q92 94 98 100Z" fill={sombre} />
-            <path d="M84 98Q78 104 71 104L72 109Q80 110 86 105Z" fill={plume} />
-          </>
-        )}
-      </g>
+      <path d="M338 40Q346 30 354 40Q362 30 370 40Q362 36 354 44Q346 36 338 40Z" fill={C.blanc} />
+      <g transform="translate(95 50) scale(1.75)"><Moineau nu={calot === "aile"} /></g>
+    </Svg>
+  );
+}
+
+/** Le médaillon de Piou tête nue, pour ses bulles tant qu'il raconte : le même dessin, sur son fond mimosa. */
+export function PiouTeteNue({ className, title }: ArtProps) {
+  return (
+    <Svg viewBox="0 0 120 120" className={className} title={title}>
+      <rect width="120" height="120" fill={C.mimosa} />
+      <Moineau nu />
     </Svg>
   );
 }

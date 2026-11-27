@@ -309,7 +309,6 @@ export const EN_POKER: Record<string, string> = {
 
   // --- À la table
   "Table des Maîtres": "Masters' Table",
-  "Les maîtres de ce soir": "Tonight's masters",
   "Tes adversaires, tirés au sort": "Your opponents, drawn by lot",
   "éliminé": "knocked out",
   "{nom} : éliminé": "{nom}: knocked out",

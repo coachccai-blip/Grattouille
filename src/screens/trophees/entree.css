@@ -1,11 +1,15 @@
-/* L'entrée des trophées sur le Domaine : une plaque de laiton, et sa pastille. */
+/* L'entrée des trophées sur le Domaine : une plaque de laiton et, dessous, sa pastille. */
 
 .entree-trophees {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
   /* La plaque fait 32 px de haut ; la cible, 44. */
   min-height: 44px;
+  /* À droite du ciel : une autre entrée se range à gauche, et le milieu reste à l'avatar. */
+  margin-left: auto;
+  padding-top: 6px;
 }
 
 .entree-trophees__plaque {
@@ -22,6 +26,34 @@
   transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear;
 }
 
+/* La médaille de la plaque : un disque frappé d'une étoile, pendu à son ruban. */
+.entree-trophees__medaille {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--nuit);
+  color: #E6C472;
+  font-size: 10px;
+}
+
+.entree-trophees__medaille::before {
+  content: "";
+  position: absolute;
+  bottom: 13px;
+  left: 3px;
+  width: 10px;
+  height: 9px;
+  background: var(--bougainvillier-fonce);
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+}
+
+.entree-trophees__medaille .etoile { margin: 0; }
+
 .entree-trophees:active .entree-trophees__plaque {
   box-shadow: 0 1px 0 rgba(14, 47, 58, .5);
   transform: translateY(2px);
@@ -29,7 +61,9 @@
 
 /* « 3 nouvelles » : des médailles pas encore regardées. */
 .entree-trophees__pastille {
+  position: relative;
   height: 22px;
+  margin-top: 2px;
   padding: 0 9px;
   border-radius: 99px;
   background: var(--bougainvillier-fonce);

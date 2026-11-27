@@ -12,12 +12,13 @@ import { useEffect, useState } from "react";
 import { MEDAL_COUNT, TROPHIES, medalsOf, type TrophyFamily } from "../../../shared/trophies";
 import type { PlayerState } from "../../../shared/types";
 import { useGame } from "../../app/store";
-import { marquerVues, medaillesNouvelles, oublierAnnonces, useVues } from "../../app/trophees";
+import { medaillesNouvelles, oublierAnnonces, useVues } from "../../app/trophees";
 import { Icon } from "../../art/icons";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Barre, Entete } from "../../ui/Commun";
 import { Medaille, Objet } from "./art";
+import { marquerVues } from "./file";
 import { compteDe, ecrire, ficheDe } from "./textes";
 import "./trophees.css";
 
@@ -91,11 +92,14 @@ function Vitrine({ famille, player, neuves }: VitrineProps) {
 
       {ouverte && progres.total > 1 && (
         progres.next === null ? (
-          // Tous les paliers sont atteints : le compte continue, pour le plaisir.
-          <p className="trophee__compte trophee__compte--plein">
-            <Icon name="coche" size={18} />
-            <span className="chiffres">{compteDe(famille, progres.value)}</span>
-          </p>
+          // Tous les paliers sont atteints : là où le compte continue, il se dit, pour le plaisir.
+          // (Arrêté pile au dernier palier, le cartel de la dernière médaille l'a déjà dit.)
+          progres.value > famille.tiers[famille.tiers.length - 1]! && (
+            <p className="trophee__compte trophee__compte--plein">
+              <Icon name="coche" size={18} />
+              <span className="chiffres">{compteDe(famille, progres.value)}</span>
+            </p>
+          )
         ) : (
           <div className="trophee__progres">
             <Barre value={progres.value} max={progres.next} />

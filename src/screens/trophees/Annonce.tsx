@@ -1,34 +1,56 @@
-// L'annonce d'une médaille qui vient d'être gagnée : un carton qui descend prendre, quelques
-// secondes, la place de la barre d'en-tête (rien d'autre n'est recouvert), avec le dessin de
-// la médaille et son nom. Au-delà de trois médailles gagnées d'un coup, un seul carton les
-// annonce toutes. Un appui dessus ouvre la vitrine. C'est le crieur (Crieur.tsx) qui décide
-// du moment ; ce module, lui, n'est chargé qu'à la première annonce.
+// L'annonce d'une médaille qui vient d'être gagnée : un carton de papier qui descend prendre,
+// quelques secondes, la place exacte de la barre d'en-tête de l'écran (sa hauteur, pas un
+// pixel de plus : rien d'autre n'est recouvert), avec le dessin de la médaille et son nom.
+// Au-delà de trois médailles gagnées d'un coup, un seul carton les annonce toutes. Un appui
+// dessus ouvre la vitrine. Le moment, c'est le tour de parole (Annonces.tsx) qui en décide.
 
-import { useEffect, useRef, useState } from "react";
-import { useGame } from "../../app/store";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { playStars } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Medaille } from "./art";
-import type { AnnonceProps } from "./Crieur";
-import { lireMedaille, nomMedaille, voileDe } from "./textes";
+import { lireMedaille, nomMedaille } from "./textes";
+import "./trophees.css";
+
+interface AnnonceProps {
+  /** Une médaille, ou plusieurs gagnées d'un coup : « famille:rang ». */
+  medailles: string[];
+  /** L'annonce a fini son temps, ou le joueur l'a touchée (`ouvrir`) pour aller voir la vitrine. */
+  onFin: (ouvrir: boolean) => void;
+}
 
 /** Le temps qu'une annonce reste à l'écran, puis celui qu'elle met à repartir. */
 const DUREE_MS = 3800;
 const DUREE_GROUPE_MS = 4600;
 const SORTIE_MS = 240;
 
-/** Dans une annonce groupée, les médailles dessinées : les plus belles d'abord, quatre au plus. */
+/** Dans une annonce groupée, les médailles dessinées : les dernières tombées, quatre au plus. */
 const MONTREES = 4;
 
+/** La barre d'en-tête de l'écran affiché, si elle est à sa place (la page n'a pas défilé). */
+function barreDEnTete(): DOMRect | null {
+  const rect = document.querySelector(".jeu__fond > .ecran .entete__barre")?.getBoundingClientRect();
+  return rect && rect.height >= 44 && rect.top >= 0 && rect.top < 140 ? rect : null;
+}
+
 export function Annonce({ medailles, onFin }: AnnonceProps) {
-  const player = useGame((s) => s.player);
   const [sort, setSort] = useState(false);
+  const [place, setPlace] = useState<CSSProperties>();
+  const carton = useRef<HTMLDivElement>(null);
   const fin = useRef(onFin);
   fin.current = onFin;
   const groupe = medailles.length > 1;
   const lues = medailles.map(lireMedaille).filter((lue) => lue !== null);
+
+  // Le carton se pose sur la barre d'en-tête, à sa hauteur. À défaut (une feuille ouverte sur une
+  // page qui a défilé), il garde sa place en haut de l'écran, jamais sous l'encoche du téléphone.
+  useLayoutEffect(() => {
+    const barre = barreDEnTete();
+    if (!barre || !carton.current) return;
+    const haut = parseFloat(getComputedStyle(carton.current).top) || 0;
+    setPlace({ top: Math.max(barre.top, haut), "--annonce-h": `${barre.height}px` } as CSSProperties);
+  }, []);
 
   useEffect(() => {
     // Une note par rang de la médaille : plus elle est haute, plus la gamme monte.
@@ -45,13 +67,13 @@ export function Annonce({ medailles, onFin }: AnnonceProps) {
   }, []);
 
   const premiere = lues[0];
-  if (!player || !premiere) return null;
-  // Une médaille gagnée dévoile toujours son trophée : son nom se dit.
-  const nom = nomMedaille(medailles[0]!, voileDe(premiere.famille.id, player));
+  if (!premiere) return null;
+  // Une médaille gagnée dévoile toujours son trophée : son nom se dit, même celui d'un trophée mystère.
+  const nom = nomMedaille(medailles[0]!);
   const n = medailles.length;
 
   return (
-    <div className={cx("annonce", sort && "annonce--sort")} role="status">
+    <div ref={carton} className={cx("annonce", sort && "annonce--sort")} style={place} role="status">
       <button
         type="button"
         className={cx("annonce__carton papier", groupe && "annonce__carton--groupe")}

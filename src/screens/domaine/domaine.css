@@ -321,8 +321,9 @@
 .calme .domaine__trouve-eclat { animation: none; }
 
 /*
- * Les entrées posées sur le ciel de la scène, en haut à droite : la plaque des trophées
- * (src/screens/trophees/Entree.tsx), et la place d'une autre à côté. Elles ne prennent
+ * Les entrées posées sur le ciel de la scène, en haut : la plaque des trophées
+ * (src/screens/trophees/Entree.tsx) se range à droite, une autre entrée à gauche, et le
+ * milieu reste à l'avatar (sur un petit écran, sa tête monte jusque-là). Elles ne prennent
  * rien à la hauteur de l'écran. Entre deux entrées, un toucher passe à la résidence.
  */
 .domaine__entrees {
@@ -334,8 +335,74 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0 8px;
+  align-items: flex-start;
   justify-content: flex-end;
   pointer-events: none;
 }
 
 .domaine__entrees > * { pointer-events: auto; }
+
+/* Le Carnet du Patron, à côté des trophées : un talon de papier, comme ceux de la pile
+   « À gratter ». Il n'apparaît que chez qui possède le Kiosque. */
+.entree-carnet {
+  display: flex;
+  align-items: center;
+  /* La plaque fait 32 px de haut ; la cible, 44. */
+  min-height: 44px;
+}
+
+.entree-carnet__plaque {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px 0 8px;
+  border-left: 2px dashed rgba(14, 47, 58, .45);
+  border-radius: 4px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  font: 700 14px/20px var(--texte);
+  box-shadow: 0 3px 0 rgba(14, 47, 58, .5);
+  transition: transform var(--t-appui) linear, box-shadow var(--t-appui) linear;
+}
+
+.entree-carnet:active .entree-carnet__plaque {
+  box-shadow: 0 1px 0 rgba(14, 47, 58, .5);
+  transform: translateY(2px);
+}
+
+/* Après la vraie fin : « Légende », sur une plaque d'or. */
+.domaine__rang--legende { background: var(--or); }
+
+/*
+ * Chez une Légende, le tout premier ticket est exposé sous cloche, à droite du nom et de la
+ * fortune. Il a sa colonne : rien ne passe dessous, et un pseudo trop long va à la ligne.
+ */
+.domaine__identite--legende {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 6px;
+  align-items: center;
+}
+
+.domaine__identite--legende > .t-titre { overflow-wrap: anywhere; }
+
+.domaine__cloche {
+  position: relative;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  /* Jamais moins de 44 px : la cloche se touche. */
+  width: clamp(44px, 13vw, 50px);
+  animation: portrait-pose 320ms var(--rebond) backwards;
+}
+
+.domaine__cloche:active { transform: scale(.94); }
+
+.domaine__cloche-eclat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: trouve-brille 2400ms ease-in-out infinite;
+}
+
+.calme .domaine__cloche,
+.calme .domaine__cloche-eclat { animation: none; }

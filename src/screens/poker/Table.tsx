@@ -82,6 +82,12 @@ function leaveTable(view: TableView): void {
     && (view.phase === "triche" || view.phase === "encheres" || view.phase === "abattage");
   // Hors d'une main, `pot` est ce qui est resté sur la table : qui s'en va le laisse aux autres.
   const leftOver = view.hand === null && view.pot > 0;
+  // Un tournoi déjà joué (le dénouement de sa dernière main) : son résultat est acquis, partir
+  // n'y change rien. Pas de feuille : on va droit à la fin.
+  if (tournamentDecided(view)) {
+    void play({ type: "quitter" });
+    return;
+  }
   // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi, la Table des Maîtres.
   if (live || leftOver || view.kind === "defi" || view.kind === "maitres") nav.push({ name: "poker-feuille", feuille: "quitter" });
   else void play({ type: "quitter" });
@@ -244,7 +250,11 @@ function MaMain({ view, dealt, dore }: { view: TableView; dealt: boolean; dore: 
   const canCheat = view.phase === "triche" && view.options.cheat;
   return (
     <div
-      className={cx("poker-main", hand.folded && "poker-main--couchee", dealt && "poker-main--donne", canCheat && "poker-main--choix")}
+      className={cx(
+        "poker-main", hand.folded && "poker-main--couchee", dealt && "poker-main--donne", canCheat && "poker-main--choix",
+        // Tant qu'une carte est encore de dos, le nom de la combinaison attend, sous la main.
+        flourish && turned < hand.cards.length && "poker-main--dos",
+      )}
       style={{ "--carte": `${width}px` } as CSSProperties}
     >
       {hand.cards.map((card, i) => {

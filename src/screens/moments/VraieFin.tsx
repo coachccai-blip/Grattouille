@@ -17,13 +17,14 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { hostName } from "../../app/dialogues";
 import { skyOf } from "../../app/helpers";
 import { closeTrueEnding, isCalm, markTrueEndingSeen, useGame } from "../../app/store";
+import { t } from "../../app/suite/mots";
 import {
   AS, CONSIGNE, HOTES, LEGENDE, PLANS, PLAN_DES_CARTES, TITRE, VENU, type Hote, type Image, type Voix,
 } from "../../app/suite/vraie-fin";
 import { Avatar, type AvatarLook } from "../../art/Avatar";
 import { Illustration, Portrait } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
-import { Mouette, PiouConteur } from "../../art/suite/scenes";
+import { Mouette, PiouConteur, PiouTeteNue } from "../../art/suite/scenes";
 import { mouette, piouParle } from "../../fx/ambiance";
 import {
   playAccuse, playCardFlip, playChapter, playCoin, playConfession, playInnocent, playOpening, playPickUp, playPot,
@@ -31,7 +32,7 @@ import {
 } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
 import { Fx } from "../../fx/particles";
-import { pick, t } from "../../i18n";
+import { pick } from "../../i18n";
 import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Carte } from "../../ui/Carte";
@@ -46,8 +47,12 @@ const TICKETS = Array.from({ length: 10 }, (_, i) => i);
 /** Celui que la mouette emporte. */
 const EMPORTE = 7;
 
-/** Le médaillon de celui qui parle : un personnage du jeu, ou le nouveau venu, de l'espèce qu'on lui donne. */
-function Medaillon({ qui, espece }: { qui: Voix; espece: string }) {
+/**
+ * Le médaillon de celui qui parle : un personnage du jeu, ou le nouveau venu, de l'espèce
+ * qu'on lui donne. `nu` : Piou a ôté son calot, son médaillon aussi.
+ */
+function Medaillon({ qui, espece, nu }: { qui: Voix; espece: string; nu: boolean }) {
+  if (qui === "piou" && nu) return <span className="portrait"><PiouTeteNue /></span>;
   if (qui !== "venu") return <Portrait pnj={qui} />;
   return (
     <span className="portrait">
@@ -57,7 +62,7 @@ function Medaillon({ qui, espece }: { qui: Voix; espece: string }) {
 }
 
 /** Un personnage et ce qu'il dit : son médaillon et son nom une fois, puis une bulle par phrase, entre guillemets. */
-function Paroles({ qui, lignes, espece }: { qui: Voix; lignes: readonly string[]; espece: string }) {
+function Paroles({ qui, lignes, espece, nu = false }: { qui: Voix; lignes: readonly string[]; espece: string; nu?: boolean }) {
   // Piou pépie quand ses bulles poussent (les autres parlent sans bruit).
   const premiere = lignes[0] ?? "";
   useEffect(() => {
@@ -67,7 +72,7 @@ function Paroles({ qui, lignes, espece }: { qui: Voix; lignes: readonly string[]
   }, [qui, premiere]);
   return (
     <div className="moment__paroles">
-      <Medaillon qui={qui} espece={espece} />
+      <Medaillon qui={qui} espece={espece} nu={nu} />
       <div className="moment__bulles">
         {lignes.map((ligne, i) => (
           <p key={i} className="bulle__texte">
@@ -171,6 +176,32 @@ function Quai({ image, espece }: { image: Image; espece: string }) {
   );
 }
 
+/**
+ * Ce que Piou raconte, en petit, dans une bulle de pensée à côté de lui : une image par
+ * idée. La mouette qui regardait ailleurs, le kiosque d'abord, l'as de cœur de ceux qui
+ * trichent pour les autres, et la carte qu'on retourne à ceux qui trichent pour eux.
+ */
+function Pensee({ plan }: { plan: string }) {
+  let image: ReactNode = null;
+  if (plan === "premier") image = <Mouette />;
+  else if (plan === "ville") image = <Illustration id="place:kiosque" />;
+  else if (plan === "chance") image = <Carte carte="Ah" largeur={34} style={{ transform: "rotate(-8deg)" }} />;
+  else if (plan === "examen") {
+    image = (
+      <>
+        <Carte carte="Ah" largeur={30} style={{ transform: "rotate(-12deg) translateX(3px)" }} />
+        <Carte largeur={30} style={{ transform: "rotate(10deg) translateX(-3px)" }} />
+      </>
+    );
+  }
+  if (!image) return null;
+  return (
+    <span className="vf__pensee" key={plan}>
+      <span className={cx("vf__pensee-image", `vf__pensee-image--${plan}`)}>{image}</span>
+    </span>
+  );
+}
+
 /** Le dessin d'un plan. Les plans d'un même décor gardent leur dessin monté : seul ce qui change s'anime. */
 function decorDe(image: Image): "tablee" | "cartes" | "piou" | "quai" {
   if (image === "cartes") return "cartes";
@@ -199,6 +230,8 @@ export default function VraieFin() {
   const toutes = vues.length === HOTES.length;
   const parle = vues[vues.length - 1] ?? null;
   const decor = decorDe(plan.image);
+  // Tant que Piou raconte, il est tête nue : sur le dessin, et dans le médaillon de ses bulles.
+  const nu = decor === "piou" && plan.image !== "recoiffe";
   // Celui qui débarque n'est pas le joueur : il est d'une autre espèce que lui.
   const venu = espece === "herisson" ? "raton" : "herisson";
 
@@ -314,7 +347,14 @@ export default function VraieFin() {
 
   let dessin: ReactNode;
   if (decor === "cartes") dessin = <Cartes vues={vues} parle={parle} onRetourne={retourner} />;
-  else if (decor === "piou") dessin = <PiouConteur calot={plan.image === "recoiffe" ? "tete" : "aile"} />;
+  else if (decor === "piou") {
+    dessin = (
+      <>
+        <PiouConteur calot={nu ? "aile" : "tete"} />
+        <Pensee plan={plan.id} />
+      </>
+    );
+  }
   else if (decor === "quai") dessin = <Quai image={plan.image} espece={venu} />;
   else dessin = <Tablee image={plan.image} espece={espece} look={look} />;
 
@@ -337,7 +377,7 @@ export default function VraieFin() {
           ? <Paroles key={parle} qui={parle} lignes={[pick(AS[parle])]} espece={venu} />
           : <p className="moment__recit">{pick(CONSIGNE)}</p>)}
         {(plan.repliques ?? []).map((replique, i) => (
-          <Paroles key={i} qui={replique.qui} lignes={pick(replique.dit)} espece={venu} />
+          <Paroles key={i} qui={replique.qui} lignes={pick(replique.dit)} espece={venu} nu={nu} />
         ))}
         {plan.chute && <p className="moment__recit vf__chute">{pick(plan.chute)}</p>}
         {dernier && <p className="note vf__legende">{pick(LEGENDE)}</p>}

@@ -16,11 +16,17 @@ export function completeState(raw: PlayerState): PlayerState {
   const partial = raw as Partial<PlayerState> & Pick<PlayerState, "stats" | "kiosk">;
   const poker = (partial.pokerStats ?? {}) as Partial<PokerStats>;
   const wins: readonly unknown[] = Array.isArray(partial.defis) ? partial.defis : [];
+  const defis = PLACES.filter((place) => wins.includes(place.id)).map((place): PlaceId => place.id);
+  // Les victoires contre chaque hôte : à défaut, un défi relevé compte pour une.
+  const known = (partial.hostWins ?? {}) as Partial<Record<string, unknown>>;
+  const hostWins = {} as Record<PlaceId, number>;
+  for (const place of PLACES) hostWins[place.id] = Math.max(count(known[place.id]), defis.includes(place.id) ? 1 : 0);
   return {
     ...raw,
     stats: { ...raw.stats, sown: count(raw.stats?.sown), sownValue: count(raw.stats?.sownValue) },
-    defis: PLACES.filter((place) => wins.includes(place.id)).map((place): PlaceId => place.id),
+    defis,
     masters: count(partial.masters),
+    hostWins,
     story: { fin: partial.story?.fin === true || raw.kiosk === true, vraieFin: partial.story?.vraieFin === true },
     pokerStats: {
       hands: count(poker.hands), pots: count(poker.pots), unmasked: count(poker.unmasked), caught: count(poker.caught),

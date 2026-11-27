@@ -365,11 +365,15 @@ export function fallenSeats(view: Pick<TableView, "kind" | "phase" | "seats" | "
 }
 
 /**
- * Un tournoi (un défi, la Table des Maîtres) est joué : le joueur n'a plus rien, ou plus
- * aucun adversaire n'a de jetons. La main suivante n'aura pas lieu : c'est le dénouement.
+ * Un tournoi (un défi, la Table des Maîtres) est joué : pendant le dénouement de sa dernière
+ * main, le joueur n'a plus rien, ou plus aucun adversaire n'a de jetons. La main suivante
+ * n'aura pas lieu, et le résultat est acquis : partir à ce moment-là ne le change pas.
+ * (Pendant une main, un joueur à tapis n'a plus rien devant lui et joue encore : seul le
+ * dénouement compte.)
  */
-export function tournamentDecided(view: Pick<TableView, "kind" | "seats" | "you">): boolean {
+export function tournamentDecided(view: Pick<TableView, "kind" | "phase" | "seats" | "you">): boolean {
   if (view.kind !== "defi" && view.kind !== "maitres") return false;
+  if (view.phase !== "denouement") return false;
   const me = view.you === null ? null : view.seats[view.you] ?? null;
   if (!me) return false;
   if (me.stack + me.reserve <= 0) return true;

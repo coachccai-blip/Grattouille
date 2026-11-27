@@ -41,10 +41,16 @@
   font: 400 14px/18px var(--texte);
 }
 
-.semer__bouton strong { font: 700 clamp(14px, 4.4vw, 16px)/20px var(--texte); }
+.semer__nombre {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font: 700 16px/20px var(--texte);
+  --icone-fond: var(--ivoire);
+}
 
 /* En attente, la pièce tourne à la place du nombre : le bouton garde sa taille. */
-.semer__bouton.bouton--attente strong { display: none; }
+.semer__bouton.bouton--attente .semer__nombre { display: none; }
 .semer__bouton .bouton__piece { width: 16px; height: 16px; border-width: 2px; }
 
 /* ---------------------------------------------------------------- La vignette */

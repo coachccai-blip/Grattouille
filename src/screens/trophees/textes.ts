@@ -37,8 +37,8 @@ export const TEXTES: Record<TrophyId, Texte> = {
   tickets: {
     nom: { fr: "La Pièce à gratter", en: "The Scratching Coin" },
     phrase: {
-      fr: "Les tickets que tu as joués : achetés au comptoir ou ramassés par terre.",
-      en: "The tickets you've played: bought at the counter or picked up off the ground.",
+      fr: "Tous les tickets joués, achetés ou ramassés par terre.",
+      en: "Every ticket you've played, bought or found on the ground.",
     },
     medailles: [
       { fr: "Gratteur du dimanche", en: "Sunday Scratcher" },
@@ -76,7 +76,7 @@ export const TEXTES: Record<TrophyId, Texte> = {
   semeur: {
     nom: { fr: "La Poche trouée", en: "The Holey Pocket" },
     phrase: {
-      fr: "Les tickets que tu laisses tomber par terre pour les nouveaux venus.",
+      fr: "Les tickets que tu laisses tomber pour les nouveaux venus.",
       en: "The tickets you drop on the ground for the newcomers.",
     },
     voile: {
@@ -96,8 +96,8 @@ export const TEXTES: Record<TrophyId, Texte> = {
   mecene: {
     nom: { fr: "La Corne d'abondance", en: "The Horn of Plenty" },
     phrase: {
-      fr: "Ce que valaient, mis bout à bout, les tickets que tu as laissés tomber.",
-      en: "What the tickets you've dropped were worth, all told.",
+      fr: "La valeur de tous les tickets que tu as laissés tomber.",
+      en: "What all the tickets you've dropped were worth.",
     },
     voile: {
       fr: "Elle déborde, mais pour qui ? À Grattouille, les grandes fortunes ont de drôles d'habitudes.",
@@ -127,8 +127,8 @@ export const TEXTES: Record<TrophyId, Texte> = {
   voyage: {
     nom: { fr: "La Valise aux étiquettes", en: "The Stickered Suitcase" },
     phrase: {
-      fr: "Les lieux qui t'ont ouvert leurs portes, du Kiosque à la Lune.",
-      en: "The places that have opened their doors to you, from the Kiosk to the Moon.",
+      fr: "Les lieux qui t'ont ouvert leurs portes, jusqu'à la Lune.",
+      en: "The places that have let you in, all the way to the Moon.",
     },
     medailles: [
       { fr: "Promenade digestive", en: "Day-Tripper" },
@@ -140,7 +140,7 @@ export const TEXTES: Record<TrophyId, Texte> = {
   patron: {
     nom: { fr: "Les Clés du Kiosque", en: "The Keys to the Kiosk" },
     phrase: {
-      fr: "Racheter le Kiosque de Gaspard, tout en bas de la Promenade.",
+      fr: "Racheter le Kiosque de Gaspard, en bas de la Promenade.",
       en: "Buy Gaspard's Kiosk, at the very bottom of the Promenade.",
     },
     medailles: [{ fr: "Appelez-moi Patron", en: "Call Me Boss" }],
@@ -149,8 +149,8 @@ export const TEXTES: Record<TrophyId, Texte> = {
   defis: {
     nom: { fr: "Le Gant relevé", en: "The Gauntlet" },
     phrase: {
-      fr: "Les hôtes que tu as battus à leur propre défi, au Poker Tricheur.",
-      en: "The hosts you've beaten at their own challenge, at Cheater's Poker.",
+      fr: "Les hôtes battus à leur propre défi, au Poker Tricheur.",
+      en: "Hosts beaten at their own challenge, at Cheater's Poker.",
     },
     medailles: [
       { fr: "Même pas peur", en: "Bring It On" },

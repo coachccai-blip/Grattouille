@@ -5,15 +5,17 @@
 // Un joueur qui n'est pas Patron ne voit jamais ce morceau : la fiche ne le monte que pour
 // qui possède le Kiosque (FicheTicket.tsx).
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatEuros } from "../../../shared/format";
+import { BUY_COOLDOWN_MS } from "../../../shared/rules";
 import { BOOKLET_SIZES, ticketById } from "../../../shared/tickets";
 import { atLeast } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { sowTickets, useGame } from "../../app/store";
+import { t } from "../../app/suite/mots";
+import { Icon } from "../../art/icons";
 import { playTicketDrop } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
-import { t } from "../../i18n";
 import { Bouton } from "../../ui/Bouton";
 import "./semis.css";
 
@@ -21,6 +23,11 @@ export function Semer({ ticket }: { ticket: string }) {
   const def = ticketById(ticket);
   const online = useGame((s) => s.online);
   const [busy, setBusy] = useState<number | null>(null);
+  // Le guichet veut une seconde entre deux gestes : les boutons la laissent passer d'eux-mêmes,
+  // plutôt que de refuser à qui referme la vignette d'un doigt pressé.
+  const [repos, setRepos] = useState(false);
+  const reprise = useRef(0);
+  useEffect(() => () => window.clearTimeout(reprise.current), []);
   if (!def) return null;
 
   const semer = async (qty: number) => {
@@ -37,6 +44,8 @@ export function Semer({ ticket }: { ticket: string }) {
       const semes = useGame.getState().player?.stats.sown ?? qty;
       // Qui le trouve ? La vignette se pose par-dessus la fiche : on y revient ensuite, pour en semer d'autres.
       nav.push({ name: "semis", ticket: def.id, rang: Math.max(1, semes - qty + 1), qty });
+      setRepos(true);
+      reprise.current = window.setTimeout(() => setRepos(false), BUY_COOLDOWN_MS + 100);
     }
     setBusy(null);
   };
@@ -54,11 +63,12 @@ export function Semer({ ticket }: { ticket: string }) {
               variante="secondaire"
               className="semer__bouton"
               attente={busy === qty}
-              disabled={busy !== null || !online}
+              disabled={busy !== null || repos || !online}
               onClick={() => void semer(qty)}
               aria-label={qty > 1 ? t("Laisser tomber {n} tickets pour {prix}", { n: qty, prix }) : t("Laisser tomber 1 ticket pour {prix}", { prix })}
             >
-              <strong>{qty > 1 ? t("{n} tickets", { n: qty }) : t("1 ticket")}</strong>
+              {/* Combien de tickets, puis ce qu'ils coûtent. */}
+              <strong className="semer__nombre"><Icon name="jouer" plein size={18} />×{qty}</strong>
               <span className="chiffres">{prix}</span>
             </Bouton>
           );

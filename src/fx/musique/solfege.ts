@@ -205,7 +205,8 @@ export interface Broderie {
 export function brode(o: Broderie): { notes: Note[]; fin: number } {
   const cellules = CELLULES[o.temps] ?? CELLULES[2]!;
   const notes: Note[] = [];
-  let ici = Math.max(0, Math.min(o.notes.length - 1, o.depart));
+  const haut = o.notes.length - 1;
+  let ici = Math.max(0, Math.min(haut, o.depart));
   // La ligne monte dans le bas du registre, descend dans le haut.
   let sens = ici < o.notes.length / 2 ? 1 : -1;
   const surAccord = (i: number): number => {
@@ -232,11 +233,19 @@ export function brode(o: Broderie): { notes: Note[]; fin: number } {
     let pas = debut;
     cellule.forEach((duree, k) => {
       if (duree > 0) {
-        const saut = o.alea() < 0.22 ? 2 : 1;
-        ici += sens * saut;
-        if (ici >= o.notes.length - 1 || ici <= 0 || o.alea() < 0.18) sens = -sens;
-        ici = Math.max(0, Math.min(o.notes.length - 1, ici));
+        const avant = ici;
+        ici += sens * (o.alea() < 0.22 ? 2 : 1);
+        // Au bout du registre, la ligne fait demi-tour ; ailleurs, elle change d'avis de temps en temps.
+        if (ici >= haut) {
+          ici = haut;
+          sens = -1;
+        } else if (ici <= 0) {
+          ici = 0;
+          sens = 1;
+        } else if (o.alea() < 0.18) sens = -sens;
         if (k === 0 && o.alea() < 0.7) ici = surAccord(ici);
+        // Jamais deux fois la même note de suite.
+        if (ici === avant) ici = Math.max(0, Math.min(haut, ici + sens));
         notes.push([pas, o.notes[ici]!, duree, k === 0 ? 1 : 0.8]);
       }
       pas += Math.abs(duree);

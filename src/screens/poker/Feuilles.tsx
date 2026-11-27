@@ -26,7 +26,7 @@ import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
   RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, isFullCode, mastersCard, maxBuyInChoices, rankTaken,
-  suitTaken, swapped,
+  suitTaken, swapped, tournamentDecided,
 } from "./calcul";
 import { Alerte, BarreTemps, Pas, Tete, steps } from "./parts";
 import { categoriesFromTop, categoryName, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity } from "./textes";
@@ -676,12 +676,14 @@ function Quitter() {
   const view = usePoker((s) => s.view);
   const busy = usePoker((s) => s.busy);
   const me = view && view.you !== null ? view.seats[view.you] ?? null : null;
-  const open = view !== null && me !== null && view.phase !== "fermee";
+  // Un tournoi qui vient de se jouer (défi, Table des Maîtres) : son résultat est acquis, il n'y a
+  // plus rien à abandonner. La feuille se referme, et le dénouement mène à la fin.
+  const open = view !== null && me !== null && view.phase !== "fermee" && !tournamentDecided(view);
 
   useEffect(() => {
     if (!open) fermer();
   }, [open, fermer]);
-  if (!view || !me) return null;
+  if (!view || !me || !open) return null;
 
   const inHand = view.hand !== null && !view.hand.folded && (view.phase === "triche" || view.phase === "encheres" || view.phase === "abattage");
   // Hors d'une main, `pot` est ce qui est resté sur la table : qui s'en va le laisse aux autres.

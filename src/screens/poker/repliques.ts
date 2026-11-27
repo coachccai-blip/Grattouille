@@ -350,8 +350,10 @@ export const HOST_TALK: Record<Host, Deux<HostVoice>> = {
 // ruinés une fois. Chacun a un mot en s'asseyant (`assis`), en quittant le tournoi les
 // poches vides (`elimine`), quand le joueur prend toute la table (`victoire`), et quand
 // c'est le joueur qui n'a plus rien (`defaite` : jamais une moquerie, toujours une
-// invitation à revenir). Les trois premiers tiennent en 70 caractères : ils se lisent à
-// table, ou à quatre sur le panneau de la victoire. Le dernier a la place d'une bulle.
+// invitation à revenir). Le premier tient en 60 caractères : les quatre se lisent ensemble,
+// deux lignes chacun, à la place du tapis d'un écran de 320 px. Les deux suivants tiennent en
+// 70 : ils se lisent à table, ou à quatre sur le panneau de la victoire. Le dernier a la place
+// d'une bulle.
 
 /** Les moments d'un maître à la Table des Maîtres. */
 export type MastersMoment = "assis" | "elimine" | "victoire" | "defaite";
@@ -361,13 +363,13 @@ type MastersVoice = Record<MastersMoment, string>;
 export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   gaspard: {
     fr: {
-      assis: "La grande table ! Et le kiosque, qui le garde ? Oh, une mouette !",
+      assis: "La grande table ! Qui garde le kiosque ? Oh, une mouette !",
       elimine: "Sapristi ! Plumé jusqu'à la queue. Je retourne vendre des tickets.",
       victoire: "Nom d'une sardine, toute la table ! Et tout a commencé au port.",
       defaite: "Sapristi, la table est dure ce soir. Un ticket, un tour au port, et on remet ça !",
     },
     en: {
-      assis: "The big table! And who's minding the kiosk? Oh look, a seagull!",
+      assis: "The big table! Who's minding the kiosk? Oh, a seagull!",
       elimine: "Blimey! Plucked to the tail. Back to selling tickets for me.",
       victoire: "Suffering sardines, the whole table! And it all began at the harbour.",
       defaite: "Blimey, a tough table tonight. A ticket, a stroll round the harbour, and we go again!",
@@ -375,13 +377,13 @@ export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   },
   ondine: {
     fr: {
-      assis: "Quatre maîtres à servir, et vous à plumer. La citronnade attendra.",
+      assis: "Quatre maîtres à servir, et vous à plumer. Sans citronnade.",
       elimine: "Plus un jeton. Je retourne aux citronnades. Elles, au moins, restent.",
       victoire: "Toute la table. Je vous sers une citronnade. Offerte, pour une fois.",
       defaite: "Plus rien devant vous. Cela arrive aux meilleurs, le mardi surtout. Citronnade, puis revanche ?",
     },
     en: {
-      assis: "Four masters to serve, and you to fleece. The lemonade can wait.",
+      assis: "Four masters to serve, and you to fleece. No lemonade.",
       elimine: "Not a chip left. Back to my lemonades. They, at least, stay put.",
       victoire: "The whole table. Let me pour you a lemonade. On the house, for once.",
       defaite: "Nothing left in front of you. It happens to the best, Tuesdays especially. Lemonade, then a rematch?",
@@ -417,13 +419,13 @@ export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   },
   auguste: {
     fr: {
-      assis: "J'ai parié sur vous, ce soir. La moustache, elle, a parié sur moi.",
+      assis: "J'ai parié sur vous. La moustache, elle, parie sur moi.",
       elimine: "Éliminé. J'avais parié là-dessus : au moins, je gagne quelque chose.",
       victoire: "Toute la table ! Mon pari rapporte. La moustache s'incline.",
       defaite: "J'ai perdu mon pari sur vous. Je le double à votre retour : la moustache insiste.",
     },
     en: {
-      assis: "My money is on you tonight. The moustache has its money on me.",
+      assis: "My money is on you. The moustache's money is on me.",
       elimine: "Knocked out. I had a wager on it: at least I win something.",
       victoire: "The whole table! My wager pays off. The moustache bows.",
       defaite: "I've lost my wager on you. I'm doubling it for your return: the moustache insists.",
@@ -431,13 +433,13 @@ export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   },
   balthazar: {
     fr: {
-      assis: "Branle-bas à la grande table ! Je hisse le grand pavois.",
+      assis: "Branle-bas de combat ! Je hisse le grand pavois.",
       elimine: "Coulé corps et biens ! Je regarde la suite depuis la vigie.",
       victoire: "Toute la flotte est à vous ! Vingt et un coups de corne !",
       defaite: "Vous voilà à l'eau, mais on repêche toujours les bons marins. Remontez à bord quand vous voulez !",
     },
     en: {
-      assis: "Clear the decks for the big table! I'm hoisting every flag.",
+      assis: "Clear the decks! I'm hoisting every flag.",
       elimine: "Sunk with all hands! I'll watch the rest from the crow's nest.",
       victoire: "The whole fleet is yours! Twenty-one blasts of the horn!",
       defaite: "You're overboard, but good sailors always get fished out. Come back aboard whenever you like!",
@@ -445,13 +447,13 @@ export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   },
   taupin: {
     fr: {
-      assis: "Chut. J'ai ouvert un registre exprès. Il n'a que cinq lignes.",
+      assis: "Chut. J'ai ouvert un registre exprès : cinq lignes.",
       elimine: "Solde : zéro. Je ferme ma colonne. Proprement.",
       victoire: "Tout passe dans votre colonne. Jamais je n'ai écrit si gros chiffre.",
       defaite: "Votre colonne est à zéro. Ce n'est qu'une écriture : je garde la page ouverte pour votre retour.",
     },
     en: {
-      assis: "Hush. I've opened a ledger specially. It has only five lines.",
+      assis: "Hush. I've opened a ledger specially: five lines.",
       elimine: "Balance: nil. I'm closing my column. Neatly.",
       victoire: "It all moves to your column. I have never written so large a figure.",
       defaite: "Your column stands at nil. It's only an entry: I'm keeping the page open for your return.",
@@ -459,13 +461,13 @@ export const MASTERS_TALK: Record<Host, Deux<MastersVoice>> = {
   },
   selene: {
     fr: {
-      assis: "Quatre maîtres autour d'une table. D'ici, on dirait une constellation.",
+      assis: "Quatre maîtres, une table : d'ici, une constellation.",
       elimine: "Je n'ai plus rien. Je flotte un peu plus haut, voilà tout.",
       victoire: "Tout monte vers vous, ce soir. Même la Terre a l'air de regarder.",
       defaite: "Vous n'avez plus rien. Ici, on appelle cela une nouvelle lune : elle revient toujours. Vous aussi, j'espère.",
     },
     en: {
-      assis: "Four masters round one table. From up here, quite a constellation.",
+      assis: "Four masters, one table: from here, a constellation.",
       elimine: "I have nothing left. I float a little higher, that's all.",
       victoire: "Everything rises to you tonight. Even the Earth seems to be watching.",
       defaite: "You have nothing left. Up here, we call that a new moon: it always comes back. So will you, I hope.",

@@ -186,6 +186,17 @@ export function registerOf(standing: number): Register {
 }
 
 // ---------------------------------------------------------------------------
+// Les Souvenirs : l'histoire de chaque hôte
+
+/** Battre trois fois un hôte au poker ouvre son histoire, dans les Souvenirs. */
+export const HOST_STORY_WINS = 3;
+
+/** L'histoire de l'hôte d'un lieu est ouverte : il a été battu assez souvent. */
+export function hostStoryOpen(hostWins: Partial<Record<PlaceId, number>> | undefined, place: PlaceId): boolean {
+  return (hostWins?.[place] ?? 0) >= HOST_STORY_WINS;
+}
+
+// ---------------------------------------------------------------------------
 // Le rang : de gueux à Crésus
 
 const RANKS: Record<PlaceId, string> = {

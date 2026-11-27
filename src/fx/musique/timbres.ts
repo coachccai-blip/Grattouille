@@ -30,7 +30,7 @@ export interface Timbre {
 
 export interface Piste {
   timbre: Timbre;
-  /** Sa place dans le mélange, de 0 à 1. */
+  /** Sa place dans le mélange : 1 pour la voix qui chante ; le bruit filtré, plus faible par nature, peut dépasser 1. */
   vol: number;
   /** Le filtre de la piste : son type, sa fréquence, sa résonance. */
   filtre?: readonly [type: BiquadFilterType, frequence: number, q?: number];
@@ -57,7 +57,7 @@ export const RHODES: Timbre = { onde: [1, 0.3, 0.1, 0.04, 0.02, 0.03], a: 0.006,
 /** Un clavecin : toutes les harmoniques, une attaque franche, une extinction rapide. */
 export const CLAVECIN: Timbre = {
   onde: [1, 0.85, 0.75, 0.62, 0.55, 0.46, 0.4, 0.33, 0.28, 0.23, 0.2, 0.16, 0.13, 0.1, 0.08, 0.06],
-  a: 0.003, d: 1.0, s: 0, r: 0.07, flou: 3,
+  a: 0.003, d: 1.6, s: 0, r: 0.07, flou: 3,
 };
 /** Une contrebasse en pizzicato : elle marche, elle rebondit. */
 export const CONTREBASSE: Timbre = { onde: [1, 0.5, 0.24, 0.12, 0.06], a: 0.01, d: 0.9, s: 0, r: 0.07, flou: 3 };
@@ -92,7 +92,7 @@ export const SHAKER: Timbre = { onde: "bruit", a: 0.014, d: 0.07, s: 0, r: 0.01 
 export const BALAI: Timbre = { onde: "bruit", a: 0.09, d: 0.4, s: 0, r: 0.04 };
 /** Le balai qui frappe, un claquement de doigts : sec, sans dureté. */
 export const TAPE: Timbre = { onde: "bruit", a: 0.003, d: 0.085, s: 0, r: 0.01 };
-/** Une grosse caisse sourde, accordée : la hauteur tombe d'une octave. */
-export const PIED: Timbre = { onde: "sine", a: 0.004, d: 0.2, s: 0, r: 0.02, chute: 2 };
+/** Une grosse caisse sourde, accordée : la hauteur tombe d'une douzième (c'est ce « toc » qu'on entend sur un téléphone). */
+export const PIED: Timbre = { onde: "sine", a: 0.004, d: 0.2, s: 0, r: 0.02, chute: 3 };
 /** Le tic d'une horloge, un bloc de bois : une note très brève. */
 export const TIC: Timbre = { onde: "triangle", a: 0.002, d: 0.045, s: 0, r: 0.01 };

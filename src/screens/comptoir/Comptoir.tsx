@@ -9,7 +9,7 @@ import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
 import { ticketsOfPlace } from "../../../shared/tickets";
 import type { PlaceId } from "../../../shared/types";
-import { PIOU, hostName, type Speaker } from "../../app/dialogues";
+import { PIOU, hostName, legendGreeting, legendLine, type Speaker } from "../../app/dialogues";
 import { atLeast, lineFor, placeBackground } from "../../app/helpers";
 import { nav } from "../../app/nav";
 import { buyTickets, displayBalance, pickUpTicket, toScratch, useFound, useGame } from "../../app/store";
@@ -84,6 +84,8 @@ export function Comptoir({ place }: { place: PlaceId }) {
   };
   const [busy, setBusy] = useState<number | "trouve" | null>(null);
   const [seed] = useState(() => Math.floor(Math.random() * 1000));
+  // Après la vraie fin, le maître des lieux a un mot pour la Légende : au premier passage de la visite.
+  const [salut] = useState(() => useGame.getState().player?.story.vraieFin === true && legendGreeting(def.host));
   const carousel = useRef<HTMLDivElement>(null);
   const ratio = Math.max(...tickets.map((x) => ticketHeight(x, 1)));
   const width = useMiniWidth(carousel, ratio);
@@ -96,7 +98,7 @@ export function Comptoir({ place }: { place: PlaceId }) {
 
   if (!player) return null;
   const open = player.standing >= def.standing;
-  const line = lineFor(player, def.host as Speaker, "accueil", seed);
+  const line = (salut ? legendLine(def.host) : null) ?? lineFor(player, def.host as Speaker, "accueil", seed);
   const prix = (qty: number) => formatEuros(ticket.price * qty);
 
   const buy = async (qty: number) => {

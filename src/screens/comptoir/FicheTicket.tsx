@@ -1,13 +1,13 @@
 // Fiche d'un ticket (BRIEF.md, sections 3 et 12.2) : règle, tableau des lots en
 // euros avec les chances réelles, tempérament. La transparence fait partie du jeu.
 
-import { useState } from "react";
+import { lazy, Suspense, useState, type ComponentType } from "react";
 import { expectedReturn, prizeTable, winningWeight } from "../../../shared/economy";
 import { formatEuros, formatReturn } from "../../../shared/format";
 import { ticketById } from "../../../shared/tickets";
 import { atLeast, oddsOutOf, oddsText, pickNote } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { buyTickets, displayBalance, useGame } from "../../app/store";
+import { buyTickets, canSow, displayBalance, useGame } from "../../app/store";
 import { ruleOf } from "../../engines";
 import { playTicketBought } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
@@ -18,9 +18,14 @@ import { Jauge } from "../../ui/Commun";
 import { Feuille } from "../../ui/Feuille";
 import "./comptoir.css";
 
+/** Le geste du Patron : laisser tomber ce ticket pour un nouveau venu. Chargé à la demande, pour lui seul. */
+const Semer = lazy((): Promise<{ default: ComponentType<{ ticket: string }> }> =>
+  import("../semis").then((semis) => ({ default: semis.Semer }), () => ({ default: () => null })));
+
 export function FicheTicket({ ticket }: { ticket: string }) {
   const def = ticketById(ticket);
   const balance = useGame(displayBalance);
+  const patron = useGame(canSow);
   const [busy, setBusy] = useState(false);
   if (!def) return null;
   const table = prizeTable(def);
@@ -83,6 +88,7 @@ export function FicheTicket({ ticket }: { ticket: string }) {
           {t("Acheter {prix}", { prix: formatEuros(def.price) })}
         </Bouton>
       </div>
+      {patron && <Suspense fallback={null}><Semer ticket={def.id} /></Suspense>}
     </Feuille>
   );
 }

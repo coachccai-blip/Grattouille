@@ -69,11 +69,12 @@ function entier(x: number): number {
  */
 export function nouveauVenu(rang: number): NouveauVenu {
   const r = entier(rang);
-  // Tous les huit rangs, le tour décale les suites : la ronde ne se répète pas de sitôt.
+  // Tous les huit rangs, le tour décale l'espèce et les hardes : un prénom qui revient,
+  // quarante tickets plus tard, n'est plus porté par le même animal.
   const tour = Math.floor(r / 8);
   return {
     rang: r,
-    prenom: PRENOMS[(r * 7 + tour * 3) % PRENOMS.length]!,
+    prenom: PRENOMS[(r * 7) % PRENOMS.length]!,
     espece: SPECIES[(r * 3 + tour) % SPECIES.length]!,
     hardes: HARDES[(r * 5 + tour) % HARDES.length]!,
   };

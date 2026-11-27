@@ -6,6 +6,7 @@ import { boot, closeTrueEnding, isCalm, openTrueEnding, trueEndingDue, useGame }
 import { Icon } from "./art/icons";
 import { ArtDefs } from "./art/kit";
 import { installGestes } from "./fx/gestes";
+import { installMusique } from "./fx/musique";
 import { t } from "./i18n";
 import { AGratter } from "./screens/a-gratter/AGratter";
 import { Bienvenue } from "./screens/bienvenue/Bienvenue";
@@ -34,7 +35,7 @@ const Planche = lazy(() => import("./screens/planche/Planche"));
 const Poker = lazy(() => import("./screens/poker"));
 
 // La vitrine des trophées aussi : ses dessins et les noms des médailles n'arrivent qu'avec elle.
-const Trophees = lazy(() => import("./screens/trophees"));
+const Trophees = lazy(() => ouAbsent(import("./screens/trophees")));
 
 /** Au lancement, qui est assis à une table de poker y revient : une fois, pas à chaque changement de langue. */
 let pokerRepris = false;
@@ -213,6 +214,8 @@ export function App() {
 
   // Le contexte audio démarre au premier toucher, et tout ce qui se touche a son appui.
   useEffect(() => installGestes(), []);
+  // La musique d'ambiance attend ce premier geste, puis choisit seule son thème selon l'écran.
+  useEffect(installMusique, []);
 
   if (planche) {
     return (

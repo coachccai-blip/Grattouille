@@ -264,10 +264,16 @@ export function pickMasters(rng: Random32): string[] {
 
 /**
  * La Table des Maîtres est un tournoi : personne ne recave, et la blinde double de palier en
- * palier jusqu'à dépasser tout l'argent en jeu (les cinq caves). Barème provisoire.
+ * palier jusqu'à dépasser tout l'argent en jeu (les cinq caves). Les paliers raccourcissent :
+ * douze mains à la blinde de base, dix à 2 fois, huit à 4 fois, six à 8 fois, puis quatre
+ * mains par palier (16, 32, 64, 128 fois ; 256 fois à partir de la 53e main, où elle s'arrête).
  * Le dernier nombre de la liste vaut pour tous les paliers suivants.
+ *
+ * Réglé par simulation, le joueur tenu par un robot difficile (3 000 tables) : la table se
+ * dénoue pour lui en 31 mains en médiane (10 au 10e centile, 45 au 90e) ; il la gagne une
+ * fois sur cinq, en 42 mains en médiane.
  */
-export const MASTERS_LEVEL_HANDS: readonly number[] = [6, 6, 6, 6, 4];
+export const MASTERS_LEVEL_HANDS: readonly number[] = [12, 10, 8, 6, 4];
 
 /** La blinde de la Table des Maîtres à la main `handNo`, à partir de sa blinde de base. */
 export function mastersBlind(base: number, handNo: number): number {

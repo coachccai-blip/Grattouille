@@ -10,7 +10,7 @@ import type { PlaceId } from "../../../shared/types";
 import { FIN, PIOU, chapterOf, hostName, ouverture } from "../../app/dialogues";
 import { skyOf } from "../../app/helpers";
 import { nav } from "../../app/nav";
-import { closeEnding, closeOpening, closeWelcome, isCalm, useGame } from "../../app/store";
+import { closeEnding, closeMemory, closeOpening, closeWelcome, isCalm, sowTickets, useGame } from "../../app/store";
 import { Illustration, Portrait } from "../../art/Illustration";
 import { Icon } from "../../art/icons";
 import { mouette, piouParle, ticketParTerre } from "../../fx/ambiance";
@@ -157,11 +157,15 @@ type Temps = "cles" | "aveu" | "epilogue";
  * Générique de fin (section 5.6), en trois temps. Gaspard remet les clés et appelle
  * désormais le joueur « Patron ». Puis il avoue : les tickets par terre, c'était lui,
  * et c'est la tradition du Kiosque. Enfin le nouveau Patron laisse tomber un ticket
- * sur le quai pour celui qui débarque le lendemain : le geste est tout symbolique, il
- * ne demande rien au serveur. L'histoire recommence pour un autre, le jeu continue.
+ * sur le quai pour celui qui débarque le lendemain : c'est son premier ticket semé, un
+ * vrai (La Tirelire de Piou), quand sa bourse le permet. L'histoire recommence pour un
+ * autre, le jeu continue.
+ *
+ * Revu depuis les Souvenirs des Réglages, le générique ne dit rien au serveur et ne sème rien.
  */
 export function Fin() {
   const calm = useGame(isCalm);
+  const relecture = useGame((s) => s.replay);
   const [temps, setTemps] = useState<Temps>("cles");
   const canvas = useRef<HTMLCanvasElement>(null);
   const corps = useRef<HTMLDivElement>(null);
@@ -195,6 +199,8 @@ export function Fin() {
   const semer = () => {
     playTicketDrop();
     haptic.buy();
+    // Le premier ticket du Patron. Bourse vide ou réseau coupé : le générique continue sans rien dire.
+    if (!relecture) void sowTickets("tirelire", 1, true);
     setTemps("epilogue");
   };
   useEffect(() => {
@@ -231,7 +237,9 @@ export function Fin() {
             <p className="moment__recit">{FIN.texte}</p>
             <Paroles pnj="piou" lignes={[PIOU.nouveauVenu]} />
             <p className="note">{FIN.suite}</p>
-            <Bouton bloc onClick={closeEnding}>{t("Continuer à jouer")}</Bouton>
+            {relecture
+              ? <Bouton bloc onClick={closeMemory}>{t("Refermer le souvenir")}</Bouton>
+              : <Bouton bloc onClick={closeEnding}>{t("Continuer à jouer")}</Bouton>}
           </>
         )}
       </div>

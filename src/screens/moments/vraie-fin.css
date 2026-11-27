@@ -47,8 +47,11 @@
 /* Piou : c'est le bas du dessin qui cède la place au texte. Sa tête, nue, reste en vue. */
 .vf--piou .vf__decor { justify-content: flex-start; }
 
-/* Les cartes : rien ne cède, toutes se voient et se touchent. */
-.vf--cartes .vf__decor { flex: none; }
+/* Les cartes : rien ne cède, toutes se voient et se touchent ; la nappe couvre tout le décor. */
+.vf--cartes .vf__decor {
+  flex: none;
+  padding-top: 0;
+}
 
 /* ---------------------------------------------------------------- 1. La tablée */
 
@@ -60,8 +63,8 @@
 /* Neuf places le long de la table : les huit maîtres des lieux, en quinconce, et le joueur au bout. */
 .vf__convive {
   position: absolute;
-  bottom: 15%;
-  left: calc(7% + var(--i) * 10.75%);
+  bottom: 17%;
+  left: calc(8.5% + var(--i) * 10.4%);
   z-index: 1;
   width: var(--vf-m);
   height: var(--vf-m);
@@ -71,7 +74,7 @@
 
 /* Le rang du fond : debout derrière les autres. */
 .vf__convive--fond {
-  bottom: calc(15% + var(--vf-m) * .52);
+  bottom: calc(17% + var(--vf-m) * .52);
   z-index: 0;
 }
 
@@ -95,7 +98,7 @@
   width: calc(var(--vf-m) * .66);
   height: calc(var(--vf-m) * .66);
   transform: translate(-50%, -88%);
-  transition: transform 520ms var(--rebond);
+  transition: transform 520ms var(--rebond), top 520ms var(--sortie), left 520ms var(--sortie);
 }
 
 /* La nappe : un bord de table blanc, un tombé ivoire, un feston mimosa. */
@@ -117,7 +120,7 @@
 .vf__dos {
   position: absolute;
   top: 12%;
-  left: calc(7% + var(--i) * 10.75%);
+  left: calc(8.5% + var(--i) * 10.4%);
   width: calc(var(--vf-m) * .36);
   margin-left: calc(var(--vf-m) * -.18);
   aspect-ratio: 5 / 7;
@@ -145,12 +148,13 @@
 
 .vf__mise {
   position: absolute;
-  bottom: calc(15% + var(--vf-m) * .7);
-  left: calc(7% + 2 * 10.75%);
+  bottom: 8.5%;
+  left: calc(8.5% + 4 * 10.4%);
   z-index: 3;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
+  width: 14px;
+  height: 14px;
+  /* Elle se pose sur la nappe, à côté de la carte de Sir Auguste. */
+  margin-left: calc(var(--vf-m) * .28);
   border-radius: 50%;
   background: var(--mimosa);
   box-shadow: inset -2px -2px 0 var(--mimosa-fonce), 0 2px 4px rgba(14, 47, 58, .4);
@@ -158,16 +162,23 @@
 }
 
 @keyframes vf-mise {
-  0% { left: calc(7% + 2 * 10.75%); transform: translateY(0); opacity: 0; }
+  0% { left: calc(8.5% + 2 * 10.4%); transform: translateY(0); opacity: 0; }
   12% { opacity: 1; }
-  50% { transform: translateY(-26px); }
-  100% { left: calc(7% + 4 * 10.75%); transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-34px); }
+  100% { left: calc(8.5% + 4 * 10.4%); transform: translateY(0); opacity: 1; }
 }
 
 /* Huit têtes se tournent vers le groom, et le groom ne sait plus où se mettre. */
 .vf__tablee--regards .vf__convive .portrait { transform: rotate(-12deg) translateX(-6%); }
 .vf__tablee--regards .vf__convive--toi .portrait { transform: none; }
-.vf__tablee--regards .vf__perchoir { transform: translate(-50%, -88%) scale(1.55); }
+/* Il descend de sa tourelle, au-dessus du bout de la table : même sur un petit écran, où le
+   haut du décor cède la place au texte, c'est lui qu'on regarde. */
+.vf__tablee--regards .vf__perchoir {
+  top: 47%;
+  left: 12%;
+  z-index: 2;
+  transform: translate(-50%, -88%) scale(1.5);
+}
 .vf__tablee--regards .vf__perchoir .portrait { box-shadow: 0 0 0 3px var(--mimosa), 0 3px 8px rgba(14, 47, 58, .4); }
 
 /* ---------------------------------------------------------------- 2. Les huit cartes */
@@ -178,7 +189,7 @@
   grid-template-columns: repeat(4, auto);
   gap: 10px;
   justify-content: center;
-  padding: 10px 16px 12px;
+  padding: calc(var(--haut) + 14px) 16px 12px;
   background-color: #fff;
   background-image:
     linear-gradient(90deg, rgba(247, 201, 72, .34) 50%, transparent 50%),
@@ -213,6 +224,68 @@
   transform: scale(1.14);
 }
 
+/* ---------------------------------------------------------------- 3. Piou raconte */
+
+/* Ce qu'il raconte, en petit : une bulle de pensée, à gauche de sa tête, et ses deux ronds. */
+.vf__pensee {
+  position: absolute;
+  top: 4%;
+  left: 6%;
+  width: clamp(64px, 21vw, 96px);
+  aspect-ratio: 1;
+  animation: portrait-pose 320ms var(--rebond) 180ms both;
+}
+
+.vf__pensee::before,
+.vf__pensee::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: var(--ivoire);
+}
+
+.vf__pensee::before {
+  right: -6%;
+  bottom: -2%;
+  width: 16%;
+  height: 16%;
+}
+
+.vf__pensee::after {
+  right: -17%;
+  bottom: -13%;
+  width: 9%;
+  height: 9%;
+}
+
+.vf__pensee-image {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--ivoire);
+  box-shadow: 0 0 0 3px #C99A3A, 0 4px 10px rgba(14, 47, 58, .3);
+}
+
+/* La mouette regardait ailleurs : elle tourne le dos. */
+.vf__pensee-image--premier > svg {
+  width: 78%;
+  transform: scaleX(-1);
+}
+
+/* Le Kiosque, cadré serré, sous son ciel du matin. */
+.vf__pensee-image--ville { background: linear-gradient(#BEE7F5, #FDF3D0); }
+
+.vf__pensee-image--ville > svg {
+  flex: none;
+  width: 200%;
+}
+
+.calme .vf__pensee { animation: none; }
+
 /* ---------------------------------------------------------------- 4. Le quai */
 
 .vf__quai > svg {
@@ -223,8 +296,8 @@
 /* Celui qui débarque, à côté de la barque. */
 .vf__debarque {
   position: absolute;
-  bottom: 13%;
-  left: 5%;
+  bottom: 16%;
+  left: 3%;
   width: var(--vf-m);
   height: var(--vf-m);
   animation: vf-debarque 620ms var(--rebond) 260ms both;
@@ -245,16 +318,16 @@
 .vf__ticket {
   position: absolute;
   bottom: var(--y, 2px);
-  left: calc(8% + var(--i) * 9.3%);
+  left: calc(22% + var(--i) * 8.1%);
   z-index: 1;
-  margin-left: -16px;
+  margin-left: -15px;
   transform: rotate(var(--r, 0deg));
   animation: vf-tombe 900ms cubic-bezier(.3, 0, .7, 1) var(--d, 0ms) both;
 }
 
 .vf__ticket .moment__ticket-papier {
-  width: 32px;
-  height: 23px;
+  width: 30px;
+  height: 21px;
   border-radius: 4px;
   transform: none;
   box-shadow: 0 2px 0 var(--mimosa-fonce), 0 4px 6px rgba(14, 47, 58, .35);
@@ -273,19 +346,19 @@
 .vf__mouette {
   position: absolute;
   bottom: 0;
-  left: calc(8% + var(--i) * 9.3%);
+  left: calc(22% + var(--i) * 8.1%);
   z-index: 2;
-  width: 27%;
-  margin-left: -22%;
-  transform: translate(-6%, -205%) scale(.62);
+  width: 30%;
+  margin-left: -25%;
+  transform: translate(8%, -170%) scale(.8);
   animation: vf-envol 2400ms cubic-bezier(.45, 0, .3, 1) 300ms backwards;
 }
 
 @keyframes vf-envol {
-  0% { transform: translate(-150%, -260%) scale(.5); }
-  38% { transform: translate(0, -8%) scale(1); }
+  0% { transform: translate(-170%, -230%) scale(.6); }
+  38% { transform: translate(0, -6%) scale(1); }
   46% { transform: translate(4%, 0) scale(1); }
-  100% { transform: translate(-6%, -205%) scale(.62); }
+  100% { transform: translate(8%, -170%) scale(.8); }
 }
 
 .vf-aile {
@@ -306,11 +379,15 @@
 /* La chute d'un écran : ce que raconte le récit, une fois que tout le monde a parlé. */
 .vf__chute { color: var(--brume); }
 
-/* Ce que la vraie fin change, dit une fois : le rang, sous le pseudo. */
+/* Ce que la vraie fin change, dit une fois : le rang, sous le pseudo. La phrase attend que
+   la mouette soit passée. */
 .note.vf__legende {
   color: var(--mimosa);
   font: 500 16px/22px var(--texte);
+  animation: fondu 600ms linear 2100ms both;
 }
+
+.calme .note.vf__legende { animation: none; }
 
 /* Revue depuis les Souvenirs, la cinématique se referme d'un mot, à tout moment. */
 .moment--vraie-fin .bouton--texte { margin-top: calc(var(--e2) * -1); }
@@ -329,5 +406,4 @@
 .calme .vf__perchoir,
 .calme .vf__couvert .portrait { transition: none; }
 
-.calme .vf__mise { left: calc(7% + 4 * 10.75%); }
 .calme .vf__tablee--bravo .vf__convive { transform: translateY(-24%); }

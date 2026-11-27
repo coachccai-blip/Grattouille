@@ -31,7 +31,7 @@ export const VOIX_MAX = 10;
  * sur une piste à plein volume. Les bruitages culminent entre 0,04 et 0,18 : la musique
  * entière reste en dessous d'un seul appui de bouton.
  */
-export const NIVEAU = 0.05;
+export const NIVEAU = 0.02;
 /** La durée d'un fondu enchaîné, en secondes. */
 export const FONDU = 1;
 /** L'avance avec laquelle les notes sont écrites, en secondes, et le battement de la minuterie, en millisecondes. */
@@ -39,6 +39,8 @@ const AVANCE = 0.6;
 const BATTEMENT = 150;
 /** Le temps laissé avant la première note d'un thème, en secondes. */
 const DEPART = 0.12;
+/** Ce que la salle renvoie, pour une part de 1 : réglé à la mesure (une salle entière sonne 9 dB sous le son direct). */
+const SALLE = 1.6;
 
 type Source = OscillatorNode | AudioBufferSourceNode;
 
@@ -144,6 +146,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
 
   const ondes = new Map<readonly number[], PeriodicWave>();
 
+  /** L'onde d'un timbre, à partir de ses harmoniques (le navigateur la ramène à une crête de 1, comme ses propres ondes). */
   function onde(harmoniques: readonly number[]): PeriodicWave {
     let w = ondes.get(harmoniques);
     if (!w) {
@@ -333,7 +336,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
     if (echo) {
       envoi = ctx.createGain();
       envoi.gain.value = 0;
-      envoi.gain.setTargetAtTime(theme.volume * (theme.salle ?? 0), now, FONDU / 4);
+      envoi.gain.setTargetAtTime(theme.volume * (theme.salle ?? 0) * SALLE, now, FONDU / 4);
       envoi.connect(echo);
       noeuds.push(envoi);
     }
