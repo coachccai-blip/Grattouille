@@ -522,7 +522,8 @@ joueurs actuels ».
   changé de nom, un test interdit désormais qu'une classe de la suite soit définie ailleurs,
   et dix-huit écrans existants (le Domaine, la Promenade, le classement, les Boutiques,
   chaque boutique et ses rayons, l'agence) ont été comparés au pixel près à ceux de la 2.1
-  d'avant ces deux changements, en français à 360 px et en anglais à 320 px : identiques.
+  d'avant ces deux changements, en français à 360 et 320 px, en anglais à 320 et 390 px :
+  identiques.
 - La répétition depuis l'archive : installation, construction, tests, simulation, puis la
   fonction empaquetée par l'outil de Netlify, branchée sur le client Blobs — le parcours
   général, puis les comptes d'avant déposés tels quels dans le store. (Après les Souvenirs
