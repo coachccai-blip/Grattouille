@@ -7,7 +7,7 @@
 // image, comme sur une étiquette de valise. viewBox 0 0 60 72 ; l'image tient dans le
 // cadre de 50 × 62 posé en (5, 5), fond compris. Aucun texte dans les dessins.
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { C, METAL, shade, type ArtProps } from "../kit";
 
 /** Des petits ronds en un seul tracé : bulles, étoiles lointaines, pois. */
@@ -528,6 +528,8 @@ interface TimbreProps extends ArtProps {
  */
 export function Timbre({ id, vecue = false, className, title }: TimbreProps) {
   const image = IMAGES[id];
+  // L'image ne déborde pas de son cadre : chaque timbre a sa découpe.
+  const cadre = `timbre-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
     <svg
       viewBox="0 0 60 72"
@@ -539,10 +541,13 @@ export function Timbre({ id, vecue = false, className, title }: TimbreProps) {
       aria-hidden={title ? undefined : true}
       focusable="false"
     >
+      <clipPath id={cadre}><rect width="50" height="62" /></clipPath>
       <path d={PAPIER} fill={C.blanc} />
       <g transform="translate(5 5)">
-        <rect width="50" height="62" fill={image?.fond ?? C.brume} />
-        {image?.dessin}
+        <g clipPath={`url(#${cadre})`}>
+          <rect width="50" height="62" fill={image?.fond ?? C.brume} />
+          {image?.dessin}
+        </g>
       </g>
       {vecue && (
         <g className="timbre__cachet" fill="none" stroke={C.nuit} strokeOpacity="0.78" strokeLinecap="round">

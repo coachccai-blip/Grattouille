@@ -216,7 +216,7 @@ export const SCENES: Record<string, Scene> = {
     Art: SCENES_CIEL["soiree-lune"]!,
     duree: 8800,
     fond: ["#3E2A7C", "#120A36"],
-    cadre: 270,
+    cadre: 284,
     sons: [
       [500, "accord", 0], [1020, "toc", 2], [1540, "accord", 1], [2060, "toc", 4], [2580, "accord", 2], [3100, "toc", 2], [3620, "accord", 1],
       [4140, "toc", 4], [4660, "accord", 2], [5180, "toc", 5], [5700, "gamme", 6], [7000, "bravo"],

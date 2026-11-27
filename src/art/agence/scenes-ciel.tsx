@@ -233,8 +233,8 @@ function Gerbe({ x, y, r, n = 12, couleur }: { x: number; y: number; r: number; 
 
 /** Les fusées d'avant le bouquet : où elles éclatent, leur taille, leur couleur, et quand. */
 const SALVES: readonly (readonly [x: number, y: number, r: number, couleur: string, d: number])[] = [
-  [96, 380, 54, C.mimosa, 1.3], [262, 340, 62, C.bougClair, 2.1], [170, 300, 50, C.persClair, 2.9], [300, 430, 46, C.ciel, 3.7],
-  [60, 300, 44, C.bougClair, 4.3],
+  [96, 380, 70, C.mimosa, 1.3], [262, 340, 78, C.bougClair, 2.1], [170, 290, 66, C.persClair, 2.9], [292, 440, 60, C.ciel, 3.7],
+  [72, 300, 58, C.bougClair, 4.3],
 ];
 
 const feuArtifice: SceneArt = ({ espece, look }) => (
@@ -261,7 +261,7 @@ const feuArtifice: SceneArt = ({ espece, look }) => (
             <rect x={x - 1.5} y={y} width="3" height="34" rx="1.5" fill={C.ivoire} {...a("passe", { dy: 590 - y, fy: 0, t: 0.5, d: d - 0.5, e: "sortie" })} />
           </g>
         </g>
-        <g {...a("eclat", { t: 1.5, d, o: [x, y] })}><Gerbe x={x} y={y} r={r} couleur={couleur} /></g>
+        <g {...a("eclat", { t: 1.6, d, e: "sortie", o: [x, y] })}><Gerbe x={x} y={y} r={r} couleur={couleur} /></g>
       </g>
     ))}
     {/* Le bouquet final : il reste dans le ciel le temps de la photo */}
@@ -419,6 +419,9 @@ function Invite({ pnj, d }: { pnj: string; d: number }) {
   );
 }
 
+/** La hauteur de la boule à facettes. */
+const BOULE = 344;
+
 /** Les faisceaux de la boule : leur couleur, et où ils tombent. */
 const FAISCEAUX: readonly (readonly [string, number, number, number])[] = [
   [C.bougClair, 10, 700, 1.3], [C.persClair, 130, 720, 1.7], [C.mimosa, 250, 720, 1.5], [C.ciel, 370, 700, 1.9],
@@ -426,12 +429,12 @@ const FAISCEAUX: readonly (readonly [string, number, number, number])[] = [
 
 const soireeLune: SceneArt = ({ espece, look }) => {
   let facettes = "";
-  for (let i = -3; i <= 3; i++) facettes += `M${180 - 46} ${250 + i * 13}H${180 + 46}M${180 + i * 13} ${250 - 46}V${250 + 46}`;
+  for (let i = -3; i <= 3; i++) facettes += `M${180 - 46} ${BOULE + i * 13}H${180 + 46}M${180 + i * 13} ${BOULE - 46}V${BOULE + 46}`;
   return (
     <>
       <Ciel id="soiree" couleurs={["#120A36", "#27185C", "#3E2A7C"]} />
       <Etoiles points={FIRMAMENT} brillantes={[[40, 250, 7], [330, 300, 7], [280, 130, 6]]} />
-      <g transform="translate(296 210)"><Terre r={38} /></g>
+      <g transform="translate(300 352)"><Terre r={36} /></g>
       <path d={relief([[-20, 540], [70, 506], [150, 532], [230, 500], [300, 526], [380, 498]], 580)} fill="#8D8FB0" />
       <SolLunaire y={548} couleur="#B4B7D0" />
       {/* La piste de danse, au fond d'un cratère */}
@@ -442,20 +445,22 @@ const soireeLune: SceneArt = ({ espece, look }) => {
       ))}
       {/* Les faisceaux */}
       {FAISCEAUX.map(([couleur, x, y, t], i) => (
-        <g key={x} {...a("flotte", { r: 7, t, d: -i * 0.4, o: [180, 250] })}>
-          <path d={`M180 250L${x - 34} ${y}H${x + 34}Z`} fill={couleur} fillOpacity="0.2" />
+        <g key={x} {...a("flotte", { r: 7, t, d: -i * 0.4, o: [180, BOULE] })}>
+          <path d={`M180 ${BOULE}L${x - 34} ${y}H${x + 34}Z`} fill={couleur} fillOpacity="0.2" />
         </g>
       ))}
       {/* La boule à facettes */}
-      <path d="M180 -20V204" fill="none" stroke={C.brume} strokeWidth="2" />
-      <g {...a("flotte", { r: 3, t: 1.6, o: [180, 0] })}>
-        <circle cx="180" cy="250" r="46" fill={METAL.argent} />
-        <Fenetre x={134} y={204} l={92} h={92} rx={46}>
+      <path d={`M180 -20V${BOULE - 46}`} fill="none" stroke={C.brume} strokeWidth="2" />
+      <g {...a("flotte", { r: 2.4, t: 1.6, o: [180, 0] })}>
+        <circle cx="180" cy={BOULE} r="46" fill={METAL.argent} />
+        <Fenetre x={134} y={BOULE - 46} l={92} h={92} rx={46}>
           <path d={facettes} fill="none" stroke={C.nuit} strokeOpacity="0.4" strokeWidth="1.5" />
-          <path d="M150 220h13v13h-13ZM189 233h13v13h-13ZM163 259h13v13h-13ZM202 272h13v13h-13ZM176 207h13v13h-13Z" fill={C.blanc} fillOpacity="0.85" {...a("clignote", { t: 0.4, o0: 0.2 })} />
-          <path d="M163 233h13v13h-13ZM202 220h13v13h-13ZM150 272h13v13h-13ZM189 259h13v13h-13Z" fill={C.blanc} fillOpacity="0.85" {...a("clignote", { t: 0.4, d: -0.4, o0: 0.2 })} />
+          <g transform={`translate(0 ${BOULE - 250})`} fill={C.blanc} fillOpacity="0.85">
+            <path d="M150 220h13v13h-13ZM189 233h13v13h-13ZM163 259h13v13h-13ZM202 272h13v13h-13ZM176 207h13v13h-13Z" {...a("clignote", { t: 0.4, o0: 0.2 })} />
+            <path d="M163 233h13v13h-13ZM202 220h13v13h-13ZM150 272h13v13h-13ZM189 259h13v13h-13Z" {...a("clignote", { t: 0.4, d: -0.4, o0: 0.2 })} />
+          </g>
         </Fenetre>
-        <path d={etoiles([[224, 212, 13], [140, 282, 9]])} fill={C.blanc} {...a("clignote", { t: 0.6, o0: 0.2 })} />
+        <path d={etoiles([[224, BOULE - 38, 13], [140, BOULE + 32, 9]])} fill={C.blanc} {...a("clignote", { t: 0.6, o0: 0.2 })} />
       </g>
       {/* Les invités : tout Grattouille est monté */}
       <g transform="translate(52 642) scale(0.9)"><Invite pnj="selene" d={0} /></g>
@@ -470,8 +475,8 @@ const soireeLune: SceneArt = ({ espece, look }) => {
           </g>
         </g>
       </g>
-      <g transform="translate(64 730) scale(1.1)"><Invite pnj="baron" d={-0.2} /></g>
-      <g transform="translate(298 736) scale(1.1)"><Invite pnj="colette" d={-0.33} /></g>
+      <g transform="translate(64 716) scale(1.05)"><Invite pnj="baron" d={-0.2} /></g>
+      <g transform="translate(298 720) scale(1.05)"><Invite pnj="colette" d={-0.33} /></g>
       {/* Des notes s'envolent */}
       <g fill={C.ivoire}>
         <g {...a("passe", { fy: -150, fx: 20, r: 20, t: 2.4, n: "inf" })}>
