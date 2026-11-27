@@ -2451,8 +2451,10 @@ describe("une table d'avant la mise à jour : le serveur", () => {
     expect(left.body.left).toEqual({ reason: "quitte", payout: stack, bonus: 0 });
     expect(left.body.state).toMatchObject({ balance: 4_500 + stack, pokerStats: { hands: 1, unmasked: 0, caught: 0 }, masters: 0, defis: [] });
     expect(left.body.state!.poker).toBeUndefined();
-    // Il avait 470 € devant lui et 10 € au pot : il repart avec ce que la main lui a laissé, à l'euro près.
-    expect([460, 470, 480, 490]).toContain(stack);
+    // Il avait 470 € devant lui et 10 € au pot : il repart avec ses 480 € et le bilan de la main, à l'euro près.
+    const net = view.result!.net.find((n) => n.seat === 0)!.amount;
+    expect(stack).toBe(480 + net);
+    expect(Math.abs(net)).toBeGreaterThanOrEqual(10);
     expect(w.storage.tableCodes()).toEqual([]);
     expect((await w.poker.lobby(a)).body.seat).toBeNull();
   });

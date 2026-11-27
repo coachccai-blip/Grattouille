@@ -16,7 +16,12 @@ astronomiques, le dernier assis prend tout.
 
 Le Kiosque racheté, l'histoire continue : le Patron laisse tomber à son tour des tickets
 pour ceux qui débarquent sans rien, et une **vraie fin** attend qui a tout acheté et relevé
-les huit défis. Trente-huit **trophées** jalonnent le tout.
+les huit défis. Chaque hôte battu trois fois au poker raconte son histoire, dans les
+**Souvenirs**.
+
+Aux Boutiques, l'**Agence Carpe Diem** vend ce qui ne se range dans aucun placard : trente
+expériences de vie, de la glace face à la mer à la soirée sur la Lune, chacune avec sa
+scène animée. Quarante-deux **trophées** jalonnent le tout.
 
 Le jeu se joue en français ou en anglais (Réglages, ou l'écran de bienvenue), avec le son,
 une musique d'ambiance par lieu et des animations partout, que les réglages permettent de
@@ -99,7 +104,9 @@ local, isolé de la production.
 - Pour voir la suite de l'histoire sans tout rejouer, le bac à sable accepte aussi
   `&kiosque=1` (déjà Patron), `&defis=8` (défis de poker relevés), `&maitres=1` (Table des
   Maîtres remportée), `&vraiefin=1` (vraie fin vue), `&semes=40` (tickets semés),
-  `&joues=1600`, `&record=2000000`, `&jackpots=5`, `&demasques=10` (trophées). Un Patron prêt
+  `&joues=1600`, `&record=2000000`, `&jackpots=5`, `&demasques=10` (trophées),
+  `&victoires=3` (victoires au poker contre chaque hôte : leurs histoires sont ouvertes),
+  `&experiences=12` (expériences déjà vécues). Un Patron prêt
   pour la vraie fin et la Table des Maîtres :
   `?bac-a-sable&solde=900000000000000&biens=110&kiosque=1&defis=8`.
 - `?planche` : la planche de contrôle des illustrations et des tickets.
@@ -107,7 +114,7 @@ local, isolé de la production.
 ## Organisation
 
 ```
-shared/              les chiffres du jeu : économie, tickets, lieux, catalogue, règles, trophées
+shared/              les chiffres du jeu : économie, tickets, lieux, catalogue, expériences, règles, trophées
 shared/poker/        le Poker Tricheur : règles pures, combinaisons, robots, Table des Maîtres
 server/              la logique du serveur (comptes, tickets, boutiques, classement, poker)
 netlify/functions/   api.mts, le point d'entrée unique de /api/*

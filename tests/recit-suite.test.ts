@@ -9,23 +9,31 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CATALOG } from "../shared/catalog";
 import { formatInt } from "../shared/format";
-import { PLACES } from "../shared/places";
-import { SPECIES } from "../shared/rules";
+import { PLACES, placeById } from "../shared/places";
+import { HOST_STORY_WINS, SPECIES, hostStoryOpen } from "../shared/rules";
 import { TICKETS, ticketsOfPlace } from "../shared/tickets";
 import type { PlaceId, PlayerState } from "../shared/types";
-import { PIOU, TEXTES, legendGreeting, legendLine } from "../src/app/dialogues";
+import { PIOU, TEXTES, hostName, legendGreeting, legendLine } from "../src/app/dialogues";
+import { DEFAULT_SETTINGS, loadSettings } from "../src/app/persist";
+import { EN_ECRANS } from "../src/app/suite/en";
+import { ENCORE, HISTOIRES, tempsDe, type Temps } from "../src/app/suite/histoires";
+import { t as mots } from "../src/app/suite/mots";
 import {
   PALIERS, TEXTES_SEMIS, ditLaFoule, ditLeNouveauVenu, foule, nouveauVenu, nouvellesDe, paliersAtteints,
   paliersFranchis, prochainPalier,
 } from "../src/app/suite/semis";
 import { AS, CONSIGNE, HOTES, LEGENDE, PLANS, PLAN_DES_CARTES, TITRE, VENU, type Plan } from "../src/app/suite/vraie-fin";
-import { setLang, t, type Lang } from "../src/i18n";
+import { illustration } from "../src/art/registry";
+import { DESSINS } from "../src/art/suite/histoires";
+import { i18nMisses, setLang, t, type Lang } from "../src/i18n";
 import { EN_BOUTIQUES } from "../src/i18n/en/boutiques";
 import { EN_JEU } from "../src/i18n/en/jeu";
+import { EN_MUSIQUE } from "../src/i18n/en/musique";
 import { EN_POKER } from "../src/i18n/en/poker";
 import { EN_RECIT } from "../src/i18n/en/recit";
 import { EN_SUITE } from "../src/i18n/en/suite";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
+import { EN_TROPHEES } from "../src/i18n/en/trophees";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
 afterEach(() => setLang("fr"));
@@ -513,7 +521,7 @@ describe("la vraie fin : Huit as de cœur", () => {
   });
 
   it("chaque bouton dit ce qui va se passer, tient sur une ligne et a sa traduction", () => {
-    const tous: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_SUITE };
+    const tous: Record<string, string> = { ...EN_RECIT, ...EN_JEU, ...EN_SUITE, ...EN_ECRANS };
     for (const plan of PLANS) {
       const en = tous[plan.bouton];
       expect([plan.id, plan.bouton, typeof en]).toEqual([plan.id, plan.bouton, "string"]);
@@ -616,6 +624,247 @@ describe("le mot de chaque maître des lieux à la Légende", () => {
     }
     expect(legendGreeting("sidonie")).toBe(false);
     expect(legendGreeting("piou")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Les Souvenirs : l'histoire de chacun des huit maîtres des lieux (LOT4.md, section 12).
+
+/** Une bulle, une légende, un titre : pas plus. */
+const MAX_LEGENDE = 56;
+const MAX_TITRE = 32;
+const MAX_BOUTON_PAGE = 28;
+
+/**
+ * Les mots qui diraient un secret avant l'heure : qui sème les tickets, qui a fait la ville,
+ * ce que chacun cache dans sa manche. Le corps d'une histoire peut s'ouvrir avant les deux
+ * fins : il n'en dit rien.
+ */
+const SECRETS: Record<Lang, RegExp> = {
+  fr: /as de c(œ|oe)ur|huit as|\bfond(é|ée|er|ateur|atrice|ation)\b|\binvent|\bs[eè]m(e|é|és|er|ait|ons|eur|euse)\b|laiss\p{L}* tomber|poches? trouée|trich\p{L}* pour|\bPiou\b/iu,
+  en: /ace of hearts|eight aces|\bfound(ed|er|ing)\b|\binvent|\bdrop|\bsow|holes? in \w+ pockets?|cheat\w* for|\bPiou\b/i,
+};
+
+/** Ce à quoi l'on reconnaît chacun, dans les deux langues. */
+const VOIX: Record<PlaceId, Record<Lang, RegExp[]>> = {
+  kiosque: { fr: [/mon grand/, /mouette/, /Garanti/], en: [/sunshine/, /seagull/, /Guaranteed/] },
+  cafe: { fr: [/vent du large/, /Je ne vois que lui/], en: [/sea breeze/, /I can think of no one else/] },
+  casino: { fr: [/La maison/], en: [/The house/] },
+  salon: { fr: [/Hmpf/, /D'un commun/, /Ne le répétez pas/], en: [/Hmph/, /How common/, /Don't repeat that/] },
+  cercle: { fr: [/moustache/, /pari/, /majordome/], en: [/moustache/, /bet/, /butler/] },
+  yacht: { fr: [/homard/, /cales/, /bec/], en: [/lobster/, /holds/, /bill/] },
+  banque: { fr: [/tamponn/, /Colonne/, /trois exemplaires/], en: [/stamped/, /column/, /triplicate/] },
+  lune: { fr: [/D'ici/, /joli/, /Je ne dirai rien/], en: [/From here/, /pretty/, /I shan't tell/] },
+};
+
+/** Ils se connaissent tous : qui parle de qui. */
+const RENVOIS: Record<PlaceId, Record<Lang, string[]>> = {
+  kiosque: { fr: ["Ondine", "taupe"], en: ["Ondine", "mole"] },
+  cafe: { fr: ["Gaspard", "Hector"], en: ["Gaspard", "Hector"] },
+  casino: { fr: ["Ondine"], en: ["Ondine"] },
+  salon: { fr: ["Sir Auguste"], en: ["Sir Auguste"] },
+  cercle: { fr: ["Baron", "Hector"], en: ["Baron", "Hector"] },
+  yacht: { fr: ["Gaspard"], en: ["Gaspard"] },
+  banque: { fr: ["Ondine", "Gaspard"], en: ["Ondine", "Gaspard"] },
+  lune: {
+    fr: ["Ondine", "Hector", "Baron", "Sir Auguste", "Taupin", "Commodore", "Gaspard"],
+    en: ["Ondine", "Hector", "Baron", "Sir Auguste", "Taupin", "Commodore", "Gaspard"],
+  },
+};
+
+describe("les Souvenirs : l'histoire de chaque maître des lieux", () => {
+  const LIEUX = PLACES.map((p) => p.id);
+  /** Tout ce qui s'écrit dans une page : sa légende, ses bulles, son bouton. */
+  const entrees = (ou: string, page: Temps): Entree[] => [
+    { ou: `${ou}.legende`, ...page.legende },
+    ...paires(`${ou}.dit`, page.dit.fr, page.dit.en),
+    ...(page.bouton ? [{ ou: `${ou}.bouton`, ...page.bouton }] : []),
+  ];
+  const tout = (lieu: PlaceId): Entree[] => {
+    const h = HISTOIRES[lieu];
+    return [
+      { ou: `${lieu}.titre`, ...h.titre },
+      ...h.temps.flatMap((page, i) => entrees(`${lieu}.temps[${i}]`, page)),
+      ...entrees(`${lieu}.apres`, h.apres),
+    ];
+  };
+  /** Le corps d'une histoire, d'un seul tenant : tout sauf le temps d'après la vraie fin. */
+  const corps = (lieu: PlaceId, langue: Lang): string => {
+    const h = HISTOIRES[lieu];
+    return [h.titre[langue], ...h.temps.flatMap((page) => [page.legende[langue], ...page.dit[langue], page.bouton?.[langue] ?? ""])].join(" | ");
+  };
+
+  it("huit histoires, une par lieu, racontées par l'hôte du lieu", () => {
+    expect(Object.keys(HISTOIRES)).toEqual(LIEUX);
+    for (const lieu of LIEUX) {
+      expect([lieu, HISTOIRES[lieu].lieu, HISTOIRES[lieu].hote]).toEqual([lieu, lieu, placeById(lieu).host]);
+    }
+    const titres = LIEUX.map((lieu) => HISTOIRES[lieu].titre);
+    for (const langue of LANGUES) expect(new Set(titres.map((titre) => titre[langue])).size).toBe(8);
+    for (const titre of titres) expect([titre.fr, len(titre.fr) <= MAX_TITRE, len(titre.en) <= MAX_TITRE]).toEqual([titre.fr, true, true]);
+  });
+
+  it("cinq à huit temps : six pour tout le monde, un de plus pour qui a vu la vraie fin", () => {
+    for (const lieu of LIEUX) {
+      const h = HISTOIRES[lieu];
+      expect([lieu, h.temps.length]).toEqual([lieu, 6]);
+      expect(tempsDe(lieu, false)).toEqual(h.temps);
+      expect(tempsDe(lieu, true)).toEqual([...h.temps, h.apres]);
+      for (const vraieFin of [false, true]) {
+        const n = tempsDe(lieu, vraieFin).length;
+        expect([lieu, n >= 5 && n <= 8]).toEqual([lieu, true]);
+      }
+    }
+  });
+
+  it("chaque histoire est complète dans les deux langues, de même forme, et s'écrit comme il faut", () => {
+    for (const lieu of LIEUX) {
+      const h = HISTOIRES[lieu];
+      for (const [i, page] of [...h.temps, h.apres].entries()) {
+        // Une ou deux bulles par page, autant en anglais qu'en français.
+        expect([lieu, i, page.dit.fr.length, page.dit.en.length]).toEqual([lieu, i, page.dit.fr.length, page.dit.fr.length]);
+        expect([lieu, i, page.dit.fr.length >= 1 && page.dit.fr.length <= 2]).toEqual([lieu, i, true]);
+      }
+      // Gaspard taquine un titre (« Même les Immensités ») : c'est la seule fois, et c'est pour le poser.
+      const ecrit = fautes(tout(lieu));
+      expect({ ...ecrit, titres: lieu === "kiosque" ? [] : ecrit.titres }).toEqual(RIEN);
+      if (lieu === "kiosque") expect(ecrit.titres).toEqual(["kiosque.temps[0].dit[0]"]);
+    }
+  });
+
+  it("des répliques courtes : 110 caractères par bulle, une légende qui tient sous sa photo, un bouton sur une ligne", () => {
+    for (const lieu of LIEUX) {
+      for (const e of tout(lieu)) {
+        const max = e.ou.endsWith(".legende") ? MAX_LEGENDE : e.ou.endsWith(".bouton") ? MAX_BOUTON_PAGE : e.ou.endsWith(".titre") ? MAX_TITRE : MAX;
+        expect([e.ou, len(e.fr) <= max, len(e.en) <= max]).toEqual([e.ou, true, true]);
+      }
+    }
+    for (const langue of LANGUES) expect(len(ENCORE[langue])).toBeLessThanOrEqual(MAX_BOUTON_PAGE);
+    expect(fautes([{ ou: "encore", ...ENCORE }])).toEqual(RIEN);
+  });
+
+  it("le joueur tourne les pages : un bouton par page sauf la dernière, jamais deux fois le même dans une histoire", () => {
+    for (const lieu of LIEUX) {
+      const h = HISTOIRES[lieu];
+      const avecBouton = h.temps.map((page) => page.bouton !== undefined);
+      expect([lieu, avecBouton]).toEqual([lieu, [true, true, true, true, true, false]]);
+      expect([lieu, h.apres.bouton]).toEqual([lieu, undefined]);
+      for (const langue of LANGUES) {
+        const boutons = [...h.temps.flatMap((page) => (page.bouton ? [page.bouton[langue]] : [])), ENCORE[langue]];
+        expect([lieu, langue, new Set(boutons).size]).toEqual([lieu, langue, boutons.length]);
+      }
+    }
+  });
+
+  it("sans divulgâcher : le corps d'une histoire ne dit ni qui sème, ni qui a fait la ville, ni les huit as", () => {
+    for (const lieu of LIEUX) {
+      for (const langue of LANGUES) {
+        const trahison = corps(lieu, langue).match(SECRETS[langue]);
+        expect([lieu, langue, trahison?.[0] ?? null]).toEqual([lieu, langue, null]);
+      }
+    }
+    // Le garde-fou garde : les secrets eux-mêmes ne passeraient pas.
+    for (const fr of ["C'était moi : je sème les tickets.", "Piou a fondé la ville.", "Huit as de cœur.", "Il l'avait laissé tomber.", "Il a inventé une ville."]) {
+      expect([fr, SECRETS.fr.test(fr)]).toEqual([fr, true]);
+    }
+    for (const en of ["I drop the tickets.", "Piou founded the town.", "Eight aces of hearts.", "He invented a town."]) {
+      expect([en, SECRETS.en.test(en)]).toEqual([en, true]);
+    }
+    // Mais les mots de tous les jours passent : la semelle de Sir Auguste, ce qu'on a trouvé par terre.
+    expect(SECRETS.fr.test("Un ticket. Sous ma semelle. Au fond de la cale.")).toBe(false);
+    expect(SECRETS.en.test("I never found out why. I found a ticket.")).toBe(false);
+  });
+
+  it("des clins d'œil, oui : le groom est déjà là, sans que personne dise pourquoi", () => {
+    expect(corps("kiosque", "fr")).toMatch(/Un groom avait la clé/);
+    expect(corps("lune", "fr")).toMatch(/Un groom a noté quelque chose/);
+    expect(corps("casino", "fr")).toMatch(/la maison compte mal/);
+    expect(corps("kiosque", "en")).toMatch(/A bellboy had the key/);
+  });
+
+  it("maintenant que tu sais : le temps de plus relie chaque histoire au secret", () => {
+    for (const lieu of LIEUX) {
+      const { apres } = HISTOIRES[lieu];
+      expect([lieu, /^Maintenant que (tu sais|vous savez)/.test(apres.dit.fr[0]!)]).toEqual([lieu, true]);
+      expect([lieu, /^Now that you know/.test(apres.dit.en[0]!)]).toEqual([lieu, true]);
+      expect([lieu, /groom|Piou|Gaspard|calot/.test(apres.dit.fr.join(" "))]).toEqual([lieu, true]);
+      expect([lieu, /bellboy|Piou|Gaspard|cap\b/.test(apres.dit.en.join(" "))]).toEqual([lieu, true]);
+      expect([lieu, apres.dit.fr.length]).toEqual([lieu, 2]);
+    }
+  });
+
+  it("chacun raconte dans sa voix, à la première personne (la maison, elle, parle d'Hector)", () => {
+    for (const lieu of LIEUX) {
+      for (const langue of LANGUES) {
+        for (const marque of VOIX[lieu][langue]) expect([lieu, langue, String(marque), marque.test(corps(lieu, langue))]).toEqual([lieu, langue, String(marque), true]);
+      }
+      if (lieu !== "casino") expect([lieu, /\b(Je|J'ai|je|j'ai)\b/.test(corps(lieu, "fr")), /\bI\b/.test(corps(lieu, "en"))]).toEqual([lieu, true, true]);
+    }
+    // La maison dit « la maison » à chaque page, ou presque.
+    expect(HISTOIRES.casino.temps.filter((page) => /maison/i.test(page.dit.fr.join(" "))).length).toBeGreaterThanOrEqual(5);
+    // Seul Gaspard tutoie, et il le dit ; les sept autres vouvoient.
+    const paroles = (lieu: PlaceId) => [...HISTOIRES[lieu].temps, HISTOIRES[lieu].apres].flatMap((page) => page.dit.fr);
+    expect(paroles("kiosque").some((ligne) => TU.test(ligne))).toBe(true);
+    expect(paroles("kiosque")[0]).toMatch(/je tutoie/);
+    for (const lieu of LIEUX.filter((l) => l !== "kiosque")) {
+      expect([lieu, paroles(lieu).filter((ligne) => TU.test(ligne))]).toEqual([lieu, []]);
+    }
+  });
+
+  it("bien inscrites dans l'histoire du jeu : tout le monde a trouvé un ticket, et ils se connaissent tous", () => {
+    for (const lieu of LIEUX) {
+      for (const langue of LANGUES) {
+        expect([lieu, langue, /ticket/.test(corps(lieu, langue))]).toEqual([lieu, langue, true]);
+        const absents = RENVOIS[lieu][langue].filter((nom) => !corps(lieu, langue).includes(nom));
+        expect([lieu, langue, absents]).toEqual([lieu, langue, []]);
+      }
+    }
+    // On débarque sans un sou : par le bateau, à la nage, par la cale ou par un tunnel.
+    const sansUnSou = LIEUX.filter((lieu) => /sans un sou/.test(corps(lieu, "fr")));
+    expect(sansUnSou).toEqual(["kiosque", "casino", "salon", "cercle", "yacht", "lune"]);
+    expect(corps("cafe", "fr")).toMatch(/À la nage/);
+    expect(corps("banque", "fr")).toMatch(/J'ai creusé/);
+  });
+
+  it("chaque page a sa photo : la façade du lieu d'abord, puis des images qui existent", () => {
+    const connue = (image: string) => (image.startsWith("dessin:") ? DESSINS[image.slice(7)] !== undefined : illustration(image) !== undefined);
+    for (const lieu of LIEUX) {
+      const h = HISTOIRES[lieu];
+      expect([lieu, h.temps[0]!.image]).toEqual([lieu, `place:${lieu}`]);
+      const images = [...h.temps, h.apres].map((page) => page.image);
+      expect([lieu, images.filter((image) => !connue(image))]).toEqual([lieu, []]);
+      // Une ou deux images bien à lui, au moins : un dessin de l'album.
+      expect([lieu, images.some((image) => image.startsWith("dessin:"))]).toEqual([lieu, true]);
+      // Pas deux fois la même photo dans le corps d'une histoire.
+      expect([lieu, new Set(h.temps.map((page) => page.image)).size]).toEqual([lieu, h.temps.length]);
+    }
+    // Aucun dessin de l'album qui ne serve à rien.
+    const servis = new Set(LIEUX.flatMap((lieu) => [...HISTOIRES[lieu].temps, HISTOIRES[lieu].apres].map((page) => page.image)));
+    expect(Object.keys(DESSINS).filter((nom) => !servis.has(`dessin:${nom}`))).toEqual([]);
+  });
+
+  it("verrouillée à deux victoires, ouverte à trois", () => {
+    expect(HOST_STORY_WINS).toBe(3);
+    for (const lieu of LIEUX) {
+      expect([lieu, hostStoryOpen({ [lieu]: 2 }, lieu), hostStoryOpen({ [lieu]: 3 }, lieu)]).toEqual([lieu, false, true]);
+    }
+    expect(hostStoryOpen({ cafe: 3 }, "casino")).toBe(false);
+    expect(hostStoryOpen(undefined, "cafe")).toBe(false);
+  });
+
+  it("Piou le glisse sur le Domaine : qui a quelque chose à raconter, et où l'écouter", () => {
+    for (const langue of LANGUES) {
+      setLang(langue);
+      const noms = PLACES.map((p) => hostName(p.host));
+      for (const nom of noms) {
+        const seul = PIOU.histoire(nom, false);
+        const plusieurs = PIOU.histoire(nom, true);
+        expect([langue, seul.startsWith(nom), plusieurs.startsWith(nom), seul !== plusieurs]).toEqual([langue, true, true, true]);
+        expect([langue, nom, len(seul) <= MAX, len(plusieurs) <= MAX]).toEqual([langue, nom, true, true]);
+        expect([langue, /Souvenirs|Memories/.test(seul), /Souvenirs|Memories/.test(plusieurs)]).toEqual([langue, true, true]);
+      }
+    }
+    expect(fautes(paires("piou.histoire", TEXTES.piou.histoire.fr, TEXTES.piou.histoire.en))).toEqual(RIEN);
   });
 });
 
