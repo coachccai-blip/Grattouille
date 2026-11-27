@@ -364,7 +364,11 @@ function Creer() {
       <p className="poker-modes__regle" role="status">{modeRule(mode)}</p>
       <div className="poker-reglages">
         {tournament ? (
-          <Pas label={t("Blinde")} aide={t("Celle du départ : elle monte au fil des mains")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
+          <>
+            <Pas label={t("Blinde")} aide={t("Celle du départ : elle monte au fil des mains")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
+            {/* Ce que chacun pose découle de la blinde : cela se lit juste dessous, sans avoir à faire défiler la feuille. */}
+            <p className="poker-feuille__gain">{t("Cagnotte de chacun : {montant}, soit trente blindes de départ.", { montant: formatEuros(stake) })}</p>
+          </>
         ) : (
           <>
             <Pas label={t("Blinde")} aide={t("La mise d'entrée de chaque main")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
@@ -401,7 +405,6 @@ function Creer() {
       </div>
       {tournament ? (
         <>
-          <p className="poker-feuille__gain">{t("Cagnotte de chacun : {montant}, soit trente blindes de départ.", { montant: formatEuros(stake) })}</p>
           <p className="note">{t("Tes amis rejoignent la table avec son code, avant le lancement : ensuite, plus personne n'entre.")}</p>
           {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(stake - balance) })}</Alerte>}
         </>
