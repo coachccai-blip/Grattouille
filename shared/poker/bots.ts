@@ -313,8 +313,100 @@ function probe(view: TableView, size: number): BetMove {
   return push(view, 0.35 + 0.3 * size);
 }
 
+/** Les adversaires encore dans le coup. */
+function rivalsOf(view: TableView): number {
+  return view.seats.filter((s) => s !== null && s.seat !== view.you && s.inHand && !s.folded).length;
+}
+
+// ---------------------------------------------------------------------------
+// En tournoi : tenir à son tapis
+//
+// À la Table des Maîtres et dans un tournoi entre amis, personne ne recave : un tapis perdu,
+// c'est la partie perdue. Tant que la blinde est basse devant son tapis, un robot ne l'engage
+// donc pas à la légère. Ses mises gardent leur taille devant le pot (jusqu'à trois fois), mais
+// il ne met plus du tiers de son tapis dans une main qu'avec de quoi le justifier, et il ne
+// suit pas le tapis ou l'énorme relance d'un autre sans une très belle main. C'est ce qui
+// empêche la table de se vider entre robots dès les premières mains, relance sur relance
+// (mesuré à la Table des Maîtres : un maître tombait avant la troisième main à près d'une
+// table sur quatre ; c'est une sur trente). Plus la blinde monte devant les tapis, plus il se
+// lâche : la fin de partie reste rapide. Hors tournoi (une table ordinaire, un défi), rien de
+// tout cela.
+
+/** Au-delà de douze blindes devant lui, un robot est sur ses gardes ; sous cinq, plus du tout. */
+const DEEP_STACK = 12;
+const SHORT_STACK = 5;
+/** La part de son tapis qu'il engage sans y regarder de près : un tiers. Au double, c'est presque tout. */
+const SAFE_SHARE = 1 / 3;
+
+/**
+ * La main qu'il faut, tapis profonds, pour engager plus du tiers de son tapis (`big`) ou plus
+ * des deux tiers (`all`) : en misant ou en relançant soi-même, et en suivant la mise d'un autre.
+ * Les robots normal et difficile : un brelan pour miser gros, un full pour pousser ; deux
+ * paires pour suivre gros, un brelan pour suivre un tapis (assez souvent pour qu'on ne leur
+ * vole pas les blindes en poussant à chaque main : qui s'y essaie y laisse neuf blindes par
+ * main). Le robot facile se contente de moins.
+ */
+const STAKES: Record<Difficulty, { betBig: number; betAll: number; callBig: number; callAll: number }> = {
+  facile: { betBig: 0.40, betAll: 0.55, callBig: 0.15, callAll: 0.40 },
+  normal: { betBig: 0.55, betAll: 0.86, callBig: 0.40, callAll: 0.55 },
+  difficile: { betBig: 0.55, betAll: 0.86, callBig: 0.40, callAll: 0.55 },
+};
+
+/**
+ * La retenue : de 1 (tapis profonds, il tient à son tapis) à 0 (la blinde l'a rattrapé, ou
+ * la table n'est pas un tournoi : il joue comme partout).
+ */
+function restraint(view: TableView): number {
+  const me = view.you === null ? null : view.seats[view.you];
+  if (view.format !== "tournoi" || !me) return 0;
+  const depth = (me.stack + me.committed) / view.blind;
+  return Math.max(0, Math.min(1, (depth - SHORT_STACK) / (DEEP_STACK - SHORT_STACK)));
+}
+
+/** Ce que devient le geste voulu une fois la retenue passée par là : le même, plus petit, ou rien. */
+function restrained(view: TableView, level: Difficulty, move: BetMove): BetMove {
+  const calm = restraint(view);
+  const me = view.you === null ? null : view.seats[view.you];
+  const hand = view.hand;
+  if (calm === 0 || !me || !hand) return move;
+  const o = view.options;
+  const strength = handStrength(hand.cards);
+  const stakes = STAKES[level];
+  // Son tapis au début de la main, et la part qu'il en aurait engagée en ajoutant `chips`.
+  const whole = me.stack + me.committed;
+  const share = (chips: number): number => (me.committed + chips) / whole;
+
+  const call = (): BetMove => {
+    const at = share(o.call);
+    const need = at > 2 * SAFE_SHARE ? stakes.callAll : at > SAFE_SHARE ? stakes.callBig : 0;
+    return strength >= need * calm ? { type: "suivre" } : { type: "coucher" };
+  };
+  if (move.type === "suivre") return call();
+  if (move.type !== "miser" && move.type !== "relancer") return move;
+
+  // Ce que sa main l'autorise à engager : tout son tapis, les deux tiers, ou le tiers.
+  const limit = strength >= stakes.betAll * calm ? 1 : strength >= stakes.betBig * calm ? 2 * SAFE_SHARE : SAFE_SHARE;
+  const added = move.type === "miser" ? move.amount : move.amount - me.bet;
+  if (share(added) <= limit) return move;
+  // Trop pour cette main : il ramène sa mise à ce qu'il accepte de risquer.
+  const most = Math.floor(whole * limit) - me.committed;
+  if (move.type === "miser") return o.bet && most >= o.bet.min ? { type: "miser", amount: Math.min(most, o.bet.max) } : pass(view);
+  // Une relance plus petite, s'il a de quoi la faire et une main à faire payer : un bluff
+  // rabougri ne ferait peur à personne, il y renonce.
+  if (strength >= NOTHING && o.raise && me.bet + most >= o.raise.min) return { type: "relancer", amount: Math.min(me.bet + most, o.raise.max) };
+  // Sinon il suit si sa main vaut d'être défendue, ou il se couche.
+  const price = o.call / (view.pot + o.call);
+  const worth = level === "facile" ? strength >= NOTHING : defends(level, handRank(hand.cards), price, rivalsOf(view));
+  return worth ? call() : { type: "coucher" };
+}
+
 /** Que faire quand c'est à lui de parler. */
 export function botBet(view: TableView, level: Difficulty, rng: Random32): BetMove {
+  return restrained(view, level, intent(view, level, rng));
+}
+
+/** Ce qu'il ferait partout ailleurs qu'en tournoi : sa main, le prix, l'humeur. */
+function intent(view: TableView, level: Difficulty, rng: Random32): BetMove {
   const o = view.options;
   const hand = view.hand;
   if (!hand) return pass(view);
@@ -325,8 +417,7 @@ export function botBet(view: TableView, level: Difficulty, rng: Random32): BetMo
   const facing = o.call > 0;
   // Le prix à payer pour voir : la part du pot final qu'il faut y mettre.
   const price = facing ? o.call / (view.pot + o.call) : 0;
-  // Les adversaires encore dans le coup.
-  const rivals = view.seats.filter((s) => s !== null && s.seat !== view.you && s.inHand && !s.folded).length;
+  const rivals = rivalsOf(view);
   const duel = rivals <= 1;
 
   if (level === "facile") {

@@ -2587,6 +2587,78 @@ describe("les robots", () => {
     }
   });
 
+  it("en tournoi, tapis profonds, il tient à son tapis : pas de tapis suivi sans une très belle main", () => {
+    /** Trente blindes chacun, comme au début d'un tournoi. L'adversaire a misé `bet` ; au robot de répondre. */
+    const deep = (cards: string, bet: number, format: "tournoi" | "classique" = "tournoi", blind = 10): TableView => {
+      const view = copy(botView(cards, "mise", "Qs Jd 8c 6h 2s", bet, [300, 300]));
+      view.format = format;
+      view.blind = blind;
+      return view;
+    };
+    const answer = (cards: string, bet: number, level: Difficulty, format?: "tournoi" | "classique", blind?: number) =>
+      botBet(deep(cards, bet, format, blind), level, sequence(700, 0)).type;
+    const TRIPS = "7h 7d 7c Ks 2h";
+    const TWO_PAIR = "Kh Kd 4c 4s Ah";
+    const ACES = "Ah Ad 9c 7s 2h";
+    const JACKS = "Jh Jd Kc 7s 2h";
+    expect(deep(ACES, 290).options).toMatchObject({ call: 290, raise: null, allIn: true });
+    for (const level of ["normal", "difficile"] as const) {
+      // L'adversaire pousse ses 290 : suivre, c'est tout engager. Un brelan suit (on ne lui vole pas
+      // ses blindes en poussant à chaque main) ; deux paires, une paire d'as : non.
+      expect([level, answer(TRIPS, 290, level), answer(TWO_PAIR, 290, level), answer(ACES, 290, level)]).toEqual([level, "suivre", "coucher", "coucher"]);
+      // À une table classique (et dans un défi, qui n'est pas un tournoi), les mêmes mains suivent.
+      expect([level, answer(TWO_PAIR, 290, level, "classique"), answer(ACES, 290, level, "classique")]).toEqual([level, "suivre", "suivre"]);
+      // Une grosse mise (plus du tiers de son tapis) : il lui faut deux paires. Sous le tiers, il se défend comme partout.
+      expect([level, answer(ACES, 110, level), answer(TWO_PAIR, 110, level), answer(ACES, 80, level)]).toEqual([level, "coucher", "suivre", "suivre"]);
+      expect(answer(ACES, 110, level, "classique")).toBe("suivre");
+      // Plus la blinde monte devant son tapis, plus il se lâche : à 40 la blinde, une paire de valets
+      // suit le tapis ; à 80, il joue comme partout.
+      expect([level, answer(JACKS, 290, level), answer(JACKS, 290, level, "tournoi", 40), answer(ACES, 290, level, "tournoi", 80)]).toEqual([level, "coucher", "suivre", "suivre"]);
+    }
+    // Le robot facile tient moins à son tapis : deux paires lui suffisent pour suivre un tapis, une
+    // paire pour une grosse mise. Hors tournoi, il suit tout avec une paire.
+    expect([answer(TWO_PAIR, 290, "facile"), answer(ACES, 290, "facile"), answer(ACES, 110, "facile"), answer(ACES, 290, "facile", "classique")]).toEqual([
+      "suivre", "coucher", "suivre", "suivre",
+    ]);
+  });
+
+  it("en tournoi, ses mises gardent leur taille devant le pot, mais pas au point d'y laisser son tapis", () => {
+    const deep = (cards: string, stage: "parole" | "mise", bet = 20): TableView => {
+      const view = copy(botView(cards, stage, "Qs Jd 8c 6h 2s", bet, [300, 300]));
+      view.format = "tournoi";
+      return view;
+    };
+    const classic = (view: TableView): TableView => ({ ...view, format: "classique" });
+    // Un brelan relance une mise de 60 : partout ailleurs, à 194 ; en tournoi, pas plus des deux tiers de son tapis.
+    const trips = deep("7h 7d 7c Ks 2h", "mise", 60);
+    expect(botBet(classic(trips), "difficile", sequence(100, 0))).toEqual({ type: "relancer", amount: 194 });
+    expect(botBet(trips, "difficile", sequence(100, 0))).toEqual({ type: "relancer", amount: 190 });
+    // Une suite aussi : partout ailleurs elle relancerait à 259, presque tout son tapis.
+    const straight = deep("9h 8d 7c 6s 5h", "mise", 60);
+    expect(botBet(classic(straight), "difficile", sequence(100, 0))).toEqual({ type: "relancer", amount: 259 });
+    expect(botBet(straight, "difficile", sequence(100, 0))).toEqual({ type: "relancer", amount: 190 });
+    // Seul un full (ou mieux) mérite qu'on y mette tout : sa relance ne change pas, et il pousse
+    // encore son tapis de lui-même, une fois sur quatre.
+    const full = deep("3h 3d 3c Ks Kh", "mise", 60);
+    expect(botBet(full, "difficile", sequence(100, 0))).toEqual(botBet(classic(full), "difficile", sequence(100, 0)));
+    expect(botBet(full, "difficile", sequence(100, 0))).toEqual({ type: "relancer", amount: 290 });
+    expect(botBet(deep("3h 3d 3c Ks Kh", "parole"), "difficile", sequence(300, 900))).toEqual({ type: "miser", amount: 290 });
+    // Un bluff garde la taille d'une belle main devant le pot… tant qu'il ne coûte pas plus du tiers du tapis.
+    const bluff = deep("7h 5d 4c 3s 2h", "parole");
+    expect(botBet(bluff, "difficile", sequence(100, 999))).toEqual(botBet(classic(bluff), "difficile", sequence(100, 999)));
+    const fat = { ...bluff, pot: 100 };
+    expect(botBet(classic(fat), "difficile", sequence(100, 999))).toEqual({ type: "miser", amount: 290 });
+    expect(botBet(fat, "difficile", sequence(100, 999))).toEqual({ type: "miser", amount: 90 });
+    // Un bluff en relance qui coûterait trop cher : il y renonce, et se couche (il n'a rien).
+    const raised = deep("7h 5d 4c 3s 2h", "mise", 60);
+    expect(botBet(classic(raised), "difficile", sequence(960, 999)).type).toBe("relancer");
+    expect(botBet(raised, "difficile", sequence(960, 999))).toEqual({ type: "coucher" });
+    // Rien de tout cela ne coûte un tirage de plus : le hasard se déroule comme partout.
+    let draws = 0;
+    botBet(trips, "difficile", () => { draws += 1; return 100; });
+    expect(draws).toBe(2);
+  });
+
   it("en tête-à-tête, une belle paire vaut une petite mise ; à plusieurs, non", () => {
     const tens = botView("Th Td Kc 7s 2h", "parole");
     for (const level of ["normal", "difficile"] as const) {

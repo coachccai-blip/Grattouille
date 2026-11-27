@@ -378,13 +378,18 @@ pas impacter l'avancée des joueurs actuels ».
 - **La Table des Maîtres** : le joueur contre quatre des huit hôtes, tirés au sort, au
   niveau difficile. Blinde de départ 10 Bn€, cagnotte de 300 Bn€ chacun, pas de recave, la
   blinde monte, les perdants sont éliminés, le dernier assis remporte tout (1 500 Bn€). Elle
-  se dénoue en 13 mains en médiane (9 tables sur 10 en moins de 22). Un robot à la place
-  du joueur la gagne une fois sur cinq. On peut partir avec son tapis, sans victoire.
+  se dénoue en 16 mains en médiane (9 tables sur 10 entre 7 et 23). Un robot à la place du
+  joueur la gagne une fois sur cinq. On peut partir avec son tapis, sans victoire.
+- **En tournoi, un robot tient à son tapis** tant que la blinde est basse : il n'engage plus
+  le tiers de son tapis sans un brelan, ni ne suit un tapis sans une très belle main. Sans
+  cette retenue, les maîtres s'éliminaient entre eux dès la première main (une table sur
+  quatre) ; un maître tombe désormais avant la troisième main dans 3,5 % des tables. La
+  retenue s'efface à mesure que la blinde monte : la fin de partie reste rapide.
 - **Deux modes de table entre amis**, choisis à la création. Classique (le mode par défaut,
   celui des tables existantes) : chacun choisit sa cave, recave permise, on sort quand on
   veut. Table des Maîtres : le même tournoi, entre amis — même cagnotte pour tous (30
   blindes de départ), même barème, on rejoint avant le lancement. Il dure 18 à 21 mains en
-  médiane.
+  médiane, selon le nombre de sièges.
 - **Quitter un tournoi entre amis, c'est abandonner** : le tapis reste sur la table pour le
   gagnant, sans quoi celui qui mène partirait avec ses gains. Seul humain encore là, on
   reprend son tapis et la table ferme. Un absent n'est pas écarté tant qu'un autre humain
@@ -396,9 +401,8 @@ pas impacter l'avancée des joueurs actuels ».
   s'est fait prendre) n'existaient pas avant : ils partent de zéro pour tout le monde, et
   sont versés quand on quitte la table.
 - **Limites connues.** Le robot difficile est dur : c'est lui qu'on affronte à la troisième
-  manche de chaque défi, et dès la première à partir du Cercle. Une Table des Maîtres sur
-  dix se dénoue en deux mains. Une page restée ouverte avec l'ancien écran qui rejoindrait
-  un tournoi ne le reconnaîtrait pas. Le tournoi à plusieurs humains a été joué par les
+  manche de chaque défi, et dès la première à partir du Cercle. Une page restée ouverte avec
+  l'ancien écran qui rejoindrait un tournoi ne le reconnaîtrait pas. Le tournoi à plusieurs humains a été joué par les
   tests et par un second joueur piloté dans la même page, pas sur plusieurs téléphones.
 
 ### L'Agence Carpe Diem : les expériences de vie

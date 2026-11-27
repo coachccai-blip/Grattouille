@@ -772,13 +772,27 @@ describe("des tables entières", () => {
     let shortBlinds = 0;
     let sidePots = 0;
     let carried = 0;
+    // Les tables où un maître est tombé avant la troisième main, et les maîtres encore en jetons
+    // après la cinquième (là où elle s'est jouée).
+    let early = 0;
+    let fifth = 0;
+    let stillAtFive = 0;
     for (let seed = 1; seed <= 200; seed++) {
       const out = new Set<number>();
       let lastHand = 0;
       let lastResult = 0;
+      let fell = false;
       const { table: t, before } = playMasters(40_000 + seed, (state, now) => {
         if (state.phase === "fermee") return;
         sound(state);
+        if (state.phase === "denouement" && state.result && state.result.no !== lastResult) {
+          const standing = state.seats.filter((seat) => seat!.bot !== null && seat!.stack > 0).length;
+          if (state.result.no <= 2 && standing < 4) fell = true;
+          if (state.result.no === 5) {
+            fifth += 1;
+            stillAtFive += standing;
+          }
+        }
         // Personne ne recave, rien ne disparaît : l'argent de la table ne bouge pas d'un euro.
         if (chipsOnTable(state) !== ALL) throw new Error(`jetons : ${chipsOnTable(state)}`);
         if (state.audit.in !== MASTERS_BUYIN || state.audit.out !== 0 || state.audit.bank !== 4 * MASTERS_BUYIN) throw new Error("comptes");
@@ -835,17 +849,24 @@ describe("des tables entières", () => {
       expect([seed, stats?.hands]).toEqual([seed, t.handNo]);
       eliminations += before.seats.filter((seat) => seat!.bot !== null && seat!.stack === 0).length;
       lengths.push(t.handNo);
+      if (fell) early += 1;
     }
     lengths.sort((a, b) => a - b);
     wins.sort((a, b) => a - b);
     const at = (list: number[], share: number) => list[Math.min(list.length - 1, Math.floor(share * list.length))]!;
-    // Le barème est réglé pour qu'une table se dénoue en 12 à 18 mains en médiane, et neuf fois
-    // sur dix en moins de 26. Les robots misent gros : une table sur dix est finie pour le joueur
-    // en une main ou deux.
-    expect(at(lengths, 0.5)).toBeGreaterThanOrEqual(12);
-    expect(at(lengths, 0.5)).toBeLessThanOrEqual(18);
-    expect(at(lengths, 0.9)).toBeLessThan(26);
+    // Le barème et la retenue des robots sont réglés pour qu'une table se dénoue en 13 à 20 mains
+    // en médiane, neuf fois sur dix en moins de 28, et rarement avant la sixième.
+    expect(at(lengths, 0.5)).toBeGreaterThanOrEqual(13);
+    expect(at(lengths, 0.5)).toBeLessThanOrEqual(20);
+    expect(at(lengths, 0.1)).toBeGreaterThanOrEqual(6);
+    expect(at(lengths, 0.9)).toBeLessThan(28);
     expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(38);
+    // La table ne se vide pas entre robots : tant que la blinde est basse, les maîtres tiennent à
+    // leur tapis. Moins d'une table sur dix en perd un avant la troisième main, et il en reste
+    // plus de trois et demi sur quatre, en moyenne, après la cinquième.
+    expect(early).toBeLessThan(20);
+    expect(fifth).toBeGreaterThan(150);
+    expect(stillAtFive / fifth).toBeGreaterThan(3.5);
     // Un robot à la place du joueur la gagne une fois sur cinq, et il lui faut une vingtaine de mains.
     expect(wins.length).toBeGreaterThanOrEqual(25);
     expect(wins.length).toBeLessThanOrEqual(60);
@@ -856,6 +877,57 @@ describe("des tables entières", () => {
     expect(shortBlinds).toBeGreaterThan(100);
     expect(sidePots).toBeGreaterThan(100);
     expect(carried).toBeGreaterThan(12);
+  });
+
+  it("en début de tournoi, la table ne se vide pas entre robots : un maître tombe rarement avant la troisième main", () => {
+    /** Les deux premières mains de `tables` tables : combien en perdent un maître, et combien de maîtres ont tout poussé. */
+    const opening = (policy: (view: TableView, rng: Random32) => GameAction | null, tables: number) => {
+      let fallen = 0;
+      let shoves = 0;
+      for (let seed = 1; seed <= tables; seed++) {
+        const rng = rngOf(46_000 + seed);
+        let now = T0;
+        let t = masters(rng, pickMasters(rng));
+        let fell = false;
+        // Les tapis poussés par un maître (en misant, en relançant ou en suivant), d'après le journal.
+        const pushed = new Set<number>();
+        for (let guard = 0; guard < 2_000 && t.phase !== "fermee"; guard++) {
+          for (const e of t.log) if (e.seat > 0 && e.allIn && e.kind !== "blinde") pushed.add(e.n);
+          if (t.phase === "denouement") {
+            if (t.seats.some((seat) => seat!.bot !== null && seat!.stack === 0)) fell = true;
+            // Deux mains suffisent ; et si le joueur n'a plus rien, la table va fermer.
+            if (t.handNo >= 2 || t.seats[0]!.stack === 0) break;
+          }
+          const move = policy(viewFor(t, "p_a", now), rng);
+          if (move) {
+            now += 1_000;
+            t = act(t, "p_a", move, now, rng);
+          } else {
+            now = Math.max(now, nextEventAt(t)!);
+            t = advance(t, now, rng);
+          }
+        }
+        if (fell) fallen += 1;
+        shoves += pushed.size;
+      }
+      return { fallen, shoves };
+    };
+    /** Un joueur qui ne joue pas le coup : franc jeu, parole ou couché, rien à dire. Les maîtres restent entre eux. */
+    const watcher = (view: TableView): GameAction | null => {
+      const o = view.options;
+      if (o.cheat) return { type: "franc-jeu" };
+      if (o.fold) return o.check ? { type: "parole" } : { type: "coucher" };
+      if (o.accuse.length > 0) return { type: "rien" };
+      return o.next ? { type: "suite" } : null;
+    };
+    const TABLES = 400;
+    for (const [name, policy] of [["un robot difficile à sa place", botMove], ["un joueur qui regarde", watcher]] as const) {
+      const { fallen, shoves } = opening(policy, TABLES);
+      // Moins d'une table sur dix (mesuré sur 1 500 : une sur trente ; avant la retenue : une sur quatre).
+      expect([name, fallen < TABLES / 10]).toEqual([name, true]);
+      // Et un tapis poussé par un maître, tapis profonds, reste un événement : moins d'un toutes les dix mains.
+      expect([name, shoves < (2 * TABLES) / 10]).toEqual([name, true]);
+    }
   });
 
   it("un joueur qui fait n'importe quoi de permis, ou rien du tout : l'argent reste juste, la fin reste nette", () => {

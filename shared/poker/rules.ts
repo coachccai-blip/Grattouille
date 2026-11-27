@@ -295,8 +295,10 @@ export function pickMasters(rng: Random32): string[] {
  *
  * Réglé par simulation (le propriétaire trouvait les parties trop longues avec seize mains à
  * la blinde de base), le joueur tenu par un robot difficile : la table se dénoue pour lui en
- * 13 mains en médiane, neuf fois sur dix en 22 mains au plus, et il lui faut une vingtaine de
- * mains pour la gagner (une fois sur cinq). Entre amis : 18 à 21 mains selon le nombre de sièges.
+ * 16 mains en médiane, neuf fois sur dix en 23 mains au plus, rarement avant la septième (les
+ * robots tiennent à leur tapis tant que la blinde est basse : voir bots.ts), et il lui faut
+ * une vingtaine de mains pour la gagner (une fois sur cinq). Entre amis : 18 à 21 mains selon
+ * le nombre de sièges.
  */
 export const MASTERS_LEVEL_HANDS: readonly number[] = [10, 3, 3, 2];
 
