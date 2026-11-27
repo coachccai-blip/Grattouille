@@ -21,8 +21,8 @@ import { PLACES } from "../shared/places";
 import { HOST_STORY_WINS, hostStoryOpen } from "../shared/rules";
 import type { PlaceId } from "../shared/types";
 import {
-  ACCUSE_MS, BOT_PERSONAS, CHEAT_MS, DECK, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, RESULT_MS, TURN_MS, WALKOVER_MS,
-  betOptions, evaluate,
+  ACCUSE_MS, BOT_PERSONAS, CHALLENGE_ROUNDS, CHEAT_MS, DECK, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, RESULT_MS, TURN_MS,
+  WALKOVER_MS, betOptions, challengeOf, evaluate,
   type HandResult, type LobbyMasters, type PokerAction, type PokerLobbyResponse, type PokerTableResponse, type SeatView,
   type TableView,
 } from "../shared/poker";
@@ -35,19 +35,19 @@ import { EN_RECIT } from "../src/i18n/en/recit";
 import { EN_TICKETS } from "../src/i18n/en/tickets";
 import {
   MAX_DIGITS, RANKS, SUITS, UNITS, accusationCost, beatsOf, betChoices, boundBet, buyInSteps, challengesWon, cleanCode,
-  decimalsFor, defaultBuyIn, doubles, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, lineBeats, mastersCard,
-  mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, placeOfHost, potSized, pressKey, rankTaken,
-  remainingMs, sidesFor, storiesJustOpened, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitOf, unitsFor,
-  winnersOf, type Unit,
+  decimalsFor, defaultBuyIn, doubles, duelOf, fallenSeats, fitUnit, freshEntries, hostStory, isFullCode, leadShift, lineBeats,
+  mastersCard, mastersLeft, maxBuyInChoices, neighbours, netOf, outcomeLines, phaseTotal, playedStage, potSized, pressKey,
+  rankTaken, remainingMs, sidesFor, stageOf, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitOf, unitsFor,
+  winnersOf, type DuelStage, type Unit,
 } from "../src/screens/poker/calcul";
 import {
-  HOST_TALK, MASTERS_TALK, PIOU_HALL, TABLE_TALK, hostLine, mastersLine, piouHall, tableLine,
-  type Bot, type Host, type HostMoment, type MastersMoment, type TableMoment,
+  DUEL_TALK, KITTY_TALK, MASTERS_TALK, PIOU_HALL, TABLE_TALK, duelLine, kittyLine, mastersLine, piouHall, tableLine,
+  type Bot, type DuelMoment, type Host, type MastersMoment, type TableMoment,
 } from "../src/screens/poker/repliques";
 import {
-  boundsText, decimalMark, fieldAround, isMastersEnd, mastersEnding, mastersLeftText, seatStateText, storiesOpenedText,
-  storyAfterWin, storyLeftText, storyProgressText, tableTitle, typedBetLabel, typedBetText, typedText, unitLabel, unitName,
-  type MastersEnd,
+  boundsText, decimalMark, duelLost, duelProgressText, duelStakesText, duelStoryText, duelWon, fieldAround, isMastersEnd,
+  mastersEnding, mastersLeftText, seatStateText, stageText, storyOpenedText, tableTitle, typedBetLabel, typedBetText, typedText,
+  unitLabel, unitName, type MastersEnd,
 } from "../src/screens/poker/textes";
 
 // Chaque test repart du français, quoi qu'il arrive dans le précédent.
@@ -723,17 +723,21 @@ describe("le journal de la table", () => {
 
 describe("les répliques des personnages, dans les deux langues", () => {
   const BOTS = Object.keys(TABLE_TALK) as Bot[];
-  const HOSTS = Object.keys(HOST_TALK) as Host[];
+  const HOSTS = Object.keys(DUEL_TALK) as Host[];
   const MOMENTS: readonly TableMoment[] = ["accuse", "demasque", "innocent", "gagne"];
-  const HOST_MOMENTS: readonly HostMoment[] = ["defi", "revanche", "ruine", "ruine-encore", "vainqueur"];
+  const DUEL_MOMENTS: readonly DuelMoment[] = ["ouverture", "avantage", "recul", "victoire", "defaite"];
+  const STAGES: readonly DuelStage[] = [1, 2, 3, "revanche"];
   /** À table : deux lignes au-dessus des cartes, sur un téléphone de 320 px. */
   const MAX_TABLE = 70;
-  /** Dans le hall et à la fin d'un défi : une bulle de trois lignes. */
+  /** Dans le hall, à l'ouverture et à la fin d'une manche : une bulle de trois lignes. */
   const MAX_HOST = 110;
+  /** Tout ce qu'un hôte dit pendant ses défis, dans une langue. */
+  const duelLines = (host: Host, langue: Lang) => DUEL_MOMENTS.flatMap((m) => [...DUEL_TALK[host][langue][m]]);
 
   it("un personnage par robot du moteur, un hôte par lieu", () => {
     expect([...BOTS].sort()).toEqual([...BOT_PERSONAS].sort());
     expect([...HOSTS].sort()).toEqual(PLACES.map((p) => p.host).sort());
+    expect(Object.keys(KITTY_TALK).sort()).toEqual([...HOSTS].sort());
   });
 
   it("chaque personnage a ses quatre moments, deux variantes chacun, de même forme dans les deux langues", () => {
@@ -763,30 +767,67 @@ describe("les répliques des personnages, dans les deux langues", () => {
     expect(tooLong).toEqual([]);
   });
 
-  it("un défi, une ruine : 110 caractères au plus, cagnotte comprise", () => {
+  it("le défi en trois manches : cinq moments par hôte, une réplique par manche, puis celle de la revanche", () => {
+    for (const host of HOSTS) {
+      for (const langue of LANGUES) {
+        const voice = DUEL_TALK[host][langue];
+        expect([host, langue, Object.keys(voice).sort()]).toEqual([host, langue, [...DUEL_MOMENTS].sort()]);
+        // L'ouverture, la victoire et la défaite : trois manches et la revanche. L'avantage et le recul : trois manches.
+        expect([host, langue, DUEL_MOMENTS.map((m) => voice[m].length)]).toEqual([host, langue, [4, 3, 3, 4, 4]]);
+      }
+      // Un geste en français reste un geste en anglais, réplique par réplique.
+      for (const moment of DUEL_MOMENTS) {
+        DUEL_TALK[host].fr[moment].forEach((line, i) => {
+          expect([host, moment, i, DUEL_TALK[host].en[moment][i]!.startsWith("~")]).toEqual([host, moment, i, line.startsWith("~")]);
+        });
+      }
+    }
+  });
+
+  it("trois manches de suite ne se ressemblent pas : aucune réplique d'un hôte n'est dite deux fois", () => {
+    for (const langue of LANGUES) {
+      const all = HOSTS.flatMap((host) => duelLines(host, langue));
+      // Huit hôtes, dix-huit répliques chacun, toutes différentes : d'une manche à l'autre, d'un hôte à l'autre.
+      expect(all.length).toBe(8 * 18);
+      expect(all.filter((line, i) => all.indexOf(line) !== i)).toEqual([]);
+      // Et aucune ne redit une réplique de table, ni un mot de la Table des Maîtres.
+      const elsewhere = new Set([
+        ...BOTS.flatMap((bot) => MOMENTS.flatMap((m) => [...TABLE_TALK[bot][langue][m]])),
+        ...HOSTS.flatMap((host) => Object.values(MASTERS_TALK[host][langue])),
+      ]);
+      expect(all.filter((line) => elsewhere.has(line))).toEqual([]);
+    }
+  });
+
+  it("les deux répliques de table d'un défi tiennent en 70 caractères ; ses trois bulles, en 110", () => {
     const tooLong: string[] = [];
     for (const host of HOSTS) {
       for (const langue of LANGUES) {
-        setLang(langue);
-        // La plus longue somme qu'un hôte puisse remettre : celle de la Lune.
-        const cagnotte = formatEuros(25_000_000_000_000);
-        for (const moment of HOST_MOMENTS) {
-          const line = HOST_TALK[host][langue][moment].replace("{cagnotte}", cagnotte);
-          if (len(line) > MAX_HOST) tooLong.push(`${host}.${langue}.${moment} (${len(line)}) : ${line}`);
+        for (const moment of DUEL_MOMENTS) {
+          const max = moment === "avantage" || moment === "recul" ? MAX_TABLE : MAX_HOST;
+          DUEL_TALK[host][langue][moment].forEach((line, i) => {
+            if (len(line.replace(/^~\s*/, "")) > max) tooLong.push(`${host}.${langue}.${moment}[${i}] (${len(line)}) : ${line}`);
+          });
         }
+        // Une table d'avant les trois manches : la plus longue somme qu'un hôte puisse remettre, celle de la Lune.
+        setLang(langue);
+        const kitty = KITTY_TALK[host][langue].replace("{cagnotte}", formatEuros(25_000_000_000_000));
+        if (len(kitty) > MAX_HOST) tooLong.push(`${host}.${langue}.cagnotte (${len(kitty)}) : ${kitty}`);
       }
     }
     setLang("fr");
     expect(tooLong).toEqual([]);
   });
 
-  it("la cagnotte s'annonce avec sa somme quand l'hôte est ruiné, et nulle part ailleurs", () => {
+  it("aucune somme écrite à la main dans un défi : seule la cagnotte d'une table d'avant s'annonce, par sa variable", () => {
     for (const host of HOSTS) {
       for (const langue of LANGUES) {
-        for (const moment of HOST_MOMENTS) {
-          const expected = moment === "ruine" ? ["{cagnotte}"] : [];
-          expect([host, langue, moment, variables(HOST_TALK[host][langue][moment])]).toEqual([host, langue, moment, expected]);
+        for (const line of duelLines(host, langue)) {
+          expect([host, langue, variables(line)]).toEqual([host, langue, []]);
+          // La mise change d'une manche à l'autre et d'un lieu à l'autre : un hôte dit « le double », jamais un montant.
+          expect([line, /\d|€/.test(line)]).toEqual([line, false]);
         }
+        expect([host, langue, variables(KITTY_TALK[host][langue])]).toEqual([host, langue, ["{cagnotte}"]]);
       }
     }
     for (const bot of BOTS) {
@@ -799,7 +840,7 @@ describe("les répliques des personnages, dans les deux langues", () => {
   it("pas de guillemets dans une réplique (la bulle pose les siens), ni d'espace au bord", () => {
     const all = [
       ...BOTS.flatMap((bot) => LANGUES.flatMap((l) => MOMENTS.flatMap((m) => [...TABLE_TALK[bot][l][m]]))),
-      ...HOSTS.flatMap((host) => LANGUES.flatMap((l) => HOST_MOMENTS.map((m) => HOST_TALK[host][l][m]))),
+      ...HOSTS.flatMap((host) => LANGUES.flatMap((l) => [...duelLines(host, l), KITTY_TALK[host][l]])),
       ...Object.values(PIOU_HALL).flatMap((deux) => [deux.fr, deux.en]),
     ];
     expect(all.filter((line) => /[«»“”"]/.test(line))).toEqual([]);
@@ -807,16 +848,43 @@ describe("les répliques des personnages, dans les deux langues", () => {
     // L'anglais s'affiche tel quel : pas d'espace insécable à la française.
     const english = [
       ...BOTS.flatMap((bot) => MOMENTS.flatMap((m) => [...TABLE_TALK[bot].en[m]])),
-      ...HOSTS.flatMap((host) => HOST_MOMENTS.map((m) => HOST_TALK[host].en[m])),
+      ...HOSTS.flatMap((host) => [...duelLines(host, "en"), KITTY_TALK[host].en]),
     ];
-    expect(english.filter((line) => /[  ]| [!?:;]/.test(line))).toEqual([]);
+    expect(english.filter((line) => /[\u00A0\u202F]| [!?:;]/.test(line))).toEqual([]);
+    // Et le français pose ses espaces devant les signes doubles.
+    const french = HOSTS.flatMap((host) => duelLines(host, "fr"));
+    expect(french.filter((line) => /[^\s][!?;:]/.test(line.replace(/\.\.\./g, "")))).toEqual([]);
   });
 
   it("en anglais, la cagnotte d'un hôte est « the kitty » : « purse » est la bourse du joueur", () => {
-    const english = HOSTS.flatMap((host) => HOST_MOMENTS.map((m) => HOST_TALK[host].en[m]));
+    const english = HOSTS.flatMap((host) => [...duelLines(host, "en"), KITTY_TALK[host].en]);
     expect(english.filter((line) => /\bpurse\b/i.test(line))).toEqual([]);
-    expect(HOSTS.filter((host) => !/kitty/.test(HOST_TALK[host].en.ruine))).toEqual([]);
-    expect(HOSTS.filter((host) => !/cagnotte/.test(HOST_TALK[host].fr.ruine))).toEqual([]);
+    expect(HOSTS.filter((host) => !/kitty/.test(KITTY_TALK[host].en))).toEqual([]);
+    expect(HOSTS.filter((host) => !/cagnotte/.test(KITTY_TALK[host].fr))).toEqual([]);
+  });
+
+  it("d'une manche à l'autre, l'hôte change de ton : il double à la deuxième, joue la dernière, puis doit une histoire", () => {
+    for (const host of HOSTS) {
+      const fr = DUEL_TALK[host].fr;
+      const en = DUEL_TALK[host].en;
+      // À la deuxième manche, la mise a doublé : il le dit.
+      expect([host, /doubl/i.test(fr.ouverture[1])]).toEqual([host, true]);
+      expect([host, /doubl/i.test(en.ouverture[1])]).toEqual([host, true]);
+      // La troisième est la dernière : il y joue tout.
+      expect([host, /derni[èe]re manche/i.test(fr.ouverture[2])]).toEqual([host, true]);
+      expect([host, /last round/i.test(en.ouverture[2])]).toEqual([host, true]);
+      // Battu une fois, il annonce qu'il doublera ; battu trois fois, il rend les armes et promet de raconter.
+      expect([host, /doubl/i.test(fr.defaite[0])]).toEqual([host, true]);
+      expect([host, /doubl/i.test(en.defaite[0])]).toEqual([host, true]);
+      expect([host, /histoire|raconter/i.test(fr.defaite[2])]).toEqual([host, true]);
+      expect([host, /story|tell you/i.test(en.defaite[2])]).toEqual([host, true]);
+      expect([host, /[Tt]rois/.test(fr.defaite[2])]).toEqual([host, true]);
+      expect([host, /[Tt]hree/.test(en.defaite[2])]).toEqual([host, true]);
+      // Une histoire promise, jamais racontée ici : rien de ce qu'elle garde pour les Souvenirs.
+      for (const line of [...duelLines(host, "fr"), ...duelLines(host, "en")]) expect(line).not.toMatch(/Piou|as de cœur|ace of hearts|fondé|founded/i);
+      // Quand il gagne, il invite à retenter : on ne se moque jamais de qui perd.
+      for (const line of [...fr.victoire, ...en.victoire]) expect(line).not.toMatch(/perdant|nul|loser|pathetic|pauvre/i);
+    }
   });
 
   it("chacun garde sa voix : Hmpf, Hou, Vroum, ravissant, la maison, la moustache", () => {
@@ -836,17 +904,33 @@ describe("les répliques des personnages, dans les deux langues", () => {
     // Gaspard change de sujet : la mouette.
     expect(all("gaspard", "fr")).toMatch(/mouette/);
     expect(all("gaspard", "en")).toMatch(/seagull/);
+    // Dans ses défis, chacun reste lui-même à toutes les manches.
+    const every = (host: Host, langue: Lang, voice: RegExp) => STAGES.map((_, i) => voice.test(DUEL_TALK[host][langue].ouverture[i]!));
+    expect(every("baron", "fr", /Hmpf/)).toEqual([true, true, true, true]);
+    expect(every("baron", "en", /Hmph/)).toEqual([true, true, true, true]);
+    expect(every("hector", "fr", /[Ll]a maison/)).toEqual([true, true, true, true]);
+    expect(every("hector", "en", /[Tt]he house/)).toEqual([true, true, true, true]);
+    expect(duelLines("auguste", "fr").filter((line) => /moustache|pari/i.test(line)).length).toBeGreaterThan(12);
+    expect(duelLines("balthazar", "fr").filter((line) => /bord|pavillon|corne|cale|barre|quai|vent|voile|coul|eau|yacht|cap|terre|second|avarie/i.test(line)).length).toBeGreaterThan(12);
+    expect(duelLines("taupin", "fr").filter((line) => /registre|colonne|encre|inscri|crayon|coffre|ligne|bas|chut|compte|lunettes|mine|virgule/i.test(line)).length).toBeGreaterThan(12);
+    expect(duelLines("ondine", "fr").filter((line) => /citronnade|plateau|service|terrasse|salle|goûter|note|ardoise|sers|sourire|calme|agaçant|désagréable|souffle|enthousiasme/i.test(line)).length).toBeGreaterThan(12);
+    expect(duelLines("selene", "fr").filter((line) => /Terre|Lune|lunaire|d'ici|d'en haut|là-haut|ici|marée|étoile|croissant|rayon|flott|nuit/i.test(line)).length).toBeGreaterThan(12);
+    expect(duelLines("gaspard", "fr").filter((line) => /renard|[Ss]apristi|sardine|Kiosque|comptoir|tiroir-caisse|[Ff]açon de parler|moustaches|plumé|plaisir|temps en temps/i.test(line)).length).toBeGreaterThan(12);
     // Les hôtes vouvoient ; Gaspard, lui, ne s'adresse à personne (il tutoie les uns, vouvoie les autres).
     const words = (text: string) => text.toLowerCase().split(/[^\p{L}]+/u);
-    const gaspard = words([...HOST_MOMENTS.map((m) => HOST_TALK.gaspard.fr[m]), all("gaspard", "fr")].join(" "));
+    const gaspard = words([...duelLines("gaspard", "fr"), KITTY_TALK.gaspard.fr, all("gaspard", "fr")].join(" "));
     expect(gaspard.filter((w) => ["tu", "te", "toi", "ton", "ta", "tes", "vous", "votre", "vos"].includes(w))).toEqual([]);
     for (const host of HOSTS.filter((h) => h !== "gaspard")) {
-      const said = words(HOST_MOMENTS.map((m) => HOST_TALK[host].fr[m]).join(" "));
+      const said = words([...duelLines(host, "fr"), KITTY_TALK[host].fr].join(" "));
       expect([host, said.filter((w) => ["tu", "te", "toi", "ton", "ta", "tes"].includes(w))]).toEqual([host, []]);
     }
+    // Ondine et Séléné parlent d'elles au féminin ; personne ne donne de genre au joueur.
+    expect(duelLines("ondine", "fr").join(" ")).toMatch(/[Bb]attue/);
+    expect(duelLines("selene", "fr").join(" ")).toMatch(/[Bb]attue/);
+    for (const host of HOSTS) expect(duelLines(host, "fr").join(" ")).not.toMatch(/mon grand|ma grande|le seul |la seule |en habitué |remonté /);
   });
 
-  it("dire une réplique : dans la langue du jeu, le geste sans son tilde, la cagnotte à sa place", () => {
+  it("dire une réplique : dans la langue du jeu, le geste sans son tilde, la manche à sa place", () => {
     expect(tableLine("hector", "accuse", 0)).toEqual({ speaker: "hector", name: "Hector", text: "La maison ne triche pas. Elle arrondit.", gesture: false });
     expect(tableLine("hector", "accuse", 1)).toEqual({ speaker: "hector", name: "Hector", text: "Hector hausse un sourcil. Le gauche.", gesture: true });
     // La graine choisit la variante, et ne déborde jamais.
@@ -855,27 +939,44 @@ describe("les répliques des personnages, dans les deux langues", () => {
     // Un joueur n'a pas de réplique.
     expect(tableLine(null, "gagne")).toBeNull();
     expect(tableLine("zoe", "gagne")).toBeNull();
-    expect(hostLine("gaspard", "ruine", "100 €")?.text).toBe("Sapristi ! Plumé à mon propre comptoir. La cagnotte est là : 100 €. Bien joué !");
-    expect(hostLine("sidonie", "defi")).toBeNull();
+    // Le défi : la réplique de la manche, puis celle de la revanche.
+    expect(duelLine("gaspard", "ouverture", 1)?.text).toBe("Un tête-à-tête ? Le vieux renard a plus d'un tour dans sa manche. Façon de parler.");
+    expect(duelLine("gaspard", "ouverture", 2)?.text).toBe(DUEL_TALK.gaspard.fr.ouverture[1]);
+    expect(duelLine("gaspard", "defaite", 3)?.text).toBe("Trois fois ! Le renard rend les armes. Et il doit une histoire : la sienne.");
+    expect(duelLine("gaspard", "victoire", "revanche")?.text).toBe(DUEL_TALK.gaspard.fr.victoire[3]);
+    // L'avantage et le recul n'ont que trois répliques : en revanche, la graine pioche parmi elles.
+    expect(duelLine("baron", "avantage", 2)?.text).toBe("Hmpf. Devant. Je ne souris pas, c'est un tic.");
+    expect([0, 1, 2, 3, -1].map((seed) => duelLine("baron", "recul", "revanche", seed)?.text)).toEqual(
+      [0, 1, 2, 0, 1].map((i) => DUEL_TALK.baron.fr.recul[i]),
+    );
+    // Un geste garde son statut de geste.
+    expect(duelLine("hector", "avantage", 2)).toEqual({ speaker: "hector", name: "Hector", text: "Hector aligne ses jetons. Au millimètre.", gesture: true });
+    // Qui n'est pas un hôte n'a pas de défi.
+    expect(duelLine("sidonie", "ouverture", 1)).toBeNull();
+    expect(duelLine(null, "ouverture", 1)).toBeNull();
+    expect(kittyLine("gaspard", "100 €")?.text).toBe("Sapristi ! Plumé à mon propre comptoir. La cagnotte est là : 100 €. Bien joué !");
+    expect(kittyLine("sidonie", "100 €")).toBeNull();
     expect(piouHall("fauche", "20 €")).toBe("Il vous faut 20 € pour vous asseoir. Un ticket ou deux, et à table !");
     setLang("en");
     expect(tableLine("baron", "gagne", 0)).toEqual({ speaker: "baron", name: "The Baron", text: "Hmph. Nice pot. I am not crying.", gesture: false });
-    expect(hostLine("gaspard", "ruine", "€100")?.text).toBe("Blimey! Fleeced at my own counter. Here's the kitty: €100. Well played!");
+    expect(duelLine("gaspard", "ouverture", 3)?.text).toBe("Last round, my friend. The whole till goes on the table. Blimey, I've got stage fright.");
+    expect(kittyLine("gaspard", "€100")?.text).toBe("Blimey! Fleeced at my own counter. Here's the kitty: €100. Well played!");
     expect(piouHall("fauche", "€20")).toBe("You need €20 to take a seat. A ticket or two, and you're at the table!");
     expect(hostName("balthazar")).toBe("The Commodore");
   });
 });
 
 // ---------------------------------------------------------------------------
-// La Table des Maîtres
 
-/** Ce que le hall rend de la Table des Maîtres, comme le serveur le fabrique. */
+/** La Table des Maîtres, telle que le hall la rend. */
 function masters(over: Partial<LobbyMasters> = {}): LobbyMasters {
   return { open: false, defis: 0, blind: MASTERS_BLIND, buyIn: MASTERS_BUYIN, won: 0, affordable: false, ...over };
 }
 
-/** Huit défis, dont les `won` premiers sont relevés. */
-const challenges = (won: number) => PLACES.map((_, i) => ({ won: i < won }));
+/** Les huit défis du hall, dont les `won` premiers sont relevés. */
+function challenges(won: number): { won: boolean }[] {
+  return PLACES.map((_, i) => ({ won: i < won }));
+}
 
 describe("la Table des Maîtres, dans le hall", () => {
   it("« Défis relevés : N sur 8 » : le serveur le dit ; à défaut, on compte les défis relevés", () => {
@@ -1064,7 +1165,7 @@ describe("les mots des huit maîtres à la Table des Maîtres, dans les deux lan
 
   it("les huit hôtes, pas un de plus : c'est parmi eux que la tablée est tirée", () => {
     expect([...HOSTS].sort()).toEqual(PLACES.map((p) => p.host).sort());
-    expect([...HOSTS].sort()).toEqual((Object.keys(HOST_TALK) as Host[]).sort());
+    expect([...HOSTS].sort()).toEqual((Object.keys(DUEL_TALK) as Host[]).sort());
   });
 
   it("chacun a ses quatre moments, de même forme dans les deux langues", () => {
@@ -1107,7 +1208,8 @@ describe("les mots des huit maîtres à la Table des Maîtres, dans les deux lan
       expect(new Set(mine).size).toBe(mine.length);
       const elsewhere = new Set([
         ...HOSTS.flatMap((host) => (Object.keys(TABLE_TALK[host][langue]) as TableMoment[]).flatMap((m) => [...TABLE_TALK[host][langue][m]])),
-        ...HOSTS.flatMap((host) => (Object.keys(HOST_TALK[host][langue]) as HostMoment[]).map((m) => HOST_TALK[host][langue][m])),
+        ...HOSTS.flatMap((host) => (Object.keys(DUEL_TALK[host][langue]) as DuelMoment[]).flatMap((m) => [...DUEL_TALK[host][langue][m]])),
+        ...HOSTS.map((host) => KITTY_TALK[host][langue]),
       ]);
       expect(mine.filter((line) => elsewhere.has(line))).toEqual([]);
     }
@@ -1166,151 +1268,210 @@ describe("les mots des huit maîtres à la Table des Maîtres, dans les deux lan
 
 // ---------------------------------------------------------------------------
 
-describe("l'histoire de chaque hôte : le battre trois fois au poker l'ouvre", () => {
+describe("le défi, en trois manches : la mise double, et la troisième victoire ouvre l'histoire de l'hôte", () => {
   const wins = (over: Partial<Record<PlaceId, number>> = {}) => {
     const out = {} as Record<PlaceId, number>;
     for (const place of PLACES) out[place.id] = over[place.id] ?? 0;
     return out;
   };
+  /** Le défi d'un lieu tel que le serveur le rend dans le hall, pour un joueur qui a battu son hôte `n` fois. */
+  const lobby = (place: PlaceId, n: number) => {
+    const def = challengeOf(place, Math.min(CHALLENGE_ROUNDS, n + 1));
+    return { place, buyIn: def.buyIn, bonus: def.bonus, level: def.level, wins: n, stake: def.buyIn, prize: def.prize, rematch: n >= CHALLENGE_ROUNDS };
+  };
 
-  it("où l'on en est avec un hôte : ses victoires, ce qu'il en manque, et l'histoire ouverte à trois", () => {
-    expect(HOST_STORY_WINS).toBe(3);
-    expect(hostStory(wins(), "kiosque")).toEqual({ wins: 0, needed: 3, left: 3, open: false, justOpened: false });
-    expect(hostStory(wins({ kiosque: 1 }), "kiosque")).toEqual({ wins: 1, needed: 3, left: 2, open: false, justOpened: false });
-    expect(hostStory(wins({ kiosque: 2 }), "kiosque")).toEqual({ wins: 2, needed: 3, left: 1, open: false, justOpened: false });
-    // La troisième l'ouvre, et c'est elle qu'on annonce ; au-delà, elle est ouverte depuis longtemps.
-    expect(hostStory(wins({ kiosque: 3 }), "kiosque")).toEqual({ wins: 3, needed: 3, left: 0, open: true, justOpened: true });
-    expect(hostStory(wins({ kiosque: 7 }), "kiosque")).toEqual({ wins: 7, needed: 3, left: 0, open: true, justOpened: false });
-    // Chaque hôte a son compte.
-    expect(hostStory(wins({ kiosque: 3 }), "cafe").wins).toBe(0);
-    // La règle est celle du jeu entier (les Souvenirs lisent la même).
-    for (let n = 0; n <= 5; n++) expect(hostStory(wins({ lune: n }), "lune").open).toBe(hostStoryOpen(wins({ lune: n }), "lune"));
+  it("l'étape à jouer suit les victoires : manche 1, 2, 3, puis la revanche pour toujours", () => {
+    expect(CHALLENGE_ROUNDS).toBe(3);
+    // Trois manches, trois victoires pour l'histoire : c'est la même règle, vue de deux côtés.
+    expect(HOST_STORY_WINS).toBe(CHALLENGE_ROUNDS);
+    expect([0, 1, 2, 3, 4, 40].map(stageOf)).toEqual([1, 2, 3, "revanche", "revanche", "revanche"]);
+    // Un compte de travers vaut zéro : la première manche.
+    expect([Number.NaN, -3, 0.9, Number.POSITIVE_INFINITY].map(stageOf)).toEqual([1, 1, 1, 1]);
+    expect(stageOf(2.9)).toBe(3);
+    for (let n = 0; n <= 5; n++) expect(stageOf(n) === "revanche").toBe(hostStoryOpen(wins({ lune: n }), "lune"));
   });
 
-  it("un état sans ce compte, ou de travers, ne casse rien : zéro victoire", () => {
+  it("où l'on en est avec un hôte : ses victoires, et l'histoire ouverte à trois", () => {
+    expect(hostStory(wins(), "kiosque")).toEqual({ wins: 0, needed: 3, left: 3, open: false, justOpened: false });
+    expect(hostStory(wins({ kiosque: 2 }), "kiosque")).toEqual({ wins: 2, needed: 3, left: 1, open: false, justOpened: false });
+    expect(hostStory(wins({ kiosque: 3 }), "kiosque")).toEqual({ wins: 3, needed: 3, left: 0, open: true, justOpened: true });
+    expect(hostStory(wins({ kiosque: 7 }), "kiosque")).toEqual({ wins: 7, needed: 3, left: 0, open: true, justOpened: false });
+    expect(hostStory(wins({ kiosque: 3 }), "cafe").wins).toBe(0);
+    // Un état sans ce compte, ou de travers, ne casse rien : zéro victoire.
     const zero = { wins: 0, needed: 3, left: 3, open: false, justOpened: false };
-    expect(hostStory(undefined, "kiosque")).toEqual(zero);
-    expect(hostStory(null, "kiosque")).toEqual(zero);
-    expect(hostStory({}, "kiosque")).toEqual(zero);
-    expect(hostStory({ kiosque: Number.NaN }, "kiosque")).toEqual(zero);
-    expect(hostStory({ kiosque: -2 }, "kiosque")).toEqual(zero);
-    expect(hostStory({ kiosque: "3" as unknown as number }, "kiosque")).toEqual(zero);
+    for (const odd of [undefined, null, {}, { kiosque: Number.NaN }, { kiosque: -2 }, { kiosque: "3" as unknown as number }]) {
+      expect(hostStory(odd, "kiosque")).toEqual(zero);
+    }
     expect(hostStory({ kiosque: 2.9 }, "kiosque").wins).toBe(2);
   });
 
-  it("dans le hall : les victoires sur trois, puis l'histoire qui attend dans les Souvenirs", () => {
-    expect(storyProgressText(hostStory(wins(), "kiosque"))).toBe("Son histoire : 0 victoire sur 3");
-    expect(storyProgressText(hostStory(wins({ kiosque: 1 }), "kiosque"))).toBe("Son histoire : 1 victoire sur 3");
-    expect(storyProgressText(hostStory(wins({ kiosque: 2 }), "kiosque"))).toBe("Son histoire : 2 victoires sur 3");
-    expect(storyProgressText(hostStory(wins({ kiosque: 3 }), "kiosque"))).toBe("Son histoire t'attend dans tes Souvenirs.");
-    expect(storyProgressText(hostStory(wins({ kiosque: 12 }), "kiosque"))).toBe("Son histoire t'attend dans tes Souvenirs.");
-    setLang("en");
-    // Ni « his » ni « her » : la phrase vaut pour les huit hôtes. Les Souvenirs sont « Memories », comme aux Réglages.
-    expect(storyProgressText(hostStory(wins(), "cafe"))).toBe("Story: 0 of 3 wins");
-    expect(storyProgressText(hostStory(wins({ cafe: 1 }), "cafe"))).toBe("Story: 1 of 3 wins");
-    expect(storyProgressText(hostStory(wins({ cafe: 2 }), "cafe"))).toBe("Story: 2 of 3 wins");
-    expect(storyProgressText(hostStory(wins({ cafe: 3 }), "cafe"))).toBe("Story unlocked: see your Memories.");
+  it("le défi tel que le hall le rend : la manche, les manches gagnées, la mise, ce que le gagnant emporte", () => {
+    // Au Kiosque : 100 € pour gagner 200 €, puis le double, puis encore le double (l'exemple du propriétaire).
+    expect(duelOf(lobby("kiosque", 0), wins())).toEqual({ stage: 1, rounds: 3, won: 0, stake: 100, prize: 200 });
+    expect(duelOf(lobby("kiosque", 1), wins({ kiosque: 1 }))).toEqual({ stage: 2, rounds: 3, won: 1, stake: 200, prize: 400 });
+    expect(duelOf(lobby("kiosque", 2), wins({ kiosque: 2 }))).toEqual({ stage: 3, rounds: 3, won: 2, stake: 400, prize: 800 });
+    // L'histoire ouverte : la revanche, aux conditions de la troisième manche, les trois repères pleins.
+    expect(duelOf(lobby("kiosque", 3), wins({ kiosque: 3 }))).toEqual({ stage: "revanche", rounds: 3, won: 3, stake: 400, prize: 800 });
+    expect(duelOf(lobby("kiosque", 9), wins({ kiosque: 9 }))).toEqual({ stage: "revanche", rounds: 3, won: 3, stake: 400, prize: 800 });
+    // Sur la Lune, les mêmes manches, en billions.
+    expect(duelOf(lobby("lune", 2), wins({ lune: 2 }))).toMatchObject({ stage: 3, stake: 100_000_000_000_000, prize: 200_000_000_000_000 });
+    // C'est le serveur qui fait foi, quoi que l'état du joueur ait gardé en mémoire.
+    expect(duelOf(lobby("kiosque", 2), wins())).toMatchObject({ stage: 3, won: 2, stake: 400 });
   });
 
-  it("au panneau de fin d'un défi gagné : ce qu'il reste, puis l'annonce à la troisième, puis plus rien", () => {
-    const after = (n: number, place: PlaceId, host: string) => storyAfterWin(hostStory(wins({ [place]: n }), place), host);
-    expect(after(1, "kiosque", "gaspard")).toEqual({ texte: "Encore 2 victoires et Gaspard te raconte son histoire.", ouverte: false });
-    expect(after(2, "kiosque", "gaspard")).toEqual({ texte: "Encore une victoire et Gaspard te raconte son histoire.", ouverte: false });
-    expect(after(3, "kiosque", "gaspard")).toEqual({
-      texte: "Gaspard a une histoire à te raconter : elle t'attend dans tes Souvenirs.", ouverte: true,
+  it("un serveur d'avant les trois manches ne dit que la cave : la manche se déduit des victoires, le gain vaut les deux mises", () => {
+    const old = { place: "kiosque" as const, buyIn: 30 };
+    expect(duelOf(old, wins())).toEqual({ stage: 1, rounds: 3, won: 0, stake: 30, prize: 60 });
+    expect(duelOf(old, wins({ kiosque: 1 }))).toEqual({ stage: 2, rounds: 3, won: 1, stake: 30, prize: 60 });
+    expect(duelOf(old, wins({ kiosque: 5 }))).toEqual({ stage: "revanche", rounds: 3, won: 3, stake: 30, prize: 60 });
+    expect(duelOf(old, undefined)).toEqual({ stage: 1, rounds: 3, won: 0, stake: 30, prize: 60 });
+    // Des champs de travers ne cassent rien.
+    expect(duelOf({ place: "kiosque", buyIn: 100, level: Number.NaN, wins: -1, stake: Number.NaN, prize: -5 }, wins({ kiosque: 1 }))).toEqual({
+      stage: 2, rounds: 3, won: 1, stake: 100, prize: 200,
     });
-    // Au-delà de trois, plus rien : l'histoire est ouverte depuis une autre victoire.
-    expect(after(4, "kiosque", "gaspard")).toBeNull();
-    expect(after(40, "kiosque", "gaspard")).toBeNull();
-    // À zéro, l'état du joueur ne porte pas encore la victoire : on ne dit rien plutôt qu'une bêtise.
-    expect(after(0, "kiosque", "gaspard")).toBeNull();
-    // Un nom à article : minuscule au milieu de la phrase, majuscule pour l'ouvrir.
-    expect(after(1, "salon", "baron")?.texte).toBe("Encore 2 victoires et le Baron te raconte son histoire.");
-    expect(after(2, "yacht", "balthazar")?.texte).toBe("Encore une victoire et le Commodore te raconte son histoire.");
-    expect(after(3, "yacht", "balthazar")?.texte).toBe("Le Commodore a une histoire à te raconter : elle t'attend dans tes Souvenirs.");
-    expect(after(3, "lune", "selene")?.texte).toBe("Dame Séléné a une histoire à te raconter : elle t'attend dans tes Souvenirs.");
-    // Ce qu'il reste se dit aussi tout seul (la feuille du défi) ; rien une fois l'histoire ouverte.
-    expect(storyLeftText(hostStory(wins(), "cafe"), "ondine")).toBe("Encore 3 victoires et Ondine te raconte son histoire.");
-    expect(storyLeftText(hostStory(wins({ cafe: 3 }), "cafe"), "ondine")).toBeNull();
+  });
 
+  it("dans le hall et sur la feuille : la manche, l'enjeu sans détour, et ce qu'il y a au bout", () => {
+    const at = (n: number) => duelOf(lobby("kiosque", n), wins({ kiosque: n }));
+    expect([0, 1, 2, 3].map((n) => stageText(at(n)))).toEqual(["Manche 1 sur 3", "Manche 2 sur 3", "Manche 3 sur 3", "Revanche"]);
+    // Sous la bulle de l'hôte : la manche ; l'histoire ouverte, le rappel qu'elle attend dans les Souvenirs.
+    expect([0, 1, 2, 3].map((n) => duelProgressText(at(n)))).toEqual([
+      "Manche 1 sur 3", "Manche 2 sur 3", "Manche 3 sur 3", "Son histoire t'attend dans tes Souvenirs.",
+    ]);
+    // L'enjeu : ce que chacun pose, ce que le gagnant emporte. Les mots du propriétaire, au Kiosque.
+    expect(duelStakesText(at(0))).toBe(`Chacun pose 100${NBSP}€. Le gagnant repart avec 200${NBSP}€.`);
+    expect(duelStakesText(at(1))).toBe(`Chacun pose 200${NBSP}€. Le gagnant repart avec 400${NBSP}€.`);
+    expect(duelStakesText(at(2))).toBe(`Chacun pose 400${NBSP}€. Le gagnant repart avec 800${NBSP}€.`);
+    // Ce qu'il y a au bout des trois manches.
+    expect(duelStoryText(at(0), "gaspard")).toBe("Gagne les trois manches, et Gaspard te raconte son histoire.");
+    expect(duelStoryText(at(1), "baron")).toBe("Gagne les trois manches, et le Baron te raconte son histoire.");
+    expect(duelStoryText(at(2), "balthazar")).toBe("Gagne cette manche, et le Commodore te raconte son histoire.");
+    expect(duelStoryText(at(3), "gaspard")).toBe("Son histoire est déjà dans tes Souvenirs : on rejoue pour l'honneur.");
     setLang("en");
-    expect(after(1, "kiosque", "gaspard")?.texte).toBe("2 more wins and you'll hear Gaspard's story.");
-    expect(after(2, "yacht", "balthazar")?.texte).toBe("One more win and you'll hear the Commodore's story.");
-    expect(after(3, "yacht", "balthazar")?.texte).toBe("The Commodore has a story to tell you: it's waiting in your Memories.");
-    expect(after(3, "cafe", "ondine")?.texte).toBe("Ondine has a story to tell you: it's waiting in your Memories.");
-    expect(after(4, "cafe", "ondine")).toBeNull();
+    // Ni « his » ni « her » : chaque phrase vaut pour les huit hôtes. Les Souvenirs sont « Memories », comme aux Réglages.
+    expect([0, 1, 2, 3].map((n) => stageText(at(n)))).toEqual(["Round 1 of 3", "Round 2 of 3", "Round 3 of 3", "Rematch"]);
+    expect(duelProgressText(at(3))).toBe("Story unlocked: see your Memories.");
+    expect(duelStakesText(at(1))).toBe("Each puts up €200. The winner leaves with €400.");
+    expect(duelStoryText(at(0), "ondine")).toBe("Win all three rounds, and you'll hear Ondine's story.");
+    expect(duelStoryText(at(2), "balthazar")).toBe("Win this round, and you'll hear the Commodore's story.");
+    expect(duelStoryText(at(3), "selene")).toBe("The story is already in your Memories: this one is for honour.");
   });
 
-  it("chaque hôte tient un lieu, et un seul ; les autres personnages n'en tiennent aucun", () => {
-    for (const place of PLACES) expect([place.host, placeOfHost(place.host)]).toEqual([place.host, place.id]);
-    expect(new Set(PLACES.map((place) => place.host)).size).toBe(PLACES.length);
-    for (const other of ["piou", "sidonie", "enzo", "colette", "archibald", "", "inconnu"]) expect([other, placeOfHost(other)]).toEqual([other, null]);
-    expect(placeOfHost(null)).toBeNull();
+  it("la manche qu'une table vient de jouer : celle que dit la table, départagée par les victoires pour la revanche", () => {
+    // Gagnée : le compte vient de monter.
+    expect(playedStage(1, 1, true)).toBe(1);
+    expect(playedStage(2, 2, true)).toBe(2);
+    expect(playedStage(3, 3, true)).toBe(3);
+    // La table dit « 3 » aussi pour une revanche : au-delà de trois victoires, c'en était une.
+    expect(playedStage(3, 4, true)).toBe("revanche");
+    expect(playedStage(3, 12, true)).toBe("revanche");
+    // Perdue : le compte n'a pas bougé.
+    expect(playedStage(1, 0, false)).toBe(1);
+    expect(playedStage(2, 1, false)).toBe(2);
+    expect(playedStage(3, 2, false)).toBe(3);
+    expect(playedStage(3, 3, false)).toBe("revanche");
+    // Une table qui ne dit pas sa manche (ouverte avant les trois manches) : elle se déduit des victoires.
+    expect(playedStage(undefined, 1, true)).toBe(1);
+    expect(playedStage(undefined, 1, false)).toBe(2);
+    expect(playedStage(undefined, 5, false)).toBe("revanche");
+    // Un état pas encore à jour ne fait pas mentir la table sur ses deux premières manches.
+    expect(playedStage(1, 0, true)).toBe(1);
+    expect(playedStage(2, 0, true)).toBe(2);
   });
 
-  it("à la Table des Maîtres gagnée : les histoires qui viennent de s'ouvrir sont celles dont le compte est tout juste à trois", () => {
-    const seated = ["ondine", "baron", "balthazar", "selene"];
-    // Après la victoire : Ondine passe à 3, le Baron à 2, le Commodore était déjà à 3 (le voilà à 4), Séléné à 3.
-    const after = wins({ cafe: 3, salon: 2, yacht: 4, lune: 3, kiosque: 3 });
-    expect(storiesJustOpened(after, seated)).toEqual(["ondine", "selene"]);
-    // Gaspard est à trois lui aussi, mais il n'était pas assis : cette victoire ne lui doit rien.
-    expect(storiesJustOpened(after, seated)).not.toContain("gaspard");
-    // Dans l'ordre des sièges, chacun une fois ; un siège qui n'est pas un hôte ne compte pas.
-    expect(storiesJustOpened(after, ["selene", null, "piou", "ondine", "selene"])).toEqual(["selene", "ondine"]);
-    expect(storiesJustOpened(wins({ cafe: 2, salon: 2, yacht: 2, lune: 2 }), seated)).toEqual([]);
-    expect(storiesJustOpened(undefined, seated)).toEqual([]);
-    expect(storiesJustOpened(after, [])).toEqual([]);
-  });
-
-  it("les histoires ouvertes se disent en une phrase : un nom, deux, trois, ou « les quatre maîtres »", () => {
-    expect(storiesOpenedText([])).toBeNull();
-    expect(storiesOpenedText(["ondine"])).toBe("Ondine a une histoire à te raconter : elle t'attend dans tes Souvenirs.");
-    expect(storiesOpenedText(["ondine", "baron"])).toBe(
-      "Ondine et le Baron ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.",
-    );
-    // Le premier nom ouvre la phrase : il garde sa majuscule ; les suivants sont au milieu.
-    expect(storiesOpenedText(["baron", "balthazar", "taupin"])).toBe(
-      "Le Baron, le Commodore et Maître Taupin ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.",
-    );
-    expect(storiesOpenedText(["baron", "balthazar", "taupin", "selene"])).toBe(
-      "Les quatre maîtres ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.",
-    );
+  it("le panneau d'une manche gagnée : la suivante et sa mise doublée, puis l'histoire, puis plus rien", () => {
+    expect(duelWon(1, 100, "gaspard")).toEqual({
+      titre: "Manche 1 gagnée !", suite: { texte: `Manche 2 : la mise double, 200${NBSP}€.`, ouverte: false }, textes: [],
+    });
+    expect(duelWon(2, 200, "gaspard")).toEqual({
+      titre: "Manche 2 gagnée !", suite: { texte: `Manche 3 : la mise double, 400${NBSP}€.`, ouverte: false }, textes: [],
+    });
+    // La troisième : son histoire s'ouvre dans les Souvenirs.
+    expect(duelWon(3, 400, "gaspard")).toEqual({
+      titre: "Manche 3 gagnée !",
+      suite: { texte: "Gaspard a une histoire à te raconter : elle t'attend dans tes Souvenirs.", ouverte: true },
+      textes: [],
+    });
+    expect(duelWon(3, 400, "baron").suite?.texte).toBe("Le Baron a une histoire à te raconter : elle t'attend dans tes Souvenirs.");
+    expect(storyOpenedText("selene")).toBe("Dame Séléné a une histoire à te raconter : elle t'attend dans tes Souvenirs.");
+    // En revanche : plus rien à annoncer.
+    expect(duelWon("revanche", 400, "gaspard")).toEqual({ titre: "Revanche gagnée !", suite: null, textes: [] });
+    // Sans la mise de la table, on annonce la manche, pas un montant inventé.
+    expect(duelWon(1, 0, "gaspard").suite?.texte).toBe("Manche 2 : la mise double.");
     setLang("en");
-    expect(storiesOpenedText(["ondine"])).toBe("Ondine has a story to tell you: it's waiting in your Memories.");
-    expect(storiesOpenedText(["baron", "balthazar"])).toBe(
-      "The Baron and the Commodore have stories to tell you: they're waiting in your Memories.",
-    );
-    expect(storiesOpenedText(["baron", "balthazar", "taupin"])).toBe(
-      "The Baron, the Commodore and Maître Taupin have stories to tell you: they're waiting in your Memories.",
-    );
-    expect(storiesOpenedText(["gaspard", "ondine", "hector", "auguste"])).toBe(
-      "All four masters have stories to tell you: they're waiting in your Memories.",
-    );
+    expect(duelWon(1, 100, "gaspard")).toEqual({ titre: "Round 1 won!", suite: { texte: "Round 2: the stake doubles, €200.", ouverte: false }, textes: [] });
+    expect(duelWon(3, 400, "balthazar").suite?.texte).toBe("The Commodore has a story to tell you: it's waiting in your Memories.");
+    expect(duelWon("revanche", 400, "gaspard").titre).toBe("Rematch won!");
   });
 
-  it("aucune de ces phrases ne reste en français, et chacune tient en une ligne de panneau : 115 caractères au plus", () => {
-    const hosts = PLACES.map((place) => place.host);
+  it("le panneau d'une manche perdue : la mise qu'on y laisse, et la même manche qui attend", () => {
+    expect(duelLost(1, 100)).toEqual({
+      titre: "Manche 1 perdue", suite: null,
+      textes: [`Tu y laisses ta mise : 100${NBSP}€.`, "La manche 1 t'attend : retente-la quand tu veux."],
+    });
+    expect(duelLost(3, 400).textes).toEqual([`Tu y laisses ta mise : 400${NBSP}€.`, "La manche 3 t'attend : retente-la quand tu veux."]);
+    expect(duelLost("revanche", 400)).toEqual({
+      titre: "Revanche perdue", suite: null, textes: [`Tu y laisses ta mise : 400${NBSP}€.`, "Elle se retente quand tu veux."],
+    });
+    // Jamais une moquerie : une somme, et une invitation.
+    for (const stage of [1, 2, 3, "revanche"] as const) {
+      const ending = duelLost(stage, 400);
+      expect(ending.textes.join(" ")).toMatch(/quand tu veux/);
+      expect(ending.suite).toBeNull();
+    }
+    expect(duelLost(2, 0).textes).toEqual(["La manche 2 t'attend : retente-la quand tu veux."]);
+    setLang("en");
+    expect(duelLost(2, 200)).toEqual({
+      titre: "Round 2 lost", suite: null, textes: ["You leave your stake behind: €200.", "Round 2 is waiting: try it again whenever you like."],
+    });
+    expect(duelLost("revanche", 400).titre).toBe("Rematch lost");
+  });
+
+  it("l'avantage qui bascule : l'hôte passe devant, ou le joueur ; rien quand la main ne change pas l'ordre", () => {
+    const view = (meStack: number, hostStack: number, meNet: number): Parameters<typeof leadShift>[0] => ({
+      kind: "defi", phase: "denouement", you: 0, handNo: 4,
+      seats: [seat(0, { stack: meStack }), seat(1, { pseudo: null, bot: "gaspard", stack: hostStack })],
+      result: { ...EXEMPLE, no: 4, net: [{ seat: 0, amount: meNet }, { seat: 1, amount: -meNet }] },
+    });
+    // À égalité (100 chacun), l'hôte gagne 20 : il prend l'avantage.
+    expect(leadShift(view(80, 120, -20))).toBe("avantage");
+    // À égalité, le joueur gagne 20 : l'hôte passe derrière.
+    expect(leadShift(view(120, 80, 20))).toBe("recul");
+    // L'hôte menait déjà (130 contre 70) et gagne encore : rien ne bascule.
+    expect(leadShift(view(50, 150, -20))).toBeNull();
+    // Le joueur menait (140 contre 60), l'hôte en reprend 30 sans repasser devant : rien.
+    expect(leadShift(view(110, 90, -30))).toBeNull();
+    // Le joueur menait (110 contre 90), l'hôte en reprend 30 : il repasse devant.
+    expect(leadShift(view(80, 120, -30))).toBe("avantage");
+    // Retour à l'égalité : personne ne mène, personne ne parle.
+    expect(leadShift(view(100, 100, -20))).toBeNull();
+    // Hors d'un dénouement, hors d'un défi, ou sur le résultat d'une autre main : rien.
+    expect(leadShift({ ...view(80, 120, -20), phase: "encheres" })).toBeNull();
+    expect(leadShift({ ...view(80, 120, -20), kind: "maison" })).toBeNull();
+    expect(leadShift({ ...view(80, 120, -20), handNo: 5 })).toBeNull();
+    expect(leadShift({ ...view(80, 120, -20), you: null })).toBeNull();
+  });
+
+  it("aucune de ces phrases ne reste en français, et chacune tient sur un panneau : 90 caractères au plus", () => {
     for (const lang of LANGUES) {
       setLang(lang);
       const said: string[] = [];
       for (const place of PLACES) {
-        for (let n = 0; n <= 3; n++) said.push(storyProgressText(hostStory(wins({ [place.id]: n }), place.id)));
-        for (let n = 1; n <= 3; n++) said.push(storyAfterWin(hostStory(wins({ [place.id]: n }), place.id), place.host)!.texte);
-      }
-      // Les trois noms les plus longs d'un coup : la phrase la plus longue qu'un panneau puisse dire.
-      for (let i = 0; i < hosts.length; i++) {
-        for (let j = i + 1; j < hosts.length; j++) {
-          said.push(storiesOpenedText([hosts[i]!, hosts[j]!])!);
-          for (let k = j + 1; k < hosts.length; k++) said.push(storiesOpenedText([hosts[i]!, hosts[j]!, hosts[k]!])!);
+        for (let n = 0; n <= 3; n++) {
+          const duel = duelOf(lobby(place.id, n), wins({ [place.id]: n }));
+          said.push(stageText(duel), duelProgressText(duel), duelStakesText(duel), duelStoryText(duel, place.host));
+          const won = duelWon(duel.stage, duel.stake, place.host);
+          const lost = duelLost(duel.stage, duel.stake);
+          said.push(won.titre, lost.titre, ...lost.textes);
+          if (won.suite) said.push(won.suite.texte);
         }
       }
-      said.push(storiesOpenedText(hosts.slice(0, 4))!);
       for (const texte of said) {
-        expect([texte, len(texte) <= 115]).toEqual([texte, true]);
+        expect([texte, len(texte) <= 90]).toEqual([texte, true]);
         // Aucune variable oubliée, aucun « undefined ».
-        expect(texte).not.toMatch(/[{}]|undefined|null/);
+        expect(texte).not.toMatch(/[{}]|undefined|null|NaN/);
         // En anglais, plus un mot de français.
-        if (lang === "en") expect(texte).not.toMatch(/histoire|victoire|Souvenirs|raconte/);
+        if (lang === "en") expect(texte).not.toMatch(/[Mm]anche|histoire|mise\b|Souvenirs|raconte|gagn|perdu/);
       }
     }
   });
@@ -1351,6 +1512,10 @@ describe("le dictionnaire anglais du poker", () => {
       "Match nul : plus personne n'a de quoi continuer.",
       // Les noms des unités de la mise saisie, dits par un lecteur d'écran (textes.ts).
       "euros", "milliers d'euros", "millions d'euros", "milliards d'euros", "billions d'euros",
+      // Les deux façons de jouer entre amis : le nom de chaque mode et sa règle (textes.ts).
+      "Table classique", "Table des Maîtres",
+      "Chacun choisit sa cave et peut recaver. On s'assoit et on part quand on veut, avec son tapis.",
+      "Chacun pose la même cagnotte, sans recave. La blinde monte, qui n'a plus rien est éliminé, et le dernier assis remporte tout.",
       // Les règles de la Table des Maîtres, en trois lignes (Feuilles.tsx).
       "Chacun pose {cave}, et personne ne recave : à zéro, on quitte la table.",
       "La blinde part de {blinde} et monte au fil des mains.",
@@ -1415,7 +1580,7 @@ describe("le dictionnaire anglais du poker", () => {
   });
 
   it("les mots du jeu : la cagnotte est « kitty », la bourse reste « purse », la cave « buy-in »", () => {
-    expect(entries.filter((e) => /cagnotte/i.test(e.fr) && !/kitty/i.test(e.en)).map((e) => e.fr)).toEqual([]);
+    expect(entries.filter((e) => /cagnotte/i.test(e.fr) && !/kitt(y|ies)/i.test(e.en)).map((e) => e.fr)).toEqual([]);
     expect(entries.filter((e) => /\bbourse\b/i.test(e.fr) && !/purse/i.test(e.en)).map((e) => e.fr)).toEqual([]);
     expect(entries.filter((e) => /\bcave\b/i.test(e.fr) && !/buy-in/i.test(e.en)).map((e) => e.fr)).toEqual([]);
     expect(EN_POKER["Le Poker Tricheur"]).toBe("Cheater's Poker");
@@ -1657,25 +1822,45 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
     for (const key of ["min", "max", "inside", "tapis", "raises", "decimals"] as const) expect([key, seen[key] > 0]).toEqual([key, true]);
   });
 
-  it("un hôte battu trois fois : le compte arrive avec la fin du défi, la troisième victoire ouvre son histoire", async () => {
+  it("les trois manches contre le vrai serveur : la mise double, le gagnant emporte tout, la troisième ouvre l'histoire", async () => {
     const w = makeWorld(1_203);
     const created = await w.call<{ playerId: string; code: string }>("POST", "/api/players", { pseudo: "Conteuse", species: "renard" });
     const auth = `${created.body.playerId}.${created.body.code}`;
+    const START = 50_000;
     w.storage.poke(created.body.playerId, (p) => {
-      p.balance = 50_000;
+      p.balance = START;
     });
     const hall = async () => (await w.call<PokerLobbyResponse>("GET", "/api/poker", undefined, auth)).body;
-    // Un joueur qui débarque : zéro victoire contre chacun des huit hôtes.
-    expect((await hall()).state.hostWins).toEqual(Object.fromEntries(PLACES.map((place) => [place.id, 0])));
+    const kiosque = async () => {
+      const lobby = await hall();
+      return { lobby, duel: duelOf(lobby.challenges.find((c) => c.place === "kiosque")!, lobby.state.hostWins) };
+    };
+    // Un joueur qui débarque : la manche 1 de chacun des huit hôtes.
+    const first = await hall();
+    expect(first.state.hostWins).toEqual(Object.fromEntries(PLACES.map((place) => [place.id, 0])));
+    for (const c of first.challenges) expect([c.place, duelOf(c, first.state.hostWins).stage]).toEqual([c.place, 1]);
 
-    /** Ce que le panneau de fin dit de l'histoire de Gaspard, à chaque défi gagné. */
+    /** Ce que le panneau de fin annonce après chaque manche gagnée, et ce que le hall proposait avant. */
     const told: (string | null)[] = [];
+    const stakes: number[] = [];
     let wins = 0;
     let lost = 0;
-    for (let game = 0; game < 60 && wins < 4; game++) {
+    let balance = START;
+    for (let game = 0; game < 80 && wins < 4; game++) {
+      const before = await kiosque();
+      // Le hall dit la manche à jouer, sa mise, et ce que le gagnant emporte : les deux mises.
+      expect(before.duel.stage).toBe(stageOf(wins));
+      expect(before.duel.won).toBe(Math.min(3, wins));
+      expect(before.duel.stake).toBe(100 * 2 ** (Math.min(3, wins + 1) - 1));
+      expect(before.duel.prize).toBe(before.duel.stake * 2);
       const opened = await w.call<PokerTableResponse>("POST", "/api/poker/tables", { defi: "kiosque" }, auth);
       expect(opened.status).toBe(201);
       let view = opened.body.view!;
+      // La table dit sa manche, et chacun y a posé la mise annoncée.
+      expect(view.level).toBe(Math.min(3, wins + 1));
+      expect(playedStage(view.level, wins, false)).toBe(before.duel.stage);
+      expect(view.maxBuyIn).toBe(before.duel.stake);
+      expect(view.seats.map((s) => (s ? s.stack + s.committed : null))).toEqual([before.duel.stake, before.duel.stake]);
       let left: PokerTableResponse["left"];
       let state: PokerTableResponse["state"];
       const refused: string[] = [];
@@ -1698,39 +1883,55 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       }
       expect(refused).toEqual([]);
       expect(left && ["defi-gagne", "defi-perdu", "defi-nul"].includes(left.reason)).toBe(true);
-      // L'état du joueur arrive avec la fin de table : le panneau n'a rien à relire pour savoir où en est l'histoire.
+      // L'état du joueur arrive avec la fin de table : le panneau n'a rien à relire pour savoir où en est le défi.
       expect(state).toBeDefined();
-      const story = hostStory(state!.hostWins, "kiosque");
+      // Plus de cagnotte versée à part : ce qu'on gagne, c'est ce que l'hôte avait posé.
+      expect(left!.bonus).toBe(0);
+      const after = hostStory(state!.hostWins, "kiosque").wins;
+      const stage = playedStage(view.level, after, left!.reason === "defi-gagne");
+      expect(stage).toBe(before.duel.stage);
       if (left!.reason === "defi-gagne") {
         wins += 1;
-        expect(story.wins).toBe(wins);
-        // Sa cagnotte ne tombe qu'une fois ; les victoires, elles, comptent toutes.
-        expect([wins, left!.bonus > 0]).toEqual([wins, wins === 1]);
-        told.push(storyAfterWin(story, "gaspard")?.texte ?? null);
-      } else {
-        // Un défi perdu (ou nul) ne compte pas, et n'efface rien.
+        expect(after).toBe(wins);
+        // Le gagnant repart avec tout : les deux mises.
+        expect(left!.payout).toBe(before.duel.prize);
+        balance += before.duel.stake;
+        stakes.push(before.duel.stake);
+        const ending = duelWon(stage, view.maxBuyIn, "gaspard");
+        told.push(ending.suite?.texte ?? null);
+      } else if (left!.reason === "defi-perdu") {
+        // Perdre, c'est perdre sa mise : un vrai enjeu. Et la même manche attend.
         lost += 1;
-        expect(story.wins).toBe(wins);
+        expect(after).toBe(wins);
+        expect(left!.payout).toBe(0);
+        balance -= before.duel.stake;
+        expect(duelLost(stage, view.maxBuyIn).textes[0]).toBe(`Tu y laisses ta mise : ${formatEuros(before.duel.stake)}.`);
+      } else {
+        expect(after).toBe(wins);
+        balance += left!.payout - before.duel.stake;
       }
+      expect(state!.balance).toBe(balance);
       // Le hall dit la même chose, et ne compte que cet hôte-là.
-      const lobby = await hall();
-      expect(lobby.state.hostWins).toEqual(state!.hostWins);
-      expect(hostStory(lobby.state.hostWins, "kiosque")).toEqual(story);
-      expect(PLACES.filter((place) => place.id !== "kiosque").map((place) => lobby.state.hostWins[place.id])).toEqual([0, 0, 0, 0, 0, 0, 0]);
-      expect(lobby.challenges.find((c) => c.place === "kiosque")?.won).toBe(wins > 0);
+      const now = await kiosque();
+      expect(now.lobby.state.hostWins).toEqual(state!.hostWins);
+      expect(PLACES.filter((place) => place.id !== "kiosque").map((place) => now.lobby.state.hostWins[place.id])).toEqual([0, 0, 0, 0, 0, 0, 0]);
+      expect(now.lobby.challenges.find((c) => c.place === "kiosque")?.won).toBe(wins > 0);
+      expect(now.duel.stage).toBe(stageOf(wins));
     }
     expect(wins).toBe(4);
+    // 100 €, puis 200 €, puis 400 € ; la revanche se joue aux conditions de la troisième manche.
+    expect(stakes).toEqual([100, 200, 400, 400]);
     expect(told).toEqual([
-      "Encore 2 victoires et Gaspard te raconte son histoire.",
-      "Encore une victoire et Gaspard te raconte son histoire.",
+      `Manche 2 : la mise double, 200${NBSP}€.`,
+      `Manche 3 : la mise double, 400${NBSP}€.`,
       "Gaspard a une histoire à te raconter : elle t'attend dans tes Souvenirs.",
-      // La quatrième : plus rien à annoncer, l'histoire est ouverte.
+      // La revanche : plus rien à annoncer, l'histoire est ouverte.
       null,
     ]);
-    const lobby = await hall();
-    expect(storyProgressText(hostStory(lobby.state.hostWins, "kiosque"))).toBe("Son histoire t'attend dans tes Souvenirs.");
-    expect(storyProgressText(hostStory(lobby.state.hostWins, "cafe"))).toBe("Son histoire : 0 victoire sur 3");
-    // Dans ce monde-là, le chemin est passé par des défaites : elles n'ont rien ajouté, et rien retiré.
+    const end = await kiosque();
+    expect(duelProgressText(end.duel)).toBe("Son histoire t'attend dans tes Souvenirs.");
+    expect(end.duel).toEqual({ stage: "revanche", rounds: 3, won: 3, stake: 400, prize: 800 });
+    // Dans ce monde-là, le chemin est passé par des défaites : elles ont coûté leur mise, et rien d'autre.
     expect(lost).toBeGreaterThan(0);
   });
 
@@ -1859,9 +2060,7 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
   }
 
   it("la Table des Maîtres remportée pour de vrai : toute la table, un trophée de plus, et les maîtres qui saluent", async () => {
-    let won: {
-      payout: number; masters: readonly string[]; hands: number; blind: number; announced: boolean; opened: readonly string[];
-    } | null = null;
+    let won: { payout: number; masters: readonly string[]; hands: number; blind: number; announced: boolean } | null = null;
     // Ce joueur-là gagne plus d'une table sur deux : en dix tables, il en gagne une (à mille contre un près).
     for (const seed of [7_919, 15_838, 23_757, 31_676, 39_595, 47_514, 55_433, 63_352, 71_271, 79_190]) {
       const { w, auth, playerId } = await master(seed, MASTERS_BUYIN);
@@ -1869,10 +2068,11 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       expect(opened.status).toBe(201);
       let view = opened.body.view!;
       const seated = view.seats.filter((s): s is SeatView => s !== null && s.bot !== null).map((s) => s.bot!);
-      // Avant cette table : deux victoires déjà contre le premier maître assis, trois contre le deuxième ;
-      // les autres n'ont perdu que leur défi (une victoire chacun).
+      // Avant cette table : deux manches déjà gagnées contre le premier maître assis ; les autres n'ont
+      // perdu que leur première manche (un défi relevé avant les trois manches en vaut une).
+      const firstPlace = PLACES.find((place) => place.host === seated[0])!.id;
       w.storage.poke(playerId, (p) => {
-        p.hostWins = { [placeOfHost(seated[0]!)!]: 2, [placeOfHost(seated[1]!)!]: 3 };
+        p.hostWins = { [firstPlace]: 2 };
       });
       const refused: string[] = [];
       let left: PokerTableResponse["left"];
@@ -1921,15 +2121,11 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
       const lobby = await w.call<PokerLobbyResponse>("GET", "/api/poker", undefined, auth);
       expect(mastersCard(lobby.body, lobby.body.state.balance)).toMatchObject({ open: true, won: 1, short: 0 });
       expect(lobby.body.seat).toBeNull();
-      // Une victoire de plus contre chacun des quatre maîtres assis, éliminés compris, et contre eux seuls :
-      // le compte arrive avec la fin de table, c'est lui que lit le panneau de la victoire.
-      expect(seated.map((bot) => state!.hostWins[placeOfHost(bot)!])).toEqual([3, 4, 2, 2]);
-      for (const place of PLACES) if (!seated.includes(place.host)) expect([place.id, state!.hostWins[place.id]]).toEqual([place.id, 1]);
+      // La Table des Maîtres ne compte pas comme une victoire contre ses hôtes : seules les manches d'un défi
+      // ouvrent une histoire. Les comptes n'ont pas bougé, pas même pour celui qui en était à deux.
+      for (const place of PLACES) expect([place.id, state!.hostWins[place.id]]).toEqual([place.id, place.id === firstPlace ? 2 : 1]);
       expect(lobby.body.state.hostWins).toEqual(state!.hostWins);
-      won = {
-        payout: left!.payout, masters: seated, hands: view.handNo, blind, announced,
-        opened: storiesJustOpened(state!.hostWins, seated),
-      };
+      won = { payout: left!.payout, masters: seated, hands: view.handNo, blind, announced };
       break;
     }
     expect(won).not.toBeNull();
@@ -1939,12 +2135,6 @@ describe("les gestes proposés par l'écran sont ceux que le serveur accepte", (
     // Le panneau de la victoire : le montant tel qu'il s'écrit, et un mot de chacun des quatre maîtres.
     expect(mastersEnding("maitres-gagne", won!.payout).texte).toBe(`Tu remportes 1${THIN}500${NBSP}Bn€.`);
     expect(won!.masters.map((bot) => mastersLine(bot, "victoire")?.speaker)).toEqual(won!.masters);
-    // Une histoire vient de s'ouvrir : celle du maître dont c'était la troisième défaite. Celui qui en était
-    // à trois l'avait déjà ; les deux autres n'en sont qu'à deux. Le panneau le dit en une ligne.
-    expect(won!.opened).toEqual([won!.masters[0]]);
-    expect(storiesOpenedText(won!.opened)).toBe(
-      `${hostName(won!.masters[0]!)} a une histoire à te raconter : elle t'attend dans tes Souvenirs.`,
-    );
     setLang("en");
     expect(mastersEnding("maitres-gagne", won!.payout).texte).toBe("You win €1,500T.");
     for (const bot of won!.masters) expect(mastersLine(bot, "victoire")?.text).toBe(MASTERS_TALK[bot as Host].en.victoire);

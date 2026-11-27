@@ -5,8 +5,8 @@
 import { RANK_CHARS, SUIT_CHARS, type Card } from "../../../shared/poker/cards";
 import { evaluate, type HandCategory } from "../../../shared/poker/hands";
 import {
-  ACCUSE_MS, CHALLENGE_ROUNDS, CHEAT_MS, MAX_BUYIN_BLINDS, MIN_BUYIN_BLINDS, RESTART_MS, RESULT_MS, TABLE_CODE_LENGTH, TURN_MS,
-  WALKOVER_MS,
+  ACCUSE_MS, CHALLENGE_ROUNDS, CHEAT_MS, MASTERS_BLINDS, MAX_BUYIN_BLINDS, MIN_BUYIN_BLINDS, RESTART_MS, RESULT_MS,
+  TABLE_CODE_LENGTH, TURN_MS, WALKOVER_MS,
 } from "../../../shared/poker/rules";
 import type {
   HandResult, LobbyChallenge, LobbyMasters, Options, PokerAction, Range, SeatView, TableView,
@@ -478,6 +478,46 @@ export function mastersCard(lobby: MastersLobby, balance: number): MastersCard |
   };
 }
 
+/**
+ * Une table jouée en tournoi : la Table des Maîtres, ou une table entre amis créée à ses
+ * règles (LOT4.md, section 16). Chacun y pose la même cagnotte, personne ne recave, la blinde
+ * monte, qui n'a plus rien est éliminé, et le dernier assis remporte tout. Un serveur plus
+ * ancien ne dit pas le format : seule la Table des Maîtres en est un.
+ */
+export function isTournament(view: Pick<TableView, "kind"> & { format?: string }): boolean {
+  return view.kind === "maitres" || view.format === "tournoi";
+}
+
+/** La cagnotte que chacun pose à un tournoi entre amis : trente blindes de départ, ni plus ni moins. */
+export function tournamentStake(blind: number): number {
+  return Math.max(0, blind) * MASTERS_BLINDS;
+}
+
+/** Les joueurs encore en jeu à un tournoi (le joueur compris), et combien ils étaient au départ. */
+export function playersLeft(view: Pick<TableView, "seats">): { left: number; of: number } {
+  let left = 0;
+  let of = 0;
+  for (const seat of view.seats) {
+    if (!seat) continue;
+    of += 1;
+    if (!seat.out) left += 1;
+  }
+  return { left, of };
+}
+
+/**
+ * Ce que partir veut dire, à dire AVANT de partir. `libre` : une table classique, on s'en va
+ * avec son tapis. `seul` : un tournoi où il ne reste aucun autre joueur humain (la Table des
+ * Maîtres, ou des amis déjà éliminés ou partis) : il reprend son tapis, sans la victoire, et la
+ * table ferme. `abandon` : un tournoi entre amis où un autre humain joue encore : son tapis
+ * reste sur la table, et le gagnant le prendra. Avant le lancement, rien n'est encore en jeu.
+ */
+export function quitMeans(view: Pick<TableView, "kind" | "seats" | "you" | "started"> & { format?: string }): "libre" | "seul" | "abandon" {
+  if (!isTournament(view) || !view.started) return "libre";
+  const others = view.seats.some((seat) => seat !== null && seat.seat !== view.you && seat.bot === null && !seat.out && seat.funded);
+  return others ? "abandon" : "seul";
+}
+
 /** Les maîtres encore assis à la Table des Maîtres, et combien ils étaient au départ. */
 export function mastersLeft(view: Pick<TableView, "seats">): { left: number; of: number } {
   let left = 0;
@@ -504,19 +544,19 @@ export function fallenSeats(view: Pick<TableView, "kind" | "phase" | "seats" | "
 }
 
 /**
- * Un tournoi (un défi, la Table des Maîtres) est joué : pendant le dénouement de sa dernière
- * main, le joueur n'a plus rien, ou plus aucun adversaire n'a de jetons. La main suivante
- * n'aura pas lieu, et le résultat est acquis : partir à ce moment-là ne le change pas.
- * (Pendant une main, un joueur à tapis n'a plus rien devant lui et joue encore : seul le
- * dénouement compte.)
+ * Un tournoi (un défi, la Table des Maîtres, une table entre amis à ses règles) est joué :
+ * pendant le dénouement de sa dernière main, le joueur n'a plus rien, ou plus aucun adversaire
+ * n'a de jetons. La main suivante n'aura pas lieu, et le résultat est acquis : partir à ce
+ * moment-là ne le change pas. (Pendant une main, un joueur à tapis n'a plus rien devant lui
+ * et joue encore : seul le dénouement compte.)
  */
-export function tournamentDecided(view: Pick<TableView, "kind" | "phase" | "seats" | "you">): boolean {
-  if (view.kind !== "defi" && view.kind !== "maitres") return false;
+export function tournamentDecided(view: Pick<TableView, "kind" | "phase" | "seats" | "you"> & { format?: string }): boolean {
+  if (view.kind !== "defi" && !isTournament(view)) return false;
   if (view.phase !== "denouement") return false;
   const me = view.you === null ? null : view.seats[view.you] ?? null;
   if (!me) return false;
   if (me.stack + me.reserve <= 0) return true;
-  const rivals = view.seats.filter((seat): seat is SeatView => seat !== null && seat.bot !== null);
+  const rivals = view.seats.filter((seat): seat is SeatView => seat !== null && seat.seat !== me.seat);
   return rivals.length > 0 && rivals.every((seat) => seat.stack <= 0);
 }
 

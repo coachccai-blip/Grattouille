@@ -8,7 +8,7 @@
 
 import { PLACES, isPlaceId } from "../../shared/places";
 import {
-  BLIND_SHARE, CHALLENGE_ROUNDS, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BUYIN, MASTERS_SEATS, MAX_SEATS, MIN_SEATS,
+  BLIND_SHARE, CHALLENGE_ROUNDS, HOUSE_SEATS, MASTERS_BLIND, MASTERS_BLINDS, MASTERS_BUYIN, MASTERS_SEATS, MAX_SEATS, MIN_SEATS,
   act, allowedBlinds, challengeOf, challengeRound, createTable, houseOf, isBlind, isCard, isDifficulty, leave, maxBuyIn, minBuyIn,
   newTableCode, normalizeTableCode, pickMasters, pickPersonas, rebuyRange, seatIndexOf, sit, viewFor,
   type GameAction, type PokerAction, type PokerLobbyResponse, type PokerPollResponse, type PokerTableResponse,
@@ -165,10 +165,21 @@ function readOrder(body: Body, me: PlayerRecord): Order {
   }
   const { blind, seats, bots } = body;
   if (!isBlind(blind)) fail("BAD_REQUEST");
-  if (!isAmount(body.maxBuyIn) || body.maxBuyIn < minBuyIn(blind) || body.maxBuyIn > maxBuyIn(blind)) fail("BAD_REQUEST");
   if (typeof seats !== "number" || !Number.isInteger(seats) || seats < MIN_SEATS || seats > MAX_SEATS) fail("BAD_REQUEST");
   if (typeof bots !== "number" || !Number.isInteger(bots) || bots < 0 || bots > seats - 1) fail("BAD_REQUEST");
   if (body.difficulty !== undefined && !isDifficulty(body.difficulty)) fail("BAD_REQUEST");
+  if (body.format !== undefined && body.format !== "classique" && body.format !== "tournoi") fail("BAD_REQUEST");
+  if (body.format === "tournoi") {
+    // Une table entre amis jouée comme la Table des Maîtres : la même cagnotte pour tous, trente
+    // blindes de départ, sans recave. Elle est imposée : `maxBuyIn` et `buyIn` ne se lisent pas.
+    // La blinde reste plafonnée par la bourse du créateur, comme à toute table qu'il crée.
+    const stake = blind * MASTERS_BLINDS;
+    return {
+      spec: { kind: "privee", place: null, format: "tournoi", blind, maxBuyIn: stake, seats, difficulty: body.difficulty ?? "normal" },
+      bots, buyIn: stake, minBuyIn: stake, capped: true,
+    };
+  }
+  if (!isAmount(body.maxBuyIn) || body.maxBuyIn < minBuyIn(blind) || body.maxBuyIn > maxBuyIn(blind)) fail("BAD_REQUEST");
   return {
     spec: { kind: "privee", place: null, blind, maxBuyIn: body.maxBuyIn, seats, difficulty: body.difficulty ?? "normal" },
     bots,
@@ -253,6 +264,8 @@ export async function joinPokerTable(req: Request, deps: Deps): Promise<Response
   const fresh = newSessionId(deps.random32);
   const reserved = await touchTable(deps, me, code, now, (t) => {
     if (t.kind !== "privee" || t.phase === "fermee") fail("TABLE_NOT_FOUND");
+    // Un tournoi entre amis ne se rejoint qu'avant son lancement, et à la cagnotte exacte.
+    if (t.format === "tournoi" && t.handNo > 0) fail("TABLE_FULL");
     if (buyIn < t.minBuyIn || buyIn > t.maxBuyIn) fail("BAD_REQUEST");
     // Un siège déjà réservé à son nom (une requête interrompue) : on le reprend.
     return sit(t, sitterOf(me, fresh), now, deps.random32);

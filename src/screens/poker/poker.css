@@ -195,16 +195,14 @@
 
 .poker-billet__titre { font: 700 17px/22px var(--texte); }
 
-.poker-billet__fait {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  color: var(--persienne-fonce);
+.poker-billet__manque {
+  color: var(--cerise);
   font-weight: 500;
 }
 
-.poker-billet__manque {
-  color: var(--cerise);
+/* Ce que le gagnant emporte : les deux mises. */
+.poker-billet__gain {
+  color: var(--persienne-fonce);
   font-weight: 500;
 }
 
@@ -482,6 +480,56 @@
 .poker-feuille__tete .t-titre { text-wrap: balance; }
 
 .poker-feuille__gain { font-weight: 700; }
+
+/* Entre amis, deux façons de jouer : deux boutons côte à côte, et la règle du mode choisi dessous. */
+.poker-modes .poker-niveau {
+  padding-right: 4px;
+  padding-left: 4px;
+  font-size: clamp(13px, 4.1vw, 15px);
+}
+
+.poker-modes__regle {
+  min-height: 60px;
+  font: 500 15px/20px var(--texte);
+  text-wrap: pretty;
+}
+
+/* Sur la feuille « rejoindre » : le mode de la table, annoncé avant de s'asseoir. */
+.poker-modes__annonce {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  border-radius: 12px;
+  background: rgba(14, 47, 58, .07);
+  font: 400 14px/19px var(--texte);
+}
+
+.poker-modes__annonce strong { font: 700 16px/22px var(--texte); }
+
+/* Dans les règles : les deux modes, un nom et sa phrase. */
+.poker-regles__modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poker-regles__modes dt { font: 700 16px/22px var(--texte); }
+.poker-regles__modes dd { font: 400 15px/20px var(--texte); }
+
+/* La feuille du défi : la manche à jouer, derrière ses repères. */
+.poker-defi__manche {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font: 700 16px/22px var(--texte);
+}
+
+.poker-defi__manche .poker-reperes { margin-top: 0; }
+
+/* Sur le papier d'une feuille, un repère vide se cerne d'encre. */
+.feuille .poker-reperes i { box-shadow: inset 0 0 0 2px rgba(14, 47, 58, .35); }
+.feuille .poker-reperes .poker-reperes__plein { box-shadow: inset 0 0 0 2px var(--mimosa-fonce); }
 
 .poker-feuille__action {
   display: flex;

@@ -1042,7 +1042,8 @@
 
 /* Son feutre : un prune de fin de soirée, ourlé du même laiton. Les sièges, le pot et les
    mises s'y lisent comme sur le vert (l'écume et le mimosa y ressortent même davantage). */
-.poker-table--maitres {
+.poker-table--maitres,
+.poker-table--tournoi {
   --feutre: #5A2147;
   --feutre-fonce: #3E1531;
 }
@@ -1150,6 +1151,26 @@
 
 .poker-presentation__maitre em { color: var(--brume); }
 
+/* L'ouverture d'un défi : la manche en titre, l'hôte et ce qu'il en dit, puis l'enjeu. Les trois
+   se tiennent ensemble, au milieu du cadre, comme le tirage de la Table des Maîtres. */
+.poker-ouverture .poker-presentation__titre { font: 700 16px/22px var(--texte); }
+
+.poker-ouverture__hote {
+  flex: none;
+  --i: 0;
+}
+
+.poker-ouverture__hote p { font: 400 14px/19px var(--texte); }
+
+.poker-ouverture__enjeu {
+  flex: none;
+  margin-bottom: auto;
+  color: var(--ecume);
+  font: 500 14px/20px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+}
+
 /* ---------------------------------------------------------------- La Table des Maîtres, gagnée */
 
 /* L'un des sommets du jeu : le montant défile sur un carton d'or, les confettis et les
@@ -1232,9 +1253,6 @@
 .calme .poker-fete .t-titre,
 .calme .poker-fete__somme strong,
 .calme .poker-fete__maitres li { animation: none; }
-
-/* Les histoires que cette victoire vient d'ouvrir : leur cartouche se pose après le salut des maîtres. */
-.poker-fete .poker-sortie__histoire--ouverte { animation-delay: 3200ms; }
 
 /* Le canvas des confettis et des pièces : par-dessus tout, transparent aux gestes. */
 .poker-fete__fx {
@@ -1337,15 +1355,6 @@
 
   /* Le panneau de fin se serre aussi : la bulle de l'hôte, sa cagnotte, son histoire et le bouton tiennent. */
   .poker-sortie { gap: 10px; }
-
-  /* La Table des Maîtres gagnée, avec des histoires qui s'ouvrent : c'est le panneau le plus rempli.
-     Leur cartouche s'écrit plus petit, et tout tient sans défiler, trois noms compris. */
-  .poker-fete .poker-sortie--histoires { gap: 6px; }
-
-  .poker-fete .poker-sortie > .poker-sortie__histoire--ouverte {
-    padding: 6px 10px 7px;
-    font: 500 13px/17px var(--texte);
-  }
 }
 
 /* À une grande table (cinq ou six sièges), sur un écran de hauteur moyenne : quand c'est au

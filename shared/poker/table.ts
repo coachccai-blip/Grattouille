@@ -28,8 +28,8 @@ import {
   MISSES_BEFORE_ABSENT, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS, minBuyIn,
 } from "./rules";
 import {
-  blindAt, canDeal, chipsOf, chipsOnTable, dealableSeats, isFunded, isLive, isTournament, playerInHand, seatIndexOf,
-  seatIndexOfSession, seatsAfter,
+  blindAt, canDeal, chipsOf, chipsOnTable, dealableSeats, isFunded, isLive, isMasters, isOut, isTournament, playerInHand,
+  seatIndexOf, seatIndexOfSession, seatsAfter,
 } from "./state";
 import type {
   Accusation, AvatarLook, CloseReason, Difficulty, EndedSeat, GameAction, HandPlayer, HandState, LeaveReason,
@@ -47,6 +47,8 @@ export interface TableSpec {
   place: PlaceId | null;
   /** Défi : la manche (1, 2 ou 3). */
   level?: number;
+  /** Table entre amis : `tournoi` pour la jouer comme la Table des Maîtres. Absent : classique. */
+  format?: "classique" | "tournoi";
   /** La blinde. En tournoi (défi, Table des Maîtres) : la blinde de base, celle des premières mains. */
   blind: number;
   /** La cave maximale. En tournoi, c'est la cave tout court : chacun pose exactement cela. */
@@ -71,6 +73,8 @@ const isCount = (x: unknown): x is number => typeof x === "number" && Number.isS
 
 /** Une table neuve : les robots sont assis, aucun joueur ne l'est encore. */
 export function createTable(spec: TableSpec, now: number): TableState {
+  // Le format ne se choisit qu'à une table entre amis ; la Table des Maîtres est un tournoi par nature.
+  const tournament = spec.kind === "privee" && spec.format === "tournoi";
   if (!isCount(spec.blind) || !isCount(spec.maxBuyIn)) refuse("BAD_REQUEST");
   if (!Number.isInteger(spec.seats) || spec.seats < MIN_SEATS || spec.seats > MAX_SEATS) refuse("BAD_REQUEST");
   if (spec.bots.length > spec.seats - 1) refuse("BAD_REQUEST");
@@ -92,7 +96,7 @@ export function createTable(spec: TableSpec, now: number): TableState {
     kind: spec.kind,
     place: spec.place,
     blind: spec.blind,
-    minBuyIn: isTournament(spec) ? spec.maxBuyIn : minBuyIn(spec.blind),
+    minBuyIn: tournament || isTournament({ kind: spec.kind }) ? spec.maxBuyIn : minBuyIn(spec.blind),
     maxBuyIn: spec.maxBuyIn,
     difficulty: spec.difficulty,
     seats,
@@ -119,6 +123,7 @@ export function createTable(spec: TableSpec, now: number): TableState {
     audit: { in: 0, out: 0, bank },
   };
   if (spec.kind === "defi" && spec.level !== undefined) table.level = spec.level;
+  if (tournament) table.format = "tournoi";
   return table;
 }
 
@@ -307,19 +312,32 @@ function tournamentOutcome(d: TableState): LeaveReason | null {
   if (!human) return null;
   const humanOut = chipsOf(human) <= 0;
   const rivals = d.seats.some((s) => s !== null && s.bot !== null && chipsOf(s) > 0);
-  if (d.kind === "defi") {
-    if (!humanOut && rivals) return null;
-    return humanOut && !rivals ? "defi-nul" : humanOut ? "defi-perdu" : "defi-gagne";
-  }
-  if (humanOut) return "maitres-perdu";
-  return rivals ? null : "maitres-gagne";
+  if (d.kind !== "defi" || (!humanOut && rivals)) return null;
+  return humanOut && !rivals ? "defi-nul" : humanOut ? "defi-perdu" : "defi-gagne";
 }
 
-/** Ferme un tournoi joué, avec son résultat. Rend faux s'il n'est pas (encore) joué. */
+/**
+ * Le format des Maîtres, entre deux mains : la partie est jouée dès qu'il ne reste qu'un
+ * joueur avec des jetons (il remporte tout), ou que plus aucun joueur humain n'en a.
+ */
+function mastersDecided(d: TableState): boolean {
+  if (!isMasters(d) || d.hand || d.handNo === 0) return false;
+  const humans = fundedHumans(d);
+  if (humans.length === 0) return false;
+  const alive = d.seats.filter((s) => s !== null && isFunded(s) && chipsOf(s) > 0).length;
+  return alive <= 1 || humans.every((index) => chipsOf(d.seats[index]!) <= 0);
+}
+
+/** Ferme un tournoi joué, avec le résultat de chacun. Rend faux s'il n'est pas (encore) joué. */
 function endTournament(d: TableState, t: number): boolean {
+  if (mastersDecided(d)) {
+    // Le dernier à avoir des jetons a gagné ; tous les autres ont perdu, et repartent sans rien.
+    closeTable(d, t, "maitres", (seat) => (chipsOf(seat) > 0 ? "maitres-gagne" : "maitres-perdu"));
+    return true;
+  }
   const outcome = tournamentOutcome(d);
   if (!outcome) return false;
-  closeTable(d, t, d.kind === "defi" ? "defi" : "maitres", () => outcome);
+  closeTable(d, t, "defi", () => outcome);
   return true;
 }
 
@@ -328,6 +346,11 @@ function nextHand(d: TableState, t: number, rng: Random32): void {
   d.nextAt = null;
   // Un tournoi joué se dénoue avant tout le reste : son résultat ne dépend plus de personne.
   if (endTournament(d, t)) return;
+  // Tournoi à plusieurs joueurs : qui n'a plus rien est éliminé. Il quitte la table sans rien,
+  // la partie continue entre les autres.
+  if (isMasters(d) && d.handNo > 0) {
+    for (const index of fundedHumans(d)) if (chipsOf(d.seats[index]!) <= 0) removeSeat(d, index, t, "maitres-perdu");
+  }
   // Trois mains de suite sans jouer (absent, ou à sec) : le joueur quitte la table et
   // récupère son tapis.
   const humans = fundedHumans(d);
@@ -338,7 +361,10 @@ function nextHand(d: TableState, t: number, rng: Random32): void {
     closeTable(d, t, "vide", cause);
     return;
   }
-  for (const index of leaving) removeSeat(d, index, t, cause(d.seats[index]!));
+  // En tournoi, un absent ne quitte pas la table tant qu'un autre joueur y joue : il reste
+  // servi, passe ou se couche aussitôt, et la blinde entame son tapis main après main. Il
+  // revient quand il veut. Le sortir de force, ce serait le faire abandonner à sa place.
+  if (!isMasters(d)) for (const index of leaving) removeSeat(d, index, t, cause(d.seats[index]!));
   if (!startHand(d, t, rng) && d.phase !== "fermee") d.phase = "attente";
 }
 
@@ -675,7 +701,8 @@ function walkover(d: TableState, t: number): void {
     d.seats[winner.seat]!.stack += h.pot;
     note(d, "pot", winner.seat, h.pot);
   }
-  d.carry = winner ? 0 : h.pot;
+  // Ce qui attend déjà la main suivante (le tapis d'un joueur qui a abandonné un tournoi) y reste.
+  if (!winner) d.carry += h.pot;
   d.result = {
     no: d.handNo,
     showdown: false,
@@ -755,7 +782,8 @@ function resolve(d: TableState, t: number): void {
   }
   for (const [seat, amount] of won) note(d, "pot", seat, amount);
 
-  d.carry = carry;
+  // Ce qui attend déjà la main suivante (le tapis d'un joueur qui a abandonné un tournoi) y reste.
+  d.carry += carry;
   d.result = {
     no: d.handNo,
     showdown: true,
@@ -767,7 +795,7 @@ function resolve(d: TableState, t: number): void {
     }),
     pots,
     net: [...net].map(([seat, amount]) => ({ seat, amount })),
-    carry,
+    carry: d.carry,
     until: t + RESULT_MS,
   };
   // Qui gagne un pot en ramasse toujours au moins un euro : chaque prétendant y a mis le sien.
@@ -807,7 +835,15 @@ function removeSeat(d: TableState, index: number, t: number, reason: LeaveReason
       h.pending = h.pending.filter((s) => s !== index);
     }
   }
-  const payout = seat.stack + seat.reserve;
+  let payout = seat.stack + seat.reserve;
+  // Tournoi à plusieurs joueurs : partir en cours de route, c'est abandonner. Tant qu'un autre
+  // joueur humain est là et encore en jeu, le tapis de celui qui s'en va reste sur la table :
+  // il attend la main suivante, dont il rejoint le pot. (Ce qu'il a versé dans la main en
+  // cours reste au pot de cette main, comme pour quiconque se couche.)
+  if (seat.bot === null && isMasters(d) && d.handNo > 0 && reason !== "reserve" && hasRival(d, index)) {
+    d.carry += payout;
+    payout = 0;
+  }
   if (seat.bot === null) {
     d.ended.push(endedOf(seat, index, payout, reason, t));
     d.audit.out += payout;
@@ -824,6 +860,18 @@ function removeSeat(d: TableState, index: number, t: number, reason: LeaveReason
     d.owner = heirs.length > 0 ? d.seats[heirs[0]!]!.playerId : null;
   }
   return wasTurn;
+}
+
+/**
+ * Tournoi : un autre joueur humain que celui du siège `index` est-il là, et encore en jeu ?
+ * En jeu : il a des jetons, ou il joue la main en cours (à tapis, on n'a plus rien devant soi).
+ * Un absent ne compte pas : on ne dispute rien à quelqu'un qui n'est plus à la table.
+ */
+function hasRival(d: TableState, index: number): boolean {
+  return fundedHumans(d).some((i) => {
+    const other = d.seats[i]!;
+    return i !== index && !other.absent && (chipsOf(other) > 0 || playerInHand(d, i) !== null);
+  });
 }
 
 /** Les sièges des joueurs humains dont la cave est posée. */
@@ -843,13 +891,18 @@ function fundedHumans(d: TableState): number[] {
 function depart(d: TableState, index: number, t: number, rng: Random32, reason: LeaveReason): void {
   const seat = d.seats[index]!;
   const humans = fundedHumans(d);
+  // Un tournoi déjà joué se dénoue pour tout le monde, quel que soit celui qui s'en va.
+  if (humans.length > 1 && mastersDecided(d) && endTournament(d, t)) return;
   if (!d.hand && isFunded(seat) && humans.length === 1 && humans[0] === index) {
     // Un tournoi déjà joué ne se perd pas en partant, et ne se rattrape pas non plus : s'en
     // aller pendant le dénouement de la dernière main, c'est seulement ne pas attendre la suite.
     if (!endTournament(d, t)) closeTable(d, t, "vide", () => reason);
     return;
   }
-  const wasTurn = removeSeat(d, index, t, reason);
+  // Tournoi à plusieurs joueurs : qui n'a plus un jeton une fois la main finie est éliminé.
+  // S'en aller sans attendre la main suivante n'y change rien : il a perdu, il n'a pas « quitté ».
+  const beaten = seat.bot === null && reason !== "reserve" && isOut(d, index);
+  const wasTurn = removeSeat(d, index, t, beaten ? "maitres-perdu" : reason);
   afterRemoval(d, t, rng, wasTurn);
 }
 
@@ -886,10 +939,10 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
       d.seats[p.seat]!.stack += p.committed;
       h.pot -= p.committed;
     }
-    d.carry = h.pot;
+    d.carry += h.pot;
     d.hand = null;
   }
-  const claims = (seat: SeatState): boolean => isFunded(seat) && (d.kind !== "maitres" || chipsOf(seat) > 0);
+  const claims = (seat: SeatState): boolean => isFunded(seat) && (!isMasters(d) || chipsOf(seat) > 0);
   const seated = seatsAfter(d, d.dealer, d.seats.map((_, i) => i).filter((i) => d.seats[i] !== null && claims(d.seats[i]!)));
   const shares = new Map(splitPot(d.carry, seated, seated).map((s) => [s.seat, s.amount]));
   if (seated.length === 0) d.audit.bank -= d.carry;
@@ -954,6 +1007,8 @@ export function sit(state: TableState, who: Sitter, now: number, rng: Random32):
   const { d, t, moved } = open(state, now, rng);
   if (d.phase === "fermee") refuse("TABLE_NOT_FOUND");
   if (seatIndexOf(d, who.playerId) >= 0) return done(state, d, moved);
+  // Un tournoi entre amis se rejoint avant son lancement ; ensuite plus personne n'entre.
+  if (isMasters(d) && d.started && d.handNo > 0) refuse("TABLE_FULL");
   const free = d.seats.indexOf(null);
   if (free < 0) refuse("TABLE_FULL");
   d.seats[free] = {

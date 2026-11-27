@@ -164,7 +164,20 @@ export interface MastersEnding {
  * Les mots des trois fins. `payout` : ce qui retourne à la bourse (toute la table pour une
  * victoire, le tapis pour un départ, rien pour une défaite).
  */
-export function mastersEnding(reason: MastersEnd, payout: number): MastersEnding {
+export function mastersEnding(reason: MastersEnd, payout: number, friends = false): MastersEnding {
+  // Entre amis, le tournoi a les mêmes fins ; mais la table ne rouvre pas, et aucun maître n'y sera tiré au sort.
+  if (friends && reason === "maitres-perdu") {
+    return {
+      titre: t("Le tournoi s'arrête là pour toi"),
+      texte: t("Ta cagnotte reste sur la table : le dernier assis remportera tout."),
+      somme: null,
+    };
+  }
+  if (friends && reason === "quitte") {
+    return payout > 0
+      ? { titre: t("Tu te lèves de table"), texte: t("Tu repars avec ton tapis, {montant}, sans la victoire.", { montant: formatEuros(payout) }), somme: null }
+      : { titre: t("Tu abandonnes le tournoi"), texte: t("Ton tapis est resté sur la table : le dernier assis le remportera."), somme: null };
+  }
   switch (reason) {
     case "maitres-gagne":
       return {
@@ -362,5 +375,40 @@ export function typedBetLabel(bet: TypedBet | null, first: boolean, stack: numbe
   if (!bet) return first ? t("Miser") : t("Relancer");
   if (bet.allIn) return t("Tapis : {montant}", { montant: formatEuros(stack) });
   return first ? t("Miser {montant}", { montant: formatEuros(bet.amount) }) : t("Relancer à {montant}", { montant: formatEuros(bet.amount) });
+}
+
+// ---------------------------------------------------------------------------
+// Entre amis, deux façons de jouer (LOT4.md, section 16)
+
+/** Le format d'une table entre amis : classique, ou aux règles de la Table des Maîtres. */
+export type FriendsMode = "classique" | "tournoi";
+
+// Le nom de chaque mode et sa règle en une phrase : des clés de traduction, lues à l'affichage.
+const MODES: Record<FriendsMode, { nom: string; regle: string }> = {
+  classique: {
+    nom: "Table classique",
+    regle: "Chacun choisit sa cave et peut recaver. On s'assoit et on part quand on veut, avec son tapis.",
+  },
+  tournoi: {
+    nom: "Table des Maîtres",
+    regle: "Chacun pose la même cagnotte, sans recave. La blinde monte, qui n'a plus rien est éliminé, et le dernier assis remporte tout.",
+  },
+};
+
+export const FRIENDS_MODES: readonly FriendsMode[] = ["classique", "tournoi"];
+
+/** « Table classique », « Table des Maîtres » : le nom d'un mode, sur son bouton. */
+export function modeName(mode: FriendsMode): string {
+  return t(MODES[mode].nom);
+}
+
+/** La règle d'un mode, en une phrase. */
+export function modeRule(mode: FriendsMode): string {
+  return t(MODES[mode].regle);
+}
+
+/** À un tournoi entre amis : combien de joueurs sont encore en jeu. Rien quand il n'en reste qu'un. */
+export function playersLeftText(left: number): string {
+  return left > 1 ? t("{n} joueurs en jeu", { n: left }) : "";
 }
 

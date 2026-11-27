@@ -43,8 +43,17 @@ export function seatsAfter(t: TableState, from: number, seats: readonly number[]
  * ni les robots), la blinde monte au fil des mains, et qui n'a plus de quoi la payer pose
  * ce qui lui reste. Ailleurs, la blinde est fixe et un robot à sec recave.
  */
-export function isTournament(t: Pick<TableState, "kind">): boolean {
-  return t.kind === "defi" || t.kind === "maitres";
+export function isTournament(t: Pick<TableState, "kind" | "format">): boolean {
+  return t.kind === "defi" || isMasters(t);
+}
+
+/**
+ * Le format de la Table des Maîtres : la Table des Maîtres elle-même, et une table entre amis
+ * créée en tournoi. Chacun arrive avec la même cagnotte, les perdants sont éliminés, le dernier
+ * à avoir des jetons remporte tout ce qui est sur la table.
+ */
+export function isMasters(t: Pick<TableState, "kind" | "format">): boolean {
+  return t.kind === "maitres" || t.format === "tournoi";
 }
 
 /**
@@ -53,7 +62,7 @@ export function isTournament(t: Pick<TableState, "kind">): boolean {
  */
 export function blindAt(t: TableState, handNo: number): number {
   if (t.kind === "defi") return challengeBlind(t.blind, handNo);
-  if (t.kind === "maitres") return mastersBlind(t.blind, handNo);
+  if (isMasters(t)) return mastersBlind(t.blind, handNo, t.seats.length);
   return t.blind;
 }
 
@@ -70,7 +79,7 @@ export function nextRise(t: TableState): { hand: number; blind: number } | null 
   // La main de référence : celle qui se joue, ou celle qui va se jouer.
   const hand = t.hand ? t.handNo : t.handNo + 1;
   if (t.kind === "defi") return challengeRise(t.blind, hand);
-  if (t.kind === "maitres") return mastersRise(t.blind, hand);
+  if (isMasters(t)) return mastersRise(t.blind, hand, t.seats.length);
   return null;
 }
 
@@ -86,7 +95,7 @@ export function chipsOf(seat: SeatState): number {
  */
 export function isOut(t: TableState, index: number): boolean {
   const seat = t.seats[index];
-  if (!seat || t.kind !== "maitres" || t.handNo === 0 || !isFunded(seat)) return false;
+  if (!seat || !isMasters(t) || t.handNo === 0 || !isFunded(seat)) return false;
   return chipsOf(seat) <= 0 && playerInHand(t, index) === null;
 }
 
@@ -127,9 +136,12 @@ export function rebuyRange(t: TableState, index: number): Range | null {
   return { min: Math.max(1, t.minBuyIn - total), max: t.maxBuyIn - total };
 }
 
-/** Tous les jetons posés sur la table : tapis, réserves, et l'argent du milieu. */
+/**
+ * Tous les jetons posés sur la table : tapis, réserves, et l'argent du milieu (le pot de la
+ * main en cours, et ce qui attend la main suivante).
+ */
 export function chipsOnTable(t: TableState): number {
-  let chips = t.hand ? t.hand.pot : t.carry;
+  let chips = (t.hand ? t.hand.pot : 0) + t.carry;
   for (const seat of t.seats) if (seat) chips += seat.stack + seat.reserve;
   return chips;
 }

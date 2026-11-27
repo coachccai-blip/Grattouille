@@ -20,6 +20,14 @@ export type Difficulty = "facile" | "normal" | "difficile";
 export type TableKind = "privee" | "maison" | "defi" | "maitres";
 
 /**
+ * Le format d'une table. `classique` : on recave, la blinde est fixe, on joue tant qu'on veut.
+ * `tournoi` : le format de la Table des Maîtres — chacun arrive avec la même cagnotte, personne
+ * ne recave, la blinde monte, les perdants sont éliminés et le dernier remporte tout. Une table
+ * entre amis choisit son format à la création ; la Table des Maîtres est toujours un tournoi.
+ */
+export type TableFormat = "classique" | "tournoi";
+
+/**
  * Les temps d'une table.
  * - `attente` : pas de main en cours (la partie n'est pas lancée, ou il manque des joueurs) ;
  * - `triche` : les cartes sont données, chacun choisit en secret de remplacer une carte ou non ;
@@ -140,7 +148,10 @@ export interface HandResult {
   pots: PotResult[];
   /** Le bilan de la main, siège par siège : ce qu'il a reçu moins ce qu'il a versé. */
   net: { seat: number; amount: number }[];
-  /** Le pot resté sur la table pour la main suivante. */
+  /**
+   * Ce qui reste sur la table pour la main suivante : un pot que personne n'a pu prendre et,
+   * en tournoi à plusieurs joueurs, le tapis de qui a abandonné.
+   */
   carry: number;
   /** Heure du serveur jusqu'à laquelle le dénouement reste affiché. */
   until: number;
@@ -287,6 +298,8 @@ export interface TableState {
   kind: TableKind;
   /** Table de la maison ou défi : le lieu. */
   place: PlaceId | null;
+  /** Table entre amis jouée en tournoi. Absent : table classique (toutes les tables d'avant le sont). */
+  format?: "tournoi";
   /**
    * Défi : la manche (1, 2 ou 3). Absent de toute autre table, et d'un défi ouvert avant les
    * trois manches : celui-là se règle selon ses règles d'origine (la cagnotte versée à part).
@@ -319,7 +332,11 @@ export interface TableState {
   /** Le siège du donneur (-1 avant la première main). */
   dealer: number;
   handNo: number;
-  /** Le pot resté sur la table entre deux mains (tous les joueurs de l'abattage démasqués). */
+  /**
+   * Ce qui attend la main suivante : le pot resté sur la table (tous les joueurs de l'abattage
+   * démasqués) et, en tournoi à plusieurs joueurs, le tapis de qui a abandonné — celui-là peut
+   * arriver en pleine main. La donne suivante le verse au pot.
+   */
   carry: number;
   hand: HandState | null;
   /** Le dénouement de la dernière main finie. */
@@ -458,6 +475,11 @@ export interface TableView {
   code: string;
   kind: TableKind;
   place: PlaceId | null;
+  /**
+   * `tournoi` à la Table des Maîtres et à une table entre amis créée dans ce format ;
+   * `classique` partout ailleurs. Absent de la vue d'un serveur plus ancien : lire `format ?? "classique"`.
+   */
+  format: TableFormat;
   /** Défi : la manche qui se joue (1, 2 ou 3). ABSENT hors défi, et d'un défi ouvert avant les trois manches. */
   level?: number;
   /**
@@ -641,6 +663,11 @@ export type CreateTableBody =
     difficulty?: Difficulty;
     /** La cave du créateur. Si elle manque : la cave maximale, ou tout ce que sa bourse permet. */
     buyIn?: number;
+    /**
+     * `tournoi` : la table se joue comme la Table des Maîtres. La cagnotte de chacun vaut alors
+     * 30 blindes de départ, ni plus ni moins : `maxBuyIn` et `buyIn` sont ignorés. Absent : classique.
+     */
+    format?: TableFormat;
     ack?: string[];
   }
   | { maison: PlaceId; buyIn?: number; ack?: string[] }

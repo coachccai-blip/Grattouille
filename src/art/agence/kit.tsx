@@ -15,7 +15,7 @@
 // Sans animation (animations réduites, carte postale), le dessin est donc l'image de la
 // fin, telle quelle. Uniquement des transformations et de l'opacité (film.css).
 
-import type { CSSProperties, ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
 import { Avatar, type AvatarLook } from "../Avatar";
 import { Illustration } from "../Illustration";
 import { C, shade } from "../kit";
@@ -316,6 +316,20 @@ export function Tete({ espece, look }: Voyageur) {
     <svg width="280" height="280">
       <Avatar species={espece} look={look} crop="tete" />
     </svg>
+  );
+}
+
+/**
+ * Une fenêtre : ce qu'on y met ne dépasse pas de son cadre (un rectangle aux coins ronds,
+ * ou un rond quand `rx` vaut la moitié de sa largeur). Pour une tête à la vitre d'un wagon.
+ */
+export function Fenetre({ x, y, l, h, rx = 0, children }: { x: number; y: number; l: number; h: number; rx?: number; children: ReactNode }) {
+  const id = `xp-f${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  return (
+    <>
+      <clipPath id={id}><rect x={x} y={y} width={l} height={h} rx={rx} /></clipPath>
+      <g clipPath={`url(#${id})`}>{children}</g>
+    </>
   );
 }
 

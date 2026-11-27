@@ -45,8 +45,6 @@ export const EN_POKER: Record<string, string> = {
   "Les maîtres des lieux": "Your hosts",
   "Le défi": "The challenge",
   "Mise : {montant}": "Stake: {montant}",
-  "Cagnotte : {montant}": "Kitty: {montant}",
-  "Défi relevé": "Challenge won",
   "La table": "The table",
   "Blinde : {montant}": "Blind: {montant}",
   "Niveau {niveau}": "Level: {niveau}",
@@ -96,11 +94,7 @@ export const EN_POKER: Record<string, string> = {
   "S'asseoir avec {montant}": "Sit down with {montant}",
   "Le défi : {lieu}": "The challenge: {lieu}",
   "Défier {hote}": "Challenge {hote}",
-  "Un tête-à-tête : {montant} chacun, jusqu'à ce que l'un des deux n'ait plus rien.":
-    "Head-to-head: {montant} each, until one of you has nothing left.",
   "La blinde monte au fil des mains : le duel ne traîne pas.": "The blind goes up as the hands go by: the duel doesn't drag.",
-  "Sa cagnotte est déjà gagnée : on rejoue pour l'honneur.": "The kitty is already won: this one is for honour.",
-  "Si tu gagnes, sa cagnotte est pour toi : {montant}.": "If you win, the kitty is yours: {montant}.",
   "Défier pour {montant}": "Challenge for {montant}",
 
   // --- Créer une table, la rejoindre
@@ -260,7 +254,6 @@ export const EN_POKER: Record<string, string> = {
     "Mid-hand, leaving means folding: your stake ({montant}) stays in the pot.",
   "Un pot de {montant} est resté sur la table : en partant, tu le laisses aux autres.":
     "A pot of {montant} is still on the table: if you leave, it goes to the others.",
-  "Le défi s'arrête là : il faudra le reprendre du début.": "The challenge ends here: you'll have to start it again.",
   "Ton tapis ({montant}) retourne dans ta bourse.": "Your stack ({montant}) goes back into your purse.",
   "Rester à table": "Stay at the table",
   "Tu quittes la table avec {montant}.": "You leave the table with {montant}.",
@@ -273,11 +266,8 @@ export const EN_POKER: Record<string, string> = {
   "La table a fermé : il y avait trop d'argent sur le tapis pour compter juste.":
     "The table has closed: there was too much money on the baize to count straight.",
   "Match nul : plus personne n'a de quoi continuer.": "A draw: nobody has anything left to carry on.",
-  "Défi relevé !": "Challenge won!",
-  "Le défi reste à relever": "The challenge still stands",
   "Fin de la partie": "End of the game",
   "Sa cagnotte": "The kitty",
-  "Tu le retentes quand tu veux.": "Try again whenever you like.",
   "Cette table a fermé.": "This table has closed.",
   "Ton tapis ({montant}) est retourné dans ta bourse.": "Your stack ({montant}) is back in your purse.",
   "Retour au hall": "Back to the lobby",
@@ -291,7 +281,6 @@ export const EN_POKER: Record<string, string> = {
   "Défis relevés : {n} sur {total}": "Challenges won: {n} of {total}",
   "La Table des Maîtres": "The Masters' Table",
   "Ruine les huit maîtres des lieux pour t'y asseoir.": "Ruin all eight hosts to earn a seat.",
-  "Quatre maîtres tirés au sort": "Four masters, drawn by lot",
   "Blinde de départ": "Opening blind",
   "Cave": "Buy-in",
   "Tournoi : le dernier assis prend tout": "Tournament: last one seated takes it all",
@@ -360,19 +349,66 @@ export const EN_POKER: Record<string, string> = {
     "That's your whole stack: lose this hand and you'll have nothing left in front of you.",
   "Avec les {deja} déjà misés, ta mise passe à {total}.": "With the {deja} you've already bet, your bet goes to {total}.",
 
-  // --- L'histoire de chaque hôte : le battre trois fois au poker l'ouvre, dans les Souvenirs
-  // (« Memories », comme aux Réglages). Ni « his » ni « her » : chaque phrase vaut pour les huit.
-  "Son histoire : {n} victoire sur {total}": "Story: {n} of {total} wins",
-  "Son histoire : {n} victoires sur {total}": "Story: {n} of {total} wins",
+  // --- Entre amis, deux façons de jouer : « Classic table », ou « Masters' Table » (le format tournoi,
+  // celui de la Table des Maîtres du hall). La cagnotte que chacun pose est « kitty », comme partout.
+  "Table classique": "Classic table",
+  "Chacun choisit sa cave et peut recaver. On s'assoit et on part quand on veut, avec son tapis.":
+    "Everyone picks their buy-in and can top up. Sit down and leave whenever you like, with your stack.",
+  "Chacun pose la même cagnotte, sans recave. La blinde monte, qui n'a plus rien est éliminé, et le dernier assis remporte tout.":
+    "Everyone puts up the same kitty, no topping up. The blind goes up, whoever has nothing left is knocked out, and the last one seated takes it all.",
+  "Entre amis, deux façons de jouer": "With friends, two ways to play",
+  "La Table des Maîtres du hall se joue ainsi, contre quatre maîtres des lieux : elle seule compte pour le trophée.":
+    "The Masters' Table in the lobby is played this way, against four of your hosts: it alone counts towards the trophy.",
+  "Une table classique, ou aux règles de la Table des Maîtres : tu choisis en la créant.":
+    "A classic table, or one played by Masters' Table rules: you choose when you create it.",
+  "Contre quatre maîtres des lieux, tirés au sort": "Against four of your hosts, drawn by lot",
+  "Façon de jouer": "Way to play",
+  "Elle monte au fil des mains": "It goes up as the hands go by",
+  "Cagnotte de chacun : {montant}, soit trente blindes de départ.": "Everyone's kitty: {montant}, that is thirty opening blinds.",
+  "Cagnotte de chacun : {montant}": "Everyone's kitty: {montant}",
+  "Tes amis rejoignent la table avec son code, avant le lancement : ensuite, plus personne n'entre.":
+    "Your friends join the table with its code, before the start: after that, nobody else gets in.",
+  "Créer la table et poser {montant}": "Create the table and put up {montant}",
+  "Blinde de départ : {montant}": "Opening blind: {montant}",
+  "{mode} : une fois la partie lancée, plus personne n'entre.": "{mode}: once the game has started, nobody else gets in.",
+  "La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.":
+    "The game has started: nobody joins a tournament in progress. The kitties are on the table, and no one can add another.",
+  "Ta cagnotte : {montant}, la même pour tous.": "Your kitty: {montant}, the same for everyone.",
+  "{n} joueurs en jeu": "{n} players in",
+  "Dans un tournoi, on ne repart pas avec ses jetons : ton tapis ({montant}) reste sur la table, et le dernier assis le remportera.":
+    "In a tournament, you don't leave with your chips: your stack ({montant}) stays on the table, and the last one seated will win it.",
+  "Abandonner le tournoi": "Abandon the tournament",
+  "Le tournoi s'arrête là pour toi": "The tournament ends here for you",
+  "Ta cagnotte reste sur la table : le dernier assis remportera tout.": "Your kitty stays on the table: the last one seated will take it all.",
+  "Tu repars avec ton tapis, {montant}, sans la victoire.": "You leave with your stack, {montant}, but without the win.",
+  "Tu abandonnes le tournoi": "You abandon the tournament",
+  "Ton tapis est resté sur la table : le dernier assis le remportera.": "Your stack stayed on the table: the last one seated will win it.",
+  "La manche s'arrête là : il faudra la reprendre du début.": "The round ends here: you'll have to start it again from scratch.",
+
+  // --- Le défi, en trois manches (« rounds »). La mise (« stake ») double de l'une à l'autre ; la
+  // troisième gagnée ouvre l'histoire de l'hôte dans les Souvenirs (« Memories », comme aux Réglages),
+  // puis le défi se rejoue en revanche (« rematch »). Ni « his » ni « her » : chaque phrase vaut pour les huit.
+  "Manche {n} sur {total}": "Round {n} of {total}",
+  "Revanche": "Rematch",
+  "La revanche": "The rematch",
+  "À la clé : {montant}": "To win: {montant}",
   "Son histoire t'attend dans tes Souvenirs.": "Story unlocked: see your Memories.",
-  "Sa cagnotte est déjà gagnée : on rejoue pour l'honneur, et pour son histoire.":
-    "The kitty is already won: this one is for honour, and for the story.",
-  "Encore une victoire et {hote} te raconte son histoire.": "One more win and you'll hear {hote}'s story.",
-  "Encore {n} victoires et {hote} te raconte son histoire.": "{n} more wins and you'll hear {hote}'s story.",
+  "{lieu} · niveau {niveau}": "{lieu} · level: {niveau}",
+  "Chacun pose {mise}. Le gagnant repart avec {gain}.": "Each puts up {mise}. The winner leaves with {gain}.",
+  "Un tête-à-tête, jusqu'à ce que l'un des deux n'ait plus rien : si tu perds, ta mise est perdue.":
+    "A head-to-head, until one of you has nothing left: if you lose, your stake is lost.",
+  "Gagne les trois manches, et {hote} te raconte son histoire.": "Win all three rounds, and you'll hear {hote}'s story.",
+  "Gagne cette manche, et {hote} te raconte son histoire.": "Win this round, and you'll hear {hote}'s story.",
+  "Son histoire est déjà dans tes Souvenirs : on rejoue pour l'honneur.": "The story is already in your Memories: this one is for honour.",
+  "Manche {n} gagnée !": "Round {n} won!",
+  "Revanche gagnée !": "Rematch won!",
+  "Manche {n} : la mise double, {montant}.": "Round {n}: the stake doubles, {montant}.",
+  "Manche {n} : la mise double.": "Round {n}: the stake doubles.",
   "{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.":
     "{hote} has a story to tell you: it's waiting in your Memories.",
-  "{hotes} ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.":
-    "{hotes} have stories to tell you: they're waiting in your Memories.",
-  "Les quatre maîtres ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.":
-    "All four masters have stories to tell you: they're waiting in your Memories.",
+  "Manche {n} perdue": "Round {n} lost",
+  "Revanche perdue": "Rematch lost",
+  "Tu y laisses ta mise : {montant}.": "You leave your stake behind: {montant}.",
+  "La manche {n} t'attend : retente-la quand tu veux.": "Round {n} is waiting: try it again whenever you like.",
+  "Elle se retente quand tu veux.": "Try it again whenever you like.",
 };

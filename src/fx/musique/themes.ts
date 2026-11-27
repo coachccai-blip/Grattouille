@@ -32,7 +32,7 @@ export interface Plume {
   n(piste: string, pas: number, ton: number, duree: number, force?: number, glisse?: number): void;
   /** Un nombre au hasard entre 0 et 1. */
   alea(): number;
-  /** La mémoire du thème, le temps qu'il joue : où le soliste s'est arrêté, la dernière note de la basse. */
+  /** La mémoire du thème, le temps qu'il joue : où le soliste s'est arrêté, la tournure de sa dernière question. */
   m: Record<string, number>;
 }
 
@@ -239,7 +239,7 @@ const VILLE: Theme = {
       // Aux tours suivants, une réponse dans l'aigu quand l'air tient sa note.
       if ((k === 3 || k === 7) && (tour > 0 || section === "A3") && sort(n * 3) < 0.7) {
         const haut = plaque(a2, 79, 3);
-        [2, 1, 0].forEach((i, j) => p.n("lame", 2.5 + j, haut[i]!, 1.6, 0.42));
+        [2, 1, 0].forEach((i, j) => p.n("lame", 3 + j, haut[i]!, 1.6, 0.42));
       }
     } else {
       // L'interlude : la boîte à musique rêvasse sur la gamme des bruitages.
@@ -609,7 +609,7 @@ const CERCLE_FORME: readonly (readonly [string, number])[] = [
 ];
 
 const CERCLE: Theme = {
-  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.3, salle: 0.28, echo: 1, retour: 0.35,
+  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.25, salle: 0.28, echo: 1, retour: 0.35,
   pistes: {
     clavecin: { timbre: CLAVECIN, vol: 1, filtre: ["lowpass", 4200], pan: 0.15, salle: 0.5 },
     viole: { timbre: VIOLE, vol: 0.42, filtre: ["lowpass", 1100], pan: -0.1, salle: 0.3 },

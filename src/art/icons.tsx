@@ -6,7 +6,8 @@ import type { ReactNode } from "react";
 export type IconName =
   | "domaine" | "jouer" | "boutiques" | "classement" | "reglages" | "etoile" | "piece" | "retour"
   | "cadenas" | "son" | "son-coupe" | "vibration" | "fermer" | "chevron" | "copier" | "corbeille"
-  | "info" | "coche" | "hors-ligne" | "doigt" | "rafraichir" | "eclair" | "telephone" | "calme" | "cle";
+  | "info" | "coche" | "hors-ligne" | "doigt" | "rafraichir" | "eclair" | "telephone" | "calme" | "cle"
+  | "musique" | "musique-coupee";
 
 interface IconProps {
   name: IconName;
@@ -115,6 +116,26 @@ const PATHS: Record<IconName, { trait: ReactNode; plein?: ReactNode }> = {
   },
   son: { trait: <path d="M4 10v4h3l5 4V6l-5 4zM15.500 9a4 4 0 0 1 0 6M18 6.500a7.500 7.500 0 0 1 0 11" /> },
   "son-coupe": { trait: <path d="M4 10v4h3l5 4V6l-5 4zM16 9.500l5 5M21 9.500l-5 5" /> },
+  // Deux croches liées ; coupée : la même, barrée d'un trait.
+  musique: {
+    trait: (
+      <>
+        <path d="M9 17.500V6l10-2v11.500" />
+        <circle cx="6.500" cy="17.500" r="2.500" />
+        <circle cx="16.500" cy="15.500" r="2.500" />
+      </>
+    ),
+  },
+  "musique-coupee": {
+    trait: (
+      <>
+        <path d="M9 17.500V6l10-2v11.500" />
+        <circle cx="6.500" cy="17.500" r="2.500" />
+        <circle cx="16.500" cy="15.500" r="2.500" />
+        <path d="M4 4l16 17" />
+      </>
+    ),
+  },
   // Téléphone qui vibre
   vibration: {
     trait: (

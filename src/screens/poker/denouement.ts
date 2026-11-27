@@ -44,6 +44,8 @@ interface Stage {
   big: (amount: number) => boolean;
   /** Table des Maîtres : les sièges que cette main élimine. Qui s'en va a le dernier mot. */
   fallen?: readonly number[];
+  /** Défi : ce que l'hôte dit quand cette main fait basculer l'avantage. Il passe devant le mot d'un beau pot. */
+  duel?: Line | null;
   calm: boolean;
 }
 
@@ -57,7 +59,7 @@ function rowEl(root: HTMLElement | null, seat: number): Element | null {
  * mot de son gagnant. À la Table des Maîtres, un maître que la main élimine passe devant
  * tout le monde : il dit son mot quand le pot est ramassé.
  */
-function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "botAt" | "big" | "fallen">): { at: number; line: Line } | null {
+function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "botAt" | "big" | "fallen" | "duel">): { at: number; line: Line } | null {
   for (const seat of stage.fallen ?? []) {
     const line = mastersLine(stage.botAt(seat), "elimine");
     if (line) return { at: beats.length - 1, line };
@@ -72,6 +74,8 @@ function talkOf(result: HandResult, beats: readonly Beat[], stage: Pick<Stage, "
       const bot = stage.botAt(b.seat);
       const guilty = result.unmasked.some((u) => u.seat === b.seat);
       if (bot) line = tableLine(bot, guilty ? "demasque" : "innocent", result.no + b.seat);
+    } else if (stage.duel) {
+      line = stage.duel;
     } else {
       for (const pot of result.pots) {
         const top = pot.winners[0];

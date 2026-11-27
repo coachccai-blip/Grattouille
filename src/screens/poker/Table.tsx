@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEuros } from "../../../shared/format";
 import { placeById } from "../../../shared/places";
+import { CHALLENGE_ROUNDS } from "../../../shared/poker/rules";
 import type { HandResult, SeatView, TableView } from "../../../shared/poker/types";
 import type { Line } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
@@ -26,18 +27,18 @@ import { Bulle, Entete } from "../../ui/Commun";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Abattage } from "./Abattage";
 import {
-  betChoices, doubles, fallenSeats, hostStory, mastersLeft, netOf, phaseTotal, potSized, tournamentDecided, type BetChoice,
-  type OutcomeLine,
+  betChoices, doubles, fallenSeats, hostStory, isTournament, leadShift, mastersLeft, netOf, phaseTotal, playedStage,
+  playersLeft, potSized, tournamentDecided, type BetChoice, type DuelStage, type OutcomeLine,
 } from "./calcul";
 import { useDenouement, type Denouement } from "./denouement";
 import { useTableEvents } from "./evenements";
-import { Presentation, SortieMaitres, mastersOf } from "./Maitres";
+import { Mot, Presentation, SortieMaitres, mastersOf } from "./Maitres";
 import { BarreTemps, Jeton, Reperes, Tete } from "./parts";
-import { hostLine, tableLine } from "./repliques";
+import { duelLine, kittyLine, tableLine } from "./repliques";
 import { Tapis } from "./Tapis";
 import {
-  categoryName, identityOf, isMastersEnd, mastersLeftText, nameInSentence, nameList, storyAfterWin, tableTitle,
-  type Identity,
+  categoryName, duelLost, duelStakesText, duelWon, identityOf, isMastersEnd, mastersLeftText, modeName, nameInSentence,
+  nameList, playerName, playersLeftText, stageText, tableTitle, type Identity,
 } from "./textes";
 import "./poker.css";
 import "./table.css";
@@ -90,8 +91,8 @@ function leaveTable(view: TableView): void {
     void play({ type: "quitter" });
     return;
   }
-  // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi, la Table des Maîtres.
-  if (live || leftOver || view.kind === "defi" || view.kind === "maitres") nav.push({ name: "poker-feuille", feuille: "quitter" });
+  // Ce qu'on abandonne en partant se dit d'abord : une main en cours, un pot resté là, un défi, un tournoi lancé.
+  if (live || leftOver || view.kind === "defi" || (isTournament(view) && view.started)) nav.push({ name: "poker-feuille", feuille: "quitter" });
   else void play({ type: "quitter" });
 }
 
@@ -448,7 +449,7 @@ function Actions({ view }: { view: TableView }) {
         disabled={off || !o.next}
         onClick={() => void play({ type: "suite" })}
       >
-        {!o.next ? t("On attend les autres…") : !over ? t("Main suivante") : view.kind === "maitres" ? t("Fin du tournoi") : t("Fin du défi")}
+        {!o.next ? t("On attend les autres…") : !over ? t("Main suivante") : isTournament(view) ? t("Fin du tournoi") : t("Fin du défi")}
       </Bouton>
     );
     return (
@@ -540,6 +541,31 @@ function Bilan({ outcome, you, nom }: { outcome: Denouement; you: number | null;
 // ---------------------------------------------------------------------------
 // La partie
 
+/**
+ * L'ouverture d'un défi : la manche qui se joue, l'hôte et ce qu'il en dit (il change de ton
+ * d'une manche à l'autre), et l'enjeu. Elle prend la place du tapis le temps de la première
+ * triche, comme le tirage de la Table des Maîtres ; la main du joueur et ses gestes restent dessous.
+ */
+function Ouverture({ view, stage }: { view: TableView; stage: DuelStage }) {
+  const host = view.seats.find((seat): seat is SeatView => seat !== null && seat.bot !== null) ?? null;
+  const who = host ? identityOf(host) : null;
+  return (
+    <section className="poker-abattage poker-presentation poker-ouverture" aria-labelledby="poker-ouverture-titre">
+      <h2 id="poker-ouverture-titre" className="poker-presentation__titre">{stageText({ stage, rounds: CHALLENGE_ROUNDS })}</h2>
+      {host && (
+        <div className="poker-presentation__maitre poker-ouverture__hote">
+          <Tete who={who} />
+          <p>
+            <strong>{playerName(who)}</strong>
+            <Mot line={duelLine(host.bot, "ouverture", stage)} />
+          </p>
+        </div>
+      )}
+      <p className="poker-ouverture__enjeu">{duelStakesText({ stake: view.maxBuyIn, prize: view.maxBuyIn * 2 })}</p>
+    </section>
+  );
+}
+
 function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   const root = useRef<HTMLElement>(null);
   const offset = usePoker((s) => s.offset);
@@ -548,9 +574,15 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   const dore = useGoldenDeck();
   const you = view.you as number;
   const who = useRoster(view);
-  // La Table des Maîtres vient de s'ouvrir sous les yeux du joueur : le tirage se présente, une
-  // fois, le temps de la première triche. (Lu avant que la donne ne consomme ce « tout neuf ».)
-  const [arrival] = useState(() => view.kind === "maitres" && view.handNo <= 1 && usePoker.getState().fresh);
+  // La Table des Maîtres, ou un défi, vient de s'ouvrir sous les yeux du joueur : le tirage (ou
+  // l'hôte, et la manche qui se joue) se présente, une fois, le temps de la première triche.
+  // (Lu avant que la donne ne consomme ce « tout neuf ».)
+  const [arrival] = useState(() => (view.kind === "maitres" || view.kind === "defi") && view.handNo <= 1 && usePoker.getState().fresh);
+  // Un défi : la manche qui se joue. La table la dit ; pour la troisième, les victoires contre
+  // l'hôte disent si c'est encore elle, ou déjà la revanche.
+  const duelWins = useGame((s) => (view.kind === "defi" && view.place ? hostStory(s.player?.hostWins, view.place).wins : 0));
+  const stage: DuelStage | null = view.kind === "defi" && view.place ? playedStage(view.level, duelWins, false) : null;
+  const duelHost = view.kind === "defi" && view.place ? placeById(view.place).host : null;
   const events = useTableEvents(view, root);
   const nom = useCallback((seat: number) => (seat === you ? t("toi") : nameInSentence(who(seat))), [you, who]);
 
@@ -575,6 +607,16 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
   if (view.phase === "triche" || view.phase === "encheres" || view.phase === "abattage") sawHand.current = view.handNo;
 
   const result = view.result && view.result.no === view.handNo ? view.result : null;
+  // Dans un défi, l'hôte a un mot quand il prend l'avantage, et un autre quand il le perd : une
+  // fois chacun par duel (la main qui l'a fait dire est retenue), pour ne pas se répéter.
+  // (La dernière main ne fait plus basculer un avantage : elle décide du duel, et l'hôte parlera au panneau de fin.)
+  const shift = stage !== null && !tournamentDecided(view) ? leadShift(view) : null;
+  const shifted = useRef<{ avantage?: number; recul?: number }>({});
+  let duelSay: Line | null = null;
+  if (shift && result && stage !== null && (shifted.current[shift] ?? result.no) === result.no) {
+    shifted.current[shift] = result.no;
+    duelSay = duelLine(duelHost, shift, stage, result.no);
+  }
   const outcome = useDenouement(view, sawHand.current === view.handNo, {
     root,
     say,
@@ -582,25 +624,32 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
     botAt: (seat) => who(seat)?.bot ?? null,
     big: (amount) => amount >= view.blind * 10,
     fallen: fallenSeats(view),
+    duel: duelSay,
   });
   const board = view.phase === "abattage" || outcome !== null;
   const masters = view.kind === "maitres";
-  const presentation = arrival && masters && view.handNo === 1 && view.phase === "triche";
+  // Une table entre amis aux règles de la Table des Maîtres : son feutre, sa blinde qui monte, ses éliminés.
+  const tournament = isTournament(view);
+  const firstCheat = arrival && view.handNo === 1 && view.phase === "triche";
+  const presentation = firstCheat && masters;
+  const opening = firstCheat && stage !== null;
   const walkover = view.phase === "denouement" && result !== null && !result.showdown;
 
-  // Un pot emporté sans abattage : un mot du gagnant, s'il est beau. Décidé d'avance, comme
-  // au dénouement : sa place est gardée, le tapis ne bouge pas quand il parle.
+  // Un pot emporté sans abattage : un mot du gagnant, s'il est beau ; dans un défi, celui de
+  // l'hôte quand l'avantage vient de basculer. Décidé d'avance, comme au dénouement : sa place
+  // est gardée, le tapis ne bouge pas quand il parle.
   const walkPot = walkover && result ? result.pots[0] ?? null : null;
   const walkWinner = walkPot?.winners[0] ?? null;
   const walkBot = walkWinner ? who(walkWinner.seat)?.bot ?? null : null;
-  const walkTalks = walkPot !== null && result !== null && sawHand.current === result.no && walkBot !== null
-    && walkPot.amount >= view.blind * 10;
+  const walkBig = walkPot !== null && walkBot !== null && walkPot.amount >= view.blind * 10;
+  const walkTalks = walkPot !== null && result !== null && sawHand.current === result.no && (duelSay !== null || walkBig);
   const walked = useRef(0);
   useEffect(() => {
     if (!walkTalks || !result || walked.current === result.no) return;
     walked.current = result.no;
-    say(tableLine(walkBot, "gagne", result.no), 3_600);
-  }, [walkTalks, result, walkBot, say]);
+    say(duelSay ?? tableLine(walkBot, "gagne", result.no), 3_600);
+    // La réplique d'une main ne change pas : elle se dit une fois, à son arrivée.
+  }, [walkTalks, result, walkBot, say]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const myMove = view.options.back || view.options.cheat || view.turn === you || view.options.accuse.length > 0;
   // C'est au joueur de se décider : le téléphone le lui dit d'une courte vibration.
@@ -614,7 +663,7 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
       // Cinq ou six sièges : deux voisins s'assoient sur les côtés du tapis, qui a besoin de plus de place.
       className={cx(
         "ecran poker-table", board && "poker-table--abattage", view.seats.length >= 5 && "poker-table--grande",
-        masters && "poker-table--maitres", dore && "poker-table--doree",
+        masters && "poker-table--maitres", tournament && "poker-table--tournoi", dore && "poker-table--doree",
       )}
       data-phase={view.phase}
       data-main={view.handNo}
@@ -626,11 +675,15 @@ function Partie({ view, offline }: { view: TableView; offline: boolean }) {
           <Abattage view={view} who={who} flip={view.phase === "abattage" && sawBefore.current === view.handNo} outcome={outcome} dore={dore} />
         ) : presentation ? (
           <Presentation view={view} />
+        ) : opening && stage !== null ? (
+          <Ouverture view={view} stage={stage} />
         ) : (
           <Tapis view={view} labels={events.labels}>
             <span className="poker-pot__blinde">{blindText(view)}</span>
-            {/* À la Table des Maîtres : combien de maîtres sont encore assis. */}
+            {/* À la Table des Maîtres : combien de maîtres sont encore assis. Dans un défi : la manche qui se joue. */}
             {masters && <span className="poker-pot__blinde poker-pot__maitres">{mastersLeftText(mastersLeft(view).left)}</span>}
+            {tournament && !masters && <span className="poker-pot__blinde poker-pot__maitres">{playersLeftText(playersLeft(view).left)}</span>}
+            {stage !== null && <span className="poker-pot__blinde poker-pot__maitres">{stageText({ stage, rounds: CHALLENGE_ROUNDS })}</span>}
           </Tapis>
         )}
       </div>
@@ -719,10 +772,18 @@ function Attente({ view, offline }: { view: TableView; offline: boolean }) {
             : t("{nom} lance la partie quand tout le monde est là.", { nom: capitalize(nameInSentence(who)) })}
         </p>
         <p className="poker-moi__reglages">
-          {t("Blinde : {montant}", { montant: formatEuros(view.blind) })}
+          {isTournament(view) ? t("Blinde de départ : {montant}", { montant: formatEuros(view.blind) }) : t("Blinde : {montant}", { montant: formatEuros(view.blind) })}
           {" · "}
-          {t("Ton tapis : {montant}", { montant: formatEuros(view.seats[you]!.stack) })}
+          {isTournament(view)
+            ? t("Cagnotte de chacun : {montant}", { montant: formatEuros(view.maxBuyIn) })
+            : t("Ton tapis : {montant}", { montant: formatEuros(view.seats[you]!.stack) })}
         </p>
+        {/* Aux règles de la Table des Maîtres : on le rappelle avant le lancement, après quoi plus personne n'entre. */}
+        {isTournament(view) && (
+          <p className="poker-moi__reglages poker-moi__mode">
+            {t("{mode} : une fois la partie lancée, plus personne n'entre.", { mode: modeName("tournoi") })}
+          </p>
+        )}
         <div className="poker-actions">
           <div className={cx("poker-actions__rang", !canShare && "poker-actions__rang--seul")}>
             {canShare && <Bouton variante="secondaire" onClick={() => void share()}>{t("Partager")}</Bouton>}
@@ -759,29 +820,33 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
   const host = view?.kind === "defi" && view.place ? placeById(view.place).host : null;
   const won = reason === "defi-gagne";
   const lost = reason === "defi-perdu";
+  // Une table de défi d'avant les trois manches se règle comme avant : sa cagnotte est versée à part.
   const bonus = left?.bonus ?? 0;
   const payout = left?.payout ?? 0;
 
-  // La cagnotte d'un hôte ruiné tombe en pièces sonnantes.
+  // Ce que le gagnant emporte tombe en pièces sonnantes.
   useEffect(() => {
     if (won) playPot();
   }, [won]);
 
-  // Une victoire de plus contre l'hôte : la troisième ouvre son histoire, dans les Souvenirs ;
-  // les deux premières disent ce qu'il reste. L'état du joueur, rendu avec la fin de table,
-  // porte déjà le nouveau compte (s'il est en train d'être relu, on attend qu'il soit là).
-  const hostWins = useGame((s) => s.player?.hostWins);
+  // La manche qui vient de se jouer, et ce qui vient après : la suivante et sa mise doublée,
+  // ou, à la troisième victoire, l'histoire de l'hôte qui s'ouvre dans les Souvenirs. L'état
+  // du joueur, rendu avec la fin de table, porte déjà le nouveau compte (s'il est en train
+  // d'être relu, on attend qu'il soit là pour annoncer la suite).
+  const wins = useGame((s) => (view?.kind === "defi" && view.place ? hostStory(s.player?.hostWins, view.place).wins : 0));
   const rereading = usePoker((s) => s.lobbyBusy);
-  const story = won && view?.place ? hostStory(hostWins, view.place) : null;
-  const news = story && host && !rereading ? storyAfterWin(story, host) : null;
+  const stage = host && (won || lost) ? playedStage(view?.level, wins, won) : null;
+  const stake = view?.kind === "defi" ? view.maxBuyIn : 0;
+  const ending = stage === null || !host ? null : won ? duelWon(stage, stake, host) : duelLost(stage, stake);
+  const suite = ending?.suite && !rereading ? ending.suite : null;
 
-  const line = host && won ? hostLine(host, bonus > 0 ? "ruine" : "ruine-encore", formatEuros(bonus))
-    : host && lost ? hostLine(host, "vainqueur") : null;
-  const titre = won ? t("Défi relevé !") : lost ? t("Le défi reste à relever") : t("Fin de la partie");
+  const line = !host || stage === null ? null
+    : won && bonus > 0 ? kittyLine(host, formatEuros(bonus))
+      : duelLine(host, won ? "defaite" : "victoire", stage);
+  const titre = ending ? ending.titre : t("Fin de la partie");
   const texte = reason && RAISONS[reason] ? t(RAISONS[reason]!)
-    : lost ? t("Tu le retentes quand tu veux.")
-      : won || reason === "quitte" ? null
-        : gone || view?.phase === "fermee" ? t("Cette table a fermé.") : t("Tu n'as plus de place à cette table.");
+    : won || lost || reason === "quitte" ? null
+      : gone || view?.phase === "fermee" ? t("Cette table a fermé.") : t("Tu n'as plus de place à cette table.");
 
   return (
     <main className="ecran poker-table poker-table--sortie">
@@ -789,20 +854,28 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
       <div className="poker-sortie">
         <h2 className="t-titre">{titre}</h2>
         {line && <Bulle line={line} className="poker-sortie__hote" />}
+        {/* Gagnée : ce qu'on emporte, les deux mises. (Une table d'avant : la cagnotte de l'hôte, à part.) */}
+        {won && payout > 0 && (
+          <p className="poker-sortie__cagnotte">
+            <span>{t("Tu remportes")}</span>
+            <strong className="t-gain chiffres"><Compteur valeur={payout} ms={900} sonne depart={0} /></strong>
+          </p>
+        )}
         {won && bonus > 0 && (
           <p className="poker-sortie__cagnotte">
             <span>{t("Sa cagnotte")}</span>
             <strong className="t-gain chiffres">+<Compteur valeur={bonus} ms={900} sonne depart={0} /></strong>
           </p>
         )}
-        {story && news && (
-          <p className={cx("poker-sortie__histoire", news.ouverte && "poker-sortie__histoire--ouverte")}>
-            <Reperes story={story} />
-            <span>{news.texte}</span>
+        {suite && (
+          <p className={cx("poker-sortie__histoire", suite.ouverte && "poker-sortie__histoire--ouverte")}>
+            <Reperes story={{ wins: Math.min(CHALLENGE_ROUNDS, wins), needed: CHALLENGE_ROUNDS }} />
+            <span>{suite.texte}</span>
           </p>
         )}
+        {ending?.textes.map((phrase) => <p key={phrase}>{phrase}</p>)}
         {texte && <p>{texte}</p>}
-        {payout > 0 && <p>{t("Ton tapis ({montant}) est retourné dans ta bourse.", { montant: formatEuros(payout) })}</p>}
+        {!won && !lost && payout > 0 && <p>{t("Ton tapis ({montant}) est retourné dans ta bourse.", { montant: formatEuros(payout) })}</p>}
         <Bouton bloc onClick={toHall}>{t("Retour au hall")}</Bouton>
       </div>
     </main>
@@ -822,12 +895,21 @@ export function Table({ code }: { code: string }) {
   // La Table des Maîtres : on se souvient de qui y était assis, et avec quel tapis. Une table
   // fermée n'a plus personne à ses sièges, et ce sont eux qui saluent sur le panneau de fin.
   const masters = useRef<SeatView[]>([]);
-  if (view && view.kind === "maitres" && view.you !== null) {
+  if (view && isTournament(view) && view.you !== null) {
     const seated = mastersOf(view);
     if (seated.length > 0) masters.current = seated;
   }
-  // Ses trois fins ont leur panneau : gagnée, perdue, ou quittée avec son tapis.
-  const end = left !== null && isMastersEnd(left.reason) && (view?.kind === "maitres" || left.reason !== "quitte") ? left.reason : null;
+  // Un tournoi (la Table des Maîtres, ou une table entre amis à ses règles) : ses trois fins ont
+  // leur panneau. Gagné, perdu, ou quitté : avec son tapis, ou en le laissant sur la table.
+  // On retient le format de la table tant qu'on la voit : fermée, elle peut ne plus le dire.
+  const friendly = useRef(false);
+  const started = useRef(false);
+  if (view && view.you !== null) {
+    friendly.current = view.kind === "privee" && isTournament(view);
+    if (view.started) started.current = true;
+  }
+  const tournament = view ? isTournament(view) : friendly.current;
+  const end = left !== null && isMastersEnd(left.reason) && (left.reason !== "quitte" || (tournament && started.current)) ? left.reason : null;
 
   // Parti de soi-même d'une autre table : retour au hall, en disant ce qu'on remporte. La
   // feuille de départ se referme d'abord ; la table ne recule qu'une fois redevenue l'écran affiché.
@@ -842,7 +924,18 @@ export function Table({ code }: { code: string }) {
   }, [left, quit, onTop]);
 
   if (quit) return <main className="ecran poker-table" aria-busy="true" />;
-  if (left && end) return <SortieMaitres reason={end} payout={left.payout} masters={masters.current} onBack={toHall} />;
+  if (left && end) {
+    return (
+      <SortieMaitres
+        reason={end}
+        payout={left.payout}
+        masters={masters.current}
+        friends={friendly.current}
+        titre={view ? tableTitle(view) : undefined}
+        onBack={toHall}
+      />
+    );
+  }
   if (left || gone || (view && (view.phase === "fermee" || view.you === null))) return <Sortie view={view} left={left} gone={gone} />;
   if (!view) {
     return (

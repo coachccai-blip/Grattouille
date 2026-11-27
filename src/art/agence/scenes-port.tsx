@@ -20,8 +20,8 @@ const glace: SceneArt = ({ espece, look }) => {
     <>
       <Ciel id="glace" couleurs={["#6FC4EC", "#BDE7F5", "#F2F6E6"]} bas={440} />
       <Astre x={292} y={214} r={28} />
-      <g transform={tf(150, 132)}><path d={nuage(120)} fill={C.blanc} {...a("flotte", { dx: 9, t: 5 })} /></g>
-      <g transform={tf(-14, 330)}><path d={nuage(84)} fill={C.blanc} fillOpacity="0.85" {...a("flotte", { dx: 7, t: 6.5 })} /></g>
+      <g transform={tf(128, 196)}><path d={nuage(120)} fill={C.blanc} {...a("flotte", { dx: 9, t: 5 })} /></g>
+      <g transform={tf(-14, 344)}><path d={nuage(84)} fill={C.blanc} fillOpacity="0.85" {...a("flotte", { dx: 7, t: 6.5 })} /></g>
       <Mer y={436} bas={560} />
       {/* Un voilier, au large */}
       <g transform={tf(96, 440)}>
@@ -182,27 +182,27 @@ const cerfVolant: SceneArt = ({ espece, look }) => {
       <g transform="translate(300 658)"><Oyats d={-0.2} /></g>
       <g transform="translate(330 650)"><Oyats d={-0.05} /></g>
       {/* Un goéland qui n'avance plus */}
-      <g transform="translate(294 500) scale(-0.62 0.62)"><g {...a("flotte", { dx: 12, dy: 5, t: 0.55 })}><Goeland /></g></g>
+      <g transform="translate(70 452) scale(-0.6 0.6)"><g {...a("flotte", { dx: 12, dy: 5, t: 0.55 })}><Goeland /></g></g>
       {/* Le cerf-volant, sa ficelle, le voyageur */}
       <g {...a("flotte", { dx: 5, dy: 6, t: 1.7 })}>
-        <g transform="translate(196 330)">
+        <g transform="translate(196 368)">
           <g {...a("flotte", { r: 7, t: 1.1, o: [0, 0] })}>
-            <g {...a("flotte", { r: 16, t: 0.3, o: [-78, -122] })}>
-              <path d="M-78 -122Q-56 -112 -44 -92Q-30 -98 -20 -80L-26 -74Q-36 -88 -48 -82Q-60 -102 -78 -112Z" fill={C.cerise} />
+            <g {...a("flotte", { r: 16, t: 0.3, o: [-62, -100] })}>
+              <path d="M-62 -100Q-42 -92 -32 -74Q-20 -80 -10 -64L-16 -58Q-24 -70 -36 -64Q-46 -82 -62 -90Z" fill={C.cerise} />
             </g>
-            <g {...a("flotte", { r: 16, t: 0.26, d: -0.1, o: [78, -122] })}>
-              <path d="M78 -122Q100 -112 112 -92Q126 -98 136 -80L130 -74Q120 -88 108 -82Q96 -102 78 -112Z" fill={C.persienne} />
+            <g {...a("flotte", { r: 16, t: 0.26, d: -0.1, o: [62, -100] })}>
+              <path d="M62 -100Q82 -92 92 -74Q104 -80 114 -64L108 -58Q100 -70 88 -64Q78 -82 62 -90Z" fill={C.persienne} />
             </g>
-            <path d="M0 -214L78 -122L0 0L-78 -122Z" fill={C.bougainvillier} />
-            <path d="M0 -214L78 -122H-78Z" fill={C.mimosa} />
-            <path d="M0 -214L78 -122L0 0Z" fill={C.nuit} fillOpacity="0.12" />
-            <path d="M0 -214V0M-78 -122H78" fill="none" stroke={C.nuit} strokeWidth="2" />
-            <path d={etoiles([[0, -122, 20]])} fill={C.ivoire} />
+            <path d="M0 -170L62 -100L0 0L-62 -100Z" fill={C.bougainvillier} />
+            <path d="M0 -170L62 -100H-62Z" fill={C.mimosa} />
+            <path d="M0 -170L62 -100L0 0Z" fill={C.nuit} fillOpacity="0.12" />
+            <path d="M0 -170V0M-62 -100H62" fill="none" stroke={C.nuit} strokeWidth="2" />
+            <path d={etoiles([[0, -100, 17]])} fill={C.ivoire} />
           </g>
-          <path d="M0 0V96" fill="none" stroke={C.nuit} strokeWidth="1.8" {...a("etire", { sy: (96 + envol) / 96, t: 1.7, d: 3.4, e: "rebond", o: "50% 0%" })} />
+          <path d="M0 0V70" fill="none" stroke={C.nuit} strokeWidth="1.8" {...a("etire", { sy: (70 + envol) / 70, t: 1.7, d: 3.4, e: "rebond", o: "50% 0%" })} />
         </g>
         <g {...a("va", { dy: envol, t: 1.7, d: 3.4, e: "rebond" })}>
-          <g transform={tf(174.4, 371.1, 0.26)}>
+          <g transform={tf(176.1, 387.4, 0.24)}>
             <g {...a("flotte", { r: 6, t: 1.3, o: [83, 211] })}>
               <Perso espece={espece} look={look} bras={[175, 24]} jambes={[10, 16]} />
             </g>

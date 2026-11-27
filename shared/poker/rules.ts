@@ -297,17 +297,22 @@ export function pickMasters(rng: Random32): string[] {
  */
 export const MASTERS_LEVEL_HANDS: readonly number[] = [16, 4, 4, 4, 2];
 
-/** La blinde de la Table des Maîtres à la main `handNo`, à partir de sa blinde de base. */
-export function mastersBlind(base: number, handNo: number): number {
-  return risingBlind(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * MASTERS_SEATS);
+/**
+ * La blinde de la Table des Maîtres à la main `handNo`, à partir de sa blinde de base.
+ * `seats` : le nombre de sièges de la table (cinq à la Table des Maîtres ; de deux à six à
+ * une table entre amis jouée en tournoi). Il fixe tout l'argent qui peut être en jeu, donc
+ * le palier où la blinde s'arrête.
+ */
+export function mastersBlind(base: number, handNo: number, seats: number = MASTERS_SEATS): number {
+  return risingBlind(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * seats);
 }
 
 /**
  * La main à laquelle la blinde de la Table des Maîtres montera, après la main `handNo`, et
  * ce qu'elle vaudra alors. `null` quand elle ne montera plus.
  */
-export function mastersRise(base: number, handNo: number): { hand: number; blind: number } | null {
-  return risingNext(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * MASTERS_SEATS);
+export function mastersRise(base: number, handNo: number, seats: number = MASTERS_SEATS): { hand: number; blind: number } | null {
+  return risingNext(base, handNo, MASTERS_LEVEL_HANDS, base * MASTERS_BLINDS * seats);
 }
 
 // ---------------------------------------------------------------------------

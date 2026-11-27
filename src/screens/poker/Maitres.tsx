@@ -7,7 +7,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { THIN, formatEuros } from "../../../shared/format";
 import type { SeatView, TableView } from "../../../shared/poker/types";
-import { usePoker } from "../../app/poker";
+import type { Line } from "../../app/dialogues";
 import { isCalm, useGame } from "../../app/store";
 import { playTier } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
@@ -17,10 +17,10 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse, useCompte } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
-import { neighbours, storiesJustOpened } from "./calcul";
+import { neighbours } from "./calcul";
 import { Tete, unbroken } from "./parts";
 import { mastersLine } from "./repliques";
-import { identityOf, mastersEnding, playerName, storiesOpenedText, tableTitle, type MastersEnd } from "./textes";
+import { identityOf, mastersEnding, playerName, tableTitle, type MastersEnd } from "./textes";
 
 /** Les maîtres assis à la table, dans le sens de la table à partir du voisin du joueur. */
 export function mastersOf(view: Pick<TableView, "seats" | "you">): SeatView[] {
@@ -29,9 +29,8 @@ export function mastersOf(view: Pick<TableView, "seats" | "you">): SeatView[] {
   return out;
 }
 
-/** Ce qu'un maître dit, dans sa bulle : une parole entre guillemets, ou un geste en italique. */
-function Mot({ bot, moment }: { bot: string | null; moment: "assis" | "victoire" }) {
-  const line = mastersLine(bot, moment);
+/** Ce qu'un personnage dit, dans sa bulle : une parole entre guillemets, ou un geste en italique. */
+export function Mot({ line }: { line: Line | null }) {
   if (!line) return null;
   return line.gesture ? <em>{line.text}</em> : <span>{t("« {replique} »", { replique: line.text })}</span>;
 }
@@ -54,7 +53,7 @@ export function Presentation({ view }: { view: TableView }) {
               <Tete who={who} />
               <p>
                 <strong>{playerName(who)}</strong>
-                <Mot bot={seat.bot} moment="assis" />
+                <Mot line={mastersLine(seat.bot, "assis")} />
               </p>
             </li>
           );
@@ -70,6 +69,10 @@ interface SortieProps {
   payout: number;
   /** Les maîtres tels qu'on les a vus pour la dernière fois à la table. Vide : on ne sait plus qui était là. */
   masters: readonly SeatView[];
+  /** Un tournoi entre amis, aux règles de la Table des Maîtres : mêmes fins, d'autres mots pour qui perd ou abandonne. */
+  friends?: boolean;
+  /** Le titre de l'écran : celui de la table. Absent : « Table des Maîtres ». */
+  titre?: string;
   onBack: () => void;
 }
 
@@ -101,11 +104,11 @@ function Somme({ valeur, ms }: { valeur: number; ms: number }) {
   );
 }
 
-export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) {
+export function SortieMaitres({ reason, payout, masters, friends = false, titre, onBack }: SortieProps) {
   const calm = useGame(isCalm);
   const won = reason === "maitres-gagne";
   const lost = reason === "maitres-perdu";
-  const ending = mastersEnding(reason, payout);
+  const ending = mastersEnding(reason, payout, friends);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   // La victoire sonne comme un jackpot ; la défaite, comme un ticket perdu : un soupir, jamais une moquerie.
@@ -127,19 +130,15 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
     return () => fx.destroy();
   }, [won, calm]);
 
-  const host = lost ? hostOfTheTable(masters) : null;
-
-  // La table remportée compte une victoire contre chacun des quatre maîtres : pour ceux dont
-  // c'est tout juste la troisième, leur histoire vient de s'ouvrir dans les Souvenirs. L'état du
-  // joueur, rendu avec la fin de table, porte déjà le nouveau compte.
-  const hostWins = useGame((s) => s.player?.hostWins);
-  const rereading = usePoker((s) => s.lobbyBusy);
-  const stories = won && !rereading ? storiesOpenedText(storiesJustOpened(hostWins, masters.map((seat) => seat.bot))) : null;
+  // Les maîtres ruinés saluent le vainqueur. Entre amis, seuls les maîtres des lieux assis là ont un mot.
+  const salutes = masters.map((seat) => ({ seat, line: mastersLine(seat.bot, "victoire") })).filter((s) => s.line !== null);
+  // Un maître raccompagne le joueur ruiné : à la Table des Maîtres seulement (entre amis, personne ne tient la table).
+  const host = lost && !friends ? hostOfTheTable(masters) : null;
 
   return (
     <main className={cx("ecran poker-table poker-table--sortie", won && "poker-fete")}>
-      <Entete titre={tableTitle({ kind: "maitres", place: null, code: "" })} droite={<Bourse />} />
-      <div className={cx("poker-sortie", stories && "poker-sortie--histoires")}>
+      <Entete titre={titre ?? tableTitle({ kind: "maitres", place: null, code: "" })} droite={<Bourse />} />
+      <div className="poker-sortie">
         <h2 className="t-titre">{ending.titre}</h2>
         {won && (
           <p className="poker-sortie__cagnotte poker-fete__somme">
@@ -151,20 +150,19 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
             <span className="invisible" role="status">{ending.texte}</span>
           </p>
         )}
-        {won && masters.length > 0 && (
+        {won && salutes.length > 0 && (
           <ul className="poker-fete__maitres" aria-label={t("Les maîtres saluent")}>
-            {masters.map((seat, i) => (
+            {salutes.map(({ seat, line }, i) => (
               <li key={seat.seat} style={{ "--i": i } as CSSProperties}>
                 <Tete who={identityOf(seat)} className="poker-tete--mini" />
                 <p>
                   <span className="invisible">{playerName(identityOf(seat))}</span>
-                  <Mot bot={seat.bot} moment="victoire" />
+                  <Mot line={line} />
                 </p>
               </li>
             ))}
           </ul>
         )}
-        {stories && <p className="poker-sortie__histoire poker-sortie__histoire--ouverte"><span>{stories}</span></p>}
         {host && <Bulle line={mastersLine(host.bot, "defaite")} className="poker-sortie__hote" />}
         {!won && <p>{unbroken(ending.texte)}</p>}
         <Bouton bloc onClick={onBack}>{t("Retour au hall")}</Bouton>

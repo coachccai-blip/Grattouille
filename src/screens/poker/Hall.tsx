@@ -26,10 +26,10 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
 import { Bulle, BulleLibre, Entete, Phrase } from "../../ui/Commun";
-import { challengesWon, hostStory, mastersCard, type HostStory, type MastersCard } from "./calcul";
+import { challengesWon, duelOf, mastersCard, type Duel, type MastersCard } from "./calcul";
 import { Reperes } from "./parts";
-import { hostLine, piouHall } from "./repliques";
-import { difficultyName, storyProgressText } from "./textes";
+import { duelLine, piouHall } from "./repliques";
+import { difficultyName, duelProgressText } from "./textes";
 import "./poker.css";
 
 interface Entry {
@@ -64,36 +64,36 @@ function seatTitle(seat: NonNullable<PokerLobbyResponse["seat"]> | null): string
 }
 
 /**
- * Un lieu ouvert : son hôte et sa provocation, où en est son histoire (trois victoires contre
- * lui au poker l'ouvrent, dans les Souvenirs), puis les deux façons de s'y asseoir.
+ * Un lieu ouvert : son hôte et ce qu'il dit de la manche à jouer, où en est son défi (trois
+ * manches, de plus en plus chères ; la troisième gagnée ouvre son histoire, dans les
+ * Souvenirs), puis les deux façons de s'y asseoir.
  */
-function Lieu({ entry, balance, story }: { entry: Entry; balance: number; story: HostStory }) {
-  const { place, house, challenge } = entry;
-  const line = hostLine(house.host, challenge.won ? "revanche" : "defi");
-  const duel = shortOf(challenge.buyIn, balance);
+function Lieu({ entry, balance, duel }: { entry: Entry; balance: number; duel: Duel }) {
+  const { place, house } = entry;
+  const rematch = duel.stage === "revanche";
+  const short = shortOf(duel.stake, balance);
   const table = shortOf(house.minBuyIn, balance);
   return (
     <li className="poker-lieu">
       <h3 className="poker-lieu__nom">{capitalize(placeShort(place.id))}</h3>
-      <Bulle line={line} className="poker-lieu__hote" />
-      <p className={cx("poker-lieu__histoire", story.open && "poker-lieu__histoire--ouverte")}>
-        <Reperes story={story} />
-        <span>{storyProgressText(story)}</span>
+      {/* L'hôte change de ton d'une manche à l'autre : il toise, il se pique, il joue son va-tout. */}
+      <Bulle line={duelLine(house.host, "ouverture", duel.stage)} className="poker-lieu__hote" />
+      <p className={cx("poker-lieu__histoire", rematch && "poker-lieu__histoire--ouverte")}>
+        <Reperes story={{ wins: duel.won, needed: duel.rounds }} />
+        <span>{duelProgressText(duel)}</span>
       </p>
       <div className="poker-lieu__choix">
         <button
           type="button"
-          className={cx("poker-billet", duel && "poker-billet--court")}
+          className={cx("poker-billet", short && "poker-billet--court")}
           onClick={() => nav.push({ name: "poker-feuille", feuille: "defi", place: place.id })}
         >
-          <strong className="poker-billet__titre">{t("Le défi")}</strong>
-          <span>{t("Mise : {montant}", { montant: formatEuros(challenge.buyIn) })}</span>
-          {duel ? (
-            <span className="poker-billet__manque">{duel}</span>
-          ) : challenge.won ? (
-            <span className="poker-billet__fait"><Icon name="coche" size={16} />{t("Défi relevé")}</span>
+          <strong className="poker-billet__titre">{rematch ? t("La revanche") : t("Le défi")}</strong>
+          <span>{t("Mise : {montant}", { montant: formatEuros(duel.stake) })}</span>
+          {short ? (
+            <span className="poker-billet__manque">{short}</span>
           ) : (
-            <span>{t("Cagnotte : {montant}", { montant: formatEuros(challenge.bonus) })}</span>
+            <span className="poker-billet__gain">{t("À la clé : {montant}", { montant: formatEuros(duel.prize) })}</span>
           )}
         </button>
         <button
@@ -149,7 +149,8 @@ function Maitres({ card }: { card: MastersCard }) {
         {[0, 1, 2, 3].map((i) => <span key={i} className="poker-maitres__siege">?</span>)}
       </span>
       <strong className="poker-maitres__nom">{t("La Table des Maîtres")}</strong>
-      <span className="poker-maitres__devise">{t("Quatre maîtres tirés au sort")}</span>
+      {/* « Contre quatre maîtres des lieux » : c'est LA table, pas le mode du même nom qu'on crée entre amis. */}
+      <span className="poker-maitres__devise">{t("Contre quatre maîtres des lieux, tirés au sort")}</span>
       <span className="poker-maitres__sommes">
         <span className="poker-maitres__somme">
           <span>{t("Blinde de départ")}</span>
@@ -205,7 +206,7 @@ export function Hall() {
   const balance = useGame(displayBalance);
   const online = useGame((s) => s.online);
   const sandbox = useGame((s) => s.sandbox);
-  // Les victoires contre chaque hôte : trois ouvrent son histoire.
+  // Les victoires contre chaque hôte : autant de manches gagnées ; la troisième ouvre son histoire.
   const hostWins = useGame((s) => s.player?.hostWins);
 
   useEffect(() => {
@@ -284,7 +285,7 @@ export function Hall() {
             {maitres?.open && <Maitres card={maitres} />}
             <ul className="poker-hall__lieux cascade">
               {open.map((entry) => (
-                <Lieu key={entry.place.id} entry={entry} balance={balance} story={hostStory(hostWins, entry.place.id)} />
+                <Lieu key={entry.place.id} entry={entry} balance={balance} duel={duelOf(entry.challenge, hostWins)} />
               ))}
             </ul>
             {closed.length > 0 && (
@@ -297,6 +298,8 @@ export function Hall() {
 
           <section className="rubrique" aria-labelledby="poker-hall-amis">
             <h2 id="poker-hall-amis" className="rubrique__titre">{t("Entre amis")}</h2>
+            {/* Deux façons de jouer, choisies en créant la table : classique, ou aux règles de la Table des Maîtres. */}
+            <p className="note poker-hall__modes">{t("Une table classique, ou aux règles de la Table des Maîtres : tu choisis en la créant.")}</p>
             <div className="poker-hall__amis">
               <Bouton
                 variante="secondaire"

@@ -189,6 +189,27 @@
 /* Chaque élément qui bouge porte `xp-a` et le nom de son geste ; sa durée, son départ, son
    amplitude sont des variables posées par `a()` (src/art/agence/kit.tsx). */
 .xp-a {
+  /* Une variable CSS s'hérite : sans cette remise à zéro, un geste recevrait les réglages
+     du geste qui l'enveloppe (son décalage, son départ, sa durée). Chacun n'a que les siens,
+     posés sur l'élément lui-même. */
+  --t: initial;
+  --d: initial;
+  --e: initial;
+  --n: initial;
+  --sens: initial;
+  --o: initial;
+  --dx: initial;
+  --dy: initial;
+  --fx: initial;
+  --fy: initial;
+  --r: initial;
+  --r0: initial;
+  --s: initial;
+  --s0: initial;
+  --sx: initial;
+  --sy: initial;
+  --o0: initial;
+  --o1: initial;
   animation-duration: var(--t, 1s);
   animation-delay: var(--d, 0s);
   animation-timing-function: var(--e, ease-in-out);

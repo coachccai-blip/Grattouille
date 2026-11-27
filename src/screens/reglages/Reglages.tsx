@@ -156,7 +156,7 @@ export function Reglages() {
       <div className="rubrique reglages__confort">
         <Interrupteur icon={settings.son ? "son" : "son-coupe"} label={t("Son")} checked={settings.son} onChange={(son) => patchSettings({ son })} />
         <Interrupteur
-          icon={settings.musique ? "son" : "son-coupe"}
+          icon={settings.musique ? "musique" : "musique-coupee"}
           label={t("Musique")}
           checked={settings.musique}
           onChange={(musique) => patchSettings({ musique })}

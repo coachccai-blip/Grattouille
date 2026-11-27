@@ -6,7 +6,7 @@
 
 import { betOptions } from "./betting";
 import { evaluate } from "./hands";
-import { canDeal, currentBlind, isFunded, isOut, nextRise, playerInHand, rebuyRange, seatIndexOf } from "./state";
+import { canDeal, currentBlind, isFunded, isMasters, isOut, nextRise, playerInHand, rebuyRange, seatIndexOf } from "./state";
 import type { HandResult, Options, OwnHand, SeatView, TableState, TableView } from "./types";
 
 function noOptions(): Options {
@@ -107,6 +107,7 @@ export function viewOfSeat(t: TableState, you: number | null, now: number): Tabl
     code: t.code,
     kind: t.kind,
     place: t.place,
+    format: isMasters(t) ? "tournoi" : "classique",
     blind: currentBlind(t),
     rise: nextRise(t),
     minBuyIn: t.minBuyIn,

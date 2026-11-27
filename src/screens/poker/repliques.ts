@@ -239,9 +239,9 @@ export const DUEL_TALK: Record<Host, Deux<DuelVoice>> = {
     fr: {
       ouverture: [
         "Un tête-à-tête ? Le vieux renard a plus d'un tour dans sa manche. Façon de parler.",
-        "Te revoilà ! Cette fois je pose le double, et je range mon sourire de vendeur.",
-        "Dernière manche, mon grand. Je mets tout le tiroir-caisse. Sapristi, j'ai le trac.",
-        "Pour le plaisir, alors ? Installe-toi. Entre vieux adversaires, on se doit bien ça.",
+        "Encore un tête-à-tête ! Cette fois je pose le double, et je range mon sourire de vendeur.",
+        "Dernière manche ! Je mets tout le tiroir-caisse sur la table. Sapristi, j'ai le trac.",
+        "Pour le plaisir, alors ? Entre vieux adversaires, on se doit bien ça. La chaise est restée chaude.",
       ],
       avantage: [
         "Le renard passe devant. Façon de parler.",
@@ -249,21 +249,21 @@ export const DUEL_TALK: Record<Host, Deux<DuelVoice>> = {
         "Je mène ! Nom d'une sardine, pourvu que ça dure.",
       ],
       recul: [
-        "Tiens, tu passes devant. C'est la politesse de la maison.",
-        "Sapristi. Tu me fais courir, à mon âge.",
+        "Tiens, on me passe devant. C'est la politesse de la maison.",
+        "Sapristi. On me fait courir, à mon âge.",
         "Aïe. Le tiroir-caisse fond à vue d'œil.",
       ],
       victoire: [
         "Ha ! Le renard garde son comptoir. La revanche, c'est quand on veut.",
-        "Le double reste au Kiosque ! Reviens, mon grand : je te garde ta place au chaud.",
-        "Ouf ! J'ai eu chaud aux moustaches. La dernière manche t'attend, elle ne bouge pas.",
+        "Le double reste au Kiosque ! La manche attend, la chaise aussi : c'est quand on veut.",
+        "Ouf ! J'ai eu chaud aux moustaches. La dernière manche attend toujours, elle ne bouge pas.",
         "Celle-là est pour moi. Entre nous, ça fait du bien de temps en temps.",
       ],
       defaite: [
         "Sapristi ! Plumé à mon propre comptoir. Bien joué. La prochaine, je pose le double.",
-        "Nom d'une sardine, deux fois ! Tu as l'œil, mon grand. Il me reste une manche pour me refaire.",
-        "Trois fois ! Je rends les armes, mon grand. Je te dois une histoire : la mienne.",
-        "Encore plumé ! À ce train-là, c'est toi qui tiendras le Kiosque. Façon de parler.",
+        "Nom d'une sardine, deux fois ! Quel œil. Il me reste une manche pour me refaire.",
+        "Trois fois ! Le renard rend les armes. Et il doit une histoire : la sienne.",
+        "Encore plumé ! À ce train-là, le Kiosque va changer de patron. Façon de parler.",
       ],
     },
     en: {

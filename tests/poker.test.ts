@@ -2086,12 +2086,12 @@ describe("ce que voit un joueur", () => {
     const t = allFair(dealt({ stacks: [1000, 1000], bots: ["gaspard"] }));
     const view = viewFor(t, "p_a", T0 + 500);
     expect(Object.keys(view).sort()).toEqual([
-      "bet", "blind", "closed", "code", "deadline", "dealer", "difficulty", "hand", "handNo", "kind", "log", "maxBuyIn",
-      "minBuyIn", "now", "options", "owner", "phase", "place", "pot", "result", "rise", "seats", "started", "step",
-      "turn", "version", "you",
+      "bet", "blind", "closed", "code", "deadline", "dealer", "difficulty", "format", "hand", "handNo", "kind", "log",
+      "maxBuyIn", "minBuyIn", "now", "options", "owner", "phase", "place", "pot", "result", "rise", "seats", "started",
+      "step", "turn", "version", "you",
     ]);
-    // Hors d'un défi, la blinde ne bouge pas.
-    expect([view.blind, view.rise]).toEqual([10, null]);
+    // Hors d'un tournoi, la blinde ne bouge pas ; et une table est classique tant qu'on n'a rien demandé d'autre.
+    expect([view.blind, view.rise, view.format]).toEqual([10, null, "classique"]);
     expect(Object.keys(view.seats[1]!).sort()).toEqual([
       "absent", "allIn", "bet", "bot", "cards", "category", "committed", "done", "folded", "funded", "inHand", "look",
       "pseudo", "reserve", "seat", "species", "stack",

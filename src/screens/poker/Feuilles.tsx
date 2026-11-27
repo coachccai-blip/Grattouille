@@ -25,13 +25,15 @@ import { Bouton } from "../../ui/Bouton";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
-  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, decimalsFor, defaultBuyIn, fitUnit, hostStory, isFullCode, mastersCard,
-  maxBuyInChoices, pressKey, rankTaken, suitTaken, swapped, tournamentDecided, typedAmount, typedBet, unitsFor, type Unit,
+  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, decimalsFor, defaultBuyIn, duelOf, fitUnit, isFullCode, isTournament,
+  mastersCard, maxBuyInChoices, pressKey, quitMeans, rankTaken, suitTaken, swapped, tournamentDecided, tournamentStake,
+  typedAmount, typedBet, unitsFor, type Unit,
 } from "./calcul";
-import { Alerte, BarreTemps, Pas, Tete, steps, unbroken } from "./parts";
+import { Alerte, BarreTemps, Pas, Reperes, Tete, steps, unbroken } from "./parts";
 import {
-  boundsText, categoriesFromTop, categoryName, character, decimalMark, difficultyName, fieldAround, identityOf, nameInSentence,
-  playerName, rankLabel, typedBetLabel, typedBetText, typedText, unitLabel, unitName, type Identity,
+  FRIENDS_MODES, boundsText, categoriesFromTop, categoryName, character, decimalMark, difficultyName, duelStakesText,
+  duelStoryText, fieldAround, identityOf, modeName, modeRule, nameInSentence, playerName, rankLabel, stageText, typedBetLabel,
+  typedBetText, typedText, unitLabel, unitName, type FriendsMode, type Identity,
 } from "./textes";
 import "./poker.css";
 
@@ -89,6 +91,17 @@ function Regles() {
       <ol className="poker-regles__mains">
         {categoriesFromTop().map((name) => <li key={name}>{name}</li>)}
       </ol>
+      {/* Entre amis, une table se crée de deux façons : classique, ou aux règles de la Table des Maîtres. */}
+      <h3 className="poker-regles__titre">{t("Entre amis, deux façons de jouer")}</h3>
+      <dl className="poker-regles__modes">
+        {FRIENDS_MODES.map((mode) => (
+          <div key={mode}>
+            <dt>{modeName(mode)}</dt>
+            <dd>{modeRule(mode)}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="note">{t("La Table des Maîtres du hall se joue ainsi, contre quatre maîtres des lieux : elle seule compte pour le trophée.")}</p>
     </Feuille>
   );
 }
@@ -177,29 +190,30 @@ function Defi({ place }: { place: PlaceId }) {
   const fermer = useFermer();
   const challenge = usePoker((s) => s.lobby?.challenges.find((c) => c.place === place) ?? null);
   const balance = useGame(displayBalance);
-  // Trois victoires contre l'hôte ouvrent son histoire : tant qu'elle ne l'est pas, une revanche compte encore.
-  const told = useGame((s) => hostStory(s.player?.hostWins, place).open);
+  // Les victoires contre l'hôte : autant de manches gagnées. La troisième ouvre son histoire.
+  const hostWins = useGame((s) => s.player?.hostWins);
   const { busy, error, run } = useSeating();
   if (!challenge) return null;
   const host = character(challenge.host);
-  const short = balance < challenge.buyIn;
-  const mise = formatEuros(challenge.buyIn);
+  const duel = duelOf(challenge, hostWins);
+  const short = balance < duel.stake;
+  const mise = formatEuros(duel.stake);
 
   return (
     <Feuille titre={t("Le défi : {lieu}", { lieu: placeShort(place) })} onClose={fermer} className="poker-feuille">
       <Tetiere who={host} titre={t("Défier {hote}", { hote: nameInSentence(host) })}>
-        <p className="note">{capitalize(placeShort(place))}</p>
+        <p className="note">{t("{lieu} · niveau {niveau}", { lieu: capitalize(placeShort(place)), niveau: difficultyName(challenge.difficulty) })}</p>
       </Tetiere>
-      <p>{t("Un tête-à-tête : {montant} chacun, jusqu'à ce que l'un des deux n'ait plus rien.", { montant: mise })}</p>
-      <p>{t("La blinde monte au fil des mains : le duel ne traîne pas.")}</p>
-      <p className="poker-feuille__gain">
-        {!challenge.won
-          ? t("Si tu gagnes, sa cagnotte est pour toi : {montant}.", { montant: formatEuros(challenge.bonus) })
-          : told
-            ? t("Sa cagnotte est déjà gagnée : on rejoue pour l'honneur.")
-            : t("Sa cagnotte est déjà gagnée : on rejoue pour l'honneur, et pour son histoire.")}
+      <p className="poker-defi__manche">
+        <Reperes story={{ wins: duel.won, needed: duel.rounds }} />
+        <strong>{stageText(duel)}</strong>
       </p>
-      {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(challenge.buyIn - balance) })}</Alerte>}
+      {/* L'enjeu, sans détour : ce que chacun pose, ce que le gagnant emporte, ce qu'on risque. */}
+      <p className="poker-feuille__gain">{duelStakesText(duel)}</p>
+      <p>{t("Un tête-à-tête, jusqu'à ce que l'un des deux n'ait plus rien : si tu perds, ta mise est perdue.")}</p>
+      <p>{t("La blinde monte au fil des mains : le duel ne traîne pas.")}</p>
+      <p className="note">{duelStoryText(duel, challenge.host)}</p>
+      {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(duel.stake - balance) })}</Alerte>}
       <Alerte>{error}</Alerte>
       <div className="poker-feuille__action">
         <Bouton bloc reflet={!short} disabled={short} attente={busy} onClick={() => void run(() => sitDown({ defi: place }))}>
@@ -280,6 +294,8 @@ function Creer() {
   const blinds = usePoker((s) => s.lobby?.blinds ?? null);
   const balance = useGame(displayBalance);
   const { busy, error, run } = useSeating();
+  // Classique : chacun sa cave, on recave, on part quand on veut. Table des Maîtres : un tournoi.
+  const [mode, setMode] = useState<FriendsMode>("classique");
   // La blinde proposée d'abord : la plus haute dont cent blindes ne pèsent pas plus du quart de la bourse ; sinon la plus petite.
   const [blind, setBlind] = useState<number | null>(null);
   const [caves, setCaves] = useState(MAX_BUYIN_BLINDS);
@@ -297,22 +313,58 @@ function Creer() {
     );
   }
 
+  const tournament = mode === "tournoi";
   const comfy = [...blinds].reverse().find((b) => b * MAX_BUYIN_BLINDS * 4 <= balance) ?? blinds[0]!;
   const chosen = blind !== null && blinds.includes(blind) ? blind : comfy;
-  const maxBuyIn = chosen * caves;
-  const buyIn = Math.min(maxBuyIn, Math.floor(balance));
+  // En tournoi, la cagnotte est la même pour tous : trente blindes de départ. Pas de cave maximale à régler.
+  const stake = tournamentStake(chosen);
+  const maxBuyIn = tournament ? stake : chosen * caves;
+  const buyIn = tournament ? stake : Math.min(maxBuyIn, Math.floor(balance));
+  const short = tournament && balance < stake;
   const maxBots = seats - 1;
   const robots = Math.min(bots, maxBots);
   const blindSteps = steps(blinds, chosen, setBlind);
-  const caveSteps = steps(maxBuyInChoices(chosen), maxBuyIn, (value) => setCaves(Math.round(value / chosen)));
+  const caveSteps = steps(maxBuyInChoices(chosen), chosen * caves, (value) => setCaves(Math.round(value / chosen)));
   const seatSteps = steps(SEATS, seats, setSeats);
+  const create = () => sitDown(
+    tournament
+      ? { blind: chosen, maxBuyIn, seats, bots: robots, difficulty: level, format: "tournoi" }
+      : { blind: chosen, maxBuyIn, seats, bots: robots, difficulty: level, buyIn },
+  );
 
   return (
     <Feuille titre={t("Créer une table")} onClose={fermer} className="poker-feuille">
       <h2 className="t-titre">{t("Créer une table")}</h2>
+      {/* Le mode d'abord : il décide de tout le reste. Sa règle se lit dessous, en une phrase. */}
+      <div className="poker-niveaux poker-modes" role="radiogroup" aria-label={t("Façon de jouer")}>
+        {FRIENDS_MODES.map((value, i) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            className={cx("poker-niveau", mode === value && "poker-niveau--choisi")}
+            data-son="choix"
+            data-mode={value}
+            onClick={() => {
+              if (mode !== value) playClick(i);
+              setMode(value);
+            }}
+          >
+            {modeName(value)}
+          </button>
+        ))}
+      </div>
+      <p className="poker-modes__regle" role="status">{modeRule(mode)}</p>
       <div className="poker-reglages">
-        <Pas label={t("Blinde")} aide={t("La mise d'entrée de chaque main")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
-        <Pas label={t("Cave maximale")} aide={t("Ce qu'un joueur pose, au plus")} value={formatEuros(maxBuyIn)} onMinus={caveSteps.minus} onPlus={caveSteps.plus} />
+        {tournament ? (
+          <Pas label={t("Blinde de départ")} aide={t("Elle monte au fil des mains")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
+        ) : (
+          <>
+            <Pas label={t("Blinde")} aide={t("La mise d'entrée de chaque main")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
+            <Pas label={t("Cave maximale")} aide={t("Ce qu'un joueur pose, au plus")} value={formatEuros(maxBuyIn)} onMinus={caveSteps.minus} onPlus={caveSteps.plus} />
+          </>
+        )}
         <Pas label={t("Sièges")} value={formatInt(seats)} onMinus={seatSteps.minus} onPlus={seatSteps.plus} />
         <Pas
           label={t("Robots")}
@@ -341,15 +393,19 @@ function Creer() {
           </div>
         )}
       </div>
-      <p className="note">{t("Tu poses {montant}. Tes amis rejoignent la table avec son code.", { montant: formatEuros(buyIn) })}</p>
+      {tournament ? (
+        <>
+          <p className="poker-feuille__gain">{t("Cagnotte de chacun : {montant}, soit trente blindes de départ.", { montant: formatEuros(stake) })}</p>
+          <p className="note">{t("Tes amis rejoignent la table avec son code, avant le lancement : ensuite, plus personne n'entre.")}</p>
+          {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(stake - balance) })}</Alerte>}
+        </>
+      ) : (
+        <p className="note">{t("Tu poses {montant}. Tes amis rejoignent la table avec son code.", { montant: formatEuros(buyIn) })}</p>
+      )}
       <Alerte>{error}</Alerte>
       <div className="poker-feuille__action">
-        <Bouton
-          bloc
-          attente={busy}
-          onClick={() => void run(() => sitDown({ blind: chosen, maxBuyIn, seats, bots: robots, difficulty: level, buyIn }))}
-        >
-          {t("Créer la table")}
+        <Bouton bloc data-geste="creer" disabled={short} attente={busy} onClick={() => void run(create)}>
+          {tournament ? t("Créer la table et poser {montant}", { montant: formatEuros(stake) }) : t("Créer la table")}
         </Bouton>
       </div>
     </Feuille>
@@ -425,17 +481,28 @@ function Rejoindre() {
 
   const seated = table.seats.filter((seat) => seat !== null);
   const free = table.seats.length - seated.length;
-  const values = buyInSteps(table.minBuyIn, table.maxBuyIn, table.blind, balance);
-  const buyIn = wanted !== null && values.includes(wanted) ? wanted : defaultBuyIn(values, table.blind);
+  // Aux règles de la Table des Maîtres : une seule cagnotte, la même pour tous, et l'on n'entre qu'avant le lancement.
+  const tournament = isTournament(table);
+  const closed = tournament && table.started;
+  const values = tournament
+    ? (balance >= table.maxBuyIn ? [table.maxBuyIn] : [])
+    : buyInSteps(table.minBuyIn, table.maxBuyIn, table.blind, balance);
+  const buyIn = wanted !== null && values.includes(wanted) ? wanted : tournament ? values[0] ?? null : defaultBuyIn(values, table.blind);
   const { minus, plus } = buyIn === null ? { minus: null, plus: null } : steps(values, buyIn, setWanted);
+  const mode: FriendsMode = tournament ? "tournoi" : "classique";
 
   return (
     <Feuille titre={t("Rejoindre une table")} onClose={fermer} className="poker-feuille">
       <h2 className="t-titre">{t("Table {code}", { code: table.code })}</h2>
       <p className="note">
-        {t("Blinde : {montant}", { montant: formatEuros(table.blind) })}
+        {tournament ? t("Blinde de départ : {montant}", { montant: formatEuros(table.blind) }) : t("Blinde : {montant}", { montant: formatEuros(table.blind) })}
         {" · "}
         {free > 1 ? t("{n} sièges libres", { n: free }) : free === 1 ? t("1 siège libre") : t("Plus un siège")}
+      </p>
+      {/* Le mode de la table, avant de s'y asseoir : son nom, et sa règle en une phrase. */}
+      <p className="poker-modes__annonce" data-mode={mode}>
+        <strong>{modeName(mode)}</strong>
+        <span>{modeRule(mode)}</span>
       </p>
       <ul className="poker-presents" aria-label={t("Déjà à table")}>
         {seated.map((seat) => (
@@ -445,10 +512,14 @@ function Rejoindre() {
           </li>
         ))}
       </ul>
-      {free === 0 ? (
+      {closed ? (
+        <Alerte>{t("La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.")}</Alerte>
+      ) : free === 0 ? (
         <Alerte>{t("Cette table est complète. Attends qu'un siège se libère.")}</Alerte>
       ) : buyIn === null ? (
         <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(table.minBuyIn - balance) })}</Alerte>
+      ) : tournament ? (
+        <p className="poker-feuille__gain">{t("Ta cagnotte : {montant}, la même pour tous.", { montant: formatEuros(buyIn) })}</p>
       ) : (
         <Pas
           label={t("Ta cave")}
@@ -462,7 +533,7 @@ function Rejoindre() {
       <div className="poker-feuille__action">
         <Bouton
           bloc
-          disabled={buyIn === null || free === 0}
+          disabled={buyIn === null || free === 0 || closed}
           attente={busy}
           onClick={() => {
             if (buyIn !== null) void run(() => joinTable(table.code, buyIn));
@@ -880,6 +951,7 @@ function Quitter() {
   // Hors d'une main, `pot` est ce qui est resté sur la table : qui s'en va le laisse aux autres.
   const leftOver = !inHand && view.hand === null ? view.pot : 0;
   const stack = me.stack + me.reserve;
+  const means = quitMeans(view);
 
   const leave = async () => {
     if (busy !== null) return;
@@ -896,12 +968,21 @@ function Quitter() {
       {leftOver > 0 && (
         <p>{t("Un pot de {montant} est resté sur la table : en partant, tu le laisses aux autres.", { montant: formatEuros(leftOver) })}</p>
       )}
-      {view.kind === "defi" && <p>{t("Le défi s'arrête là : il faudra le reprendre du début.")}</p>}
-      {/* À la Table des Maîtres, partir c'est renoncer : on garde son tapis, pas la victoire. */}
-      {view.kind === "maitres" && <p>{t("Le tournoi s'arrête là pour toi : pas de victoire, et la table ferme derrière toi.")}</p>}
-      <p>{t("Ton tapis ({montant}) retourne dans ta bourse.", { montant: formatEuros(stack) })}</p>
+      {view.kind === "defi" && <p>{t("La manche s'arrête là : il faudra la reprendre du début.")}</p>}
+      {/* En tournoi, seul face aux robots (ou aux maîtres) : partir c'est renoncer. On garde son tapis, pas la victoire. */}
+      {means === "seul" && <p>{t("Le tournoi s'arrête là pour toi : pas de victoire, et la table ferme derrière toi.")}</p>}
+      {/* En tournoi, tant qu'un ami joue encore : partir c'est abandonner. Le tapis reste sur la table, pour le gagnant. */}
+      {means === "abandon" ? (
+        <p className="poker-feuille__gain">
+          {t("Dans un tournoi, on ne repart pas avec ses jetons : ton tapis ({montant}) reste sur la table, et le dernier assis le remportera.", { montant: formatEuros(stack) })}
+        </p>
+      ) : (
+        <p>{t("Ton tapis ({montant}) retourne dans ta bourse.", { montant: formatEuros(stack) })}</p>
+      )}
       <div className="poker-feuille__action">
-        <Bouton bloc attente={busy === "quitter"} onClick={() => void leave()}>{t("Quitter la table")}</Bouton>
+        <Bouton bloc data-geste="quitter" attente={busy === "quitter"} onClick={() => void leave()}>
+          {means === "abandon" ? t("Abandonner le tournoi") : t("Quitter la table")}
+        </Bouton>
         <Bouton variante="texte" bloc onClick={fermer}>{t("Rester à table")}</Bouton>
       </div>
     </Feuille>
