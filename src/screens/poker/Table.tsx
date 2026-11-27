@@ -26,16 +26,18 @@ import { Bulle, Entete } from "../../ui/Commun";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Abattage } from "./Abattage";
 import {
-  betChoices, doubles, fallenSeats, mastersLeft, netOf, phaseTotal, tournamentDecided, type BetChoice, type OutcomeLine,
+  betChoices, doubles, fallenSeats, hostStory, mastersLeft, netOf, phaseTotal, tournamentDecided, type BetChoice,
+  type OutcomeLine,
 } from "./calcul";
 import { useDenouement, type Denouement } from "./denouement";
 import { useTableEvents } from "./evenements";
 import { Presentation, SortieMaitres, mastersOf } from "./Maitres";
-import { BarreTemps, Jeton, Tete } from "./parts";
+import { BarreTemps, Jeton, Reperes, Tete } from "./parts";
 import { hostLine, tableLine } from "./repliques";
 import { Tapis } from "./Tapis";
 import {
-  categoryName, identityOf, isMastersEnd, mastersLeftText, nameInSentence, nameList, tableTitle, type Identity,
+  categoryName, identityOf, isMastersEnd, mastersLeftText, nameInSentence, nameList, storyAfterWin, tableTitle,
+  type Identity,
 } from "./textes";
 import "./poker.css";
 import "./table.css";
@@ -743,6 +745,14 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
     if (won) playPot();
   }, [won]);
 
+  // Une victoire de plus contre l'hôte : la troisième ouvre son histoire, dans les Souvenirs ;
+  // les deux premières disent ce qu'il reste. L'état du joueur, rendu avec la fin de table,
+  // porte déjà le nouveau compte (s'il est en train d'être relu, on attend qu'il soit là).
+  const hostWins = useGame((s) => s.player?.hostWins);
+  const rereading = usePoker((s) => s.lobbyBusy);
+  const story = won && view?.place ? hostStory(hostWins, view.place) : null;
+  const news = story && host && !rereading ? storyAfterWin(story, host) : null;
+
   const line = host && won ? hostLine(host, bonus > 0 ? "ruine" : "ruine-encore", formatEuros(bonus))
     : host && lost ? hostLine(host, "vainqueur") : null;
   const titre = won ? t("Défi relevé !") : lost ? t("Le défi reste à relever") : t("Fin de la partie");
@@ -761,6 +771,12 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
           <p className="poker-sortie__cagnotte">
             <span>{t("Sa cagnotte")}</span>
             <strong className="t-gain chiffres">+<Compteur valeur={bonus} ms={900} sonne depart={0} /></strong>
+          </p>
+        )}
+        {story && news && (
+          <p className={cx("poker-sortie__histoire", news.ouverte && "poker-sortie__histoire--ouverte")}>
+            <Reperes story={story} />
+            <span>{news.texte}</span>
           </p>
         )}
         {texte && <p>{texte}</p>}

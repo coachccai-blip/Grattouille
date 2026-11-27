@@ -887,6 +887,9 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
   }
   const claims = (seat: SeatState): boolean => isFunded(seat) && (d.kind !== "maitres" || chipsOf(seat) > 0);
   const seated = seatsAfter(d, d.dealer, d.seats.map((_, i) => i).filter((i) => d.seats[i] !== null && claims(d.seats[i]!)));
+  // Les hôtes de la table, tant que leurs sièges sont là : qui la remporte les a tous battus.
+  const hosts: string[] = [];
+  for (const seat of d.seats) if (seat && seat.bot !== null) hosts.push(seat.bot);
   const shares = new Map(splitPot(d.carry, seated, seated).map((s) => [s.seat, s.amount]));
   if (seated.length === 0) d.audit.bank -= d.carry;
   d.carry = 0;
@@ -900,7 +903,9 @@ function closeTable(d: TableState, t: number, why: CloseReason, reason: (seat: S
       const payout = seat.stack + seat.reserve + share;
       // Un siège réservé dont la cave n'est jamais arrivée n'a rien à reprendre.
       const cause: LeaveReason = isFunded(seat) ? reason(seat) : "reserve";
-      d.ended.push(endedOf(seat, index, payout, cause, t));
+      const ended = endedOf(seat, index, payout, cause, t);
+      if (cause === "maitres-gagne") ended.beaten = [...hosts];
+      d.ended.push(ended);
       d.audit.out += payout;
       d.departed.push({ playerId: seat.playerId, seat: index, reason: cause, payout, at: t });
     }

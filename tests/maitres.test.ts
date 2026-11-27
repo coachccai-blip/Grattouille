@@ -8,15 +8,19 @@
 // coupée, les compteurs versés une seule fois, et une table enregistrée avant la mise à jour.
 
 import { describe, expect, it } from "vitest";
+import { handle, type Deps } from "../server/app";
+import { MemoryStorage, type Storage } from "../server/storage";
 import { PLACES } from "../shared/places";
 import {
   ACCUSE_MS, BOT_PERSONAS, BOT_STACK_CAVES, DECK, HOSTS, IDLE_TABLE_MS, MASTERS_BLIND, MASTERS_BLINDS, MASTERS_BUYIN,
   MASTERS_LEVEL_HANDS, MASTERS_SEATS, MAX_TABLE_CHIPS, RESERVE_MS, RESULT_MS,
   PokerError, act, advance, blindAt, botAccuse, botBet, botCheat, challengeBlind, chipsOnTable, createTable,
   deposit, isOut, isTournament, leave, mastersBlind, mastersRise, nextEventAt, pickMasters, playerInHand, rebuyRange,
-  sit, splitPot, viewFor, viewOfSeat,
-  type Card, type GameAction, type Random32, type TableState, type TableView,
+  seatIndexOf, settled, sit, splitPot, viewFor, viewOfSeat,
+  type Card, type GameAction, type PokerAction, type PokerLobbyResponse, type PokerTableResponse, type Random32,
+  type TableState, type TableView,
 } from "../shared/poker";
+import type { PlayerState, PokerStats } from "../shared/types";
 
 const T0 = Date.UTC(2026, 10, 27, 20, 0, 0);
 /** Un billion : mille milliards. La blinde de base en vaut dix, la cave trois cents. */
@@ -252,7 +256,8 @@ describe("la tablée des Maîtres", () => {
     expect(new Set(draws).size).toBeGreaterThan(9);
     // Un hasard figé donne toujours la même chose : c'est bien lui qui décide.
     expect(pickMasters(always(0))).toEqual(["gaspard", "ondine", "hector", "baron"]);
-    expect(pickMasters(always(0xffff_ffff))).not.toEqual(pickMasters(always(0)));
+    // Toujours 5 : le sixième des huit, le sixième des sept qui restent, le sixième des six, le premier des cinq.
+    expect(pickMasters(always(5))).toEqual(["balthazar", "taupin", "selene", "gaspard"]);
   });
 
   it("la table : cinq sièges, 300 Bn€ chacun, et la partie part dès que la cave est posée", () => {
@@ -531,7 +536,8 @@ describe("comment finit la table", () => {
     expect(advance(won, T0 + RESULT_MS - 1, rng)).toBe(won);
     const t = advance(won, T0 + RESULT_MS, rng);
     expect([t.phase, t.closed, t.seats, t.handNo]).toEqual(["fermee", "maitres", [null, null, null, null, null], 40]);
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + RESULT_MS }]);
+    // Avec tout l'argent de la table, la liste des quatre hôtes battus : la table fermée ne garde aucun siège.
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + RESULT_MS, beaten: [...FOUR] }]);
     expect(t.departed).toEqual([{ playerId: "p_a", seat: 0, reason: "maitres-gagne", payout: ALL, at: T0 + RESULT_MS }]);
     // Une cave entrée, cinq sorties : les quatre autres venaient des hôtes.
     expect(t.audit).toEqual({ in: MASTERS_BUYIN, out: ALL, bank: 4 * MASTERS_BUYIN });
@@ -548,7 +554,7 @@ describe("comment finit la table", () => {
     // Les deux derniers hôtes se sont démasqués l'un l'autre à tapis : 50 blindes attendent sur la table.
     const t = advance(mastersAt(rng, { played: 30, stacks: [100 * U, 0, 0, 0, 0], carry: 50 * U }), T0, rng);
     expect([t.phase, t.closed]).toEqual(["fermee", "maitres"]);
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 }]);
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0, beaten: [...FOUR] }]);
     expect(t.audit).toEqual({ in: MASTERS_BUYIN, out: ALL, bank: 4 * MASTERS_BUYIN });
     audited(t);
   });
@@ -656,7 +662,7 @@ describe("comment finit la table", () => {
     const won = mastersAt(rng, { played: 40, stacks: [150 * U, 0, 0, 0, 0], nextAt: T0 + RESULT_MS });
     let t = leave(won, "p_a", T0 + 1_000, rng);
     expect([t.phase, t.closed]).toEqual(["fermee", "maitres"]);
-    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + 1_000 }]);
+    expect(t.ended).toEqual([{ ...SEAT, payout: ALL, reason: "maitres-gagne", at: T0 + 1_000, beaten: [...FOUR] }]);
     audited(t);
     // Il vient de tout perdre et quitte : c'est perdu, pas quitté.
     const lost = mastersAt(rng, { played: 9, stacks: [0, 60 * U, 40 * U, 30 * U, 20 * U], nextAt: T0 + RESULT_MS });
@@ -845,7 +851,7 @@ describe("des tables entières", () => {
     expect(eliminations).toBeGreaterThan(300);
     expect(shortBlinds).toBeGreaterThan(100);
     expect(sidePots).toBeGreaterThan(100);
-    expect(carried).toBeGreaterThan(5);
+    expect(carried).toBeGreaterThan(50);
   });
 
   it("le même hasard rejoue la même table, à l'euro près", () => {
@@ -957,5 +963,1505 @@ describe("les robots autour de la table", () => {
     expect(rate[0]!).toBeGreaterThan(hosts * 0.8);
     expect(rate[0]!).toBeLessThan(hosts * 1.2);
     expect(played[0]!).toBeGreaterThan(1_200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Les compteurs du poker, dans le moteur : la table les tient par siège, main après main.
+
+const IDS = ["p_a", "p_b", "p_c", "p_d"] as const;
+const ACES = "As Ad 7c 5h 2d";
+const KINGS = "Kc Kd 9s 4h 3c";
+const NOTHING = "Qs Jd 8c 6h 2s";
+
+/** Une table de joueurs, blinde de 10 €, chacun avec sa cave. La première main est donnée. */
+function friends(stacks: number[], rng: Random32 = rngOf(71), bots: string[] = []): TableState {
+  let t = createTable({
+    code: "ABCDE", kind: "privee", place: null, blind: 10, maxBuyIn: 1000, seats: stacks.length + bots.length, bots,
+    difficulty: "difficile",
+  }, T0);
+  stacks.forEach((stack, i) => {
+    t = sit(t, { playerId: IDS[i]!, sid: `s_${i}`, pseudo: `Joueur ${i}`, species: "chat", look: null }, T0, rng);
+    t = deposit(t, `s_${i}`, 1, stack, T0, rng);
+  });
+  return act(t, IDS[0], { type: "lancer" }, T0, rng);
+}
+
+/** Remplace les cartes de certains sièges : le test choisit les mains. */
+function withHands(t: TableState, hands: Record<number, string>): TableState {
+  const next = copy(t);
+  for (const [seat, text] of Object.entries(hands)) next.hand!.players.find((p) => p.seat === Number(seat))!.cards = hand(text);
+  return next;
+}
+
+const play = (t: TableState, seat: number, action: GameAction, now = T0): TableState => act(t, IDS[seat]!, action, now, rngOf(7));
+
+/** Tous les humains qui n'ont pas choisi jouent franc jeu. */
+function allFair(t: TableState, now = T0): TableState {
+  let next = t;
+  for (const p of t.hand!.players) {
+    if (!p.chosen && next.phase === "triche" && next.seats[p.seat]?.bot === null) next = play(next, p.seat, { type: "franc-jeu" }, now);
+  }
+  return next;
+}
+
+/** Tout le monde dit parole, jusqu'à l'abattage. */
+function checkAround(t: TableState, now = T0): TableState {
+  let next = t;
+  for (let guard = 0; guard < 12 && next.phase === "encheres"; guard++) next = play(next, next.hand!.turn!, { type: "parole" }, now);
+  return next;
+}
+
+/** Les joueurs qui n'ont pas parlé n'accusent personne. */
+function allQuiet(t: TableState, now = T0): TableState {
+  let next = t;
+  for (const p of t.hand!.players) {
+    if (next.phase === "abattage" && !p.folded && !playerInHand(next, p.seat)!.spoke) next = play(next, p.seat, { type: "rien" }, now);
+  }
+  return next;
+}
+
+const stat = (hands: number, pots = 0, unmasked = 0, caught = 0): PokerStats => ({ hands, pots, unmasked, caught });
+const statsOf = (t: TableState) => t.seats.map((s) => s?.stats ?? null);
+
+describe("les compteurs du poker : ce que la table retient pour chaque joueur", () => {
+  it("quatre mains : l'abattage, les accusations, le pot emporté sans abattage, le partage", () => {
+    const rng = rngOf(71);
+    let now = T0;
+    let t = withHands(friends([1000, 1000, 1000], rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    // Rien n'est compté avant le premier dénouement : le champ n'existe pas encore.
+    expect(statsOf(t)).toEqual([null, null, null]);
+    expect(t.seats.every((s) => !("stats" in s!))).toBe(true);
+
+    // Main 1 : tout le monde va à l'abattage, les as l'emportent.
+    t = allQuiet(checkAround(allFair(t)));
+    expect([t.phase, t.result!.pots[0]!.winners]).toEqual(["denouement", [{ seat: 0, amount: 30 }]]);
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1), stat(1)]);
+
+    // Main 2 : le siège 1 se fait un brelan de rois. Les deux autres l'accusent ; lui accuse à tort.
+    now += RESULT_MS;
+    t = withHands(advance(t, now, rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    t = play(t, 1, { type: "tricher", index: 2, card: "Kh" }, now);
+    t = checkAround(allFair(t, now), now);
+    t = play(t, 0, { type: "accuser", seat: 1 }, now);
+    t = play(t, 2, { type: "accuser", seat: 1 }, now);
+    t = play(t, 1, { type: "accuser", seat: 0 }, now);
+    // Les accusations se lisent dans l'ordre de parole : le donneur (siège 1) en dernier.
+    expect(t.result!.accusations).toEqual([
+      { from: 2, to: 1, right: true, paid: 0 }, { from: 0, to: 1, right: true, paid: 0 }, { from: 1, to: 0, right: false, paid: 10 },
+    ]);
+    // Deux tricheurs démasqués ? Non : un seul, par deux joueurs. Chacun des deux en compte un,
+    // lui ne s'est fait prendre qu'une fois, et son accusation fausse ne compte pour personne.
+    expect(statsOf(t)).toEqual([stat(2, 2, 1, 0), stat(2, 0, 0, 1), stat(2, 0, 1, 0)]);
+
+    // Main 3 : le siège 0 mise, les autres se couchent. Il prend le pot sans montrer ses cartes.
+    now += RESULT_MS;
+    t = allFair(advance(t, now, rng), now);
+    expect([t.dealer, t.hand!.turn]).toEqual([2, 0]);
+    t = play(t, 0, { type: "miser", amount: 10 }, now);
+    t = play(t, 1, { type: "coucher" }, now);
+    t = play(t, 2, { type: "coucher" }, now);
+    expect([t.phase, t.result!.showdown]).toEqual(["denouement", false]);
+    expect(statsOf(t)).toEqual([stat(3, 3, 1, 0), stat(3, 0, 0, 1), stat(3, 0, 1, 0)]);
+
+    // Main 4 : le siège 2 se couche, les deux autres partagent le pot. Couché, on a joué la main.
+    now += RESULT_MS;
+    t = withHands(advance(t, now, rng), { 0: "Ah Kd Qc Js 9h", 1: "Ad Kc Qs Jh 9c", 2: NOTHING });
+    t = allFair(t, now);
+    expect([t.dealer, t.hand!.turn]).toEqual([0, 1]);
+    t = play(t, 1, { type: "miser", amount: 10 }, now);
+    t = play(t, 2, { type: "coucher" }, now);
+    t = play(t, 0, { type: "suivre" }, now);
+    t = allQuiet(t, now);
+    expect(t.result!.pots).toEqual([{ amount: 50, winners: [{ seat: 1, amount: 25 }, { seat: 0, amount: 25 }], carried: false }]);
+    expect(statsOf(t)).toEqual([stat(4, 4, 1, 0), stat(4, 1, 0, 1), stat(4, 0, 1, 0)]);
+    audited(t);
+  });
+
+  it("une mise rendue ou un dédommagement ne sont pas des pots", () => {
+    const rng = rngOf(72);
+    // Tête-à-tête. Le siège 1 mise 20 ; l'autre n'a plus que 15 € et suit à tapis : 5 € sont rendus.
+    let t = withHands(friends([25, 1000], rng), { 0: ACES, 1: KINGS });
+    t = allFair(t);
+    expect(t.hand!.turn).toBe(1);
+    t = play(t, 1, { type: "miser", amount: 20 });
+    t = play(t, 0, { type: "tapis" });
+    expect([t.phase, t.hand!.pot, stacksOf(t)]).toEqual(["abattage", 50, [0, 975]]);
+    expect(t.log.find((e) => e.kind === "rendu")).toMatchObject({ seat: 1, amount: 5 });
+    // Chacun accuse l'autre à tort. À tapis, le siège 0 n'a rien pour payer ; le siège 1 paie la mise du siège 0.
+    t = play(t, 0, { type: "accuser", seat: 1 });
+    t = play(t, 1, { type: "accuser", seat: 0 });
+    expect(t.result!.accusations).toEqual([{ from: 1, to: 0, right: false, paid: 25 }, { from: 0, to: 1, right: false, paid: 0 }]);
+    expect(stacksOf(t)).toEqual([75, 950]);
+    // Le siège 0 a ramassé le pot. Le siège 1 a repris 5 € et en a versé 25 : il n'a ramassé aucun pot.
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1, 0)]);
+    audited(t);
+  });
+
+  it("qui n'a pas reçu de cartes n'a pas joué la main", () => {
+    const rng = rngOf(73);
+    // Le siège 3 n'a pas de quoi payer la blinde : il n'est pas servi.
+    let t = withHands(friends([1000, 1000, 1000, 5], rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    expect(playerInHand(t, 3)).toBeNull();
+    t = allQuiet(checkAround(allFair(t)));
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1), stat(1), null]);
+    // Un robot n'a pas de compteurs : ils ne servent qu'aux joueurs.
+    let house = friends([1000], rngOf(74), ["hector"]);
+    for (let now = T0; now < T0 + 120_000 && house.phase !== "denouement"; now += 500) {
+      house = advance(house, now, rng);
+      const o = viewFor(house, "p_a", now).options;
+      if (o.cheat) house = act(house, "p_a", { type: "franc-jeu" }, now, rng);
+      else if (o.fold) house = act(house, "p_a", o.check ? { type: "parole" } : { type: "suivre" }, now, rng);
+      else if (o.accuse.length > 0) house = act(house, "p_a", { type: "rien" }, now, rng);
+    }
+    expect([house.phase, house.seats[0]!.stats!.hands, "stats" in house.seats[1]!]).toEqual(["denouement", 1, false]);
+  });
+
+  it("ses compteurs suivent le joueur qui s'en va ; la main qu'il quitte ne compte pas", () => {
+    const rng = rngOf(75);
+    let t = withHands(friends([1000, 1000, 1000], rng), { 0: ACES, 1: KINGS, 2: NOTHING });
+    // Le siège 2 part en pleine première main : il n'a rien fini, la table ne lui doit que son tapis.
+    t = leave(allFair(t), "p_c", T0, rng);
+    expect(t.ended).toEqual([{ sid: "s_2", playerId: "p_c", seat: 2, payout: 990, received: 1000, reason: "quitte", at: T0 }]);
+    t = allQuiet(checkAround(t));
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1), null]);
+    // Main 2 : le siège 1 part pendant l'abattage. Sa première main le suit, pas celle-ci.
+    t = withHands(advance(t, T0 + RESULT_MS, rng), { 0: ACES, 1: KINGS });
+    t = checkAround(allFair(t, T0 + RESULT_MS), T0 + RESULT_MS);
+    expect(t.phase).toBe("abattage");
+    t = leave(t, "p_b", T0 + RESULT_MS, rng);
+    expect(t.ended[1]).toEqual({
+      sid: "s_1", playerId: "p_b", seat: 1, payout: 980, received: 1000, reason: "quitte", at: T0 + RESULT_MS, stats: stat(1),
+    });
+    // Resté seul, le siège 0 prend le pot : pour lui, la main est allée au bout.
+    expect([t.phase, statsOf(t)[0]]).toEqual(["denouement", stat(2, 2)]);
+    // Il part à son tour, la table ferme : ses deux mains et ses deux pots le suivent.
+    t = leave(t, "p_a", T0 + RESULT_MS + 1_000, rng);
+    expect([t.phase, t.closed]).toEqual(["fermee", "vide"]);
+    expect(t.ended[2]).toMatchObject({ playerId: "p_a", payout: 1030, reason: "quitte", stats: stat(2, 2) });
+    // La copie est à lui : accuser réception ne touche à rien d'autre.
+    expect(settled(t, ["s_2", "s_1", "s_0"]).ended).toEqual([]);
+    audited(t);
+  });
+
+  it("une main annulée par la fermeture de la table ne compte pour personne", () => {
+    const rng = rngOf(76);
+    let t = withHands(friends([1000, 1000], rng), { 0: ACES, 1: KINGS });
+    t = allQuiet(checkAround(allFair(t)));
+    expect(statsOf(t)).toEqual([stat(1, 1), stat(1)]);
+    // Deuxième main en cours quand la table ferme (cas d'école : on la vieillit à la main).
+    t = allFair(advance(t, T0 + RESULT_MS, rng), T0 + RESULT_MS);
+    const stale = copy(t);
+    stale.activeAt = T0 - IDLE_TABLE_MS;
+    const closed = advance(stale, T0 + RESULT_MS + 1_000, rng);
+    expect([closed.phase, closed.closed]).toEqual(["fermee", "inactive"]);
+    expect(closed.ended.map((e) => [e.playerId, e.payout, e.stats])).toEqual([["p_a", 1010, stat(1, 1)], ["p_b", 990, stat(1)]]);
+  });
+
+  it("des parties au hasard : chaque main est comptée une fois, à chaque joueur qui y était", () => {
+    let hands = 0;
+    let departures = 0;
+    const totals = stat(0);
+    for (let seed = 1; seed <= 10; seed++) {
+      const rng = rngOf(77_000 + seed);
+      const pick = (n: number) => rng() % n;
+      let now = T0;
+      let t = createTable({ code: "ABCDE", kind: "privee", place: null, blind: 10, maxBuyIn: 1000, seats: 5, bots: ["hector"], difficulty: "difficile" }, now);
+      // Le compte que le test tient de son côté, d'après les dénouements publics.
+      const expected = new Map<string, PokerStats>(IDS.map((id) => [id, stat(0)]));
+      const collected = new Map<string, PokerStats | undefined>();
+      IDS.forEach((id, i) => {
+        t = sit(t, { playerId: id, sid: `s_${i}`, pseudo: id, species: "chat", look: null }, now, rng);
+        t = deposit(t, `s_${i}`, 1, 400 + pick(601), now, rng);
+      });
+      let last = 0;
+      const changed = (next: TableState) => {
+        for (const e of next.ended) {
+          collected.set(e.playerId, e.stats);
+          departures += 1;
+        }
+        t = next.ended.length > 0 ? settled(next, next.ended.map((e) => e.sid)) : next;
+        const r = t.result;
+        if (!r || r.no === last) return;
+        // Une seule main s'est dénouée depuis la dernière fois : le temps avance par petits pas.
+        expect(r.no).toBe(last + 1);
+        last = r.no;
+        hands += 1;
+        for (const { seat } of r.net) {
+          const id = IDS[seat];
+          if (!id) continue;
+          const mine = expected.get(id)!;
+          mine.hands += 1;
+          if (r.pots.some((pot) => pot.winners.some((w) => w.seat === seat && w.amount > 0))) mine.pots += 1;
+          if (r.accusations.some((a) => a.from === seat && a.right)) mine.unmasked += 1;
+          if (r.unmasked.some((u) => u.seat === seat)) mine.caught += 1;
+        }
+      };
+      changed(act(t, "p_a", { type: "lancer" }, now, rng));
+      for (let step = 0; step < 900 && t.phase !== "fermee"; step++) {
+        IDS.forEach((id) => {
+          if (seatIndexOf(t, id) < 0 || t.phase === "fermee") return;
+          const view = viewFor(t, id, now);
+          const o = view.options;
+          let action: GameAction | null = null;
+          if (pick(15) === 0) return;
+          if (o.cheat) {
+            const free = DECK.filter((c) => !view.hand!.cards.includes(c));
+            action = pick(2) === 0 ? { type: "tricher", index: pick(5), card: free[pick(free.length)]! } : { type: "franc-jeu" };
+          } else if (o.fold) {
+            const choices: GameAction[] = [];
+            if (o.check) choices.push({ type: "parole" }, { type: "parole" });
+            if (o.call > 0) choices.push({ type: "suivre" }, { type: "suivre" });
+            if (o.bet) choices.push({ type: "miser", amount: o.bet.min + pick(o.bet.max - o.bet.min + 1) });
+            if (o.raise) choices.push({ type: "relancer", amount: o.raise.min + pick(o.raise.max - o.raise.min + 1) });
+            if (!o.check) choices.push({ type: "coucher" });
+            action = choices[pick(choices.length)]!;
+          } else if (o.accuse.length > 0) {
+            action = pick(2) === 0 ? { type: "accuser", seat: o.accuse[pick(o.accuse.length)]! } : { type: "rien" };
+          } else if (o.next && pick(3) === 0) {
+            action = { type: "suite" };
+          } else if (pick(400) === 0) {
+            changed(leave(t, id, now, rng));
+          }
+          if (action) changed(act(t, id, action, now, rng, view.step));
+        });
+        now += 700;
+        const next = advance(t, now, rng);
+        if (next !== t) changed(next);
+      }
+      // À la fin, ce que la table retient (ou a rendu) pour chacun est exactement ce compte.
+      for (const id of IDS) {
+        const index = seatIndexOf(t, id);
+        const actual = index >= 0 ? t.seats[index]!.stats : collected.get(id);
+        const mine = expected.get(id)!;
+        expect([seed, id, actual]).toEqual([seed, id, mine.hands > 0 ? mine : undefined]);
+        for (const key of ["hands", "pots", "unmasked", "caught"] as const) totals[key] += mine[key];
+      }
+    }
+    // Assez de tout pour que le recoupement veuille dire quelque chose.
+    expect(hands).toBeGreaterThan(150);
+    expect(totals.hands).toBeGreaterThan(400);
+    expect(totals.pots).toBeGreaterThan(100);
+    expect(totals.unmasked).toBeGreaterThan(20);
+    expect(totals.caught).toBeGreaterThan(20);
+    expect(departures).toBeGreaterThan(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Une table enregistrée par la version 2.0, avant la Table des Maîtres et les compteurs.
+
+interface OldIds {
+  /** Le joueur encore assis. */
+  a: string;
+  /** Celui qui est parti, et dont le tapis attend encore sur la table. */
+  c: string;
+}
+
+const OLD_CODE = "VXQ27";
+const OLD_SID_A = "s_aaaaaaaaaaaaaaaa";
+const OLD_SID_C = "s_cccccccccccccccc";
+
+/**
+ * Une table d'un joueur telle que la version 2.0 l'a écrite, champ pour champ, en pleine
+ * cinquième main : c'est au joueur de parler. Un autre est parti à la main d'avant, et son
+ * tapis (380 €) n'a pas encore été rendu à sa bourse. Aucun champ ajouté depuis n'y figure.
+ */
+function oldTable(now: number, ids: OldIds): TableState {
+  const seat = { reserve: 0, since: now - 600_000, missed: 0, absent: false, idle: 0, ready: false };
+  const player = { swap: null, chosen: true, bet: 0, folded: false, allIn: false, spoke: false, accuse: null, actAt: null, gone: false };
+  const table = {
+    v: 1, code: OLD_CODE, kind: "privee", place: null, blind: 10, minBuyIn: 200, maxBuyIn: 1000, difficulty: "normal",
+    seats: [
+      {
+        bot: null, playerId: ids.a, sid: OLD_SID_A, pseudo: "Ancienne", species: "chat",
+        look: { chapeau: null, lunettes: null, tenue: null, accessoire: null }, stack: 470, seq: 1, received: 500, ...seat,
+      },
+      { bot: "hector", playerId: "", sid: "", pseudo: "", species: "", look: null, stack: 1010, seq: 0, received: 0, ...seat },
+      null,
+    ],
+    owner: ids.a, started: true, phase: "encheres", version: 57, step: 23,
+    createdAt: now - 600_000, clock: now - 2_000, activeAt: now - 2_000, dealer: 1, handNo: 5, carry: 0,
+    hand: {
+      players: [
+        { seat: 0, cards: hand(ACES), committed: 10, ...player },
+        { seat: 1, cards: hand(KINGS), committed: 10, ...player },
+      ],
+      blind: 10, pot: 20, bet: 0, raises: 0, turn: 0, pending: [0, 1], deadline: now + 18_000,
+    },
+    result: {
+      no: 4, showdown: false, hands: [], accusations: [], unmasked: [],
+      pots: [{ amount: 30, winners: [{ seat: 1, amount: 30 }], carried: false }],
+      net: [{ seat: 0, amount: -10 }, { seat: 1, amount: 20 }], carry: 0, until: now - 6_000,
+    },
+    nextAt: null,
+    ended: [{ sid: OLD_SID_C, playerId: ids.c, seat: 2, payout: 380, received: 400, reason: "quitte", at: now - 12_000 }],
+    departed: [{ playerId: ids.c, seat: 2, reason: "quitte", payout: 380, at: now - 12_000 }],
+    closed: null,
+    log: [
+      { n: 61, hand: 4, kind: "depart", seat: 2, amount: 380 },
+      { n: 62, hand: 4, kind: "pot", seat: 1, amount: 30 },
+      { n: 63, hand: 5, kind: "blinde", seat: 0, amount: 10 },
+      { n: 64, hand: 5, kind: "blinde", seat: 1, amount: 10 },
+      { n: 65, hand: 5, kind: "donne", seat: 1, amount: 0 },
+      { n: 66, hand: 5, kind: "choix", seat: 1, amount: 0 },
+      { n: 67, hand: 5, kind: "choix", seat: 0, amount: 0 },
+    ],
+    logNo: 67,
+    // Deux caves entrées (500 et 400), un tapis dû (380), et l'argent du robot.
+    audit: { in: 900, out: 380, bank: 980 },
+  };
+  return table as unknown as TableState;
+}
+
+/** Un défi de la version 2.0, arrêté au dénouement de sa dernière main : l'hôte est ruiné. */
+function oldChallenge(now: number, id: string): TableState {
+  const seat = { reserve: 0, since: now - 300_000, missed: 0, absent: false, idle: 0, ready: false };
+  const table = {
+    v: 1, code: "D2K7Q", kind: "defi", place: "kiosque", blind: 1, minBuyIn: 30, maxBuyIn: 30, difficulty: "facile",
+    seats: [
+      {
+        bot: null, playerId: id, sid: OLD_SID_A, pseudo: "Ancienne", species: "chat",
+        look: { chapeau: null, lunettes: null, tenue: null, accessoire: null }, stack: 60, seq: 1, received: 30, ...seat,
+      },
+      { bot: "gaspard", playerId: "", sid: "", pseudo: "", species: "", look: null, stack: 0, seq: 0, received: 0, ...seat },
+    ],
+    owner: id, started: true, phase: "denouement", version: 41, step: 17,
+    createdAt: now - 300_000, clock: now - 3_000, activeAt: now - 3_000, dealer: 1, handNo: 7, carry: 0, hand: null,
+    result: {
+      no: 7, showdown: true,
+      hands: [{ seat: 0, cards: hand(ACES), category: "paire" }, { seat: 1, cards: hand(KINGS), category: "paire" }],
+      accusations: [], unmasked: [], pots: [{ amount: 60, winners: [{ seat: 0, amount: 60 }], carried: false }],
+      net: [{ seat: 0, amount: 30 }, { seat: 1, amount: -30 }], carry: 0, until: now + 5_000,
+    },
+    nextAt: now + 5_000, ended: [], departed: [], closed: null,
+    log: [{ n: 88, hand: 7, kind: "pot", seat: 0, amount: 60 }], logNo: 88,
+    audit: { in: 30, out: 0, bank: 30 },
+  };
+  return table as unknown as TableState;
+}
+
+/** Les champs qu'une table de la version 2.0 portait : ni plus, ni moins. */
+const OLD_KEYS = {
+  table: [
+    "activeAt", "audit", "blind", "carry", "clock", "closed", "code", "createdAt", "dealer", "departed", "difficulty", "ended",
+    "hand", "handNo", "kind", "log", "logNo", "maxBuyIn", "minBuyIn", "nextAt", "owner", "phase", "place", "result", "seats",
+    "started", "step", "v", "version",
+  ],
+  seat: ["absent", "bot", "idle", "look", "missed", "playerId", "pseudo", "ready", "received", "reserve", "seq", "sid", "since", "species", "stack"],
+  ended: ["at", "payout", "playerId", "reason", "received", "seat", "sid"],
+};
+
+describe("une table d'avant la mise à jour : le moteur", () => {
+  const ids: OldIds = { a: "p_a", c: "p_c" };
+
+  it("le témoin a bien la forme d'une table de la version 2.0 : aucun champ nouveau", () => {
+    for (const t of [oldTable(T0, ids), oldChallenge(T0, "p_a")]) {
+      expect(Object.keys(t).sort()).toEqual(OLD_KEYS.table);
+      for (const seat of t.seats) if (seat) expect(Object.keys(seat).sort()).toEqual(OLD_KEYS.seat);
+      for (const e of t.ended) expect(Object.keys(e).sort()).toEqual(OLD_KEYS.ended);
+      const text = JSON.stringify(t);
+      for (const word of ["stats", "beaten", "maitres"]) expect([word, text.includes(word)]).toEqual([word, false]);
+      audited(t);
+    }
+    // Une table neuve d'aujourd'hui s'écrit encore avec ces champs-là, tant qu'aucune main n'est finie.
+    const fresh = friends([1000, 1000]);
+    expect(Object.keys(fresh).sort()).toEqual(OLD_KEYS.table);
+    expect(Object.keys(fresh.seats[0]!).sort()).toEqual(OLD_KEYS.seat);
+  });
+
+  it("elle se lit, se joue et se règle comme avant ; ses compteurs partent de zéro", () => {
+    const rng = rngOf(81);
+    const old = oldTable(T0, ids);
+    // La vue : la même qu'avant, sans rien de nouveau.
+    const view = viewFor(old, "p_a", T0);
+    expect(view).toMatchObject({ kind: "privee", blind: 10, rise: null, phase: "encheres", turn: 0, you: 0, pot: 20, handNo: 5 });
+    expect(view.options).toMatchObject({ check: true, fold: true, bet: { min: 10, max: 20 }, rebuy: null });
+    expect(view.seats.every((s) => s === null || !("out" in s))).toBe(true);
+    expect(advance(old, T0, rng)).toBe(old);
+    // La main en cours se finit : parole, le robot répond, abattage, personne n'accuse.
+    let t = act(old, "p_a", { type: "parole" }, T0, rng);
+    for (let now = T0; now < T0 + 120_000 && t.phase !== "denouement"; now += 500) {
+      t = advance(t, now, rng);
+      const o = viewFor(t, "p_a", now).options;
+      if (o.fold) t = act(t, "p_a", o.check ? { type: "parole" } : { type: "suivre" }, now, rng);
+      else if (o.accuse.length > 0) t = act(t, "p_a", { type: "rien" }, now, rng);
+    }
+    expect([t.phase, t.result!.no]).toEqual(["denouement", 5]);
+    // La première main finie après la mise à jour est la première comptée.
+    expect(t.seats[0]!.stats).toMatchObject({ hands: 1, unmasked: 0, caught: 0 });
+    audited(t);
+    // Le tapis dû d'avant est toujours là, tel quel ; en accuser réception marche comme avant.
+    expect(t.ended).toEqual(old.ended);
+    t = settled(t, [OLD_SID_C]);
+    expect(t.ended).toEqual([]);
+    // Le joueur s'en va : la table ferme, il reprend son tapis et ses compteurs.
+    const stack = t.seats[0]!.stack;
+    t = leave(t, "p_a", t.clock, rng);
+    expect([t.phase, t.closed]).toEqual(["fermee", "vide"]);
+    expect(t.ended).toMatchObject([{ sid: OLD_SID_A, playerId: "p_a", payout: stack, received: 500, reason: "quitte", stats: { hands: 1 } }]);
+    expect(chipsOnTable(t)).toBe(0);
+    audited(t);
+  });
+
+  it("quitter en pleine main d'une vieille table : rien à compter, rien de perdu", () => {
+    const rng = rngOf(82);
+    const t = leave(oldTable(T0, ids), "p_a", T0, rng);
+    expect([t.phase, t.closed]).toEqual(["fermee", "vide"]);
+    // Les deux tapis à rendre : celui d'avant, tel quel, et le sien. Aucun ne porte de compteurs.
+    expect(t.ended).toEqual([
+      { sid: OLD_SID_C, playerId: "p_c", seat: 2, payout: 380, received: 400, reason: "quitte", at: T0 - 12_000 },
+      { sid: OLD_SID_A, playerId: "p_a", seat: 0, payout: 470, received: 500, reason: "quitte", at: T0 },
+    ]);
+    audited(t);
+  });
+
+  it("un vieux défi déjà joué se dénoue comme avant, et partir pendant son dénouement ne le perd plus", () => {
+    const rng = rngOf(83);
+    const old = oldChallenge(T0, "p_a");
+    expect(viewFor(old, "p_a", T0)).toMatchObject({ kind: "defi", place: "kiosque", blind: 2, rise: { hand: 9, blind: 4 }, phase: "denouement" });
+    const won = { sid: OLD_SID_A, playerId: "p_a", seat: 0, payout: 60, received: 30, reason: "defi-gagne" };
+    const waited = advance(old, T0 + 5_000, rng);
+    expect([waited.phase, waited.closed, waited.ended]).toEqual(["fermee", "defi", [{ ...won, at: T0 + 5_000 }]]);
+    // Avant cette version, partir à ce moment-là rendait « quitte » : la cagnotte était perdue.
+    const left = leave(old, "p_a", T0 + 1_000, rng);
+    expect([left.phase, left.closed, left.ended]).toEqual(["fermee", "defi", [{ ...won, at: T0 + 1_000 }]]);
+    expect(left.audit).toEqual({ in: 30, out: 60, bank: 30 });
+  });
+});
+
+// ===========================================================================
+// Le serveur : les mêmes règles, par les routes, avec le stockage en mémoire.
+
+interface Reply<T = any> {
+  status: number;
+  body: T;
+}
+
+interface Account {
+  playerId: string;
+  code: string;
+  auth: string;
+  pseudo: string;
+}
+
+type StorageMethod = keyof Storage;
+
+const ALL_PLACES = PLACES.map((place) => place.id);
+const NO_WINS = { kiosque: 0, cafe: 0, casino: 0, salon: 0, cercle: 0, yacht: 0, banque: 0, lune: 0 };
+/** De quoi s'asseoir trois fois à la Table des Maîtres. */
+const PURSE = 900 * BN;
+
+function makeWorld(seed = 0x2545f491) {
+  const storage = new MemoryStorage();
+  let now = T0;
+  let x = seed >>> 0 || 1;
+  /** Une panne programmée : la n-ième opération de stockage à venir échoue, avant ou après avoir eu lieu. */
+  let fault: { method: StorageMethod | "*"; countdown: number; when: "before" | "after" } | null = null;
+  let calls = 0;
+  const faulty = new Proxy(storage, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver) as unknown;
+      if (typeof value !== "function" || typeof prop !== "string") return value;
+      const watched = ["getPlayer", "mutatePlayer", "getTable", "createTable", "mutateTable", "deleteTable"].includes(prop);
+      if (!watched) return (value as (...args: unknown[]) => unknown).bind(target);
+      return async (...args: unknown[]) => {
+        calls += 1;
+        const hit = fault !== null && (fault.method === "*" || fault.method === prop) && --fault.countdown === 0;
+        const when = hit ? fault!.when : null;
+        if (hit) fault = null;
+        if (when === "before") throw new Error(`panne simulée avant ${prop}`);
+        const result = await (value as (...a: unknown[]) => Promise<unknown>).apply(target, args);
+        if (when === "after") throw new Error(`panne simulée après ${prop}`);
+        return result;
+      };
+    },
+  });
+  const deps: Deps = {
+    storage: faulty,
+    context: "test",
+    adminKey: null,
+    now: () => now,
+    random32: () => {
+      // xorshift32 : un hasard reproductible, propre à chaque monde.
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      return x >>> 0;
+    },
+  };
+
+  async function call<T = any>(method: string, path: string, body?: unknown, auth?: string): Promise<Reply<T>> {
+    const headers: Record<string, string> = {};
+    if (auth) headers.authorization = `Bearer ${auth}`;
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const res = await handle(new Request(`https://grattouille.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), deps);
+    return { status: res.status, body: (await res.json()) as T };
+  }
+
+  /** Une requête pendant laquelle une panne est attendue : le journal d'erreurs est mis de côté. */
+  async function crashing<T>(work: () => Promise<T>): Promise<T> {
+    const original = console.error;
+    console.error = () => undefined;
+    try {
+      return await work();
+    } finally {
+      console.error = original;
+      fault = null;
+    }
+  }
+
+  async function signup(pseudo: string, purse: number): Promise<Account> {
+    const r = await call("POST", "/api/players", { pseudo, species: "renard" });
+    if (r.status !== 201) throw new Error(`création refusée : ${JSON.stringify(r.body)}`);
+    storage.poke(r.body.playerId, (p) => { p.balance = purse; });
+    return { playerId: r.body.playerId, code: r.body.code, auth: `${r.body.playerId}.${r.body.code}`, pseudo };
+  }
+
+  /** Un joueur qui a relevé les huit défis : la Table des Maîtres lui est ouverte. */
+  async function master(pseudo: string, purse = PURSE): Promise<Account> {
+    const a = await signup(pseudo, purse);
+    storage.poke(a.playerId, (p) => { p.pokerWins = [...ALL_PLACES]; });
+    return a;
+  }
+
+  const poker = {
+    lobby: (a: Account) => call<PokerLobbyResponse>("GET", "/api/poker", undefined, a.auth),
+    create: (a: Account, body: unknown) => call<PokerTableResponse>("POST", "/api/poker/tables", body, a.auth),
+    join: (a: Account, code: string, buyIn: number) => call<PokerTableResponse>("POST", "/api/poker/join", { code, buyIn }, a.auth),
+    poll: (a: Account, code: string) => call<PokerTableResponse>("GET", `/api/poker/table?code=${code}`, undefined, a.auth),
+    act: (a: Account, code: string, action: PokerAction, step?: number) =>
+      call<PokerTableResponse>("POST", "/api/poker/act", step === undefined ? { code, action } : { code, action, step }, a.auth),
+  };
+
+  const me = async (a: Account): Promise<PlayerState> => (await call("GET", "/api/me", undefined, a.auth)).body.state;
+
+  return {
+    storage, deps, call, crashing, signup, master, poker, me,
+    record: (a: Account) => storage.peek(a.playerId)!,
+    balance: (a: Account) => storage.peek(a.playerId)!.balance,
+    table: (code: string) => storage.peekTable(code),
+    advance: (ms: number) => { now += ms; },
+    now: () => now,
+    calls: () => calls,
+    failAt: (method: StorageMethod | "*", countdown = 1, when: "before" | "after" = "before") => { fault = { method, countdown, when }; },
+  };
+}
+
+type World = ReturnType<typeof makeWorld>;
+
+/** S'assoit à la Table des Maîtres. Rend le code de la table. */
+async function sitAtMasters(w: World, a: Account): Promise<string> {
+  const r = await w.poker.create(a, { maitres: true });
+  if (r.status !== 201) throw new Error(`table refusée : ${JSON.stringify(r.body)}`);
+  return r.body.view!.code;
+}
+
+/** Les lieux des quatre hôtes assis à cette table. */
+function placesAt(w: World, code: string): string[] {
+  return w.table(code)!.seats.filter((s) => s !== null && s.bot !== null).map((s) => PLACES.find((place) => place.host === s!.bot)!.id);
+}
+
+const HOST_HANDS = ["Kc Kd 9s 4h 3c", "Qs Qd 8c 6h 2s", "Jh Jd 9c 6s 3d", "Th Td 9h 5s 4d"];
+const WORST = "7h 5d 4c 3s 2h";
+
+/**
+ * Tout le monde à tapis dès la première main, avec les mains qu'on choisit (derrière le dos
+ * du serveur), puis la main se déroule jusqu'au dénouement : le joueur joue franc jeu et
+ * n'accuse personne, les hôtes non plus.
+ */
+async function everyoneAllIn(w: World, a: Account, code: string, mine: string): Promise<TableView> {
+  w.storage.pokeTable(code, (t) => {
+    for (const p of t.hand!.players) {
+      const seat = t.seats[p.seat]!;
+      p.cards = hand(seat.bot === null ? mine : HOST_HANDS[p.seat - 1]!);
+      p.committed += seat.stack;
+      t.hand!.pot += seat.stack;
+      seat.stack = 0;
+      p.allIn = true;
+      // Les hôtes ont choisi : franc jeu.
+      if (seat.bot !== null) { p.chosen = true; p.actAt = null; }
+    }
+  });
+  const fair = await w.poker.act(a, code, { type: "franc-jeu" });
+  expect(fair.body.view!.phase).toBe("abattage");
+  // Les hôtes ne disent rien.
+  w.storage.pokeTable(code, (t) => {
+    for (const p of t.hand!.players) if (t.seats[p.seat]!.bot !== null) { p.spoke = true; p.actAt = null; }
+  });
+  const quiet = await w.poker.act(a, code, { type: "rien" });
+  expect(quiet.body.view!.phase).toBe("denouement");
+  return quiet.body.view!;
+}
+
+/** Joue la table par l'API jusqu'à en sortir, le joueur tenu par un robot difficile. */
+async function playByApi(w: World, a: Account, code: string, side: Random32, each?: (view: TableView) => void): Promise<PokerTableResponse> {
+  for (let i = 0; i < 8_000; i++) {
+    w.advance(1_000);
+    const polled = await w.poker.poll(a, code);
+    expect(polled.status).toBe(200);
+    if (polled.body.left) return polled.body;
+    const view = polled.body.view!;
+    each?.(view);
+    const move = botMove(view, side);
+    if (!move) continue;
+    const acted = await w.poker.act(a, code, move, view.step);
+    expect([move.type, acted.status]).toEqual([move.type, 200]);
+    if (acted.body.left) return acted.body;
+  }
+  throw new Error("la table ne s'est pas dénouée");
+}
+
+/** Ce que font les requêtes suivantes après une panne : le hall, le temps qui passe, la table relue. */
+async function recover(w: World, accounts: Account[]): Promise<void> {
+  for (const a of accounts) expect((await w.poker.lobby(a)).status).toBe(200);
+  w.advance(RESERVE_MS + 1_000);
+  for (const code of w.storage.tableCodes()) for (const a of accounts) await w.poker.poll(a, code);
+  for (const a of accounts) expect((await w.poker.lobby(a)).status).toBe(200);
+}
+
+interface Cut<C> {
+  /** Le monde juste avant la requête à couper. Doit être reproductible. */
+  setup: (w: World) => Promise<C>;
+  /** La requête pendant laquelle le serveur tombe. */
+  request: (w: World, ctx: C) => Promise<Reply>;
+  accounts: (ctx: C) => Account[];
+  /** Après les requêtes suivantes. */
+  afterRecovery: (w: World, ctx: C, label: string) => void | Promise<void>;
+}
+
+/**
+ * Rejoue la même requête en coupant le serveur à chaque opération de stockage, juste avant
+ * qu'elle ait lieu puis juste après. Rend le nombre de coupures essayées.
+ */
+async function cutEverywhere<C>(cut: Cut<C>): Promise<number> {
+  const dry = makeWorld();
+  const ctx0 = await cut.setup(dry);
+  const before = dry.calls();
+  const ok = await cut.request(dry, ctx0);
+  expect(ok.status).toBeLessThan(300);
+  const steps = dry.calls() - before;
+  expect(steps).toBeGreaterThanOrEqual(3);
+  let cuts = 0;
+  for (let k = 1; k <= steps; k++) {
+    for (const when of ["before", "after"] as const) {
+      const label = `coupure ${when === "before" ? "avant" : "après"} l'opération ${k} sur ${steps}`;
+      const w = makeWorld();
+      const ctx = await cut.setup(w);
+      w.failAt("*", k, when);
+      const crashed = await w.crashing(() => cut.request(w, ctx));
+      expect([label, crashed.status, crashed.body.error?.code]).toEqual([label, 500, "SERVER_ERROR"]);
+      await recover(w, cut.accounts(ctx));
+      await cut.afterRecovery(w, ctx, label);
+      cuts += 1;
+    }
+  }
+  return cuts;
+}
+
+// ---------------------------------------------------------------------------
+
+describe("s'asseoir à la Table des Maîtres", () => {
+  it("MASTERS_LOCKED : fermée tant que les huit défis ne sont pas tous relevés", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", PURSE);
+    for (const n of [0, 1, 7]) {
+      w.storage.poke(a.playerId, (p) => { p.pokerWins = ALL_PLACES.slice(0, n); });
+      const r = await w.poker.create(a, { maitres: true }) as Reply;
+      expect([n, r.status, r.body.error?.code]).toEqual([n, 403, "MASTERS_LOCKED"]);
+      // Une phrase pour le joueur, comme les autres refus.
+      expect(Object.keys(r.body)).toEqual(["error"]);
+      expect(r.body.error.message).toBe("La Table des Maîtres n'ouvre qu'à qui a relevé les huit défis.");
+      expect((await w.poker.lobby(a)).body.masters).toMatchObject({ open: false, defis: n, affordable: true });
+    }
+    // Sept défis dans le désordre, et un lieu qui n'existe pas : toujours fermée.
+    w.storage.poke(a.playerId, (p) => { p.pokerWins = ["lune", "atlantide", ...ALL_PLACES.slice(0, 6)]; });
+    expect((await w.poker.create(a, { maitres: true }) as Reply).body.error.code).toBe("MASTERS_LOCKED");
+    // Aucun refus n'a rien coûté ni rien créé.
+    expect([w.balance(a), w.record(a).poker ?? null, w.storage.tableCodes()]).toEqual([PURSE, null, []]);
+    // Le huitième défi relevé, elle ouvre.
+    w.storage.poke(a.playerId, (p) => { p.pokerWins = [...ALL_PLACES].reverse(); });
+    expect((await w.poker.lobby(a)).body.masters).toMatchObject({ open: true, defis: 8 });
+    expect((await w.poker.create(a, { maitres: true })).status).toBe(201);
+  });
+
+  it("BAD_REQUEST : `maitres` vaut `true`, et ne se combine ni avec une table de la maison ni avec un défi", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    for (const body of [
+      { maitres: false }, { maitres: "oui" }, { maitres: 1 }, { maitres: null },
+      { maitres: true, defi: "kiosque" }, { maitres: true, maison: "kiosque" }, { maitres: true, ack: "t_x" },
+    ]) {
+      const r = await w.poker.create(a, body) as Reply;
+      expect([JSON.stringify(body), r.status, r.body.error?.code]).toEqual([JSON.stringify(body), 400, "BAD_REQUEST"]);
+    }
+    expect([w.balance(a), w.storage.tableCodes()]).toEqual([PURSE, []]);
+    // Sans compte : comme partout.
+    expect((await w.call("POST", "/api/poker/tables", { maitres: true })).status).toBe(401);
+  });
+
+  it("BUYIN_UNAFFORDABLE : il faut 300 Bn€ dans la bourse, tickets déclarés compris", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel", MASTERS_BUYIN - 25);
+    expect((await w.poker.lobby(a)).body.masters).toEqual({
+      open: true, defis: 8, blind: MASTERS_BLIND, buyIn: MASTERS_BUYIN, won: 0, affordable: false,
+    });
+    const poor = await w.poker.create(a, { maitres: true }) as Reply;
+    expect([poor.status, poor.body.error?.code]).toEqual([409, "BUYIN_UNAFFORDABLE"]);
+    expect([w.balance(a), w.storage.tableCodes()]).toEqual([MASTERS_BUYIN - 25, []]);
+    // Un ticket de 25 € gratté et déclaré avec la requête : le compte y est, à l'euro près.
+    w.storage.poke(a.playerId, (p) => { p.pending = [{ id: "t_gagnant00000", type: "tirelire", gain: 25, seed: 1, at: T0 }]; });
+    expect((await w.poker.create(a, { maitres: true }) as Reply).body.error.code).toBe("BUYIN_UNAFFORDABLE");
+    const r = await w.poker.create(a, { maitres: true, ack: ["t_gagnant00000"] });
+    expect(r.status).toBe(201);
+    expect(r.body.state).toMatchObject({ balance: 0, pending: [] });
+    expect(w.record(a).poker).toMatchObject({ seq: 1, paid: MASTERS_BUYIN });
+  });
+
+  it("ALREADY_SEATED : un joueur ne s'assoit qu'à une table à la fois", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const house = (await w.poker.create(a, { maison: "kiosque", buyIn: 50 })).body.view!.code;
+    const refused = await w.poker.create(a, { maitres: true }) as Reply;
+    expect([refused.status, refused.body.error?.code]).toEqual([409, "ALREADY_SEATED"]);
+    await w.poker.act(a, house, { type: "quitter" });
+    const code = await sitAtMasters(w, a);
+    // Assis aux Maîtres, il ne s'assoit nulle part ailleurs, pas même à une autre Table des Maîtres.
+    for (const body of [{ maitres: true }, { defi: "kiosque" }, { maison: "kiosque" }]) {
+      expect((await w.poker.create(a, body) as Reply).body.error?.code).toBe("ALREADY_SEATED");
+    }
+    expect(w.storage.tableCodes()).toEqual([code]);
+    expect(w.record(a).poker).toMatchObject({ code, paid: MASTERS_BUYIN });
+  });
+
+  it("la table : le joueur et quatre hôtes tirés au sort, 300 Bn€ chacun, et la première main est donnée", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const before = await w.me(a);
+    const r = await w.poker.create(a, { maitres: true });
+    expect(r.status).toBe(201);
+    const view = r.body.view!;
+    expect(view.code).toMatch(/^[A-HJ-KM-NP-TV-Z2-9]{5}$/);
+    expect(view).toMatchObject({
+      kind: "maitres", place: null, difficulty: "difficile", minBuyIn: MASTERS_BUYIN, maxBuyIn: MASTERS_BUYIN,
+      blind: MASTERS_BLIND, rise: { hand: 13, blind: 2 * MASTERS_BLIND }, started: true, phase: "triche", handNo: 1,
+      you: 0, pot: 5 * MASTERS_BLIND, closed: null,
+    });
+    // Cinq sièges : lui, puis quatre hôtes distincts, chacun avec sa cave moins la blinde.
+    expect(view.seats).toHaveLength(5);
+    expect(view.seats[0]).toMatchObject({ pseudo: "Marcel", bot: null, stack: MASTERS_BUYIN - MASTERS_BLIND, funded: true, inHand: true });
+    const hosts = view.seats.slice(1).map((s) => s!.bot!);
+    expect(new Set(hosts).size).toBe(4);
+    expect(hosts.every((id) => HOSTS.includes(id))).toBe(true);
+    expect(view.seats.slice(1).map((s) => [s!.pseudo, s!.stack, s!.committed])).toEqual(
+      Array.from({ length: 4 }, () => [null, MASTERS_BUYIN - MASTERS_BLIND, MASTERS_BLIND]),
+    );
+    expect(view.seats.every((s) => !("out" in s!))).toBe(true);
+    // Pas de recave, pas de lancement : c'est un tournoi, et il est parti.
+    expect(view.options).toMatchObject({ start: false, rebuy: null, cheat: true });
+    // Sa cave a quitté sa bourse ; sa fortune, elle, n'a pas bougé.
+    expect(r.body.state).toMatchObject({ balance: PURSE - MASTERS_BUYIN, poker: { code: view.code }, masters: 0, fortune: before.fortune });
+    expect(w.record(a).poker).toMatchObject({ code: view.code, seq: 1, paid: MASTERS_BUYIN });
+    const stored = w.table(view.code)!;
+    expect(stored).toMatchObject({ kind: "maitres", place: null, blind: MASTERS_BLIND, minBuyIn: MASTERS_BUYIN, maxBuyIn: MASTERS_BUYIN, difficulty: "difficile" });
+    expect(stored.audit).toEqual({ in: MASTERS_BUYIN, out: 0, bank: 4 * MASTERS_BUYIN });
+    expect(chipsOnTable(stored)).toBe(ALL);
+    // Le hall et GET /api/me disent où il est assis.
+    expect((await w.poker.lobby(a)).body.seat).toEqual({ code: view.code, kind: "maitres", place: null });
+    expect((await w.me(a)).poker).toEqual({ code: view.code });
+  });
+
+  it("personne d'autre ne s'y assoit ni ne la regarde, et personne n'y recave", async () => {
+    const w = makeWorld();
+    const [a, b] = [await w.master("Marcel"), await w.master("Lulu")];
+    const code = await sitAtMasters(w, a);
+    const joined = await w.poker.join(b, code, MASTERS_BUYIN) as Reply;
+    expect([joined.status, joined.body.error?.code]).toEqual([404, "TABLE_NOT_FOUND"]);
+    const peeked = await w.poker.poll(b, code) as Reply;
+    expect([peeked.status, peeked.body.error?.code]).toEqual([404, "TABLE_NOT_FOUND"]);
+    expect([w.balance(b), w.record(b).poker ?? null]).toEqual([PURSE, null]);
+    for (const action of [{ type: "recaver", amount: MASTERS_BLIND }, { type: "lancer" }] as PokerAction[]) {
+      const r = await w.poker.act(a, code, action) as Reply;
+      expect([action.type, r.status, r.body.error?.code]).toEqual([action.type, 409, "ACTION_IMPOSSIBLE"]);
+    }
+    expect(w.balance(a)).toBe(PURSE - MASTERS_BUYIN);
+    expect(chipsOnTable(w.table(code)!)).toBe(ALL);
+  });
+
+  it("le tirage change d'une table à l'autre", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const tables: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      const code = await sitAtMasters(w, a);
+      const hosts = w.table(code)!.seats.slice(1).map((s) => s!.bot!);
+      expect(new Set(hosts).size).toBe(4);
+      expect(hosts.every((id) => HOSTS.includes(id))).toBe(true);
+      tables.push(hosts.join(" "));
+      // Il se lève aussitôt : sa blinde reste au pot.
+      const r = await w.poker.act(a, code, { type: "quitter" });
+      expect(r.body.left).toEqual({ reason: "quitte", payout: MASTERS_BUYIN - MASTERS_BLIND, bonus: 0 });
+      expect(r.body.view).toMatchObject({ phase: "fermee", closed: "vide" });
+    }
+    expect(new Set(tables).size).toBeGreaterThanOrEqual(6);
+    expect(new Set(tables.flatMap((x) => x.split(" "))).size).toBeGreaterThanOrEqual(7);
+    // Huit blindes perdues, rien d'autre ; ni victoire, ni histoire d'hôte, ni main comptée.
+    expect(w.balance(a)).toBe(PURSE - 8 * MASTERS_BLIND);
+    expect(await w.me(a)).toMatchObject({ masters: 0, hostWins: { ...NO_WINS, ...Object.fromEntries(ALL_PLACES.map((id) => [id, 1])) }, pokerStats: stat(0) });
+    expect(w.storage.tableCodes()).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("jouer la Table des Maîtres jusqu'au bout", () => {
+  it("gagnée : il repart avec tout l'argent de la table, et la victoire est comptée une fois", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    const places = placesAt(w, code);
+    const shown = await everyoneAllIn(w, a, code, ACES);
+    // Le dénouement de la dernière main : les quatre hôtes sont éliminés, la table est encore là.
+    expect(shown.seats.map((s) => [s!.stack, s!.out ?? false])).toEqual([[ALL, false], [0, true], [0, true], [0, true], [0, true]]);
+    expect(shown.options.next).toBe(true);
+    expect(w.balance(a)).toBe(PURSE - MASTERS_BUYIN);
+    w.advance(RESULT_MS);
+    const r = await w.poker.poll(a, code);
+    expect(r.status).toBe(200);
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "maitres", you: null, seats: [null, null, null, null, null] });
+    // 1 500 Bn€ : sa cave et celles des quatre hôtes. Pas de cagnotte : le gain, c'est la table.
+    expect(r.body.left).toEqual({ reason: "maitres-gagne", payout: ALL, bonus: 0 });
+    const expected = { ...NO_WINS, ...Object.fromEntries(ALL_PLACES.map((id) => [id, 1])) };
+    for (const place of places) expected[place as keyof typeof NO_WINS] = 2;
+    expect(r.body.state).toMatchObject({
+      balance: PURSE - MASTERS_BUYIN + ALL, masters: 1, pokerStats: stat(1, 1),
+      // Une victoire de plus contre chacun des quatre hôtes de la table, et contre eux seuls.
+      hostWins: expected,
+    });
+    expect(r.body.state!.poker).toBeUndefined();
+    expect(w.record(a)).toMatchObject({ balance: 2_100 * BN, masters: 1, poker: null });
+    expect(w.storage.tableCodes()).toEqual([]);
+    // Rejouer le règlement : la table n'existe plus, et plus rien ne bouge.
+    const frozen = JSON.stringify(w.record(a));
+    expect((await w.poker.poll(a, code) as Reply).body.error.code).toBe("TABLE_NOT_FOUND");
+    expect((await w.poker.act(a, code, { type: "quitter" }) as Reply).body.error.code).toBe("TABLE_NOT_FOUND");
+    const lobby = (await w.poker.lobby(a)).body;
+    expect([lobby.seat, lobby.masters]).toEqual([null, { open: true, defis: 8, blind: MASTERS_BLIND, buyIn: MASTERS_BUYIN, won: 1, affordable: true }]);
+    expect(await w.me(a)).toMatchObject({ masters: 1, balance: 2_100 * BN });
+    expect(JSON.stringify(w.record(a))).toBe(frozen);
+  });
+
+  it("gagnée deux fois : deux victoires, et la table se rejoue autant qu'on veut", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const beaten: Record<string, number> = {};
+    for (const wins of [1, 2]) {
+      const code = await sitAtMasters(w, a);
+      for (const place of placesAt(w, code)) beaten[place] = (beaten[place] ?? 0) + 1;
+      await everyoneAllIn(w, a, code, ACES);
+      // Il demande la suite sans attendre la fin de l'affichage : la table se dénoue aussitôt.
+      const r = await w.poker.act(a, code, { type: "suite" });
+      expect(r.body.left).toEqual({ reason: "maitres-gagne", payout: ALL, bonus: 0 });
+      expect(r.body.state).toMatchObject({ masters: wins, balance: PURSE + wins * 4 * MASTERS_BUYIN, pokerStats: stat(wins, wins) });
+    }
+    const state = await w.me(a);
+    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, 1 + (beaten[place] ?? 0)]);
+    expect((await w.poker.lobby(a)).body.masters.won).toBe(2);
+  });
+
+  it("perdue : sa cave est perdue, rien n'est compté comme une victoire, et elle se retente", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    const shown = await everyoneAllIn(w, a, code, WORST);
+    // Les rois ont tout pris : lui et trois hôtes sont éliminés d'un coup.
+    expect(shown.seats.map((s) => [s!.stack, s!.out ?? false])).toEqual([[0, true], [ALL, false], [0, true], [0, true], [0, true]]);
+    w.advance(RESULT_MS);
+    const r = await w.poker.poll(a, code);
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "maitres", you: null });
+    expect(r.body.left).toEqual({ reason: "maitres-perdu", payout: 0, bonus: 0 });
+    expect(r.body.state).toMatchObject({ balance: PURSE - MASTERS_BUYIN, masters: 0, pokerStats: stat(1, 0) });
+    expect(r.body.state!.hostWins).toEqual({ ...NO_WINS, ...Object.fromEntries(ALL_PLACES.map((id) => [id, 1])) });
+    // Rien n'est écrit qui ne soit mérité : ni victoire, ni compte d'hôtes.
+    expect([w.record(a).masters, w.record(a).hostWins, w.record(a).poker]).toEqual([undefined, undefined, null]);
+    expect(w.storage.tableCodes()).toEqual([]);
+    expect((await w.poker.lobby(a)).body.masters).toMatchObject({ won: 0, affordable: true });
+    expect((await w.poker.create(a, { maitres: true })).status).toBe(201);
+    expect(w.balance(a)).toBe(PURSE - 2 * MASTERS_BUYIN);
+  });
+
+  it("quittée en cours de route : son tapis, sans victoire", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    expect(r.body.left).toEqual({ reason: "quitte", payout: MASTERS_BUYIN - MASTERS_BLIND, bonus: 0 });
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "vide" });
+    expect(r.body.state).toMatchObject({ balance: PURSE - MASTERS_BLIND, masters: 0, pokerStats: stat(0) });
+    expect([w.record(a).masters, w.record(a).hostWins, w.record(a).pokerStats]).toEqual([undefined, undefined, undefined]);
+    expect(w.storage.tableCodes()).toEqual([]);
+  });
+
+  it("partir pendant le dénouement de la dernière main : la victoire reste acquise", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    await everyoneAllIn(w, a, code, ACES);
+    w.advance(1_000);
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    expect(r.body.left).toEqual({ reason: "maitres-gagne", payout: ALL, bonus: 0 });
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "maitres" });
+    expect(r.body.state).toMatchObject({ masters: 1, balance: PURSE + 4 * MASTERS_BUYIN });
+    // Et une défaite acquise reste une défaite.
+    const again = await sitAtMasters(w, a);
+    await everyoneAllIn(w, a, again, WORST);
+    const lost = await w.poker.act(a, again, { type: "quitter" });
+    expect(lost.body.left).toEqual({ reason: "maitres-perdu", payout: 0, bonus: 0 });
+    expect(lost.body.state).toMatchObject({ masters: 1, balance: PURSE + 3 * MASTERS_BUYIN });
+  });
+
+  it("le joueur ferme le jeu en pleine table : écarté pour absence, il retrouve son tapis au hall", async () => {
+    const w = makeWorld();
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    w.advance(3_600_000);
+    const lobby = await w.poker.lobby(a);
+    expect(lobby.body.seat).toBeNull();
+    const record = w.record(a);
+    expect(record.poker).toBeNull();
+    // Il n'a perdu que les blindes des mains jouées sans lui (et gagné, peut-être, un pot à la parole).
+    expect(record.balance).toBeGreaterThanOrEqual(PURSE - 5 * MASTERS_BLIND);
+    expect(record.balance).toBeLessThan(PURSE + MASTERS_BUYIN);
+    expect([record.masters, record.hostWins]).toEqual([undefined, undefined]);
+    expect(lobby.body.state.pokerStats.hands).toBeGreaterThanOrEqual(4);
+    expect(w.storage.tableCodes()).toEqual([]);
+    expect((await w.poker.poll(a, code) as Reply).body.error.code).toBe("TABLE_NOT_FOUND");
+  });
+
+  it("des tables entières par l'API, dans les deux sens : la blinde monte, les hôtes tombent, tout est versé", async () => {
+    const outcomes = new Map<string, number>();
+    for (const seed of [11, 12, 13, 14, 15, 16]) {
+      const w = makeWorld(seed);
+      const a = await w.master("Marcel");
+      const code = await sitAtMasters(w, a);
+      const out = new Set<number>();
+      const blinds = new Map<number, number>();
+      let last: TableView | null = null;
+      const end = await playByApi(w, a, code, rngOf(900 + seed), (view) => {
+        last = view;
+        // La bourse ne bouge pas pendant la partie, et l'argent de la table non plus.
+        if (view.options.rebuy !== null) throw new Error("une recave est offerte");
+        if (view.phase === "triche") blinds.set(view.handNo, view.blind);
+        for (const seat of view.seats) {
+          if (seat!.out) out.add(seat!.seat);
+          else if (out.has(seat!.seat)) throw new Error("un éliminé est revenu");
+        }
+      });
+      const stored = w.record(a);
+      const view = last as TableView | null;
+      expect(view).not.toBeNull();
+      expect(end.view).toMatchObject({ phase: "fermee", closed: "maitres", you: null });
+      const won = end.left!.reason === "maitres-gagne";
+      outcomes.set(end.left!.reason, (outcomes.get(end.left!.reason) ?? 0) + 1);
+      expect(end.left).toEqual({ reason: won ? "maitres-gagne" : "maitres-perdu", payout: won ? ALL : 0, bonus: 0 });
+      expect(end.state).toMatchObject({ balance: PURSE - MASTERS_BUYIN + (won ? ALL : 0), masters: won ? 1 : 0 });
+      expect([stored.balance, stored.poker, stored.masters]).toEqual([end.state!.balance, null, won ? 1 : undefined]);
+      // Gagnée : les quatre hôtes sont tombés. Perdue : son propre siège était marqué.
+      if (won) expect([...out].sort()).toEqual([1, 2, 3, 4]);
+      else expect(out.has(0)).toBe(true);
+      // Chaque main jouée a suivi le barème, et chacune est comptée au joueur, une fois.
+      for (const [main, blind] of blinds) expect([main, blind]).toEqual([main, mastersBlind(MASTERS_BLIND, main)]);
+      expect(blinds.size).toBe(view!.handNo);
+      expect(end.state!.pokerStats.hands).toBe(view!.handNo);
+      expect(w.storage.tableCodes()).toEqual([]);
+    }
+    // Les deux fins se sont produites.
+    expect(outcomes.get("maitres-gagne") ?? 0).toBeGreaterThanOrEqual(1);
+    expect(outcomes.get("maitres-perdu") ?? 0).toBeGreaterThanOrEqual(1);
+    expect([...outcomes.keys()].sort()).toEqual(["maitres-gagne", "maitres-perdu"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("la victoire, comptée une seule fois", () => {
+  /** La table arrêtée au dénouement de sa dernière main : les quatre hôtes sont ruinés. */
+  async function wonTable(w: World): Promise<{ a: Account; code: string; places: string[] }> {
+    const a = await w.master("Marcel");
+    const code = await sitAtMasters(w, a);
+    w.storage.pokeTable(code, (t) => {
+      t.hand = null;
+      t.phase = "denouement";
+      t.nextAt = w.now() + RESULT_MS;
+      t.handNo = 40;
+      t.seats.forEach((seat, i) => { seat!.stack = i === 0 ? ALL : 0; });
+      t.seats[0]!.stats = { hands: 40, pots: 12, unmasked: 5, caught: 3 };
+    });
+    w.advance(RESULT_MS);
+    return { a, code, places: placesAt(w, code) };
+  }
+
+  function expectWonOnce(w: World, a: Account, places: string[], label: string): void {
+    const p = w.record(a);
+    expect([label, p.balance, p.masters, p.poker, p.pokerStats, w.storage.tableCodes()]).toEqual([
+      label, PURSE + 4 * MASTERS_BUYIN, 1, null, { hands: 40, pots: 12, unmasked: 5, caught: 3 }, [],
+    ]);
+    // Il avait déjà battu chaque hôte une fois (son défi) : deux victoires contre les quatre de la table, pas trois.
+    expect([label, p.hostWins]).toEqual([label, Object.fromEntries(places.map((id) => [id, 2]))]);
+  }
+
+  it("rejouer la requête de règlement ne recrédite ni ne recompte", async () => {
+    const w = makeWorld();
+    const { a, code, places } = await wonTable(w);
+    // La bourse est créditée, mais l'accusé de réception de la table n'a pas lieu : elle croit devoir encore.
+    w.failAt("mutateTable", 2);
+    const crashed = await w.crashing(() => w.poker.poll(a, code));
+    expect(crashed.status).toBe(500);
+    expect(w.record(a)).toMatchObject({ balance: PURSE + 4 * MASTERS_BUYIN, masters: 1, poker: null });
+    expect(w.table(code)!.ended).toMatchObject([{ playerId: a.playerId, payout: ALL, reason: "maitres-gagne" }]);
+    // Dix requêtes plus tard : toujours une victoire, toujours 2 100 Bn€.
+    for (let i = 0; i < 5; i++) {
+      const r = await w.poker.poll(a, code);
+      // La table dit encore pourquoi il n'y est plus, sans rien reverser.
+      if (r.status === 200) expect(r.body.left).toMatchObject({ reason: "maitres-gagne" });
+      await w.poker.lobby(a);
+    }
+    expectWonOnce(w, a, places, "rejoué");
+    const state = await w.me(a);
+    expect(state).toMatchObject({ masters: 1, balance: 2_100 * BN, pokerStats: { hands: 40, pots: 12, unmasked: 5, caught: 3 } });
+    for (const place of ALL_PLACES) expect([place, state.hostWins[place]]).toEqual([place, places.includes(place) ? 2 : 1]);
+  });
+
+  it("coupée à chaque écriture : la table est versée une fois, la victoire comptée une fois", async () => {
+    const cuts = await cutEverywhere({
+      setup: (w) => wonTable(w),
+      accounts: ({ a }) => [a],
+      request: (w, { a, code }) => w.poker.poll(a, code),
+      afterRecovery: async (w, { a, places }, label) => {
+        expectWonOnce(w, a, places, label);
+        expect([label, (await w.poker.lobby(a)).body.masters.won]).toEqual([label, 1]);
+      },
+    });
+    expect(cuts).toBeGreaterThanOrEqual(8);
+  });
+
+  it("coupée pendant qu'il quitte la table gagnée : pareil", async () => {
+    const cuts = await cutEverywhere({
+      setup: async (w) => {
+        const a = await w.master("Marcel");
+        const code = await sitAtMasters(w, a);
+        const places = placesAt(w, code);
+        await everyoneAllIn(w, a, code, ACES);
+        return { a, code, places };
+      },
+      accounts: ({ a }) => [a],
+      request: (w, { a, code }) => w.poker.act(a, code, { type: "quitter" }),
+      afterRecovery: (w, { a, places }, label) => {
+        const p = w.record(a);
+        expect([label, p.balance, p.masters, p.poker, p.pokerStats, w.storage.tableCodes()]).toEqual([
+          label, PURSE + 4 * MASTERS_BUYIN, 1, null, stat(1, 1), [],
+        ]);
+        expect([label, p.hostWins]).toEqual([label, Object.fromEntries(places.map((id) => [id, 2]))]);
+      },
+    });
+    expect(cuts).toBeGreaterThanOrEqual(8);
+  });
+
+  it("s'asseoir, coupé à chaque écriture : il est assis avec sa cave, ou il n'a rien payé", async () => {
+    const cuts = await cutEverywhere({
+      setup: async (w) => ({ a: await w.master("Marcel") }),
+      accounts: ({ a }) => [a],
+      request: (w, { a }) => w.poker.create(a, { maitres: true }),
+      afterRecovery: async (w, { a }, label) => {
+        const p = w.record(a);
+        if (p.poker) {
+          const t = w.table(p.poker.code)!;
+          expect([label, p.balance, t.seats[0]!.received, p.poker.paid, t.kind]).toEqual([label, PURSE - MASTERS_BUYIN, MASTERS_BUYIN, MASTERS_BUYIN, "maitres"]);
+          // Il s'en va : il retrouve tout, sauf ce que les mains jouées sans lui ont coûté.
+          await w.poker.act(a, p.poker.code, { type: "quitter" });
+        }
+        const after = w.record(a);
+        expect([label, after.poker ?? null, after.masters, w.storage.tableCodes()]).toEqual([label, null, undefined, []]);
+        expect(after.balance).toBeGreaterThan(PURSE - MASTERS_BUYIN);
+        expect(after.balance).toBeLessThanOrEqual(PURSE + MASTERS_BUYIN);
+      },
+    });
+    expect(cuts).toBeGreaterThanOrEqual(8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("le hall", () => {
+  it("dit où en est la Table des Maîtres : fermée ou ouverte, à sa portée ou non, combien de fois gagnée", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 0);
+    const fresh = (await w.poker.lobby(a)).body;
+    // La forme du hall : les champs d'avant, plus `masters`.
+    expect(Object.keys(fresh).sort()).toEqual(["blinds", "challenges", "houses", "masters", "seat", "state"]);
+    expect(fresh.masters).toEqual({ open: false, defis: 0, blind: 10 * BN, buyIn: 300 * BN, won: 0, affordable: false });
+    const at = async (change: (p: ReturnType<World["record"]>) => void) => {
+      w.storage.poke(a.playerId, change);
+      return (await w.poker.lobby(a)).body.masters;
+    };
+    // Riche mais trois défis seulement : fermée, et le hall dit combien il en manque.
+    expect(await at((p) => { p.balance = PURSE; p.pokerWins = ["casino", "kiosque", "cafe"]; })).toMatchObject({ open: false, defis: 3, affordable: true });
+    // Les huit défis, mais un euro trop court.
+    expect(await at((p) => { p.balance = MASTERS_BUYIN - 1; p.pokerWins = [...ALL_PLACES]; })).toMatchObject({ open: true, defis: 8, affordable: false });
+    expect(await at((p) => { p.balance = MASTERS_BUYIN; })).toMatchObject({ open: true, affordable: true, won: 0 });
+    // Ses victoires passées ; un compteur illisible vaut zéro.
+    expect((await at((p) => { p.masters = 3; })).won).toBe(3);
+    expect((await at((p) => { (p as unknown as { masters: unknown }).masters = "beaucoup"; })).won).toBe(0);
+    // Regarder le hall n'écrit rien dans le compte.
+    const frozen = JSON.stringify(w.record(a));
+    await w.poker.lobby(a);
+    expect(JSON.stringify(w.record(a))).toBe(frozen);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("les compteurs du poker, versés avec le tapis", () => {
+  /** Une table de deux joueurs, la partie lancée : on en est à la triche de la première main. */
+  async function duel(w: World): Promise<{ a: Account; b: Account; code: string }> {
+    const [a, b] = [await w.signup("Marcel", 5_000), await w.signup("Lulu", 5_000)];
+    const code = (await w.poker.create(a, { blind: 10, maxBuyIn: 1000, seats: 2, bots: 0, buyIn: 500 })).body.view!.code;
+    expect((await w.poker.join(b, code, 500)).status).toBe(200);
+    expect((await w.poker.act(a, code, { type: "lancer" })).status).toBe(200);
+    return { a, b, code };
+  }
+
+  /** Une main entière : Lulu (siège 1) se fait un brelan, Marcel (siège 0) la démasque et prend le pot. */
+  async function caughtHand(w: World, a: Account, b: Account, code: string): Promise<void> {
+    w.storage.pokeTable(code, (t) => {
+      t.hand!.players.find((p) => p.seat === 0)!.cards = hand(ACES);
+      t.hand!.players.find((p) => p.seat === 1)!.cards = hand(KINGS);
+    });
+    expect((await w.poker.act(b, code, { type: "tricher", index: 2, card: "Kh" })).status).toBe(200);
+    expect((await w.poker.act(a, code, { type: "franc-jeu" })).status).toBe(200);
+    for (let i = 0; i < 2; i++) {
+      const turn = w.table(code)!.hand!.turn;
+      expect((await w.poker.act(turn === 0 ? a : b, code, { type: "parole" })).status).toBe(200);
+    }
+    expect((await w.poker.act(a, code, { type: "accuser", seat: 1 })).status).toBe(200);
+    const r = await w.poker.act(b, code, { type: "rien" });
+    expect(r.body.view).toMatchObject({ phase: "denouement", result: { unmasked: [{ seat: 1 }] } });
+  }
+
+  it("pendant la partie rien ne bouge ; en partant, chacun reçoit les siens", async () => {
+    const w = makeWorld();
+    const { a, b, code } = await duel(w);
+    await caughtHand(w, a, b, code);
+    // La table les tient, siège par siège ; les comptes, eux, n'ont pas encore bougé.
+    expect(w.table(code)!.seats.map((s) => s!.stats)).toEqual([stat(1, 1, 1, 0), stat(1, 0, 0, 1)]);
+    expect([(await w.me(a)).pokerStats, (await w.me(b)).pokerStats]).toEqual([stat(0), stat(0)]);
+    expect([w.record(a).pokerStats, w.record(b).pokerStats]).toEqual([undefined, undefined]);
+    // Lulu s'en va : son tapis et ses compteurs arrivent ensemble, dans la même réponse.
+    const gone = await w.poker.act(b, code, { type: "quitter" });
+    expect(gone.body.left).toEqual({ reason: "quitte", payout: 490, bonus: 0 });
+    expect(gone.body.state).toMatchObject({ balance: 4_990, pokerStats: stat(1, 0, 0, 1) });
+    expect(w.record(b).pokerStats).toEqual(stat(1, 0, 0, 1));
+    // Marcel est toujours assis : rien pour lui tant qu'il reste.
+    expect((await w.me(a)).pokerStats).toEqual(stat(0));
+    const last = await w.poker.act(a, code, { type: "quitter" });
+    expect(last.body.state).toMatchObject({ balance: 5_010, pokerStats: stat(1, 1, 1, 0) });
+    expect(w.storage.tableCodes()).toEqual([]);
+    // Rien n'est recompté ensuite, quoi qu'on relise.
+    for (const who of [a, b]) {
+      await w.poker.lobby(who);
+      await w.poker.poll(who, code);
+    }
+    expect([(await w.me(a)).pokerStats, (await w.me(b)).pokerStats]).toEqual([stat(1, 1, 1, 0), stat(1, 0, 0, 1)]);
+    // Les médailles du limier se comptent là-dessus.
+    expect((await w.me(a)).pokerStats.unmasked).toBe(1);
+  });
+
+  it("d'une table à l'autre, ils s'ajoutent", async () => {
+    const w = makeWorld();
+    const [a, b] = [await w.signup("Marcel", 5_000), await w.signup("Lulu", 5_000)];
+    for (const round of [1, 2, 3]) {
+      const code = (await w.poker.create(a, { blind: 10, maxBuyIn: 1000, seats: 2, bots: 0, buyIn: 500 })).body.view!.code;
+      await w.poker.join(b, code, 500);
+      await w.poker.act(a, code, { type: "lancer" });
+      await caughtHand(w, a, b, code);
+      await w.poker.act(b, code, { type: "quitter" });
+      const r = await w.poker.act(a, code, { type: "quitter" });
+      expect(r.body.state!.pokerStats).toEqual(stat(round, round, round, 0));
+      expect((await w.me(b)).pokerStats).toEqual(stat(round, 0, 0, round));
+    }
+  });
+
+  it("crédités par la requête d'un autre joueur, une fois, puis plus jamais", async () => {
+    const w = makeWorld();
+    const { a, b, code } = await duel(w);
+    await caughtHand(w, a, b, code);
+    // Lulu quitte, et le serveur tombe avant de créditer sa bourse : la table lui doit tapis et compteurs.
+    w.failAt("mutatePlayer", 1);
+    expect((await w.crashing(() => w.poker.act(b, code, { type: "quitter" }))).status).toBe(500);
+    expect(w.table(code)!.ended).toMatchObject([{ playerId: b.playerId, payout: 490, stats: stat(1, 0, 0, 1) }]);
+    expect(w.record(b)).toMatchObject({ balance: 4_500, poker: { code } });
+    expect(w.record(b).pokerStats).toBeUndefined();
+    // La requête de Marcel solde le tout.
+    await w.poker.poll(a, code);
+    expect(w.record(b)).toMatchObject({ balance: 4_990, poker: null, pokerStats: stat(1, 0, 0, 1) });
+    expect(w.table(code)!.ended).toEqual([]);
+    // Lulu revient plus tard : rien de plus.
+    await w.poker.lobby(b);
+    const again = await w.poker.act(b, code, { type: "quitter" }) as Reply;
+    expect(again.body.error.code).toBe("NOT_SEATED");
+    expect(w.record(b)).toMatchObject({ balance: 4_990, pokerStats: stat(1, 0, 0, 1) });
+  });
+
+  it("quitter après une main, coupé à chaque écriture : comptée une fois, jamais deux", async () => {
+    const cuts = await cutEverywhere({
+      setup: async (w) => {
+        const ctx = await duel(w);
+        await caughtHand(w, ctx.a, ctx.b, ctx.code);
+        return ctx;
+      },
+      accounts: ({ a, b }) => [a, b],
+      request: (w, { b, code }) => w.poker.act(b, code, { type: "quitter" }),
+      afterRecovery: async (w, { a, b, code }, label) => {
+        // Parti ou toujours assis, quitter de nouveau finit le travail. Si la coupure l'a laissé
+        // assis, la main suivante est partie entre-temps : il la quitte en route (sa blinde reste
+        // au pot, la main ne compte pas pour lui) et l'autre la ramasse.
+        const stayed = w.record(b).poker !== null && w.record(b).poker !== undefined;
+        if (stayed) await w.poker.act(b, code, { type: "quitter" });
+        expect([label, w.record(b).poker, w.record(b).pokerStats]).toEqual([label, null, stat(1, 0, 0, 1)]);
+        if (w.record(a).poker) await w.poker.act(a, code, { type: "quitter" });
+        const [mine, theirs] = [w.record(b), w.record(a)];
+        expect([label, mine.balance]).toEqual([label, stayed ? 4_980 : 4_990]);
+        expect([label, mine.balance + theirs.balance, w.storage.tableCodes()]).toEqual([label, 10_000, []]);
+        // Le tricheur démasqué l'a été une fois ; celui qui l'a démasqué en compte un, jamais deux.
+        expect([label, theirs.pokerStats]).toEqual([label, theirs.balance === 5_010 ? stat(1, 1, 1, 0) : stat(2, 2, 1, 0)]);
+      },
+    });
+    expect(cuts).toBeGreaterThanOrEqual(8);
+  });
+
+  it("une table où il n'a fini aucune main n'ajoute rien à son compte, pas même un champ vide", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 1_000);
+    const before = Object.keys(w.record(a)).sort();
+    const code = (await w.poker.create(a, { maison: "kiosque", buyIn: 100 })).body.view!.code;
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    expect(r.body.state!.pokerStats).toEqual(stat(0));
+    // Le compte a gagné la trace de sa séance (soldée), comme en 2.0, et rien d'autre.
+    expect(Object.keys(w.record(a)).sort()).toEqual([...before, "poker"].sort());
+    for (const key of ["pokerStats", "masters", "hostWins"]) expect([key, key in w.record(a)]).toEqual([key, false]);
+  });
+
+  it("à une table de la maison comme ailleurs : trois mains jouées, trois mains comptées", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 1_000);
+    const code = (await w.poker.create(a, { maison: "kiosque", buyIn: 100 })).body.view!.code;
+    // Franc jeu, parole ou suivre, rien à dire : jusqu'au dénouement de la troisième main.
+    let seen = 0;
+    const pots = { mine: 0, caught: 0 };
+    for (let i = 0; i < 400 && seen < 3; i++) {
+      w.advance(500);
+      const view = (await w.poker.poll(a, code)).body.view!;
+      const result = view.result;
+      if (result && result.no > seen && view.phase === "denouement") {
+        seen = result.no;
+        if (result.pots.some((pot) => pot.winners.some((x) => x.seat === 0 && x.amount > 0))) pots.mine += 1;
+        if (result.unmasked.some((u) => u.seat === 0)) pots.caught += 1;
+        if (seen < 3) await w.poker.act(a, code, { type: "suite" }, view.step);
+        continue;
+      }
+      const o = view.options;
+      if (o.cheat) await w.poker.act(a, code, { type: "franc-jeu" }, view.step);
+      else if (o.fold) await w.poker.act(a, code, o.check ? { type: "parole" } : { type: "suivre" }, view.step);
+      else if (o.accuse.length > 0) await w.poker.act(a, code, { type: "rien" }, view.step);
+    }
+    expect(seen).toBe(3);
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    // Il n'a jamais triché ni accusé : seuls les mains et les pots ont bougé.
+    expect(r.body.state!.pokerStats).toEqual(stat(3, pots.mine, 0, 0));
+    expect(pots.caught).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("les victoires contre chaque hôte", () => {
+  /** Lance le défi du Kiosque et le joue en une main : tout le monde à tapis, avec la main qu'on choisit. */
+  async function challenge(w: World, a: Account, mine: string): Promise<Reply<PokerTableResponse>> {
+    const created = await w.poker.create(a, { defi: "kiosque" });
+    expect(created.status).toBe(201);
+    const code = created.body.view!.code;
+    await everyoneAllIn(w, a, code, mine);
+    w.advance(RESULT_MS);
+    return w.poker.poll(a, code);
+  }
+
+  it("trois défis gagnés contre le même hôte : trois victoires, une seule cagnotte", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 100);
+    expect((await w.me(a)).hostWins).toEqual(NO_WINS);
+    for (const wins of [1, 2, 3]) {
+      const r = await challenge(w, a, ACES);
+      expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: wins === 1 ? 100 : 0 });
+      expect(r.body.state).toMatchObject({ defis: ["kiosque"], hostWins: { ...NO_WINS, kiosque: wins }, pokerStats: stat(wins, wins) });
+    }
+    // 100 − 30 + 60 + 100, puis deux fois + 30.
+    expect(w.record(a)).toMatchObject({ balance: 290, pokerWins: ["kiosque"], hostWins: { kiosque: 3 } });
+    expect((await w.poker.lobby(a)).body.state.hostWins.kiosque).toBe(3);
+  });
+
+  it("un compte d'avant, qui avait déjà relevé ce défi, le regagne : deux victoires", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Ancienne", 100);
+    // En 2.0, seule la première victoire était retenue, dans `pokerWins`.
+    w.storage.poke(a.playerId, (p) => { p.pokerWins = ["kiosque", "lune"]; });
+    expect((await w.me(a)).hostWins).toEqual({ ...NO_WINS, kiosque: 1, lune: 1 });
+    expect(w.record(a).hostWins).toBeUndefined();
+    const r = await challenge(w, a, ACES);
+    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 0 });
+    expect(r.body.state!.hostWins).toEqual({ ...NO_WINS, kiosque: 2, lune: 1 });
+    expect(w.record(a)).toMatchObject({ pokerWins: ["kiosque", "lune"], hostWins: { kiosque: 2 } });
+  });
+
+  it("un défi perdu ou quitté ne compte pas", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 100);
+    const lost = await challenge(w, a, WORST);
+    expect(lost.body.left).toEqual({ reason: "defi-perdu", payout: 0, bonus: 0 });
+    expect(lost.body.state!.hostWins).toEqual(NO_WINS);
+    const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    const quit = await w.poker.act(a, code, { type: "quitter" });
+    expect(quit.body.left).toEqual({ reason: "quitte", payout: 29, bonus: 0 });
+    expect(quit.body.state!.hostWins).toEqual(NO_WINS);
+    expect([w.record(a).hostWins, w.record(a).pokerWins ?? []]).toEqual([undefined, []]);
+  });
+
+  it("un défi gagné, coupé à chaque écriture : une victoire, une cagnotte", async () => {
+    const cuts = await cutEverywhere({
+      setup: async (w) => {
+        const a = await w.signup("Marcel", 100);
+        const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+        await everyoneAllIn(w, a, code, ACES);
+        w.advance(RESULT_MS);
+        return { a, code };
+      },
+      accounts: ({ a }) => [a],
+      request: (w, { a, code }) => w.poker.poll(a, code),
+      afterRecovery: (w, { a }, label) => {
+        const p = w.record(a);
+        expect([label, p.balance, p.pokerWins, p.hostWins, p.pokerStats, p.poker, w.storage.tableCodes()]).toEqual([
+          label, 230, ["kiosque"], { kiosque: 1 }, stat(1, 1), null, [],
+        ]);
+      },
+    });
+    expect(cuts).toBeGreaterThanOrEqual(8);
+  });
+
+  it("une table de la maison ne compte pas : seuls le défi et la Table des Maîtres sont des victoires", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 1_000);
+    const code = (await w.poker.create(a, { maison: "kiosque", buyIn: 100 })).body.view!.code;
+    // Gaspard est à la table (siège 1). Le joueur lui prend tout en une main.
+    await everyoneAllIn(w, a, code, ACES);
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    expect(r.body.left!.reason).toBe("quitte");
+    expect(r.body.state!.hostWins).toEqual(NO_WINS);
+    expect(w.record(a).hostWins).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("une table d'avant la mise à jour : le serveur", () => {
+  const NEW_FIELDS = ["masters", "pokerStats", "hostWins", "vraieFin"];
+
+  it("un joueur assis au moment de la mise à jour finit sa main, quitte, et ne perd rien", async () => {
+    const w = makeWorld();
+    const [a, c] = [await w.signup("Ancienne", 4_500), await w.signup("Partie", 2_600)];
+    // Les comptes tels que la version 2.0 les a écrits : une séance en cours, aucun champ nouveau.
+    w.storage.poke(a.playerId, (p) => { p.poker = { code: OLD_CODE, sid: OLD_SID_A, seq: 1, paid: 500 }; });
+    w.storage.poke(c.playerId, (p) => { p.poker = { code: OLD_CODE, sid: OLD_SID_C, seq: 1, paid: 400 }; });
+    for (const who of [a, c]) for (const key of NEW_FIELDS) expect([key, key in w.record(who)]).toEqual([key, false]);
+    expect(await w.storage.createTable(oldTable(w.now(), { a: a.playerId, c: c.playerId }))).toBe(true);
+    const fortune = (await w.me(a)).fortune;
+    expect((await w.me(a)).poker).toEqual({ code: OLD_CODE });
+
+    // Sa première requête après la mise à jour : la même vue qu'avant.
+    const first = await w.poker.poll(a, OLD_CODE);
+    expect(first.status).toBe(200);
+    expect(first.body.view).toMatchObject({
+      kind: "privee", blind: 10, rise: null, phase: "encheres", turn: 0, you: 0, handNo: 5, pot: 20,
+      options: { check: true, fold: true, rebuy: null },
+    });
+    expect([first.body.left, first.body.state]).toEqual([undefined, undefined]);
+    expect(first.body.view!.seats.map((s) => (s ? [s.stack, "out" in s] : null))).toEqual([[470, false], [1010, false], null]);
+    // Au passage, le tapis dû depuis avant la mise à jour est rendu : 380 €, ni plus ni moins,
+    // et pas un champ nouveau ne se glisse dans ce vieux compte.
+    expect(w.record(c)).toMatchObject({ balance: 2_980, poker: null });
+    for (const key of NEW_FIELDS) expect([key, key in w.record(c)]).toEqual([key, false]);
+    expect(w.table(OLD_CODE)!.ended).toEqual([]);
+    expect((await w.poker.poll(c, OLD_CODE)).body.left).toEqual({ reason: "quitte", payout: 380, bonus: 0 });
+    expect(w.balance(c)).toBe(2_980);
+
+    // Il joue : parole, puis la main va à son dénouement contre Hector.
+    expect((await w.poker.act(a, OLD_CODE, { type: "parole" }, 23)).status).toBe(200);
+    let view = (await w.poker.poll(a, OLD_CODE)).body.view!;
+    for (let i = 0; i < 200 && !(view.phase === "denouement" && view.result!.no === 5); i++) {
+      w.advance(1_000);
+      view = (await w.poker.poll(a, OLD_CODE)).body.view!;
+      const o = view.options;
+      if (o.fold) view = (await w.poker.act(a, OLD_CODE, o.check ? { type: "parole" } : { type: "suivre" }, view.step)).body.view!;
+      else if (o.accuse.length > 0) view = (await w.poker.act(a, OLD_CODE, { type: "rien" }, view.step)).body.view!;
+    }
+    expect([view.phase, view.result!.no]).toEqual(["denouement", 5]);
+    const t = w.table(OLD_CODE)!;
+    // Les comptes de la table tombent toujours juste, et sa première main comptée est celle-ci.
+    expect(chipsOnTable(t)).toBe(t.audit.in - t.audit.out + t.audit.bank);
+    expect(t.seats[0]!.stats).toMatchObject({ hands: 1, unmasked: 0, caught: 0 });
+    // La bourse n'a pas bougé pendant la partie ; sa fortune non plus.
+    expect([w.balance(a), (await w.me(a)).fortune]).toEqual([4_500, fortune]);
+
+    // Il quitte : son tapis retourne à sa bourse, la table ferme et disparaît.
+    const stack = t.seats[0]!.stack;
+    const left = await w.poker.act(a, OLD_CODE, { type: "quitter" });
+    expect(left.body.left).toEqual({ reason: "quitte", payout: stack, bonus: 0 });
+    expect(left.body.state).toMatchObject({ balance: 4_500 + stack, pokerStats: { hands: 1, unmasked: 0, caught: 0 }, masters: 0, defis: [] });
+    expect(left.body.state!.poker).toBeUndefined();
+    // Il avait 470 € devant lui et 10 € au pot : il repart avec ce que la main lui a laissé, à l'euro près.
+    expect([460, 470, 480, 490]).toContain(stack);
+    expect(w.storage.tableCodes()).toEqual([]);
+    expect((await w.poker.lobby(a)).body.seat).toBeNull();
+  });
+
+  it("il préfère quitter tout de suite : son tapis d'avant, intact", async () => {
+    const w = makeWorld();
+    const [a, c] = [await w.signup("Ancienne", 4_500), await w.signup("Partie", 2_600)];
+    w.storage.poke(a.playerId, (p) => { p.poker = { code: OLD_CODE, sid: OLD_SID_A, seq: 1, paid: 500 }; });
+    w.storage.poke(c.playerId, (p) => { p.poker = { code: OLD_CODE, sid: OLD_SID_C, seq: 1, paid: 400 }; });
+    await w.storage.createTable(oldTable(w.now(), { a: a.playerId, c: c.playerId }));
+    // Par le hall d'abord, comme au retour dans le jeu : il y est toujours assis.
+    expect((await w.poker.lobby(a)).body).toMatchObject({ seat: { code: OLD_CODE, kind: "privee", place: null }, masters: { open: false, defis: 0, won: 0 } });
+    const r = await w.poker.act(a, OLD_CODE, { type: "quitter" });
+    // En pleine main : ses 10 € de blinde restent au pot, comme avant.
+    expect(r.body.left).toEqual({ reason: "quitte", payout: 470, bonus: 0 });
+    expect([w.balance(a), w.balance(c), w.storage.tableCodes()]).toEqual([4_970, 2_980, []]);
+    // Aucune main finie depuis la mise à jour : rien de nouveau dans les deux comptes.
+    for (const who of [a, c]) for (const key of NEW_FIELDS) expect([key, key in w.record(who)]).toEqual([key, false]);
+  });
+
+  it("un vieux défi déjà joué se règle : le tapis, la cagnotte, et une victoire contre l'hôte", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Ancienne", 70);
+    w.storage.poke(a.playerId, (p) => { p.poker = { code: "D2K7Q", sid: OLD_SID_A, seq: 1, paid: 30 }; });
+    await w.storage.createTable(oldChallenge(w.now(), a.playerId));
+    w.advance(5_000);
+    const r = await w.poker.poll(a, "D2K7Q");
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "defi" });
+    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 100 });
+    expect(r.body.state).toMatchObject({ balance: 230, defis: ["kiosque"], hostWins: { ...NO_WINS, kiosque: 1 }, pokerStats: stat(0), masters: 0 });
+    const record = w.record(a);
+    expect(record).toMatchObject({ balance: 230, poker: null, pokerWins: ["kiosque"], hostWins: { kiosque: 1 } });
+    // La main décisive s'est jouée avant la mise à jour : elle n'a pas été comptée, et rien n'est inventé.
+    for (const key of ["masters", "pokerStats", "vraieFin"]) expect([key, key in record]).toEqual([key, false]);
+    expect(w.storage.tableCodes()).toEqual([]);
   });
 });

@@ -63,7 +63,7 @@ export function Annonce({ medailles, onFin }: AnnonceProps) {
       window.clearTimeout(part);
       window.clearTimeout(finie);
     };
-    // Une annonce ne change pas en cours de route : le crieur en monte une nouvelle à chaque fois.
+    // Une annonce ne change pas en cours de route : le tour de parole en monte une nouvelle à chaque fois.
   }, []);
 
   const premiere = lues[0];

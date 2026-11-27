@@ -25,6 +25,8 @@ export interface Scene {
   theme: ThemeId | null;
   niveau: number;
   ecran: string;
+  /** Sur l'écran de grattage : le thème suit le ticket en cours, et peut changer sans qu'on change d'écran. */
+  pile?: boolean;
 }
 
 /**
@@ -55,7 +57,7 @@ export function sceneDe(jeu: Vue, stack: readonly Screen[], index: number): Scen
   // La fiche d'un ticket, où qu'elle s'ouvre, joue l'air de son lieu.
   const dessus = stack[index];
   if (dessus?.name === "fiche-ticket") theme = ticketById(dessus.ticket)?.place ?? theme;
-  return { theme, niveau: isCovered(jeu) ? RETRAIT : 1, ecran };
+  return { theme, niveau: isCovered(jeu) ? RETRAIT : 1, ecran, pile: base.name === "grattage" };
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +137,8 @@ function revoit(): void {
   }
   if (pareilles(attendue, s)) return;
   // Rallumer la musique s'entend tout de suite, comme la couper.
-  const delai = !jouee ? 0 : s.ecran === jouee.ecran && s.theme !== jouee.theme ? DELAI_TICKET : DELAI_ECRAN;
+  const auFilDesTickets = jouee !== null && s.pile === true && s.ecran === jouee.ecran && s.theme !== jouee.theme && jouee.theme !== null;
+  const delai = !jouee ? 0 : auFilDesTickets ? DELAI_TICKET : DELAI_ECRAN;
   clearTimeout(minuterie);
   attendue = s;
   minuterie = setTimeout(applique, delai);

@@ -20,12 +20,16 @@ export type Screen =
   | { name: "boutique"; shop: ShopId }
   // Le Carnet du Patron : les tickets semés et les nouvelles des protégés. Chargé à la demande.
   | { name: "carnet" }
+  // Les Souvenirs : les fins déjà vues, et l'histoire de chaque hôte battu trois fois. Chargé à la demande.
+  | { name: "souvenirs" }
   // Feuilles : posées par-dessus l'écran du dessous.
   | { name: "fiche-ticket"; ticket: string }
   | { name: "fiche-article"; item: string }
   | { name: "choix-domaine"; slot: "residence" | "vehicule" }
   // Des tickets viennent d'être semés : qui les trouve (`rang` : le premier des `qty`). Posé par-dessus la fiche.
   | { name: "semis"; ticket: string; rang: number; qty: number }
+  // L'histoire d'un hôte, racontée par lui : posée par-dessus les Souvenirs.
+  | { name: "histoire"; lieu: PlaceId }
   // Le Poker Tricheur : le hall, une table (par son code), et leurs feuilles.
   | { name: "poker" }
   | { name: "poker-table"; code: string }
@@ -44,7 +48,7 @@ export type PokerSheet =
   // La Table des Maîtres : ses règles en trois lignes, avant de s'y asseoir.
   | { feuille: "maitres" };
 
-const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis"]);
+const SHEETS = new Set(["fiche-ticket", "fiche-article", "choix-domaine", "poker-feuille", "semis", "histoire"]);
 const TABS = new Set<string>(["domaine", "promenade", "boutiques", "classement"]);
 
 export function isSheet(screen: Screen): boolean {
@@ -194,6 +198,7 @@ export function screenKey(screen: Screen, index: number): string {
     case "fiche-article": return `${index}:fiche-article:${screen.item}`;
     case "choix-domaine": return `${index}:choix:${screen.slot}`;
     case "semis": return `${index}:semis:${screen.rang}`;
+    case "histoire": return `${index}:histoire:${screen.lieu}`;
     case "poker-table": return `${index}:poker-table:${screen.code}`;
     case "poker-feuille": return `${index}:poker-feuille:${screen.feuille}`;
     default: return `${index}:${screen.name}`;

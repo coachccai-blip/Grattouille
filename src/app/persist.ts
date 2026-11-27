@@ -29,6 +29,8 @@ export interface Settings {
   codeNote: boolean;
   /** Les médailles déjà regardées dans la vitrine des trophées (src/app/trophees.ts). */
   medailles: MedaillesVues;
+  /** Les histoires des hôtes déjà regardées dans les Souvenirs (src/app/store.ts), sous la même forme : « lieu », ou « lieu+ » avec son dernier temps. */
+  histoires: MedaillesVues;
 }
 
 /** Les médailles qu'un compte a déjà regardées sur cet appareil : « famille:rang ». */
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   signes: {},
   codeNote: false,
   medailles: { joueur: "", vues: [] },
+  histoires: { joueur: "", vues: [] },
 };
 
 function read<T>(key: string): T | null {
@@ -95,6 +98,8 @@ export function loadSettings(): Settings {
     signes: s.signes && typeof s.signes === "object" ? { ...s.signes } : {},
     codeNote: s.codeNote === true,
     medailles: readMedailles(s.medailles),
+    // Des réglages enregistrés avant les Souvenirs non plus : aucune histoire n'a encore été regardée.
+    histoires: readMedailles(s.histoires),
   };
 }
 

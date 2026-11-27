@@ -55,6 +55,8 @@ const ouAbsent = <P,>(morceau: Promise<{ default: ComponentType<P> }>): Promise<
 // La suite de l'histoire a ses propres morceaux : la vraie fin, puis les tickets semés et le Carnet du Patron.
 const VraieFin = lazy(() => ouAbsent(import("./screens/moments/VraieFin")));
 const Semis = lazy(() => ouAbsent(import("./screens/semis")));
+// Les Souvenirs aussi : les deux fins à revoir, et l'histoire de chaque hôte battu trois fois.
+const Souvenirs = lazy(() => ouAbsent(import("./screens/souvenirs")));
 
 function ScreenView({ screen }: { screen: Screen }) {
   switch (screen.name) {
@@ -76,6 +78,11 @@ function ScreenView({ screen }: { screen: Screen }) {
       return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Semis screen={screen} /></Suspense>;
     case "semis":
       return <Suspense fallback={null}><Semis screen={screen} /></Suspense>;
+    // Les Souvenirs, et l'histoire qu'un hôte y raconte.
+    case "souvenirs":
+      return <Suspense fallback={<main className="ecran" aria-busy="true" />}><Souvenirs screen={screen} /></Suspense>;
+    case "histoire":
+      return <Suspense fallback={null}><Souvenirs screen={screen} /></Suspense>;
     // Le temps que le morceau du poker arrive : un écran vide à sa place, ou pas encore de feuille.
     case "poker":
     case "poker-table":

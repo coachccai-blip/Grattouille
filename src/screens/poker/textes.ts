@@ -11,6 +11,7 @@ import { hostName } from "../../app/dialogues";
 import { capitalize } from "../../app/helpers";
 import { pick, t } from "../../i18n";
 import { placeShort } from "../../i18n/noms";
+import type { HostStory } from "./calcul";
 
 const CATEGORIES: Record<HandCategory, string> = {
   "carte-haute": "Carte haute",
@@ -77,6 +78,11 @@ export interface Identity {
 
 export function identityOf(seat: SeatView): Identity {
   return { bot: seat.bot, pseudo: seat.pseudo, species: seat.species, look: seat.look };
+}
+
+/** Un personnage du jeu, sans qu'il soit assis : de quoi le nommer et dessiner sa tête. */
+export function character(bot: string): Identity {
+  return { bot, pseudo: null, species: null, look: null };
 }
 
 /** Le nom d'un joueur à table : un personnage, ou un pseudo. */
@@ -181,4 +187,53 @@ export function mastersEnding(reason: MastersEnd, payout: number): MastersEnding
         somme: null,
       };
   }
+}
+
+// ---------------------------------------------------------------------------
+// L'histoire de chaque hôte (LOT4.md, section 12) : trois victoires au poker l'ouvrent
+
+/** Dans le hall, sous la bulle d'un hôte : où en est son histoire. */
+export function storyProgressText(story: HostStory): string {
+  if (story.open) return t("Son histoire t'attend dans tes Souvenirs.");
+  const vars = { n: story.wins, total: story.needed };
+  return story.wins > 1 ? t("Son histoire : {n} victoires sur {total}", vars) : t("Son histoire : {n} victoire sur {total}", vars);
+}
+
+/** Ce qu'il reste à faire pour l'histoire d'un hôte : « Encore 2 victoires et Gaspard te raconte son histoire. » */
+export function storyLeftText(story: HostStory, host: string): string | null {
+  if (story.open || story.left <= 0) return null;
+  const hote = nameInSentence(character(host));
+  return story.left === 1
+    ? t("Encore une victoire et {hote} te raconte son histoire.", { hote })
+    : t("Encore {n} victoires et {hote} te raconte son histoire.", { n: story.left, hote });
+}
+
+/**
+ * Les histoires qui viennent de s'ouvrir, en une phrase : « Gaspard a une histoire à te
+ * raconter : elle t'attend dans tes Souvenirs. » `hosts` : les hôtes concernés ; `null` s'il n'y en a pas.
+ */
+export function storiesOpenedText(hosts: readonly string[]): string | null {
+  if (hosts.length === 0) return null;
+  // Le premier nom ouvre la phrase : « Le Baron et le Commodore ont… ».
+  const names = hosts.map((host, i) => (i === 0 ? hostName(host) : nameInSentence(character(host))));
+  if (names.length === 1) return t("{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.", { hote: names[0]! });
+  return t("{hotes} ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.", { hotes: nameList(names) });
+}
+
+/** Ce qu'une victoire contre un hôte change à son histoire. `ouverte` : c'est elle qui vient de l'ouvrir. */
+export interface StoryNews {
+  texte: string;
+  ouverte: boolean;
+}
+
+/**
+ * Au panneau de fin d'un défi gagné. La troisième victoire annonce l'histoire ; les deux
+ * premières disent ce qu'il reste ; au-delà de trois, plus rien. `story` : le compte d'après
+ * la victoire (à zéro, l'état du joueur ne la porte pas encore : on ne dit rien).
+ */
+export function storyAfterWin(story: HostStory, host: string): StoryNews | null {
+  if (story.wins <= 0) return null;
+  if (story.justOpened) return { texte: storiesOpenedText([host])!, ouverte: true };
+  const texte = storyLeftText(story, host);
+  return texte === null ? null : { texte, ouverte: false };
 }

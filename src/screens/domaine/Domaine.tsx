@@ -265,7 +265,7 @@ export function Domaine() {
             <span className="domaine__trouve-eclat" aria-hidden="true" />
           </button>
         )}
-        {/* Les entrées posées sur le ciel, en haut à droite : les trophées (une autre peut venir à côté). */}
+        {/* Les entrées posées sur le ciel, en haut : les trophées à droite, une autre à gauche, le milieu à l'avatar. */}
         <div className="domaine__entrees">
           {/* Le Carnet du Patron : ce qu'il a semé, et les nouvelles de ses protégés. */}
           {player.kiosk && (

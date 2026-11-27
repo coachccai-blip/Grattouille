@@ -7,6 +7,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { THIN, formatEuros } from "../../../shared/format";
 import type { SeatView, TableView } from "../../../shared/poker/types";
+import { usePoker } from "../../app/poker";
 import { isCalm, useGame } from "../../app/store";
 import { playTier } from "../../fx/audio";
 import { haptic } from "../../fx/haptics";
@@ -16,10 +17,10 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse, useCompte } from "../../ui/Bourse";
 import { Bulle, Entete } from "../../ui/Commun";
-import { neighbours } from "./calcul";
+import { neighbours, storiesJustOpened } from "./calcul";
 import { Tete, unbroken } from "./parts";
 import { mastersLine } from "./repliques";
-import { identityOf, mastersEnding, playerName, tableTitle, type MastersEnd } from "./textes";
+import { identityOf, mastersEnding, playerName, storiesOpenedText, tableTitle, type MastersEnd } from "./textes";
 
 /** Les maîtres assis à la table, dans le sens de la table à partir du voisin du joueur. */
 export function mastersOf(view: Pick<TableView, "seats" | "you">): SeatView[] {
@@ -128,6 +129,13 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
 
   const host = lost ? hostOfTheTable(masters) : null;
 
+  // La table remportée compte une victoire contre chacun des quatre maîtres : pour ceux dont
+  // c'est tout juste la troisième, leur histoire vient de s'ouvrir dans les Souvenirs. L'état du
+  // joueur, rendu avec la fin de table, porte déjà le nouveau compte.
+  const hostWins = useGame((s) => s.player?.hostWins);
+  const rereading = usePoker((s) => s.lobbyBusy);
+  const stories = won && !rereading ? storiesOpenedText(storiesJustOpened(hostWins, masters.map((seat) => seat.bot))) : null;
+
   return (
     <main className={cx("ecran poker-table poker-table--sortie", won && "poker-fete")}>
       <Entete titre={tableTitle({ kind: "maitres", place: null, code: "" })} droite={<Bourse />} />
@@ -156,6 +164,7 @@ export function SortieMaitres({ reason, payout, masters, onBack }: SortieProps) 
             ))}
           </ul>
         )}
+        {stories && <p className="poker-sortie__histoire poker-sortie__histoire--ouverte"><span>{stories}</span></p>}
         {host && <Bulle line={mastersLine(host.bot, "defaite")} className="poker-sortie__hote" />}
         {!won && <p>{unbroken(ending.texte)}</p>}
         <Bouton bloc onClick={onBack}>{t("Retour au hall")}</Bouton>

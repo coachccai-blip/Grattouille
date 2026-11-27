@@ -330,4 +330,18 @@ export const EN_POKER: Record<string, string> = {
   "Tu repars avec ton tapis, {montant}, sans la victoire. La table rouvre quand tu veux.":
     "You leave with your stack, {montant}, but without the win. The table reopens whenever you like.",
   "Tu repars sans la victoire. La table rouvre quand tu veux.": "You leave without the win. The table reopens whenever you like.",
+
+  // --- L'histoire de chaque hôte : le battre trois fois au poker l'ouvre, dans les Souvenirs
+  // (« Memories », comme aux Réglages). Ni « his » ni « her » : chaque phrase vaut pour les huit.
+  "Son histoire : {n} victoire sur {total}": "Story: {n} of {total} wins",
+  "Son histoire : {n} victoires sur {total}": "Story: {n} of {total} wins",
+  "Son histoire t'attend dans tes Souvenirs.": "Story unlocked: it's waiting in your Memories.",
+  "Sa cagnotte est déjà gagnée : on rejoue pour l'honneur, et pour son histoire.":
+    "The kitty is already won: this one is for honour, and for the story.",
+  "Encore une victoire et {hote} te raconte son histoire.": "One more win and you'll hear {hote}'s story.",
+  "Encore {n} victoires et {hote} te raconte son histoire.": "{n} more wins and you'll hear {hote}'s story.",
+  "{hote} a une histoire à te raconter : elle t'attend dans tes Souvenirs.":
+    "{hote} has a story to tell you: it's waiting in your Memories.",
+  "{hotes} ont des histoires à te raconter : elles t'attendent dans tes Souvenirs.":
+    "{hotes} have stories to tell you: they're waiting in your Memories.",
 };

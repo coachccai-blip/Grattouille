@@ -209,10 +209,11 @@ export function brode(o: Broderie): { notes: Note[]; fin: number } {
   let ici = Math.max(0, Math.min(haut, o.depart));
   // La ligne monte dans le bas du registre, descend dans le haut.
   let sens = ici < o.notes.length / 2 ? 1 : -1;
-  const surAccord = (i: number): number => {
-    for (let ecart = 0; ecart < 4; ecart++) {
+  /** La note de l'accord la plus proche du rang `i`, en regardant d'abord dans le sens de la ligne ; jamais le rang `sauf`. */
+  const surAccord = (i: number, sauf = -1): number => {
+    for (let ecart = 0; ecart < 5; ecart++) {
       for (const j of [i + ecart * sens, i - ecart * sens]) {
-        if (j >= 0 && j < o.notes.length && o.accord.tons.includes(classe(o.notes[j]!))) return j;
+        if (j >= 0 && j <= haut && j !== sauf && o.accord.tons.includes(classe(o.notes[j]!))) return j;
       }
     }
     return i;
@@ -221,9 +222,9 @@ export function brode(o: Broderie): { notes: Note[]; fin: number } {
   for (let b = 0; b < temps; b++) {
     const debut = b * o.temps;
     if (o.cadence && b >= temps - 2) {
-      // La chute : une note tenue sur l'accord, à l'avant-dernier temps.
+      // La chute : une note tenue sur l'accord, à l'avant-dernier temps (pas celle qu'on vient d'entendre).
       if (b === temps - 2) {
-        ici = surAccord(ici);
+        ici = surAccord(ici, ici);
         notes.push([debut, o.notes[ici]!, o.temps * 2, 0.9]);
       }
       continue;
@@ -243,9 +244,9 @@ export function brode(o: Broderie): { notes: Note[]; fin: number } {
           ici = 0;
           sens = 1;
         } else if (o.alea() < 0.18) sens = -sens;
-        if (k === 0 && o.alea() < 0.7) ici = surAccord(ici);
+        if (k === 0 && o.alea() < 0.7) ici = surAccord(ici, avant);
         // Jamais deux fois la même note de suite.
-        if (ici === avant) ici = Math.max(0, Math.min(haut, ici + sens));
+        if (ici === avant) ici = avant + sens >= 0 && avant + sens <= haut ? avant + sens : avant - sens;
         notes.push([pas, o.notes[ici]!, duree, k === 0 ? 1 : 0.8]);
       }
       pas += Math.abs(duree);

@@ -278,6 +278,13 @@ export interface EndedSeat {
    * ces compteurs).
    */
   stats?: PokerStats;
+  /**
+   * Table des Maîtres remportée (`maitres-gagne`) : les quatre hôtes qui y étaient assis,
+   * éliminés compris, par leur identifiant de personnage. Une table fermée ne garde aucun
+   * siège : c'est ici qu'on les retrouve pour compter au joueur une victoire contre chacun.
+   * Absent de toute autre entrée.
+   */
+  beaten?: string[];
 }
 
 export interface TableState {

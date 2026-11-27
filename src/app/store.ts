@@ -14,7 +14,7 @@ import { KIOSK, itemById } from "../../shared/catalog";
 import { formatEuros, formatInt } from "../../shared/format";
 import { PLACES, placeById } from "../../shared/places";
 import {
-  DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, houseEligible, isPlaceOpen, newlyOpened,
+  DAILY_TICKET_LIMIT, HOUSE_COOLDOWN_MS, LUCKY_FIND_MS, MAX_PENDING, hostStoryOpen, houseEligible, isPlaceOpen, newlyOpened,
   normalizeCode,
 } from "../../shared/rules";
 import { TICKETS, ticketById } from "../../shared/tickets";
@@ -63,6 +63,8 @@ interface GameState {
   trueEnding: boolean;
   /** Le générique à l'écran est un souvenir, revu depuis les Réglages : il ne dit rien au serveur et ne sème rien. */
   replay: boolean;
+  /** Bac à sable : les histoires des hôtes déjà regardées, en mémoire seulement (ailleurs : `settings.histoires`). */
+  sandboxStories: Settings["histoires"];
   /** Durée du prochain comptage du solde dans la bourse, en millisecondes. */
   countMs: number;
   /**
@@ -95,6 +97,7 @@ export const useGame = create<GameState>(() => ({
   welcome: false,
   trueEnding: false,
   replay: false,
+  sandboxStories: DEFAULT_SETTINGS.histoires,
   countMs: 800,
   countDelay: 0,
   purseFlash: 0,
@@ -725,6 +728,43 @@ export function replayMemory(memory: "fin" | "vraie-fin"): void {
 /** Le souvenir du premier générique se referme. */
 export function closeMemory(): void {
   set({ ending: false, replay: false });
+}
+
+type StoriesView = Pick<GameState, "player" | "sandbox" | "settings" | "sandboxStories">;
+
+/**
+ * Les histoires des hôtes que ce joueur a déjà regardées sur cet appareil : « lieu », ou
+ * « lieu+ » quand elle l'a été avec son dernier temps (celui d'après la vraie fin).
+ */
+export function storiesSeen(s: StoriesView): readonly string[] {
+  const { joueur, vues } = s.sandbox ? s.sandboxStories : s.settings.histoires;
+  // Ce qu'un autre compte a regardé sur cet appareil ne compte pas.
+  return s.player && joueur === s.player.id ? vues : [];
+}
+
+/**
+ * Les lieux dont l'hôte, battu trois fois au poker, a une histoire à raconter que le joueur
+ * n'a pas encore regardée : dans l'ordre des lieux, séparés par des virgules (vide : aucune).
+ */
+export function storiesWaiting(s: StoriesView): string {
+  const p = s.player;
+  if (!p) return "";
+  const seen = storiesSeen(s);
+  return PLACES.filter(({ id }) => hostStoryOpen(p.hostWins, id) && !seen.includes(id) && !seen.includes(`${id}+`))
+    .map(({ id }) => id)
+    .join(",");
+}
+
+/** Une histoire a été regardée jusqu'au bout : l'appareil s'en souvient (le bac à sable, en mémoire seulement). */
+export function markStorySeen(place: PlaceId): void {
+  const s = get();
+  if (!s.player) return;
+  const seen = storiesSeen(s);
+  const mark = s.player.story.vraieFin ? `${place}+` : place;
+  if (seen.includes(mark) || seen.includes(`${place}+`)) return;
+  const histoires = { joueur: s.player.id, vues: [...seen.filter((v) => v !== place), mark] };
+  if (s.sandbox) set({ sandboxStories: histoires });
+  else patchSettings({ histoires });
 }
 
 // ---------------------------------------------------------------------------

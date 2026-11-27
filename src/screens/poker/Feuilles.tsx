@@ -25,11 +25,13 @@ import { Bouton } from "../../ui/Bouton";
 import { Carte, nomDeCarte } from "../../ui/Carte";
 import { Feuille } from "../../ui/Feuille";
 import {
-  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, isFullCode, mastersCard, maxBuyInChoices, rankTaken,
-  suitTaken, swapped, tournamentDecided,
+  RANKS, SUITS, accusationCost, buyInSteps, cleanCode, defaultBuyIn, hostStory, isFullCode, mastersCard, maxBuyInChoices,
+  rankTaken, suitTaken, swapped, tournamentDecided,
 } from "./calcul";
 import { Alerte, BarreTemps, Pas, Tete, steps, unbroken } from "./parts";
-import { categoriesFromTop, categoryName, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity } from "./textes";
+import {
+  categoriesFromTop, categoryName, character, difficultyName, identityOf, nameInSentence, playerName, rankLabel, type Identity,
+} from "./textes";
 import "./poker.css";
 
 type SheetScreen = Extract<Screen, { name: "poker-feuille" }>;
@@ -42,11 +44,6 @@ function useFermer(): () => void {
     done.current = true;
     if (nav.current().name === "poker-feuille") nav.back();
   }, []);
-}
-
-/** Un personnage, pour dessiner sa tête et dire son nom. */
-function character(bot: string): Identity {
-  return { bot, pseudo: null, species: null, look: null };
 }
 
 /** La tête d'une feuille : un portrait, un titre, une ligne dessous. */
@@ -179,6 +176,8 @@ function Defi({ place }: { place: PlaceId }) {
   const fermer = useFermer();
   const challenge = usePoker((s) => s.lobby?.challenges.find((c) => c.place === place) ?? null);
   const balance = useGame(displayBalance);
+  // Trois victoires contre l'hôte ouvrent son histoire : tant qu'elle ne l'est pas, une revanche compte encore.
+  const told = useGame((s) => hostStory(s.player?.hostWins, place).open);
   const { busy, error, run } = useSeating();
   if (!challenge) return null;
   const host = character(challenge.host);
@@ -193,9 +192,11 @@ function Defi({ place }: { place: PlaceId }) {
       <p>{t("Un tête-à-tête : {montant} chacun, jusqu'à ce que l'un des deux n'ait plus rien.", { montant: mise })}</p>
       <p>{t("La blinde monte au fil des mains : le duel ne traîne pas.")}</p>
       <p className="poker-feuille__gain">
-        {challenge.won
-          ? t("Sa cagnotte est déjà gagnée : on rejoue pour l'honneur.")
-          : t("Si tu gagnes, sa cagnotte est pour toi : {montant}.", { montant: formatEuros(challenge.bonus) })}
+        {!challenge.won
+          ? t("Si tu gagnes, sa cagnotte est pour toi : {montant}.", { montant: formatEuros(challenge.bonus) })
+          : told
+            ? t("Sa cagnotte est déjà gagnée : on rejoue pour l'honneur.")
+            : t("Sa cagnotte est déjà gagnée : on rejoue pour l'honneur, et pour son histoire.")}
       </p>
       {short && <Alerte>{t("Il te manque {montant}.", { montant: formatEuros(challenge.buyIn - balance) })}</Alerte>}
       <Alerte>{error}</Alerte>

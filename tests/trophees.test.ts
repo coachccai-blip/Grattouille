@@ -393,10 +393,14 @@ describe("déjà vues, nouvelles", () => {
   });
 
   it("la suppression du compte repart des réglages de départ : plus aucune médaille vue", () => {
-    // deleteAccount (src/app/store.ts) remet `{ ...DEFAULT_SETTINGS, langue }` : ce champ y est vide.
+    // deleteAccount (src/app/store.ts) repart de `{ ...DEFAULT_SETTINGS, … }` : ce champ y est vide,
+    // et rien ne le reporte d'un compte au suivant.
     expect(DEFAULT_SETTINGS.medailles).toEqual({ joueur: "", vues: [] });
     const store = readFileSync(fileURLToPath(new URL("../src/app/store.ts", import.meta.url)), "utf8");
-    expect(store).toMatch(/const settings = \{ \.\.\.DEFAULT_SETTINGS, langue: get\(\)\.settings\.langue \};/);
+    const supprime = store.slice(store.indexOf("export async function deleteAccount"), store.indexOf("export function patchSettings"));
+    expect(supprime).toMatch(/const settings = \{ \.\.\.DEFAULT_SETTINGS\b[^}]*\};/);
+    expect(supprime).toMatch(/clearAll\(\)/);
+    expect(supprime).not.toMatch(/medailles/);
     // Aucune clé de stockage en plus : toujours les trois mêmes.
     const persist = readFileSync(fileURLToPath(new URL("../src/app/persist.ts", import.meta.url)), "utf8");
     expect([...persist.matchAll(/"(grattouille\.[a-z]+)"/g)].map((m) => m[1]).sort()).toEqual([

@@ -6,7 +6,7 @@ import { Avatar } from "../../art/Avatar";
 import { Illustration } from "../../art/Illustration";
 import { t } from "../../i18n";
 import { cx } from "../../ticket/parts";
-import { remainingMs } from "./calcul";
+import { remainingMs, type HostStory } from "./calcul";
 import type { Identity } from "./textes";
 
 /**
@@ -21,6 +21,18 @@ export function Tete({ who, className }: { who: Identity | null; className?: str
       ) : who ? (
         <Avatar species={who.species ?? "renard"} look={who.look ?? {}} crop="tete" />
       ) : null}
+    </span>
+  );
+}
+
+/**
+ * L'histoire d'un hôte, en petits repères : un par victoire qu'il faut contre lui, plein quand
+ * elle est acquise. Décoratifs : le compte s'écrit à côté.
+ */
+export function Reperes({ story }: { story: Pick<HostStory, "wins" | "needed"> }) {
+  return (
+    <span className="poker-reperes" aria-hidden="true">
+      {Array.from({ length: story.needed }, (_, i) => <i key={i} className={i < story.wins ? "poker-reperes__plein" : undefined} />)}
     </span>
   );
 }

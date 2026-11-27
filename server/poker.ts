@@ -31,7 +31,9 @@ import type { BoardEntry, PokerStats } from "../shared/types";
 import { planPublish, publish } from "./board";
 import { ApiError, fail } from "./errors";
 import type { Deps } from "./http";
-import { applyAck, bumpPokerStat, countOf, safeAdd, type PlayerRecord, type PokerSession } from "./player";
+import {
+  applyAck, bumpPokerStat, countOf, placeOfHost, recordHostWin, safeAdd, type PlayerRecord, type PokerSession,
+} from "./player";
 import { commit, unchanged, type Mutation } from "./storage";
 
 const SID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -190,7 +192,8 @@ const STAT_KEYS: readonly (keyof PokerStats)[] = ["hands", "pots", "unmasked", "
  * Rend un tapis à sa bourse. Sans effet si la bourse ne porte plus cette séance.
  * Tout ce qu'une séance rapporte arrive ici, dans cette seule écriture, qui efface la
  * séance : le tapis, la cagnotte d'un défi relevé, la Table des Maîtres remportée, les
- * compteurs du poker. Rejouer le versement ne recrédite rien et ne recompte rien.
+ * victoires contre chaque hôte, les compteurs du poker. Rejouer le versement ne recrédite
+ * rien et ne recompte rien.
  */
 function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<Left | null> {
   const session = p.poker;
@@ -200,6 +203,9 @@ function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<
   p.balance = safeAdd(p.balance, payout);
   let bonus = 0;
   if (ended.reason === "defi-gagne" && table.kind === "defi" && table.place) {
+    // Une victoire de plus contre l'hôte du lieu, à chaque défi gagné : trois ouvrent son
+    // histoire. À compter avant d'inscrire le lieu parmi les défis relevés (`recordHostWin`).
+    recordHostWin(p, table.place);
     // La cagnotte de l'hôte : une seule fois par lieu.
     const wins = p.pokerWins ?? [];
     if (!wins.includes(table.place)) {
@@ -208,8 +214,15 @@ function credit(p: PlayerRecord, ended: EndedSeat, table: TableState): Mutation<
       p.pokerWins = [...wins, table.place];
     }
   }
-  // La Table des Maîtres remportée : une victoire de plus, une seule par table gagnée.
-  if (ended.reason === "maitres-gagne" && table.kind === "maitres") p.masters = countOf(p.masters) + 1;
+  if (ended.reason === "maitres-gagne" && table.kind === "maitres") {
+    // La Table des Maîtres remportée : une victoire de plus, une seule par table gagnée…
+    p.masters = countOf(p.masters) + 1;
+    // … et une victoire contre chacun des quatre hôtes qui y étaient assis, éliminés compris.
+    for (const host of new Set(ended.beaten ?? [])) {
+      const place = placeOfHost(host);
+      if (place) recordHostWin(p, place);
+    }
+  }
   // Les compteurs de la séance rejoignent ceux du compte. Une entrée d'avant ces compteurs
   // n'en porte pas : rien n'est alors ajouté au compte, pas même un champ vide.
   if (ended.stats) for (const key of STAT_KEYS) bumpPokerStat(p, key, countOf(ended.stats[key]));

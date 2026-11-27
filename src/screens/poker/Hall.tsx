@@ -26,9 +26,10 @@ import { cx } from "../../ticket/parts";
 import { Bouton } from "../../ui/Bouton";
 import { Bourse } from "../../ui/Bourse";
 import { Bulle, BulleLibre, Entete, Phrase } from "../../ui/Commun";
-import { challengesWon, mastersCard, type MastersCard } from "./calcul";
+import { challengesWon, hostStory, mastersCard, type HostStory, type MastersCard } from "./calcul";
+import { Reperes } from "./parts";
 import { hostLine, piouHall } from "./repliques";
-import { difficultyName } from "./textes";
+import { difficultyName, storyProgressText } from "./textes";
 import "./poker.css";
 
 interface Entry {
@@ -62,8 +63,11 @@ function seatTitle(seat: NonNullable<PokerLobbyResponse["seat"]> | null): string
   return t("Table {code}", { code: seat.code });
 }
 
-/** Un lieu ouvert : son hôte et sa provocation, puis les deux façons de s'y asseoir. */
-function Lieu({ entry, balance }: { entry: Entry; balance: number }) {
+/**
+ * Un lieu ouvert : son hôte et sa provocation, où en est son histoire (trois victoires contre
+ * lui au poker l'ouvrent, dans les Souvenirs), puis les deux façons de s'y asseoir.
+ */
+function Lieu({ entry, balance, story }: { entry: Entry; balance: number; story: HostStory }) {
   const { place, house, challenge } = entry;
   const line = hostLine(house.host, challenge.won ? "revanche" : "defi");
   const duel = shortOf(challenge.buyIn, balance);
@@ -72,6 +76,10 @@ function Lieu({ entry, balance }: { entry: Entry; balance: number }) {
     <li className="poker-lieu">
       <h3 className="poker-lieu__nom">{capitalize(placeShort(place.id))}</h3>
       <Bulle line={line} className="poker-lieu__hote" />
+      <p className={cx("poker-lieu__histoire", story.open && "poker-lieu__histoire--ouverte")}>
+        <Reperes story={story} />
+        <span>{storyProgressText(story)}</span>
+      </p>
       <div className="poker-lieu__choix">
         <button
           type="button"
@@ -197,6 +205,8 @@ export function Hall() {
   const balance = useGame(displayBalance);
   const online = useGame((s) => s.online);
   const sandbox = useGame((s) => s.sandbox);
+  // Les victoires contre chaque hôte : trois ouvrent son histoire.
+  const hostWins = useGame((s) => s.player?.hostWins);
 
   useEffect(() => {
     void loadLobby();
@@ -273,7 +283,9 @@ export function Hall() {
             </div>
             {maitres?.open && <Maitres card={maitres} />}
             <ul className="poker-hall__lieux cascade">
-              {open.map((entry) => <Lieu key={entry.place.id} entry={entry} balance={balance} />)}
+              {open.map((entry) => (
+                <Lieu key={entry.place.id} entry={entry} balance={balance} story={hostStory(hostWins, entry.place.id)} />
+              ))}
             </ul>
             {closed.length > 0 && (
               <ul className="poker-hall__fermes">

@@ -1063,6 +1063,28 @@ describe("les défis de la campagne", () => {
     expect(w.storage.tableCodes()).toEqual([]);
   });
 
+  it("quitter pendant le dénouement de la dernière main : le défi est gagné quand même, la cagnotte est versée", async () => {
+    const w = makeWorld();
+    const a = await w.signup("Marcel", 100);
+    const code = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    // L'hôte est ruiné ; la table affiche encore le dénouement, et le joueur s'en va sans attendre la suite.
+    await allIn(w, a, code, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
+    w.advance(1_000);
+    const r = await w.poker.act(a, code, { type: "quitter" });
+    expect(r.status).toBe(200);
+    expect(r.body.view).toMatchObject({ phase: "fermee", closed: "defi", you: null });
+    expect(r.body.left).toEqual({ reason: "defi-gagne", payout: 60, bonus: 100 });
+    expect(r.body.state).toMatchObject({ balance: 230, defis: ["kiosque"] });
+    expect(w.storage.peek(a.playerId)).toMatchObject({ balance: 230, poker: null, pokerWins: ["kiosque"] });
+    expect(w.storage.tableCodes()).toEqual([]);
+    // Perdu, c'est perdu : partir pendant le dénouement ne rattrape rien.
+    const again = (await w.poker.create(a, { defi: "kiosque" })).body.view!.code;
+    await allIn(w, a, again, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d");
+    const lost = await w.poker.act(a, again, { type: "quitter" });
+    expect(lost.body.left).toEqual({ reason: "defi-perdu", payout: 0, bonus: 0 });
+    expect(w.balance(a)).toBe(200);
+  });
+
   it("un défi de bout en bout par l'API : la blinde double au fil des mains, et le duel finit vite, un tapis à zéro", async () => {
     const lengths: number[] = [];
     for (const pseudo of ["Marcel", "Lulu", "Zoé", "Dédé", "Elsa", "Fred"]) {

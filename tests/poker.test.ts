@@ -2923,6 +2923,33 @@ describe("tables de la maison et défis", () => {
     expect(t.audit).toEqual({ in: 30, out: 30, bank: 0 });
   });
 
+  it("partir pendant le dénouement de la dernière main ne change pas le résultat du défi", () => {
+    const rng = rngOf(84);
+    // L'hôte vient d'être ruiné ; la table n'a pas encore fermé, et le joueur s'en va sans attendre.
+    const won = showdownAllIn(rng, "As Ad 7c 5h 2d", "Kc Kd 9s 4h 3c");
+    expect([won.phase, stacksOf(won)]).toEqual(["denouement", [60, 0]]);
+    let t = leave(won, "p_a", T0 + 1_000, rng);
+    expect([t.phase, t.closed]).toEqual(["fermee", "defi"]);
+    expect(t.ended).toMatchObject([{ playerId: "p_a", payout: 60, reason: "defi-gagne", at: T0 + 1_000 }]);
+    expect(t.audit).toEqual({ in: 30, out: 60, bank: 30 });
+    // Ruiné lui-même, partir ne rattrape rien non plus ; et un nul reste un nul.
+    t = leave(showdownAllIn(rng, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d"), "p_a", T0 + 1_000, rng);
+    expect([t.closed, t.ended[0]!.reason, t.ended[0]!.payout]).toEqual(["defi", "defi-perdu", 0]);
+    t = leave(showdownAllIn(rng, "Kc Kd 9s 4h 3c", "As Ad 7c 5h 2d", true, true), "p_a", T0 + 1_000, rng);
+    expect([t.closed, t.ended[0]!.reason, t.ended[0]!.payout]).toEqual(["defi", "defi-nul", 30]);
+    // Tant que le duel n'est pas joué, partir reste partir : on reprend son tapis, sans victoire.
+    const open = copy(challengeAt(rng, 4, 45, 15));
+    open.nextAt = T0 + RESULT_MS;
+    t = leave(open, "p_a", T0, rng);
+    expect([t.closed, t.ended[0]!.reason, t.ended[0]!.payout]).toEqual(["vide", "quitte", 45]);
+    // Absent depuis trois mains au moment où l'hôte tombe : le défi est gagné, pas abandonné.
+    const away = copy(won);
+    away.seats[0]!.absent = true;
+    away.seats[0]!.idle = 3;
+    t = advance(away, T0 + RESULT_MS, rng);
+    expect([t.closed, t.ended[0]!.reason, t.ended[0]!.payout]).toEqual(["defi", "defi-gagne", 60]);
+  });
+
   it("un défi se joue jusqu'au bout : le tricheur le gagne souvent, le joueur honnête qui mise à l'aveugle rarement", () => {
     const outcomes = new Map<string, number>();
     for (let seed = 1; seed <= 60; seed++) {

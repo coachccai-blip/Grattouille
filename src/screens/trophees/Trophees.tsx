@@ -56,7 +56,7 @@ function Vitrine({ famille, player, neuves }: VitrineProps) {
             <button
               key={m.id}
               type="button"
-              className={cx("medaille", m.gagnee && "medaille--gagnee", neuves.has(m.id) && "medaille--neuve")}
+              className={cx("medaille", neuves.has(m.id) && "medaille--neuve")}
               aria-pressed={m.rang === choisie.rang}
               aria-label={m.gagnee
                 ? t("{nom}, gagnée : {condition}", { nom: m.nom, condition: m.phrase })

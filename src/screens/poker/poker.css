@@ -132,6 +132,40 @@
 
 .poker-lieu__nom { font: 400 22px/26px var(--titre); }
 
+/* L'histoire de l'hôte : un repère par victoire contre lui, trois l'ouvrent dans les Souvenirs. */
+.poker-lieu__histoire {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--brume);
+  font: 500 13px/18px var(--texte);
+}
+
+.poker-lieu__histoire--ouverte { color: var(--mimosa); }
+/* Sur deux lignes (un écran étroit), elles s'équilibrent : pas de mot seul à la seconde. */
+.poker-lieu__histoire > span:last-child { text-wrap: balance; }
+
+/* Les repères : de petits ronds, pleins quand la victoire est acquise. Ils se tiennent à la
+   hauteur de la première ligne du texte qui les suit. */
+.poker-reperes {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.poker-reperes i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(180, 205, 208, .55);
+}
+
+.poker-reperes .poker-reperes__plein {
+  background: var(--mimosa);
+  box-shadow: inset 0 0 0 2px var(--mimosa-fonce);
+}
+
 .poker-lieu__choix {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

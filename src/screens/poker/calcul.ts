@@ -10,7 +10,9 @@ import {
 import type {
   HandResult, LobbyChallenge, LobbyMasters, Options, PokerAction, Range, SeatView, TableView,
 } from "../../../shared/poker/types";
-import { CODE_ALPHABET } from "../../../shared/rules";
+import { PLACES } from "../../../shared/places";
+import { CODE_ALPHABET, HOST_STORY_WINS, hostStoryOpen } from "../../../shared/rules";
+import type { PlaceId } from "../../../shared/types";
 
 // ---------------------------------------------------------------------------
 // Le temps
@@ -379,6 +381,60 @@ export function tournamentDecided(view: Pick<TableView, "kind" | "phase" | "seat
   if (me.stack + me.reserve <= 0) return true;
   const rivals = view.seats.filter((seat): seat is SeatView => seat !== null && seat.bot !== null);
   return rivals.length > 0 && rivals.every((seat) => seat.stack <= 0);
+}
+
+// ---------------------------------------------------------------------------
+// L'histoire de chaque hôte (LOT4.md, section 12)
+
+/** Les victoires du joueur contre l'hôte de chaque lieu, telles que son état les porte. */
+export type HostWins = Partial<Record<PlaceId, number>> | null | undefined;
+
+/**
+ * Où en est le joueur avec l'hôte d'un lieu. Le battre trois fois au poker (un défi gagné,
+ * une Table des Maîtres remportée où il était assis) ouvre son histoire, dans les Souvenirs.
+ */
+export interface HostStory {
+  /** Ses victoires contre cet hôte. */
+  wins: number;
+  /** Celles qu'il faut. */
+  needed: number;
+  /** Celles qui manquent encore ; 0 une fois l'histoire ouverte. */
+  left: number;
+  open: boolean;
+  /** Le compte y est tout juste : c'est la dernière victoire qui vient de l'ouvrir. */
+  justOpened: boolean;
+}
+
+export function hostStory(hostWins: HostWins, place: PlaceId): HostStory {
+  const raw = hostWins?.[place];
+  const wins = typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  return {
+    wins,
+    needed: HOST_STORY_WINS,
+    left: Math.max(0, HOST_STORY_WINS - wins),
+    open: hostStoryOpen(hostWins ?? undefined, place),
+    justOpened: wins === HOST_STORY_WINS,
+  };
+}
+
+/** Le lieu dont un personnage est l'hôte ; `null` pour qui n'en tient aucun. */
+export function placeOfHost(host: string | null): PlaceId | null {
+  if (!host) return null;
+  return PLACES.find((place) => place.host === host)?.id ?? null;
+}
+
+/**
+ * Les maîtres dont l'histoire vient de s'ouvrir avec une Table des Maîtres remportée : ils y
+ * étaient assis, et la victoire qu'elle leur compte est tout juste la troisième. `hostWins` :
+ * le compte d'après la victoire. Dans l'ordre des sièges, chacun une fois.
+ */
+export function storiesJustOpened(hostWins: HostWins, hosts: readonly (string | null)[]): string[] {
+  const out: string[] = [];
+  for (const host of hosts) {
+    const place = placeOfHost(host);
+    if (host && place && !out.includes(host) && hostStory(hostWins, place).justOpened) out.push(host);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

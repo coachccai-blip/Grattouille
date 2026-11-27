@@ -944,8 +944,15 @@
   flex-direction: column;
   gap: var(--e4);
   justify-content: center;
+  /* Sur un écran court, un panneau bien rempli défile au lieu de se couper : son bouton reste à portée. */
+  justify-content: safe center;
+  min-height: 0;
   padding: 0 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+
+.poker-sortie > * { flex: none; }
 
 .poker-sortie .t-titre { text-wrap: balance; }
 /* Les phrases du panneau seulement : la bulle de l'hôte garde son encre sur l'ivoire. */
@@ -971,6 +978,40 @@
 }
 
 .poker-sortie__cagnotte strong { font-size: clamp(30px, 10vw, 40px); }
+
+/* L'histoire de l'hôte, après une victoire contre lui. Ce qu'il reste à gagner : ses trois
+   repères ouvrent la phrase, dans le fil du texte. À la troisième victoire, l'annonce qu'elle
+   s'ouvre : un cartouche ourlé d'or, les trois repères pleins au-dessus de la phrase. */
+.poker-sortie__histoire { text-wrap: pretty; }
+
+.poker-sortie__histoire .poker-reperes {
+  margin: 0 8px 0 0;
+  vertical-align: -1px;
+}
+
+.poker-sortie > .poker-sortie__histoire--ouverte {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 14px 13px;
+  border: 1px solid rgba(247, 201, 72, .7);
+  border-radius: 14px;
+  background: rgba(247, 201, 72, .1);
+  color: var(--mimosa);
+  font: 500 15px/21px var(--texte);
+  text-align: center;
+  text-wrap: balance;
+  animation: poker-histoire 420ms var(--sortie) 500ms backwards;
+}
+
+.poker-sortie__histoire--ouverte .poker-reperes { margin: 0; }
+
+@keyframes poker-histoire {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.calme .poker-sortie__histoire--ouverte { animation: none; }
 
 /* ---------------------------------------------------------------- La Table des Maîtres */
 
@@ -1093,11 +1134,7 @@
   gap: 12px;
   justify-content: flex-start;
   justify-content: safe center;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
-
-.poker-fete .poker-sortie > * { flex: none; }
 
 .poker-fete .t-titre {
   color: var(--mimosa);
@@ -1269,6 +1306,9 @@
   }
 
   .poker-rangee__cartes { padding: 1px 3px 1px 0; }
+
+  /* Le panneau de fin se serre aussi : la bulle de l'hôte, sa cagnotte, son histoire et le bouton tiennent. */
+  .poker-sortie { gap: 12px; }
 }
 
 /* À une grande table (cinq ou six sièges), sur un écran de hauteur moyenne : quand c'est au

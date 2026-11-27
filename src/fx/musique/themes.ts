@@ -188,7 +188,7 @@ const VILLE: Theme = {
       plaquer(p, "uku", 6, v2, 0.9, 0.9, 0.1);
       plaquer(p, "uku", 7, [v2[2]!, v2[1]!], 0.7, 0.45, 0.08);
     }
-    frappe(p, "shaker", section === "C" ? "o...x...o...x.-." : "o-x-o-x-", 1, 0.5);
+    frappe(p, "shaker", section === "C" ? "o.x.o.x." : "o-x-o-x-", 1, 0.5);
 
     const air = VILLE_AIRS[section];
     if (air) {
@@ -218,6 +218,7 @@ const KIOSQUE_ACCORDS: Record<string, readonly string[]> = {
   A: ["G", "G", "C", "D", "G", "Em", "C D", "G"],
   B: ["Em", "Em", "C", "G", "Em", "C", "Am D7", "G"],
   C: ["C", "G", "D", "Em", "C", "G", "D7", "G"],
+  D: ["Am", "D", "G", "Em", "Am", "D", "G D", "G"],
 };
 
 const KIOSQUE_AIRS: Record<string, readonly string[]> = {
@@ -238,9 +239,15 @@ const KIOSQUE_AIRS: Record<string, readonly string[]> = {
     "e5:3 g5:3", "d5:3 b5:3", "a5:3 f#5:3", "g5:6",
     "e5:3 g5:3", "b5:3 d6:3", "c6:3 a5:3", "b5:3 g5:3",
   ],
+  // La troisième reprise : elle part du la, et grimpe jusqu'au sol aigu.
+  D: [
+    "a5:2 c6 e6:2 c6", "d6 c6 a5 f#5:2 a5", "b5:2 d6 g6:2 d6", "e6 d6 b5 g5:3",
+    "a5:2 c6 e6:2 c6", "d6:2 a5 f#5:2 d5", "g5 a5 b5 a5 g5 f#5", "g5:3 -:3",
+  ],
 };
 
-const KIOSQUE_FORME = ["A", "A2", "B", "B2", "C", "A2", "A", "B", "A2", "C", "B2", "A2"];
+/** Douze reprises, deux minutes : « A2 », « B2 », « D2 » sont les mêmes airs, joués autrement. */
+const KIOSQUE_FORME = ["A", "A2", "B", "B2", "C", "A2", "D", "D2", "A", "B2", "C", "A2"];
 
 const KIOSQUE: Theme = {
   tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.5,
@@ -253,17 +260,25 @@ const KIOSQUE: Theme = {
   },
   airs: Object.values(KIOSQUE_AIRS),
   mesure(n, p) {
-    const section = KIOSQUE_FORME[Math.floor(n / 8) % KIOSQUE_FORME.length]!;
+    const reprise = Math.floor(n / 8);
+    const section = KIOSQUE_FORME[reprise % KIOSQUE_FORME.length]!;
     const k = n % 8;
+    // Un tour sur deux, l'orchestre change de manière : la pompe redouble, la basse marche.
+    const autrement = Math.floor(reprise / KIOSQUE_FORME.length) % 2 === 1;
     const accords = KIOSQUE_ACCORDS[section[0]!]!;
     const [a1, a2] = harmonie(accords[k]!);
 
     // La contrebasse sur les deux temps, la pompe sur les levées : « poum, tchic, poum, tchic ».
     p.n("basse", 0, grave(a1.basse, 43), 2.4, 1);
-    p.n("basse", 3, a2 !== a1 ? grave(a2.basse, 43) : alterne(a1, 43), 2.2, 0.8);
+    p.n("basse", 3, a2 !== a1 ? grave(a2.basse, 43) : alterne(a1, 43), autrement ? 1.6 : 2.2, 0.8);
+    if (autrement && k < 7) p.n("basse", 5, voisine(UN_DIESE, grave(harmonie(accords[k + 1]!)[0].basse, 43), sort(n) < 0.5 ? -1 : 1), 0.9, 0.55);
     plaquer(p, "pompe", 2, plaque(a1, 62, 3), 0.8, 0.8, 0.06);
     plaquer(p, "pompe", 5, plaque(a2, 62, 3), 0.8, 0.9, 0.06);
-    frappe(p, "tambourin", section === "C" ? "o....." : "o.-o.-", 1, 0.5);
+    if (autrement) {
+      plaquer(p, "pompe", 1, plaque(a1, 62, 2), 0.7, 0.45);
+      plaquer(p, "pompe", 4, plaque(a2, 62, 2), 0.7, 0.45);
+    }
+    frappe(p, "tambourin", section === "C" ? "o....." : autrement ? "o--o--" : "o.-o.-", 1, 0.5);
 
     if (section === "C") {
       chante(p, "sifflet", KIOSQUE_AIRS.C![k]!, 1);
@@ -272,14 +287,15 @@ const KIOSQUE: Theme = {
       [0, 2, 1, 2, 0, 2].forEach((i, j) => p.n("mandoline", j, (j < 3 ? v : w)[i]! + (j === 4 ? 12 : 0), 1.6, j % 3 ? 0.5 : 0.7));
       return;
     }
-    const air = KIOSQUE_AIRS[section === "B2" ? "B" : section]![k]!;
-    if (section === "B2") {
+    const air = (KIOSQUE_AIRS[section] ?? KIOSQUE_AIRS[section[0]!]!)[k]!;
+    if (section === "B2" || section === "D2") {
       // Le sifflet prend l'air ; la mandoline l'accompagne une octave plus bas, à mi-voix.
       chante(p, "sifflet", air, 1.1);
       chante(p, "mandoline", air, 0.45, -12, 0.3);
     } else {
       chante(p, "mandoline", air, 1, 0, 0.3);
-      if (section === "A2") chante(p, "sifflet", air, 0.6);
+      // Le sifflet double l'air dans la reprise ; un tour sur deux, c'est dans l'exposé.
+      if ((section === "A2") !== autrement && section[0] === "A") chante(p, "sifflet", air, 0.6);
     }
   },
 };
@@ -784,18 +800,23 @@ const LUNE: Theme = {
     const k = n % 16;
     const [nappe, couleurs] = LUNE_ACCORDS[Math.floor(k / 2)]!;
     const tour = Math.floor(n / 16);
+    const lever = k === 0 && tour % 2 === 0;
 
-    // La nappe : chaque accord arrive pendant que le précédent s'en va.
-    if (k % 2 === 0) nappe.forEach((nom, i) => p.n("nappe", i * 0.4, ton(nom), 16.5 - i * 0.4, i === 0 ? 1 : 0.8));
+    // La nappe : l'accord éclot note après note, pendant que le précédent s'en va. Un verre
+    // tinte à son arrivée : on sait tout de suite où l'on est.
+    if (k % 2 === 0) {
+      nappe.forEach((nom, i) => p.n("nappe", i * 0.8, ton(nom), 15 - i * 0.8, i === 0 ? 1 : 0.8));
+      if (!lever) p.n("verre", 0, ton(couleurs[1]!), 6, 0.5);
+    }
 
-    if (k === 0 && tour % 2 === 0) {
+    if (lever) {
       // La Terre se lève.
-      LUNE_LEVER.forEach((nom, i) => p.n("verre", 1 + i * 2, ton(nom), 7, 0.95 - i * 0.08));
+      LUNE_LEVER.forEach((nom, i) => p.n("verre", i * 2, ton(nom), 7, 0.95 - i * 0.08));
       return;
     }
     // L'arpège suspendu : il monte par les couleurs de l'accord, s'arrête où il veut, et
     // laisse sa dernière note en l'air.
-    let cran = p.m.cran ?? 0;
+    let cran = p.m.cran ?? 1;
     for (let i = k % 2 === 0 ? 1 : 0; i < 4; i++) {
       if (p.alea() < 0.28) continue;
       cran = (cran + (p.alea() < 0.75 ? 1 : 2)) % couleurs.length;

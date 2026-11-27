@@ -59,6 +59,8 @@ interface Ecrite {
 
 interface Voix {
   src: Source;
+  /** Son enveloppe : ce qu'il faut débrancher quand elle a fini. */
+  g: GainNode;
   t0: number;
   t1: number;
   boucle: Boucle;
@@ -77,6 +79,8 @@ interface Boucle {
   fondu: GainNode;
   /** Sa part de réverbération, qui suit le même fondu. */
   envoi: GainNode | null;
+  /** Où en est son fondu à l'heure `t`, de 0 (muet) à 1 (plein) : on le sait sans le demander au contexte. */
+  niveau: (t: number) => number;
   /** Tout ce qu'il faudra débrancher. */
   noeuds: AudioNode[];
   canaux: Record<string, Canal>;
@@ -310,7 +314,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
         src = osc;
       }
       src.stop(arret);
-      voix.push({ src, t0, t1: fin, boucle: b });
+      voix.push({ src, g, t0, t1: fin, boucle: b });
       derniere = src;
     }
     // La note éteinte, son volume est débranché : plus rien ne la retient.
@@ -378,6 +382,8 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
     const pas = 60 / theme.tempo / theme.division;
     const b: Boucle = {
       id, theme, fondu, envoi, noeuds, canaux,
+      // Le fondu d'entrée : le volume rejoint sa valeur en une seconde environ.
+      niveau: (t) => 1 - Math.exp(-Math.max(0, t - now) / (FONDU / 4)),
       mesure: reprises[id] ?? 0,
       tMesure: now + DEPART,
       file: [],
@@ -408,27 +414,58 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
     b.file.sort((x, y) => x.t - y.t);
   }
 
-  /** Le thème s'en va : il s'éteint en `duree` secondes, et ses notes encore tenues s'arrêtent avec lui. */
+  /**
+   * Le thème s'éteint en `duree` secondes. Son volume part d'où il en est (même au milieu de
+   * son fondu d'entrée), tombe vite au quart, puis rejoint zéro, exactement : ses notes
+   * encore tenues peuvent alors s'arrêter sans claquer. Celles qui étaient écrites mais
+   * n'avaient pas commencé ne sonneront pas : la place est au thème qui arrive.
+   */
+  function eteint(b: Boucle, now: number, duree: number): void {
+    const depart = b.niveau(now);
+    const coude = now + duree * 0.35;
+    const fin = now + duree;
+    b.niveau = (t) =>
+      t >= fin ? 0 : t <= coude ? depart * (1 - (0.75 * (t - now)) / (coude - now)) : (depart * 0.25 * (fin - t)) / (fin - coude);
+    b.fin = fin + 0.02;
+    const pleins: [GainNode | null, number][] = [
+      [b.fondu, b.theme.volume],
+      [b.envoi, b.theme.volume * (b.theme.salle ?? 0) * SALLE],
+    ];
+    for (const [g, plein] of pleins) {
+      if (!g) continue;
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(plein * depart, now);
+      g.gain.linearRampToValueAtTime(plein * depart * 0.25, coude);
+      g.gain.linearRampToValueAtTime(0, fin);
+    }
+    b.file = [];
+    for (const v of voix) {
+      if (v.boucle !== b || v.t1 <= now) continue;
+      const jamais = v.t0 > now;
+      if (!jamais && v.t1 <= b.fin) continue;
+      try {
+        v.src.stop(jamais ? 0 : b.fin);
+      } catch {
+        // Une source déjà arrêtée.
+      }
+      if (jamais) {
+        v.g.disconnect();
+        v.t1 = v.t0;
+      } else {
+        v.t1 = b.fin;
+      }
+    }
+  }
+
+  /** Le thème s'en va. */
   function quitte(b: Boucle, now: number, duree: number): void {
     // On le retrouvera au début de la phrase suivante (ou de celle-ci, s'il venait de la commencer).
     const { phrase } = b.theme;
     reprises[b.id] = Math.ceil(Math.max(0, b.mesure - 1) / phrase) * phrase;
-    b.fin = now + duree + 0.25;
-    for (const g of [b.fondu, b.envoi]) {
-      if (!g) continue;
-      g.gain.cancelScheduledValues(now);
-      g.gain.setTargetAtTime(0, now, duree / 4.5);
-    }
-    b.file = [];
-    for (const v of voix) {
-      if (v.boucle !== b || v.t1 <= b.fin) continue;
-      try {
-        v.src.stop(b.fin);
-      } catch {
-        // Une source déjà arrêtée.
-      }
-      v.t1 = b.fin;
-    }
+    // Un thème qui s'éteignait encore quand celui-ci s'en va à son tour (trois écrans en une
+    // seconde) s'efface tout de suite : jamais trois musiques à la fois.
+    for (const vieux of sortantes) if (vieux.fin > now + 0.4) eteint(vieux, now, 0.15);
+    eteint(b, now, duree);
     sortantes.push(b);
   }
 
