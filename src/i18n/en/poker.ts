@@ -358,6 +358,7 @@ export const EN_POKER: Record<string, string> = {
   "Faire tapis ?": "Go all in?",
   "C'est tout ton tapis : si tu perds cette main, il ne te restera rien devant toi.":
     "That's your whole stack: lose this hand and you'll have nothing left in front of you.",
+  "Avec les {deja} déjà misés, ta mise passe à {total}.": "With the {deja} you've already bet, your bet goes to {total}.",
 
   // --- L'histoire de chaque hôte : le battre trois fois au poker l'ouvre, dans les Souvenirs
   // (« Memories », comme aux Réglages). Ni « his » ni « her » : chaque phrase vaut pour les huit.

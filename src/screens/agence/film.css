@@ -1,0 +1,319 @@
+/* Le film d'une expérience de vie : plein écran, comme un grand moment (moments.css), puis
+   une carte postale. Et le vocabulaire de mouvement des trente scènes (src/art/agence/).
+   Uniquement des transformations et de l'opacité. Chargé avec les films. */
+
+.moment--experience {
+  overflow: hidden;
+  background: #06181E;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------- Le film */
+
+/* Le cadre prend tout l'écran : la scène, plus haute que lui, y est rognée par le haut et par le bas. */
+.xp__cadre {
+  position: absolute;
+  inset: 0;
+}
+
+.xp__vue {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.xp__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Un appui passe le film : tout l'écran est le bouton, et il le dit en bas, sans insister. */
+.xp__passer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  padding: 0 16px calc(var(--bas) + 18px);
+  color: #fff;
+}
+
+.xp__passer span {
+  padding: 5px 14px;
+  border-radius: 99px;
+  background: rgba(6, 24, 30, .62);
+  font: 500 14px/20px var(--texte);
+  animation: fondu 400ms linear 1800ms both;
+}
+
+/* ---------------------------------------------------------------- La carte postale */
+
+/* Le déclic : l'écran blanchit d'un coup, et c'est une photo. Sous l'éclair, le film est
+   devenu une carte : personne ne voit le décor changer de cadre. */
+.xp__flash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: #fff;
+  pointer-events: none;
+  animation: xp-flash 620ms ease-out both;
+}
+
+@keyframes xp-flash {
+  from { opacity: .96; }
+  to { opacity: 0; }
+}
+
+.xp--carte {
+  /* La largeur de la carte : celle de l'écran, ou ce que sa hauteur permet (l'image est en 4:5). */
+  --xp-l: min(100%, 340px, (100vh - var(--haut) - 222px) / 1.25);
+  gap: var(--e3);
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--haut) + 12px) 20px calc(var(--bas) + 16px);
+  overflow-y: auto;
+  /* Elle se pose sur le ciel de la scène, à la nuit tombée. */
+  background:
+    linear-gradient(rgba(6, 24, 30, .5), rgba(6, 24, 30, .78)),
+    linear-gradient(var(--xp-haut, #17505C), var(--xp-bas, #0E2F3A));
+}
+
+@supports (height: 100dvh) {
+  .xp--carte { --xp-l: min(100%, 340px, (100dvh - var(--haut) - 222px) / 1.25); }
+}
+
+/* « Souvenir 8 sur 30 ». */
+.xp__haut {
+  flex: none;
+  color: var(--mimosa);
+  font: 500 14px/20px var(--texte);
+  animation: fondu 300ms linear 320ms both;
+}
+
+.xp--carte .xp__cadre {
+  position: relative;
+  inset: auto;
+  flex: none;
+  width: var(--xp-l);
+  padding: 10px 10px 0;
+  border-radius: 4px;
+  background: var(--ivoire);
+  color: var(--nuit);
+  box-shadow: var(--ombre-papier);
+  transform: rotate(-2deg);
+  animation: xp-pose 560ms var(--rebond) both;
+}
+
+@keyframes xp-pose {
+  from { transform: rotate(5deg) scale(1.22); }
+  to { transform: rotate(-2deg); }
+}
+
+.xp--carte .xp__vue {
+  position: relative;
+  inset: auto;
+  aspect-ratio: 4 / 5;
+  border-radius: 2px;
+}
+
+/* Le dos de la carte, sous l'image : la légende, de la main du voyageur, et le timbre. */
+.xp__dos {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 64px;
+  padding: 8px 2px 10px 4px;
+}
+
+.xp__legende {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: italic 500 16px/21px var(--texte);
+  text-wrap: balance;
+  animation: fondu 400ms linear 380ms both;
+}
+
+.xp__timbre {
+  flex: none;
+  width: 40px;
+  margin: 0 4px 0 10px;
+  box-shadow: 1px 2px 0 rgba(14, 47, 58, .22);
+  transform: rotate(5deg);
+}
+
+/* Le cachet de l'agence tombe sur le timbre : c'est vécu. */
+.xp__timbre .timbre__cachet {
+  transform-box: fill-box;
+  transform-origin: 70% 50%;
+  animation: xp-cachet 380ms var(--rebond) 780ms backwards;
+}
+
+@keyframes xp-cachet {
+  from { opacity: 0; transform: scale(2.8) rotate(-16deg); }
+}
+
+.xp__pied {
+  flex: none;
+  width: 100%;
+  max-width: 340px;
+  animation: fondu 300ms linear 620ms both;
+}
+
+.xp__pied:focus-visible { outline: none; }
+
+/* Le film se fond avant de rendre la main. */
+.xp--sortie {
+  pointer-events: none;
+  animation: xp-sortie 240ms linear both;
+}
+
+@keyframes xp-sortie {
+  to { opacity: 0; }
+}
+
+/* Animations réduites : la carte postale d'emblée, posée sans élan. */
+.calme .xp--carte .xp__cadre,
+.calme .xp__timbre .timbre__cachet,
+.calme .xp__haut,
+.calme .xp__legende,
+.calme .xp__pied { animation: none; }
+
+/* ---------------------------------------------------------------- Le mouvement des scènes */
+
+/* Chaque élément qui bouge porte `xp-a` et le nom de son geste ; sa durée, son départ, son
+   amplitude sont des variables posées par `a()` (src/art/agence/kit.tsx). */
+.xp-a {
+  animation-duration: var(--t, 1s);
+  animation-delay: var(--d, 0s);
+  animation-timing-function: var(--e, ease-in-out);
+  animation-iteration-count: var(--n, 1);
+  animation-direction: var(--sens, normal);
+  animation-fill-mode: both;
+  transform-box: fill-box;
+  transform-origin: var(--o, 50% 50%);
+}
+
+/* Le pivot est un point du repère de l'élément, pas de sa boîte. */
+.xp-a--vue { transform-box: view-box; }
+
+.xp-va { animation-name: xp-va; }
+.xp-sort { animation-name: xp-sort; }
+.xp-passe { animation-name: xp-passe; }
+.xp-apparait { animation-name: xp-apparait; }
+.xp-disparait { animation-name: xp-disparait; }
+.xp-pop { animation-name: xp-pop; }
+.xp-chute { animation-name: xp-chute; }
+.xp-eclat { animation-name: xp-eclat; }
+.xp-flotte { animation-name: xp-flotte; }
+.xp-tourne { animation-name: xp-tourne; }
+.xp-defile { animation-name: xp-defile; }
+.xp-pulse { animation-name: xp-pulse; }
+.xp-clignote { animation-name: xp-clignote; }
+.xp-saut { animation-name: xp-saut; }
+.xp-bat { animation-name: xp-bat; }
+
+/* Arriver : d'un décalage jusqu'à sa place. */
+@keyframes xp-va {
+  from {
+    opacity: var(--o0, 1);
+    transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  }
+}
+
+/* S'en aller : de sa place jusqu'à un décalage. */
+@keyframes xp-sort {
+  to {
+    opacity: var(--o1, 1);
+    transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  }
+}
+
+/* Passer : d'un décalage à un autre, sans s'arrêter. */
+@keyframes xp-passe {
+  from { transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--r0, 0deg)); }
+  to { transform: translate(var(--fx, 0px), var(--fy, 0px)) rotate(var(--r, 0deg)); }
+}
+
+@keyframes xp-apparait {
+  from { opacity: 0; }
+}
+
+@keyframes xp-disparait {
+  to { opacity: 0; }
+}
+
+/* Surgir : un bouchon qui saute. */
+@keyframes xp-pop {
+  0% { opacity: 0; transform: scale(.2); }
+  60% { opacity: 1; transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+/* Tomber, s'écraser un peu, rebondir. */
+@keyframes xp-chute {
+  0% { opacity: 0; transform: translateY(var(--dy, -300px)); animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+  12% { opacity: 1; }
+  62% { transform: translateY(0) scale(1.12, .86); }
+  80% { transform: translateY(-5px) scale(.96, 1.05); }
+  100% { transform: none; }
+}
+
+/* Éclater : une fusée de feu d'artifice, un éclair d'appareil photo. */
+@keyframes xp-eclat {
+  0% { opacity: 0; transform: scale(.12); }
+  12% { opacity: 1; }
+  55% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+/* Flotter, se balancer : autour de sa place. */
+@keyframes xp-flotte {
+  from { transform: translate(calc(var(--dx, 0px) * -1), calc(var(--dy, 0px) * -1)) rotate(calc(var(--r, 0deg) * -1)); }
+  to { transform: translate(var(--dx, 0px), var(--dy, 0px)) rotate(var(--r, 0deg)); }
+}
+
+@keyframes xp-tourne {
+  to { transform: rotate(var(--r, 360deg)); }
+}
+
+/* Défiler : d'une période, pour un décor qui avance sans fin. */
+@keyframes xp-defile {
+  to { transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+}
+
+@keyframes xp-pulse {
+  from { transform: scale(var(--s0, 1)); }
+  to { transform: scale(var(--s, 1.1)); }
+}
+
+@keyframes xp-clignote {
+  from { opacity: var(--o0, .25); }
+  to { opacity: var(--o1, 1); }
+}
+
+/* Battre des ailes : l'aile se replie autour de son attache. */
+@keyframes xp-bat {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(var(--s, -.5)); }
+}
+
+/* Bondir sur place. */
+@keyframes xp-saut {
+  0%, 100% { transform: translate(0, 0); animation-timing-function: cubic-bezier(.25, .6, .5, 1); }
+  50% { transform: translate(var(--dx, 0px), var(--dy, -30px)); animation-timing-function: cubic-bezier(.5, 0, .75, .4); }
+}
+
+/* La carte postale est une image fixe : chaque élément y est à sa place, sans mouvement.
+   Ce qui ne faisait que passer (ce qui s'en va, ce qui éclate) n'y est plus. Les animations
+   réduites montrent d'emblée cette image-là. */
+.xp--carte .xp__image *,
+.calme .xp__image * { animation: none !important; }
+
+.xp--carte .xp__image :is(.xp-sort, .xp-passe, .xp-disparait, .xp-eclat, .xp-fugace):not(.xp-reste),
+.calme .xp__image :is(.xp-sort, .xp-passe, .xp-disparait, .xp-eclat, .xp-fugace):not(.xp-reste) { opacity: 0; }

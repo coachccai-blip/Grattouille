@@ -68,10 +68,10 @@ export interface Mouvement {
 /** Les mouvements de film.css. */
 export type Geste =
   | "va" | "sort" | "passe" | "apparait" | "disparait" | "pop" | "chute" | "eclat"
-  | "flotte" | "tourne" | "defile" | "pulse" | "clignote" | "saut";
+  | "flotte" | "tourne" | "defile" | "pulse" | "clignote" | "saut" | "bat";
 
-const BOUCLES: ReadonlySet<Geste> = new Set(["flotte", "tourne", "defile", "pulse", "clignote", "saut"]);
-const ALLERS_RETOURS: ReadonlySet<Geste> = new Set(["flotte", "pulse", "clignote"]);
+const BOUCLES: ReadonlySet<Geste> = new Set(["flotte", "tourne", "defile", "pulse", "clignote", "saut", "bat"]);
+const ALLERS_RETOURS: ReadonlySet<Geste> = new Set(["flotte", "pulse", "clignote", "bat"]);
 const COURBES: Record<string, string> = {
   lin: "linear",
   sortie: "cubic-bezier(.2,.8,.2,1)",
@@ -239,8 +239,53 @@ export function Mouette({ couleur = C.blanc }: { couleur?: string }) {
     <path
       d="M-16 0Q-8 -10 0 0Q8 -10 16 0Q8 -4 0 4Q-8 -4 -16 0Z"
       fill={couleur}
-      {...a("pulse", { s0: 1, s: 0.55, t: 0.42, o: "50% 100%" })}
+      {...a("bat", { s: 0.35, t: 0.42, o: "50% 100%" })}
     />
+  );
+}
+
+/**
+ * Un goéland de près, de profil, qui vole vers la droite : centré en (0, 0), long de 110.
+ * Ses deux ailes battent. Son bec est en (58, 2) : de quoi emporter quelque chose.
+ */
+export function Goeland() {
+  const ombre = shade(C.blanc, -0.14);
+  return (
+    <>
+      <g {...a("bat", { s: -0.45, t: 0.3, d: -0.1, o: "50% 100%" })}>
+        <path d="M-6 0Q-16 -30 -40 -42Q-30 -22 -22 2Z" fill={ombre} />
+        <path d="M-40 -42Q-34 -38 -30 -30L-36 -30Z" fill={C.grisFonce} />
+      </g>
+      <path d="M-34 6L-56 0L-50 9L-58 16L-32 13Z" fill={C.grisClair} />
+      <path d="M-38 8Q-20 -6 12 -2Q32 0 40 8Q28 22 0 22Q-24 22 -38 8Z" fill={C.blanc} />
+      <path d="M0 22Q28 22 40 8Q30 16 2 17Q-16 18 -28 14Q-16 22 0 22Z" fill={ombre} />
+      <circle cx="36" cy="0" r="11.5" fill={C.blanc} />
+      <circle cx="39.5" cy="-2.5" r="1.9" fill={C.nuit} />
+      <path d="M45 -2L62 2.5L45 6Z" fill={C.mimosaFonce} />
+      <g {...a("bat", { s: -0.45, t: 0.3, o: "50% 100%" })}>
+        <path d="M-2 4Q-6 -34 26 -46Q18 -22 22 6Z" fill={C.blanc} />
+        <path d="M26 -46Q20 -40 16 -30L24 -34Z" fill={C.grisFonce} />
+      </g>
+    </>
+  );
+}
+
+/** La mer : une nappe à partir de `y`, et ses reflets de papier qui glissent. */
+export function Mer({ y, bas = 800, couleur = C.mer, reflets = shade(couleur, 0.25), t = 5 }: {
+  y: number; bas?: number; couleur?: string; reflets?: string; t?: number;
+}) {
+  let d = "";
+  const rangs = Math.min(4, Math.floor((bas - y) / 34));
+  for (let rang = 0; rang < rangs; rang++) {
+    const yy = y + 14 + rang * 34;
+    for (let x = -180 + (rang % 2) * 60; x < 540; x += 120) d += `M${x} ${yy}h26l7 -4l7 4h26v3h-66Z`;
+  }
+  return (
+    <>
+      <rect x="-20" y={y} width="400" height={bas - y} fill={couleur} />
+      <rect x="-20" y={y} width="400" height="3" fill={reflets} />
+      <path d={d} fill={reflets} {...a("defile", { dx: -120, t })} />
+    </>
   );
 }
 
@@ -267,6 +312,11 @@ export function Tete({ espece, look }: Voyageur) {
       <Avatar species={espece} look={look} crop="tete" />
     </svg>
   );
+}
+
+/** La couleur du pelage du joueur : pour une patte qui dépasse, une queue, une empreinte. */
+export function pelageDe(espece: string): string {
+  return speciesArt(espece).colors.pelage;
 }
 
 /** Le bout d'un membre : son attache, son angle depuis la verticale basse (positif : vers l'extérieur), sa longueur. */

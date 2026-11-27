@@ -124,10 +124,10 @@ class FakePanner extends FakeNode {
   }
 }
 
-class FakeConvolver extends FakeNode {
-  buffer: unknown = null;
-  constructor() {
-    super("convolver");
+class FakeDelay extends FakeNode {
+  delayTime = new FakeParam();
+  constructor(readonly max: number) {
+    super("delay");
   }
 }
 
@@ -188,8 +188,8 @@ class FakeContext {
   createStereoPanner() {
     return this.note(new FakePanner());
   }
-  createConvolver() {
-    return this.note(new FakeConvolver());
+  createDelay(max = 1) {
+    return this.note(new FakeDelay(max));
   }
   createDynamicsCompressor() {
     return this.note(new FakeCompressor());
@@ -226,19 +226,33 @@ class FakeContext {
       }
     }
   }
-  /** Les nœuds dont le son atteint encore la sortie. */
+  /** Les nœuds dont le son atteint encore la sortie (on remonte le graphe depuis elle : il a des boucles, celles de l'écho). */
   relies(): FakeNode[] {
-    const oui = new Set<FakeNode>([this.destination]);
-    const non = new Set<FakeNode>();
-    const atteint = (n: FakeNode, vus: Set<FakeNode>): boolean => {
-      if (oui.has(n)) return true;
-      if (non.has(n) || vus.has(n)) return false;
-      vus.add(n);
-      const ok = n.outputs.some((o) => atteint(o, vus));
-      (ok ? oui : non).add(n);
-      return ok;
-    };
-    return this.nodes.filter((n) => atteint(n, new Set()));
+    const amont = new Map<FakeNode, FakeNode[]>();
+    const connus = new Set<FakeNode>(this.nodes);
+    const aVoir = [...this.nodes];
+    while (aVoir.length > 0) {
+      const n = aVoir.pop()!;
+      for (const o of n.outputs) {
+        (amont.get(o) ?? amont.set(o, []).get(o)!).push(n);
+        // Un nœud que le contexte n'a pas créé lui-même (la sortie qu'on donne au moteur) compte aussi.
+        if (!connus.has(o)) {
+          connus.add(o);
+          aVoir.push(o);
+        }
+      }
+    }
+    const oui = new Set<FakeNode>();
+    const file: FakeNode[] = [this.destination];
+    while (file.length > 0) {
+      for (const n of amont.get(file.pop()!) ?? []) {
+        if (!oui.has(n)) {
+          oui.add(n);
+          file.push(n);
+        }
+      }
+    }
+    return this.nodes.filter((n) => oui.has(n));
   }
 }
 
@@ -830,6 +844,35 @@ describe("le moteur", () => {
     expect(maxOverlap(ctx.sources)).toBeLessThanOrEqual(VOIX_MAX);
   });
 
+  it("l'espace autour des instruments est un écho calé sur le tempo : deux lignes à retard qui se répondent, sous le son direct", () => {
+    for (const id of THEME_IDS) {
+      const theme = THEMES[id];
+      const avant = ctx.nodes.length;
+      moteur.jouer(id);
+      passe(1);
+      const lignes = ctx.nodes.slice(avant).filter((n): n is FakeDelay => n instanceof FakeDelay);
+      expect([id, lignes.length]).toEqual([id, 2]);
+      // Le retard : une fraction simple du temps (un tiers, un quart, deux tiers, trois quarts, un temps).
+      const temps = 60 / theme.tempo;
+      for (const ligne of lignes) {
+        const fraction = ligne.delayTime.value / temps;
+        expect([id, [1 / 4, 1 / 3, 2 / 3, 3 / 4, 1].some((f) => Math.abs(f - fraction) < 1e-9)]).toEqual([id, true]);
+        expect([id, ligne.delayTime.value >= 0.1 && ligne.delayTime.value <= ligne.max]).toEqual([id, true]);
+      }
+      // Chaque écho est plus bas que le précédent (sinon il enflerait sans fin), et le premier bien sous le son direct.
+      expect([id, (theme.retour ?? 0.3) > 0 && (theme.retour ?? 0.3) <= 0.5]).toEqual([id, true]);
+      expect([id, theme.salle! > 0 && theme.salle! <= 0.4]).toEqual([id, true]);
+      // La basse et la grosse caisse restent sèches : pas de boue dans le grave.
+      for (const [nom, piste] of Object.entries(theme.pistes)) {
+        if (nom === "basse" || nom === "pied") expect([id, nom, piste.salle ?? 0]).toEqual([id, nom, 0]);
+      }
+    }
+    // Les lignes à retard du thème quitté sont débranchées avec lui.
+    moteur.arret();
+    passe(2);
+    expect(ctx.relies()).toEqual([moteur.bus]);
+  });
+
   it("le niveau d'ensemble baisse pour un grand moment, et remonte après", () => {
     moteur.jouer("ville");
     passe(2);
@@ -897,8 +940,8 @@ describe("le moteur", () => {
     for (const s of ctx.sources) expect(s.stopAt!).toBeLessThanOrEqual(t + 0.6);
     expect(moteur.etat()).toMatchObject({ boucles: 0, voix: 0 });
     expect(vi.getTimerCount()).toBe(0);
-    // Il ne reste de branché que le bus et la salle (la réverbération), qui servent à tous les thèmes.
-    expect(ctx.relies().map((x) => x.kind).sort()).toEqual(["convolver", "gain"]);
+    // Il ne reste de branché que le bus de la musique.
+    expect(ctx.relies()).toEqual([moteur.bus]);
     // Rallumée, elle reprend à la phrase suivante.
     moteur.jouer("salon");
     passe(1);
@@ -930,7 +973,7 @@ describe("le moteur", () => {
     }
     moteur.arret();
     passe(2);
-    expect(ctx.relies().map((x) => x.kind).sort()).toEqual(["convolver", "gain"]);
+    expect(ctx.relies()).toEqual([moteur.bus]);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -950,9 +993,9 @@ describe("le moteur", () => {
     expect(Math.max(...ctx.sources.map((s) => s.startAt!))).toBeGreaterThan(ctx.currentTime - 1);
   });
 
-  it("sans réverbération ni panoramique (un vieux navigateur), la musique joue quand même", () => {
+  it("sans ligne à retard ni panoramique (un vieux navigateur), la musique joue quand même, sans écho", () => {
     const vieux = new FakeContext() as unknown as Record<string, unknown>;
-    vieux.createConvolver = undefined;
+    vieux.createDelay = undefined;
     vieux.createStereoPanner = undefined;
     const sortie = new FakeGain();
     sortie.connect((vieux as unknown as FakeContext).destination);
@@ -960,6 +1003,7 @@ describe("le moteur", () => {
     autre.jouer("lune");
     autre.avance();
     expect((vieux as unknown as FakeContext).sources.length).toBeGreaterThan(0);
+    expect((vieux as unknown as FakeContext).nodes.some((n) => n.kind === "delay" || n.kind === "panner")).toBe(false);
     autre.arret();
     (vieux as unknown as FakeContext).avance(3);
     autre.avance();

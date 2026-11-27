@@ -7,7 +7,7 @@ import { PLACES } from "../shared/places";
 import {
   ACCUSE_MS, BLIND_LADDER, BOT_MAX_MS, BOT_MIN_MS, BOT_PERSONAS, CATEGORIES, CHALLENGE_LEVEL_HANDS, CHEAT_MS, DECK,
   IDLE_TABLE_MS, MAX_BLIND, MAX_TABLE_CHIPS, RESERVE_MS, RESTART_MS, RESULT_MS, TURN_MS, WALKOVER_MS,
-  PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
+  BOT_MAX_POTS, PokerError, act, advance, allowedBlinds, betOptions, blindAt, botAccuse, botBet, botCheat, canDeal, cancel,
   cardRank, cardSuit, challengeBlind, challengeOf, challengeRise, chipsOnTable, compareHands, createTable, deposit,
   difficultyOf, evaluate, handStrength, houseOf, isBlind, isCard, leave, makeCard, newTableCode, nextEventAt,
   normalizeTableCode, pickPersonas, placeBlind, playerInHand, possibleSwaps, rebuyRange, seatIndexOf, settled,
@@ -2330,61 +2330,139 @@ describe("les robots", () => {
     for (const level of LEVELS) expect(botCheat(chosen, level, always(0))).toBeNull();
   });
 
-  it("enchères, personne n'a misé : il mise selon sa main", () => {
+  it("enchères, personne n'a misé : plus il est confiant, plus il mise gros, jusqu'à trois fois le pot", () => {
     const weak = botView("7h 5d 4c 3s 2h", "parole");
     const full = botView("3h 3d 3c Ks Kh", "parole");
-    expect(weak.options).toMatchObject({ check: true, bet: { min: 10, max: 20 } });
-    // Sans rien : parole. Le robot facile ne bluffe jamais ; les deux autres, rarement.
-    for (const mood of [0, 500, 999]) expect(botBet(weak, "facile", sequence(mood, 500))).toEqual({ type: "parole" });
-    expect(botBet(weak, "normal", sequence(500, 500))).toEqual({ type: "parole" });
-    expect(botBet(weak, "normal", sequence(50, 500))).toEqual({ type: "miser", amount: 10 });
-    expect(botBet(weak, "difficile", sequence(500, 500))).toEqual({ type: "parole" });
-    expect(botBet(weak, "difficile", sequence(100, 500))).toEqual({ type: "miser", amount: 13 });
-    // Avec un full : il mise, à tous les niveaux.
+    // Sans limite : il pourrait tout miser. Le pot est de 20.
+    expect(weak.options).toMatchObject({ check: true, bet: { min: 10, max: 990 }, allIn: true });
+    expect([weak.pot, BOT_MAX_POTS]).toEqual([20, 3]);
+    const amount = (view: TableView, level: Difficulty, mood: number, size: number): number => {
+      const move = botBet(view, level, sequence(mood, size));
+      return move.type === "miser" ? move.amount : 0;
+    };
+    // Sans rien : parole, le plus souvent.
+    for (const level of LEVELS) expect(botBet(weak, level, sequence(500, 500))).toEqual({ type: "parole" });
+    // Avec deux paires, un brelan, une suite, un full : la mise grossit avec la main, à tous les niveaux.
+    const hands = ["9h 9d 4c 4s Ah", "7h 7d 7c Ks 2h", "9h 8d 7c 6s 5h", "3h 3d 3c Ks Kh"].map((cards) => botView(cards, "parole"));
     for (const level of LEVELS) {
-      const move = botBet(full, level, sequence(300, 500));
-      expect(move.type).toBe("miser");
-      expect((move as { amount: number }).amount).toBeGreaterThanOrEqual(10);
-      expect((move as { amount: number }).amount).toBeLessThanOrEqual(20);
+      const bets = hands.map((view) => amount(view, level, 300, 500));
+      expect([level, bets]).toEqual([level, [...bets].sort((x, y) => x - y)]);
+      expect(new Set(bets).size).toBe(4);
+      // Un demi-pot à peu près avec deux paires ; plus de deux fois le pot avec un full ; jamais plus de trois fois.
+      expect(bets[0]!).toBeGreaterThanOrEqual(10);
+      expect(bets[0]!).toBeLessThanOrEqual(20);
+      expect(bets[3]!).toBeGreaterThan(40);
+      expect(bets[3]!).toBeLessThanOrEqual(60);
     }
+    // La même main mise un peu plus ou un peu moins selon l'humeur, mais reste sous trois fois le pot…
+    expect(amount(full, "normal", 300, 0)).toBeLessThan(amount(full, "normal", 300, 700));
+    for (const size of [0, 250, 500, 740]) expect(amount(full, "difficile", 300, size)).toBeLessThanOrEqual(BOT_MAX_POTS * 20);
+    // … sauf une fois sur quatre, où une très belle main pousse tout son tapis.
+    for (const level of LEVELS) expect(botBet(full, level, sequence(300, 900))).toEqual({ type: "miser", amount: 990 });
+    // Un brelan, lui, ne pousse jamais son tapis de lui-même.
+    for (const size of [0, 500, 999]) expect(amount(hands[1]!, "difficile", 300, size)).toBeLessThanOrEqual(BOT_MAX_POTS * 20);
     // Le robot difficile tend parfois un piège : parole avec une très belle main.
     expect(botBet(full, "difficile", sequence(900, 500))).toEqual({ type: "parole" });
   });
 
-  it("enchères, face à une mise : le robot facile suit trop, les autres pèsent le prix", () => {
+  it("les bluffs : rares et maladroits au niveau facile, dosés au niveau difficile", () => {
+    const weak = botView("7h 5d 4c 3s 2h", "parole");
+    const rng = rngOf(53);
+    const bets: Record<string, number[]> = { facile: [], normal: [], difficile: [] };
+    for (const level of LEVELS) {
+      for (let i = 0; i < 4_000; i++) {
+        const move = botBet(weak, level, rng);
+        if (move.type === "miser") bets[level]!.push(move.amount);
+        else expect(move).toEqual({ type: "parole" });
+      }
+    }
+    // Sans rien en main : une fois sur vingt-cinq, sur dix, sur sept.
+    expect(bets.facile!.length / 4_000).toBeGreaterThan(0.02);
+    expect(bets.facile!.length / 4_000).toBeLessThan(0.06);
+    expect(bets.normal!.length / 4_000).toBeGreaterThan(0.07);
+    expect(bets.normal!.length / 4_000).toBeLessThan(0.13);
+    expect(bets.difficile!.length / 4_000).toBeGreaterThan(0.12);
+    expect(bets.difficile!.length / 4_000).toBeLessThan(0.18);
+    // Le robot facile bluffe toujours trop gros : deux à trois fois le pot, rien d'autre.
+    expect(Math.min(...bets.facile!)).toBeGreaterThanOrEqual(40);
+    expect(Math.max(...bets.facile!)).toBeLessThanOrEqual(60);
+    // Les deux autres bluffent comme ils misent leurs belles mains : du pot à trois fois le pot,
+    // si bien qu'une grosse mise ne dit pas à coup sûr une belle main.
+    for (const level of ["normal", "difficile"]) {
+      expect(Math.min(...bets[level]!)).toBeLessThanOrEqual(20);
+      expect(Math.max(...bets[level]!)).toBeGreaterThan(50);
+      expect(Math.max(...bets[level]!)).toBeLessThanOrEqual(60);
+    }
+    // Les tirages qui décident : l'humeur d'abord, la taille ensuite.
+    expect(botBet(weak, "facile", sequence(10, 500))).toEqual({ type: "miser", amount: 50 });
+    expect(botBet(weak, "normal", sequence(50, 500))).toEqual({ type: "miser", amount: 37 });
+    expect(botBet(weak, "difficile", sequence(100, 500))).toEqual({ type: "miser", amount: 37 });
+    for (const mood of [40, 500, 999]) expect(botBet(weak, "facile", sequence(mood, 500))).toEqual({ type: "parole" });
+  });
+
+  it("enchères, face à une mise : le robot facile suit trop, les autres pèsent la cote du pot", () => {
     const nothing = botView("7h 5d 4c 3s 2h", "mise");
     const smallPair = botView("4h 4d 9c 7s 2h", "mise");
     const trips = botView("7h 7d 7c Ks 2h", "mise");
     const full = botView("3h 3d 3c Ks Kh", "mise");
-    expect(nothing.options).toMatchObject({ check: false, call: 20, raise: { min: 30, max: 80 } });
+    expect(nothing.options).toMatchObject({ check: false, call: 20, raise: { min: 30, max: 990 }, allIn: true });
     // Facile : il suit avec n'importe quelle paire, et une fois sur deux sans rien.
     expect(botBet(smallPair, "facile", sequence(999, 0))).toEqual({ type: "suivre" });
     expect(botBet(nothing, "facile", sequence(100, 0))).toEqual({ type: "suivre" });
     expect(botBet(nothing, "facile", sequence(900, 0))).toEqual({ type: "coucher" });
-    // Normal et difficile : une petite paire ne vaut pas une mise du pot.
-    expect(botBet(smallPair, "normal", sequence(999, 0))).toEqual({ type: "coucher" });
+    // Normal et difficile : une petite paire ne vaut pas une mise du pot ; rien du tout, encore moins.
+    expect(botBet(smallPair, "normal", sequence(900, 0))).toEqual({ type: "coucher" });
     expect(botBet(smallPair, "difficile", sequence(500, 0))).toEqual({ type: "coucher" });
     expect(botBet(nothing, "normal", sequence(0, 0))).toEqual({ type: "coucher" });
-    // Un brelan suit.
-    expect(botBet(trips, "normal", sequence(999, 0))).toEqual({ type: "suivre" });
-    expect(botBet(trips, "difficile", sequence(999, 0))).toEqual({ type: "suivre" });
-    // Un full relance, quand l'humeur y est ; sinon il suit.
-    expect(botBet(full, "facile", sequence(100, 0)).type).toBe("relancer");
-    expect(botBet(full, "normal", sequence(100, 0)).type).toBe("relancer");
-    expect(botBet(full, "difficile", sequence(100, 0)).type).toBe("relancer");
+    // Une paire d'as la vaut, un brelan aussi.
+    const aces = botView("Ah Ad 9c 7s 2h", "mise");
+    for (const level of ["normal", "difficile"] as const) {
+      expect(botBet(aces, level, sequence(700, 0))).toEqual({ type: "suivre" });
+      expect(botBet(trips, level, sequence(700, 0))).toEqual({ type: "suivre" });
+    }
+    // Un full relance gros, quand l'humeur y est ; sinon il suit.
+    for (const level of LEVELS) {
+      const move = botBet(full, level, sequence(100, 0));
+      expect(move.type).toBe("relancer");
+      // Près de deux fois le pot une fois la mise suivie : 20 + 60 × 1,95.
+      expect((move as { amount: number }).amount).toBe(137);
+    }
     expect(botBet(full, "normal", sequence(900, 0))).toEqual({ type: "suivre" });
-    // Le robot difficile bluffe en relançant, avec mesure : une fois sur vingt quand il n'a rien.
+    // Et une fois sur quatre, il pousse tout son tapis.
+    expect(botBet(full, "normal", sequence(100, 800))).toEqual({ type: "relancer", amount: 990 });
+    // Les deux robots sérieux bluffent en relançant, avec mesure : une fois sur vingt (difficile), sur cinquante (normal).
     expect(botBet(nothing, "difficile", sequence(960, 0)).type).toBe("relancer");
     expect(botBet(nothing, "difficile", sequence(940, 0))).toEqual({ type: "coucher" });
-    // Le prix compte : une paire d'as ne paie pas une mise du pot, mais suit une blinde dans un gros pot.
-    const aces = botView("Ah Ad 9c 7s 2h", "mise");
-    expect(botBet(aces, "normal", sequence(999, 0))).toEqual({ type: "coucher" });
-    expect(botBet(aces, "difficile", sequence(500, 0))).toEqual({ type: "coucher" });
-    const cheap = copy(aces);
-    cheap.pot = 200;
-    cheap.options.call = 10;
-    expect(botBet(cheap, "normal", sequence(999, 0))).toEqual({ type: "suivre" });
-    expect(botBet(cheap, "difficile", sequence(500, 0))).toEqual({ type: "suivre" });
+    expect(botBet(nothing, "normal", sequence(985, 0)).type).toBe("relancer");
+    expect(botBet(nothing, "normal", sequence(970, 0))).toEqual({ type: "coucher" });
+  });
+
+  it("la cote du pot : plus la mise est grosse devant le pot, plus il faut une belle main pour la suivre", () => {
+    /** La même main face à une mise de `bet` dans un pot de 20 : le pot en vaut 20 + `bet`, il faut `bet` pour suivre. */
+    const facing = (cards: string, bet: number): TableView => {
+      const view = copy(botView(cards, "mise"));
+      view.pot = 20 + bet;
+      view.bet = bet;
+      view.options.call = bet;
+      return view;
+    };
+    const calls = (cards: string, bet: number, level: Difficulty): boolean => botBet(facing(cards, bet), level, sequence(700, 0)).type === "suivre";
+    for (const level of ["normal", "difficile"] as const) {
+      // Une petite paire suit un quart de pot, pas le pot.
+      expect([level, calls("4h 4d 9c 7s 2h", 5, level), calls("4h 4d 9c 7s 2h", 20, level)]).toEqual([level, true, false]);
+      // Une paire d'as suit le pot et deux fois le pot, pas un tapis de dix blindes.
+      expect([level, calls("Ah Ad 9c 7s 2h", 20, level), calls("Ah Ad 9c 7s 2h", 40, level), calls("Ah Ad 9c 7s 2h", 100, level)]).toEqual([level, true, true, false]);
+      // Deux paires suivent cinq fois le pot, pas quinze.
+      expect([level, calls("Kh Kd 4c 4s Ah", 100, level), calls("Kh Kd 4c 4s Ah", 300, level)]).toEqual([level, true, false]);
+      // Un brelan suit neuf fois le pot ; devant un tapis de cinquante fois le pot, il faut un beau brelan.
+      expect([level, calls("7h 7d 7c Ks 2h", 180, level), calls("7h 7d 7c Ks 2h", 1_000, level), calls("Ah Ad Ac Ks 2h", 1_000, level)]).toEqual([level, true, false, true]);
+      // Une suite suit tout.
+      expect([level, calls("9h 8d 7c 6s 5h", 1_000, level)]).toEqual([level, true]);
+    }
+    // Le robot facile, lui, suit n'importe quoi avec n'importe quelle paire.
+    expect(calls("4h 4d 9c 7s 2h", 1_000, "facile")).toBe(true);
+    // Le robot difficile est un peu plus sévère que le robot normal : une paire de six suit le pot chez l'un, pas chez l'autre.
+    expect([calls("6h 6d 9c 7s 2h", 20, "normal"), calls("6h 6d 9c 7s 2h", 20, "difficile")]).toEqual([true, false]);
   });
 
   it("un robot ne propose que des gestes permis, dans les fourchettes annoncées", () => {
@@ -2869,7 +2947,6 @@ describe("tables de la maison et défis", () => {
     const at = (share: number) => lengths[Math.floor(share * (lengths.length - 1))]!;
     // Une dizaine de mains, et presque jamais plus de vingt. Il n'y a pas de maximum
     // absolu : tant que le plus petit tapis gagne ses tapis, le duel continue.
-    expect({ mediane: at(0.5), p90: at(0.9), gagnes: outcomes.get("defi-gagne"), perdus: outcomes.get("defi-perdu") }).toEqual({ MESURE: 1 });
     expect(at(0.5)).toBeGreaterThanOrEqual(8);
     expect(at(0.5)).toBeLessThanOrEqual(12);
     expect(at(0.9)).toBeLessThanOrEqual(16);

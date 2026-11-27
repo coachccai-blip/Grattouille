@@ -52,8 +52,14 @@ export interface Theme {
   phrase: number;
   /** Son volume, réglé à la mesure pour que tous les thèmes sonnent au même niveau. */
   volume: number;
-  /** Sa part de réverbération. */
+  /**
+   * Sa salle : le niveau du premier écho (0,25 : quatre fois plus bas que le son direct),
+   * son retard en fraction de temps (trois quarts de temps si rien n'est dit), et ce que
+   * chaque écho renvoie au suivant.
+   */
   salle?: number;
+  echo?: number;
+  retour?: number;
   pistes: Record<string, Piste>;
   /** Les airs écrits à la main, pour les relire (et les vérifier) d'un coup. */
   airs: readonly (readonly string[])[];
@@ -190,7 +196,7 @@ const VILLE_AIRS: Record<string, readonly string[]> = {
 const VILLE_FORME = ["A", "A2", "B", "A3", "A", "C", "B", "A2", "C", "A2", "B", "A3"];
 
 const VILLE: Theme = {
-  tempo: 104, pas: 8, division: 2, souple: 0.005, gamme: BLANCHES, phrase: 8, volume: 1.16, salle: 0.5,
+  tempo: 104, pas: 8, division: 2, souple: 0.005, gamme: BLANCHES, phrase: 8, volume: 1.16, salle: 0.22, echo: 0.75, retour: 0.3,
   pistes: {
     lame: { timbre: LAME, vol: 1, pan: 0.12, salle: 0.5 },
     basse: { timbre: BASSE, vol: 0.58, filtre: ["lowpass", 800] },
@@ -285,7 +291,7 @@ const KIOSQUE_AIRS: Record<string, readonly string[]> = {
 const KIOSQUE_FORME = ["A", "A2", "B", "B2", "C", "A2", "D", "D2", "A", "B2", "C", "A2"];
 
 const KIOSQUE: Theme = {
-  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.5,
+  tempo: 96, pas: 6, division: 3, souple: 0.005, gamme: UN_DIESE, phrase: 8, volume: 1.19, salle: 0.16, echo: 1 / 3, retour: 0.2,
   pistes: {
     mandoline: { timbre: PINCE, vol: 1, filtre: ["lowpass", 3600], pan: 0.15, salle: 0.45 },
     sifflet: { timbre: FLUTE, vol: 0.5, pan: -0.2, salle: 0.6 },
@@ -378,7 +384,7 @@ const CAFE_AIRS: Record<string, readonly string[]> = {
 const CAFE_FORME = ["A", "A2", "B", "A2", "A", "C", "B", "A2"];
 
 const CAFE: Theme = {
-  tempo: 168, pas: 6, division: 2, souple: 0.005, gamme: UN_BEMOL, phrase: 16, volume: 1, salle: 0.45,
+  tempo: 168, pas: 6, division: 2, souple: 0.005, gamme: UN_BEMOL, phrase: 16, volume: 1, salle: 0.16, echo: 1, retour: 0.2,
   pistes: {
     accordeon: { timbre: ACCORDEON, vol: 0.6, filtre: ["lowpass", 2600], pan: 0.1, salle: 0.4 },
     second: { timbre: CLAVIER, vol: 0.42, filtre: ["lowpass", 1800], pan: 0.3, salle: 0.4 },
@@ -448,7 +454,7 @@ const CASINO_POMPES: readonly (readonly (readonly [number, number])[])[] = [
 const CASINO_FORME = ["tete", "tete", "chorus", "tete", "chorus", "chorus"];
 
 const CASINO: Theme = {
-  tempo: 132, pas: 12, division: 3, souple: 0.006, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.6,
+  tempo: 132, pas: 12, division: 3, souple: 0.006, gamme: BLANCHES, phrase: 8, volume: 1, salle: 0.2, echo: 2 / 3, retour: 0.25,
   pistes: {
     vibra: { timbre: VIBRA, vol: 0.9, pan: 0.15, salle: 0.5 },
     basse: { timbre: CONTREBASSE, vol: 0.78, filtre: ["lowpass", 1000] },
@@ -537,7 +543,7 @@ const SALON_AIRS: Record<string, readonly string[]> = {
 const SALON_FORME = ["A", "A-", "B", "A", "B-", "A-"];
 
 const SALON: Theme = {
-  tempo: 84, pas: 8, division: 2, souple: 0.007, gamme: BLANCHES, phrase: 8, volume: 1.05, salle: 0.8,
+  tempo: 84, pas: 8, division: 2, souple: 0.007, gamme: BLANCHES, phrase: 8, volume: 1.05, salle: 0.26, echo: 0.75, retour: 0.35,
   pistes: {
     flute: { timbre: FLUTE, vol: 0.62, pan: 0.15, salle: 0.6 },
     vibra: { timbre: VIBRA, vol: 1, pan: 0.25, salle: 0.6 },
@@ -603,7 +609,7 @@ const CERCLE_FORME: readonly (readonly [string, number])[] = [
 ];
 
 const CERCLE: Theme = {
-  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.36, salle: 1.2,
+  tempo: 72, pas: 12, division: 4, souple: 0.006, gamme: UN_BEMOL, phrase: 4, volume: 1.36, salle: 0.3, echo: 0.25, retour: 0.45,
   pistes: {
     clavecin: { timbre: CLAVECIN, vol: 1, filtre: ["lowpass", 4200], pan: 0.15, salle: 0.5 },
     viole: { timbre: VIOLE, vol: 0.42, filtre: ["lowpass", 1100], pan: -0.1, salle: 0.3 },
@@ -695,7 +701,7 @@ const YACHT_AIRS: Record<string, readonly string[]> = {
 const YACHT_FORME = ["A-", "A", "B", "A", "A-", "B", "A", "A-"];
 
 const YACHT: Theme = {
-  tempo: 96, pas: 16, division: 4, balance: 0.12, souple: 0.004, gamme: UN_DIESE, phrase: 8, volume: 1, salle: 0.7,
+  tempo: 96, pas: 16, division: 4, balance: 0.12, souple: 0.004, gamme: UN_DIESE, phrase: 8, volume: 1, salle: 0.24, echo: 0.75, retour: 0.35,
   pistes: {
     clavier: { timbre: CLAVIER, vol: 0.55, filtre: ["lowpass", 2200], pan: 0.15, salle: 0.6 },
     piano: { timbre: RHODES, vol: 0.43, filtre: ["lowpass", 2200], pan: -0.25, salle: 0.4 },
@@ -761,7 +767,7 @@ const BANQUE_ROUAGES: readonly (readonly number[])[] = [[0, 1, 2, 3, 2, 1], [0, 
 const BANQUE_CLOCHES = [ton("a5"), ton("c6"), ton("d6"), ton("e6")];
 
 const BANQUE: Theme = {
-  tempo: 120, pas: 8, division: 2, gamme: BLANCHES, phrase: 8, volume: 1.6, salle: 1,
+  tempo: 120, pas: 8, division: 2, gamme: BLANCHES, phrase: 8, volume: 1.6, salle: 0.3, echo: 0.75, retour: 0.4,
   pistes: {
     rouage: { timbre: LAME, vol: 0.55, pan: 0.2, salle: 0.45 },
     carillon: { timbre: VERRE, vol: 0.6, pan: -0.25, salle: 0.8 },
@@ -824,7 +830,7 @@ const LUNE_ACCORDS: readonly (readonly [nappe: readonly string[], couleurs: read
 const LUNE_LEVER = ["f4", "c5", "g5", "d6"];
 
 const LUNE: Theme = {
-  tempo: 54, pas: 8, division: 2, souple: 0.02, gamme: BLANCHES, phrase: 4, volume: 1, salle: 1,
+  tempo: 54, pas: 8, division: 2, souple: 0.02, gamme: BLANCHES, phrase: 4, volume: 1, salle: 0.4, echo: 0.75, retour: 0.5,
   pistes: {
     nappe: { timbre: NAPPE, vol: 0.185, filtre: ["lowpass", 1500], salle: 0.5 },
     verre: { timbre: VERRE, vol: 0.89, pan: 0.2, salle: 0.9 },
@@ -883,7 +889,7 @@ const POKER_AIRS: Record<string, readonly string[]> = {
 const POKER_FORME = ["tete", "chorus", "tete", "chorus", "chorus"];
 
 const POKER: Theme = {
-  tempo: 60, pas: 12, division: 3, souple: 0.008, gamme: UN_BEMOL, phrase: 12, volume: 1.3, salle: 0.6,
+  tempo: 60, pas: 12, division: 3, souple: 0.008, gamme: UN_BEMOL, phrase: 12, volume: 1.3, salle: 0.24, echo: 1 / 3, retour: 0.25,
   pistes: {
     guitare: { timbre: GUITARE, vol: 0.85, filtre: ["lowpass", 2600], pan: 0.15, salle: 0.6 },
     piano: { timbre: RHODES, vol: 0.43, filtre: ["lowpass", 1900], pan: -0.3, salle: 0.4 },

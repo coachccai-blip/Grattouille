@@ -778,7 +778,8 @@ function Tapis() {
   }, [open, fermer]);
   if (!view || !betting || !open) return null;
 
-  const montant = formatEuros(betting.me.stack);
+  const { me } = betting;
+  const montant = formatEuros(me.stack);
   const push = async () => {
     if (busy !== null) return;
     await play({ type: "tapis" });
@@ -791,6 +792,12 @@ function Tapis() {
       <h2 className="t-titre">{t("Faire tapis ?")}</h2>
       <p className="poker-pousse__somme chiffres">{montant}</p>
       <p className="poker-pousse__risque">{unbroken(t("C'est tout ton tapis : si tu perds cette main, il ne te restera rien devant toi."))}</p>
+      {/* Il avait déjà misé dans ce tour : sa mise totale, celle qui s'écrit sous « Relancer à », est plus haute que son tapis. */}
+      {me.bet > 0 && (
+        <p className="note">
+          {t("Avec les {deja} déjà misés, ta mise passe à {total}.", { deja: formatEuros(me.bet), total: formatEuros(me.bet + me.stack) })}
+        </p>
+      )}
       <div className="poker-feuille__action">
         <Bouton bloc data-geste="tapis" attente={busy === "tapis"} onClick={() => void push()}>
           {t("Tapis : {montant}", { montant })}

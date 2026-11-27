@@ -216,25 +216,27 @@ describe("les mises proposées, sans limite : la plus petite, le pot, le tapis",
     expect(potSized({ pot: 70, bet: 20 }, 5)).toBe(105);
   });
 
-  it("un tapis profond : la plus petite, la hauteur du pot, et le tapis, qui s'écrit de ce qu'on pousse", () => {
+  it("un tapis profond : la plus petite, la hauteur du pot, et le tapis", () => {
     const o = { bet: { min: 10, max: 290 }, raise: null, allIn: true };
-    const choices = betChoices(o, { pot: 50, stack: 290 });
+    const choices = betChoices(o, { pot: 50 });
     expect(choices.map((c) => [c.size, c.amount])).toEqual([["min", 10], ["pot", 50], ["tapis", 290]]);
     expect(choices.map((c) => c.action)).toEqual([{ type: "miser", amount: 10 }, { type: "miser", amount: 50 }, { type: "tapis" }]);
-    // Une relance : la fourchette compte la mise totale dans le tour ; le tapis, lui, s'écrit de ce qui reste devant soi.
-    const raise = betChoices({ bet: null, raise: { min: 30, max: 205 }, allIn: true }, { pot: 110, stack: 200 });
-    expect(raise.map((c) => [c.size, c.amount])).toEqual([["min", 30], ["pot", 110], ["tapis", 200]]);
-    expect(raise[1]!.action).toEqual({ type: "relancer", amount: 110 });
+    // Une relance après avoir déjà misé 20, avec 200 devant soi : sous « Relancer à », les trois tailles sont des
+    // mises totales dans le tour (le tapis vaut 220), et se rangent de la plus petite à la plus grosse.
+    const raise = betChoices({ bet: null, raise: { min: 70, max: 220 }, allIn: true }, { pot: 210 });
+    expect(raise.map((c) => [c.size, c.amount])).toEqual([["min", 70], ["pot", 210], ["tapis", 220]]);
+    expect(raise[1]!.action).toEqual({ type: "relancer", amount: 210 });
+    expect(raise[2]!.action).toEqual({ type: "tapis" });
   });
 
   it("le pot ne tient pas dans la fourchette (tapis court) : le milieu prend sa place", () => {
     const o = { bet: null, raise: { min: 122, max: 260 }, allIn: true };
-    expect(betChoices(o, { pot: 500, stack: 260 }).map((c) => [c.size, c.amount])).toEqual([["min", 122], ["milieu", 191], ["tapis", 260]]);
+    expect(betChoices(o, { pot: 500 }).map((c) => [c.size, c.amount])).toEqual([["min", 122], ["milieu", 191], ["tapis", 260]]);
     // Le pot vaut la plus petite mise, ou la plus grosse : pas de doublon.
-    expect(betChoices({ bet: { min: 4, max: 60 }, raise: null, allIn: true }, { pot: 4, stack: 60 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
-    expect(betChoices({ bet: { min: 1, max: 6 }, raise: null, allIn: true }, { pot: 6, stack: 6 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
+    expect(betChoices({ bet: { min: 4, max: 60 }, raise: null, allIn: true }, { pot: 4 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
+    expect(betChoices({ bet: { min: 1, max: 6 }, raise: null, allIn: true }, { pot: 6 }).map((c) => c.size)).toEqual(["min", "milieu", "tapis"]);
     // Un tapis plus petit que la mise minimale : il n'y a que lui.
-    expect(betChoices({ bet: { min: 3, max: 3 }, raise: null, allIn: true }, { pot: 9, stack: 3 })).toEqual([
+    expect(betChoices({ bet: { min: 3, max: 3 }, raise: null, allIn: true }, { pot: 9 })).toEqual([
       { size: "tapis", amount: 3, action: { type: "tapis" } },
     ]);
   });
@@ -242,8 +244,8 @@ describe("les mises proposées, sans limite : la plus petite, le pot, le tapis",
   it("un serveur qui s'arrête encore au pot : l'écran suit ses bornes, comme avant", () => {
     // La plus grosse mise permise est le pot, et le tapis n'est pas offert.
     const o = { bet: { min: 1, max: 8 }, raise: null, allIn: false };
-    expect(betChoices(o, { pot: 8, stack: 100 }).map((c) => [c.size, c.amount])).toEqual([["min", 1], ["milieu", 5], ["pot", 8]]);
-    expect(betChoices(o, { pot: 8, stack: 100 }).map((c) => c.action.type)).toEqual(["miser", "miser", "miser"]);
+    expect(betChoices(o, { pot: 8 }).map((c) => [c.size, c.amount])).toEqual([["min", 1], ["milieu", 5], ["pot", 8]]);
+    expect(betChoices(o, { pot: 8 }).map((c) => c.action.type)).toEqual(["miser", "miser", "miser"]);
   });
 
   it("sur toutes les situations du moteur, les tailles proposées sont permises, et le tapis vaut le tapis", () => {
@@ -257,7 +259,7 @@ describe("les mises proposées, sans limite : la plus petite, le pot, le tapis",
               if (mine > bet) continue;
               const o = betOptions({ pot, bet, raises, blind: 1, mine, stack, rivals: 1 });
               const range = o.bet ?? o.raise;
-              const choices = betChoices(o, { pot: potSized({ pot, bet }, mine), stack });
+              const choices = betChoices(o, { pot: potSized({ pot, bet }, mine) });
               if (!range) {
                 expect(choices).toEqual([]);
                 continue;
@@ -266,16 +268,20 @@ describe("les mises proposées, sans limite : la plus petite, le pot, le tapis",
               expect(choices.length).toBeLessThanOrEqual(3);
               const sizes = choices.map((c) => c.size);
               expect(new Set(sizes).size).toBe(sizes.length);
+              // Des montants croissants, tous différents, tous entiers, tous dans la fourchette.
+              const amounts = choices.map((c) => c.amount);
+              expect(amounts).toEqual([...new Set(amounts)].sort((a, b) => a - b));
               for (const c of choices) {
+                expect(Number.isInteger(c.amount)).toBe(true);
+                expect(c.amount).toBeGreaterThanOrEqual(range.min);
+                expect(c.amount).toBeLessThanOrEqual(range.max);
                 if (c.action.type === "tapis") {
                   expect(o.allIn).toBe(true);
-                  expect(c.amount).toBe(stack);
+                  // Le tapis vaut bien tout ce que le joueur a devant lui : sa mise totale, s'il avait déjà misé.
+                  expect(c.amount).toBe(o.bet ? stack : mine + stack);
                 } else {
                   expect(c.action.type).toBe(o.bet ? "miser" : "relancer");
                   expect(c.action).toEqual({ type: c.action.type, amount: c.amount });
-                  expect(Number.isInteger(c.amount)).toBe(true);
-                  expect(c.amount).toBeGreaterThanOrEqual(range.min);
-                  expect(c.amount).toBeLessThanOrEqual(range.max);
                 }
               }
               // Le tapis, quand il est permis, est toujours le dernier ; la plus petite mise, toujours la première.

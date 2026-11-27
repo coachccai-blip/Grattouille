@@ -441,7 +441,7 @@ describe("créer une table", () => {
     expect(r.body.view!.options.rebuy).toBeNull();
     expect(r.body.state!.balance).toBe(70);
     // La blinde du duel monte : la vue dit à quelle main, et combien. Ailleurs, elle ne bouge pas.
-    expect(r.body.view!.rise).toEqual({ hand: 5, blind: 2 });
+    expect(r.body.view!.rise).toEqual({ hand: 4, blind: 2 });
     const b = await w.signup("Lulu", 5_000);
     expect((await w.poker.create(b, { maison: "kiosque" })).body.view).toMatchObject({ blind: 1, rise: null });
     const c = await w.signup("Zoé", 5_000);
@@ -723,11 +723,12 @@ describe("agir à la table", () => {
     expect(fair.body.view!.options).toMatchObject({ fold: false, check: false });
     // Lulu parle la première (le donneur est Marcel).
     let vb = await w.view(b, code);
-    expect(vb.options).toMatchObject({ check: true, bet: { min: 10, max: 20 }, fold: true });
+    // Sans limite : d'une blinde à tout son tapis.
+    expect(vb.options).toMatchObject({ check: true, bet: { min: 10, max: 490 }, allIn: true, fold: true });
     const bet = await w.poker.act(b, code, { type: "miser", amount: 20 }, vb.step);
     expect(bet.body.view).toMatchObject({ pot: 40, bet: 20, turn: 0 });
     va = await w.view(a, code);
-    expect(va.options).toMatchObject({ call: 20, raise: { min: 30, max: 80 }, fold: true });
+    expect(va.options).toMatchObject({ call: 20, raise: { min: 30, max: 490 }, allIn: true, fold: true });
     const raise = await w.poker.act(a, code, { type: "relancer", amount: 80 }, va.step);
     expect(raise.body.view).toMatchObject({ pot: 120, bet: 80, turn: 1 });
     vb = await w.view(b, code);
@@ -779,7 +780,9 @@ describe("agir à la table", () => {
     // Aux enchères, c'est à Lulu de parler.
     expect(await refused(a, { type: "parole" })).toEqual([409, "NOT_YOUR_TURN", "Ce n'est pas ton tour. Attends que la parole te revienne."]);
     expect((await refused(a, { type: "tapis" }))[1]).toBe("NOT_YOUR_TURN");
-    expect((await refused(b, { type: "miser", amount: 21 }))[1]).toBe("ACTION_IMPOSSIBLE");
+    // Elle a 490 € devant elle : elle peut tout miser, pas un euro de plus.
+    expect((await refused(b, { type: "miser", amount: 491 }))[1]).toBe("ACTION_IMPOSSIBLE");
+    expect((await refused(b, { type: "miser", amount: 9 }))[1]).toBe("ACTION_IMPOSSIBLE");
     expect((await refused(b, { type: "suivre" }))[1]).toBe("ACTION_IMPOSSIBLE");
     expect((await refused(b, { type: "relancer", amount: 40 }))[1]).toBe("ACTION_IMPOSSIBLE");
     expect((await refused(b, { type: "franc-jeu" }))[1]).toBe("ACTION_IMPOSSIBLE");
@@ -1131,19 +1134,20 @@ describe("les défis de la campagne", () => {
       expect(last!.left).toEqual({ reason: won ? "defi-gagne" : "defi-perdu", payout: won ? 600 : 0, bonus: won ? 1_000 : 0 });
       expect(w.balance(a)).toBe(won ? 700 + 600 + 1_000 : 700);
       expect(w.storage.tableCodes()).toEqual([]);
-      // Les paliers : la blinde de base (10 € au Grand Café) quatre mains, puis 20, 40, puis deux mains par palier.
+      // Les paliers : la blinde de base (10 € au Grand Café) trois mains, puis elle double toutes les deux mains.
       for (const [hand, blind] of blinds) {
-        const expected = [10, 10, 10, 10, 20, 20, 20, 20, 40, 40, 40, 40, 80, 80, 160, 160, 320, 320][hand - 1] ?? 640;
+        const expected = [10, 10, 10, 20, 20, 40, 40, 80, 80, 160, 160, 320, 320][hand - 1] ?? 640;
         expect([hand, blind]).toEqual([hand, expected]);
       }
       expect(blinds.size).toBe(hands);
       lengths.push(hands);
     }
-    // Une quinzaine de mains.
+    // Une dizaine de mains.
     lengths.sort((x, y) => x - y);
-    expect(lengths[0]!).toBeGreaterThanOrEqual(5);
-    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(30);
-    expect(lengths[Math.floor(lengths.length / 2)]!).toBeGreaterThanOrEqual(10);
+    expect(lengths[0]!).toBeGreaterThanOrEqual(3);
+    expect(lengths[lengths.length - 1]!).toBeLessThanOrEqual(20);
+    expect(lengths[Math.floor(lengths.length / 2)]!).toBeGreaterThanOrEqual(7);
+    expect(lengths[Math.floor(lengths.length / 2)]!).toBeLessThanOrEqual(13);
   });
 
   it("dans un défi, personne ne recave", async () => {

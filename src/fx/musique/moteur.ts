@@ -11,6 +11,9 @@
 //   et tout ce qu'il a créé est débranché. Chaque thème retient où il en était : en y
 //   revenant, on entend la phrase suivante, pas la même.
 // - Chaque note libère ses nœuds en s'éteignant : rien ne s'accumule sur une heure de jeu.
+// - L'espace autour des instruments est un écho, pas une réverbération : deux lignes à
+//   retard qui se répondent, voilées, calées sur le tempo du thème. Mesuré, cela coûte
+//   presque rien, là où une réverbération par convolution triplait le calcul.
 // - La sortie est celle des bruitages, derrière le même limiteur (voir `partage` dans
 //   audio.ts), à un niveau (`NIVEAU`) qui les laisse toujours passer devant.
 
@@ -40,11 +43,6 @@ const AVANCE = 0.6;
 const BATTEMENT = 150;
 /** Le temps laissé avant la première note d'un thème, en secondes. */
 const DEPART = 0.12;
-/**
- * Ce que la salle renvoie, pour une part de 1. Réglé à la mesure : la Lune, qui en use le
- * plus, a sa salle 7 dB sous le son direct ; la ville, 13 dB.
- */
-const SALLE = 1.6;
 
 type Source = OscillatorNode | AudioBufferSourceNode;
 
@@ -79,10 +77,8 @@ interface Canal {
 interface Boucle {
   id: ThemeId;
   theme: Theme;
-  /** Son volume : c'est lui qui monte et descend dans un fondu enchaîné. */
+  /** Son volume, écho compris : c'est lui qui monte et descend dans un fondu enchaîné. */
   fondu: GainNode;
-  /** Sa part de réverbération, qui suit le même fondu. */
-  envoi: GainNode | null;
   /** Où en est son fondu à l'heure `t`, de 0 (muet) à 1 (plein) : on le sait sans le demander au contexte. */
   niveau: (t: number) => number;
   /** Tout ce qu'il faudra débrancher. */
@@ -154,7 +150,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
   let passees = 0;
 
   // -------------------------------------------------------------------------
-  // La matière : les ondes, le bruit, la salle
+  // La matière : les ondes, le bruit
 
   const ondes = new Map<readonly number[], PeriodicWave>();
 
@@ -181,40 +177,6 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
       for (let i = 0; i < data.length; i++) data[i] = alea() * 2 - 1;
     }
     return bruitBlanc;
-  }
-
-  let salle: AudioNode | null | undefined;
-
-  /**
-   * La salle : une réverbération courte et sourde, la même pour tous les thèmes. Sa
-   * réponse est du bruit qui s'éteint en une seconde et demie, de plus en plus voilé ; les
-   * vingt premières millisecondes sont muettes, pour que la note reste nette devant.
-   */
-  function laSalle(): AudioNode | null {
-    if (salle !== undefined) return salle;
-    salle = null;
-    if (typeof ctx.createConvolver !== "function") return null;
-    try {
-      const sr = ctx.sampleRate;
-      const n = Math.floor(sr * 1.5);
-      const reponse = ctx.createBuffer(2, n, sr);
-      for (let canal = 0; canal < 2; canal++) {
-        const data = reponse.getChannelData(canal);
-        let voile = 0;
-        for (let i = Math.floor(sr * 0.02); i < n; i++) {
-          const x = i / n;
-          voile += (0.5 - 0.42 * x) * (alea() * 2 - 1 - voile);
-          data[i] = voile * (1 - x) ** 2 * Math.exp(-3.2 * x);
-        }
-      }
-      const echo = ctx.createConvolver();
-      echo.buffer = reponse;
-      echo.connect(bus);
-      salle = echo;
-    } catch {
-      salle = null;
-    }
-    return salle;
   }
 
   // -------------------------------------------------------------------------
@@ -343,14 +305,41 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
     fondu.connect(bus);
     noeuds.push(fondu);
 
-    const echo = theme.salle ? laSalle() : null;
+    // La salle du thème : un écho à deux voix. La première ligne à retard répond à gauche,
+    // la seconde lui répond à droite, et ainsi de suite, chaque fois plus bas et plus voilé.
+    // Le retard est une fraction du temps : l'écho tombe toujours en mesure.
     let envoi: GainNode | null = null;
-    if (echo) {
+    if (theme.salle && typeof ctx.createDelay === "function") {
+      const retard = (60 / theme.tempo) * (theme.echo ?? 0.75);
       envoi = ctx.createGain();
-      envoi.gain.value = 0;
-      envoi.gain.setTargetAtTime(theme.volume * (theme.salle ?? 0) * SALLE, now, FONDU / 4);
-      envoi.connect(echo);
+      envoi.gain.value = theme.salle;
       noeuds.push(envoi);
+      const lignes = [-0.6, 0.6].map((cote) => {
+        const ligne = ctx.createDelay(Math.max(1, retard + 0.1));
+        ligne.delayTime.value = retard;
+        const voile = ctx.createBiquadFilter();
+        voile.type = "lowpass";
+        voile.frequency.value = 2200;
+        voile.Q.value = 0.5;
+        ligne.connect(voile);
+        const renvoi = ctx.createGain();
+        renvoi.gain.value = theme.retour ?? 0.3;
+        voile.connect(renvoi);
+        noeuds.push(ligne, voile, renvoi);
+        if (typeof ctx.createStereoPanner === "function") {
+          const place = ctx.createStereoPanner();
+          place.pan.value = cote;
+          voile.connect(place);
+          place.connect(fondu);
+          noeuds.push(place);
+        } else {
+          voile.connect(fondu);
+        }
+        return { ligne, renvoi };
+      });
+      envoi.connect(lignes[0]!.ligne);
+      lignes[0]!.renvoi.connect(lignes[1]!.ligne);
+      lignes[1]!.renvoi.connect(lignes[0]!.ligne);
     }
 
     const canaux: Record<string, Canal> = {};
@@ -389,7 +378,7 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
 
     const pas = 60 / theme.tempo / theme.division;
     const b: Boucle = {
-      id, theme, fondu, envoi, noeuds, canaux,
+      id, theme, fondu, noeuds, canaux,
       // Le fondu d'entrée : le volume rejoint sa valeur en une seconde environ.
       niveau: (t) => 1 - Math.exp(-Math.max(0, t - now) / (FONDU / 4)),
       mesure: reprises[id] ?? 0,
@@ -440,17 +429,12 @@ export function creeMoteur(sortie: Sortie, graine = 20_261_127): Moteur {
     b.niveau = (t) =>
       t >= fin ? 0 : t <= coude ? depart * (1 - (0.75 * (t - now)) / (coude - now)) : (depart * 0.25 * (fin - t)) / (fin - coude);
     b.fin = fin + 0.02;
-    const pleins: [GainNode | null, number][] = [
-      [b.fondu, b.theme.volume],
-      [b.envoi, b.theme.volume * (b.theme.salle ?? 0) * SALLE],
-    ];
-    for (const [g, plein] of pleins) {
-      if (!g) continue;
-      g.gain.cancelScheduledValues(now);
-      g.gain.setValueAtTime(plein * depart, now);
-      g.gain.linearRampToValueAtTime(plein * depart * 0.25, coude);
-      g.gain.linearRampToValueAtTime(0, fin);
-    }
+    const plein = b.theme.volume * depart;
+    const g = b.fondu.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(plein, now);
+    g.linearRampToValueAtTime(plein * 0.25, coude);
+    g.linearRampToValueAtTime(0, fin);
     b.file = [];
     for (const v of voix) {
       if (v.boucle !== b || v.t1 <= now) continue;

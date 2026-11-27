@@ -83,19 +83,17 @@ export interface BetChoice {
    */
   size: "min" | "milieu" | "pot" | "tapis";
   /**
-   * Ce que la mise du joueur vaudra dans le tour (pour une relance), ou les jetons posés (pour une
-   * première mise). Pour un tapis : ce qu'il pousse, tout ce qu'il a devant lui.
+   * Ce que la mise du joueur vaudra dans le tour (pour une relance, tapis compris : les trois
+   * tailles se comparent), ou les jetons posés (pour une première mise).
    */
   amount: number;
   action: PokerAction;
 }
 
-/** Ce que l'écran sait de la table pour tailler ses mises : la mise « du pot », et le tapis du joueur. */
+/** Ce que l'écran sait de la table pour tailler ses mises. */
 export interface BetTable {
   /** La mise de la hauteur du pot (`potSized`). Absente : on propose le milieu de la fourchette. */
   pot?: number;
-  /** Le tapis du joueur : c'est lui qui s'écrit sur un tapis. Absent : la plus grosse mise de la fourchette. */
-  stack?: number;
 }
 
 /**
@@ -124,8 +122,8 @@ export function betChoices(o: Pick<Options, "bet" | "raise" | "allIn">, table: B
   if (pot !== null && inside(pot)) out.push({ size: "pot", amount: pot, action: make(pot) });
   else if (inside(middle)) out.push({ size: "milieu", amount: middle, action: make(middle) });
   if (range.max > range.min) out.push({ size: "pot", amount: range.max, action: make(range.max) });
-  // La plus grosse mise engage tout le tapis : c'est un tapis, et c'est lui qui s'écrit dessus.
-  if (o.allIn) out[out.length - 1] = { size: "tapis", amount: table.stack ?? range.max, action: { type: "tapis" } };
+  // La plus grosse mise engage tout le tapis : c'est un tapis.
+  if (o.allIn) out[out.length - 1] = { size: "tapis", amount: range.max, action: { type: "tapis" } };
   return out;
 }
 

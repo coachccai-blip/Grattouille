@@ -337,7 +337,7 @@ function Encheres({ view, off }: { view: TableView; off: boolean }) {
   const o = view.options;
   const me = view.seats[view.you as number]!;
   // Les tailles proposées : la plus petite, la hauteur du pot (ou le milieu), et le tapis quand il est permis.
-  const choices = betChoices(o, { pot: potSized(view, me.bet), stack: me.stack });
+  const choices = betChoices(o, { pot: potSized(view, me.bet) });
   // Suivre engage tout ce qui reste : c'est un tapis, et on le dit.
   const allIn = o.call > 0 && o.call >= me.stack;
   const titre = o.bet ? t("Miser") : t("Relancer à");

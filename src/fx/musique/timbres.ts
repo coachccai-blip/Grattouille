@@ -36,7 +36,7 @@ export interface Piste {
   filtre?: readonly [type: BiquadFilterType, frequence: number, q?: number];
   /** Sa place dans l'espace, de -1 (à gauche) à 1 (à droite). */
   pan?: number;
-  /** La part envoyée dans la salle (la réverbération), de 0 à 1. */
+  /** La part envoyée dans la salle (l'écho du thème), de 0 à 1. */
   salle?: number;
 }
 
