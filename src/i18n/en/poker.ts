@@ -336,7 +336,7 @@ export const EN_POKER: Record<string, string> = {
   "Entre {min} et {max}": "Between {min} and {max}",
   "Moins que le minimum : ce sera {montant}.": "Below the minimum: it will be {montant}.",
   "Plus que le maximum : ce sera {montant}.": "Above the maximum: it will be {montant}.",
-  "Plus que ton tapis : ce sera tout ton tapis.": "More than your stack: it will be your whole stack.",
+  "Plus que ton tapis : ce sera tout ton tapis.": "More than your stack: you'll be all in.",
   "Tape un montant.": "Type an amount.",
   "Tu poses {montant} : il te restera {reste}.": "You put in {montant}: you'll have {reste} left.",
   "Tu ajoutes {montant} à ta mise : il te restera {reste}.": "You add {montant} to your bet: you'll have {reste} left.",
@@ -363,12 +363,11 @@ export const EN_POKER: Record<string, string> = {
     "A classic table, or one played by Masters' Table rules: you choose when you create it.",
   "Contre quatre maîtres des lieux, tirés au sort": "Against four of your hosts, drawn by lot",
   "Façon de jouer": "Way to play",
-  "Elle monte au fil des mains": "It goes up as the hands go by",
+  "Celle du départ : elle monte au fil des mains": "The opening one: it goes up as the hands go by",
   "Cagnotte de chacun : {montant}, soit trente blindes de départ.": "Everyone's kitty: {montant}, that is thirty opening blinds.",
   "Cagnotte de chacun : {montant}": "Everyone's kitty: {montant}",
   "Tes amis rejoignent la table avec son code, avant le lancement : ensuite, plus personne n'entre.":
     "Your friends join the table with its code, before the start: after that, nobody else gets in.",
-  "Créer la table et poser {montant}": "Create the table and put up {montant}",
   "Blinde de départ : {montant}": "Opening blind: {montant}",
   "{mode} : une fois la partie lancée, plus personne n'entre.": "{mode}: once the game has started, nobody else gets in.",
   "La partie est lancée : on n'entre plus dans un tournoi en cours. Les cagnottes sont sur la table, et personne ne peut en ajouter une.":

@@ -20,11 +20,15 @@
 //   jamais reçu est rendu au même moment.
 // - Une séance que la table ne connaît pas (ni siège, ni tapis à rendre) n'a rien reçu :
 //   tout ce qui était sorti de la bourse y retourne.
+// - Un tournoi qui se termine avec plusieurs joueurs encore assis : chacun est réglé par sa
+//   propre requête, et la table fermée attend dans le stockage que tous soient passés. C'est
+//   cette requête qui dit à chacun comment la table a fini pour lui ; réglé par un autre, il ne
+//   retrouverait qu'une table effacée.
 // Chaque requête sur une table commence par ces rattrapages : la suivante répare.
 
 import {
-  BLIND_SHARE, CHALLENGE_BONUS_BLINDS, advance, cancel, deposit, placeBlind, seatIndexOf, seatIndexOfSession, settled,
-  PokerError, type EndedSeat, type LeaveReason, type PokerTableResponse, type Sitter, type TableState,
+  BLIND_SHARE, CHALLENGE_BONUS_BLINDS, advance, cancel, deposit, isMasters, placeBlind, seatIndexOf, seatIndexOfSession,
+  settled, PokerError, type EndedSeat, type LeaveReason, type PokerTableResponse, type Sitter, type TableState,
 } from "../shared/poker";
 import { uniformInt } from "../shared/economy";
 import type { BoardEntry, PokerStats } from "../shared/types";
@@ -263,7 +267,10 @@ export async function reconcile(
 
   if (table && table.ended.length > 0) {
     const paid: string[] = [];
+    // Un tournoi fermé : chacun vient chercher son règlement lui-même (voir en tête de fichier).
+    const own = table.phase === "fermee" && isMasters(table);
     for (const ended of table.ended) {
+      if (own && ended.playerId !== me.id) continue;
       try {
         const { result, record } = await writePurse(deps, ended.playerId, now, (p) => credit(p, ended, table));
         paid.push(ended.sid);

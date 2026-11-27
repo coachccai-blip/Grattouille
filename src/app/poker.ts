@@ -55,10 +55,16 @@ interface PokerState {
   notice: PokerNotice | null;
   /** La vue vient d'un geste d'installation (créer, rejoindre, relever un défi) : la donne se joue sous ses yeux. */
   fresh: boolean;
+  /**
+   * La table vient de fermer sous les yeux du joueur, mais ce qu'elle lui rend n'est pas arrivé
+   * avec elle (le versement à sa bourse a été remis à la requête suivante) : on la relit encore.
+   */
+  settling: boolean;
 }
 
 const EMPTY_TABLE = {
   code: null, view: null, offset: 0, left: null, gone: false, busy: null, stalled: false, notice: null, fresh: false,
+  settling: false,
 } satisfies Partial<PokerState>;
 
 export const usePoker = create<PokerState>(() => ({ lobby: null, lobbyBusy: false, lobbyError: null, ...EMPTY_TABLE }));
@@ -118,6 +124,8 @@ function receive(code: string, res: PokerPollResponse, fresh = false): void {
     patch.gone = true;
   }
   if (res.left) patch.left = res.left;
+  // Assis à une table qui se joue : si elle ferme, elle doit dire ce qu'elle rend.
+  if (res.view && res.view.you !== null && res.view.phase !== "fermee") seatedAt = code;
   set(patch);
   // Parti sans que la bourse suive : le tapis a été rendu par une autre requête (un autre
   // onglet, un autre joueur). Le hall dit où en sont la bourse et les défis relevés.
@@ -128,6 +136,12 @@ let watching: string | null = null;
 let pollTimer = 0;
 let deadlineTimer = 0;
 let inFlight = false;
+/** La table où le joueur était assis, à la dernière vue d'une partie en cours. */
+let seatedAt: string | null = null;
+/** Les relectures d'une table fermée dont le résultat se fait attendre : quelques-unes, pas plus. */
+let settleTries = 0;
+const SETTLE_TRIES = 6;
+const PACE_SETTLE = 600;
 
 function clearTimers(): void {
   window.clearTimeout(pollTimer);
@@ -139,8 +153,25 @@ function planNext(): void {
   clearTimers();
   if (!watching) return;
   const s = get();
-  // Parti, ou table fermée : il n'y a plus rien à relire.
-  if (s.gone || s.left || s.view?.phase === "fermee") return;
+  // Parti : il n'y a plus rien à relire.
+  if (s.gone || s.left) {
+    if (s.settling) set({ settling: false });
+    return;
+  }
+  if (s.view?.phase === "fermee") {
+    // La table a fermé sous ses yeux, sans dire ce qu'elle lui rend : le versement à sa bourse a été
+    // remis à la requête suivante (deux écritures en même temps). On la relit, quelques fois : c'est
+    // cette relecture qui apporte le résultat. Au-delà, le hall soldera ce qui reste.
+    if (seatedAt === watching && settleTries < SETTLE_TRIES) {
+      settleTries += 1;
+      if (!s.settling) set({ settling: true });
+      pollTimer = window.setTimeout(() => void poll(), PACE_SETTLE);
+    } else if (s.settling) {
+      set({ settling: false });
+      void loadLobby();
+    }
+    return;
+  }
   const view = s.code === watching ? s.view : null;
   const pace = s.stalled || view?.phase === "attente" ? PACE_WAIT : PACE_HAND;
   pollTimer = window.setTimeout(() => void poll(), view ? pace : 400);
@@ -159,7 +190,8 @@ async function poll(): Promise<void> {
   inFlight = true;
   try {
     const s = get();
-    const version = s.code === code && s.view ? s.view.version : undefined;
+    // Une table fermée dont on attend le résultat se relit en entier, pas « si elle a changé ».
+    const version = s.code === code && s.view && !s.settling ? s.view.version : undefined;
     const res = await api.pokerTable(requireAuth(), code, version);
     if (watching !== code) return;
     if (get().stalled) set({ stalled: false });
@@ -200,6 +232,7 @@ async function pollFailed(error: unknown): Promise<void> {
  */
 export function watchTable(code: string): () => void {
   watching = code;
+  settleTries = 0;
   if (get().code !== code) set({ ...EMPTY_TABLE, code });
   const wake = () => {
     if (document.visibilityState === "visible") void poll();

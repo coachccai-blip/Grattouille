@@ -471,6 +471,9 @@
   gap: var(--e3);
 }
 
+/* Une feuille plus haute que l'écran défile : rien ne s'y tasse, rien ne s'y recouvre. */
+.poker-feuille .feuille__corps > * { flex-shrink: 0; }
+
 .poker-feuille__tete {
   display: flex;
   gap: 14px;
@@ -482,7 +485,7 @@
 .poker-feuille__gain { font-weight: 700; }
 
 /* Entre amis, deux façons de jouer : deux boutons côte à côte, et la règle du mode choisi dessous. */
-.poker-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.poker-niveaux.poker-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .poker-modes .poker-niveau {
   padding-right: 4px;

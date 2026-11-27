@@ -836,7 +836,8 @@ function Sortie({ view, left, gone }: { view: TableView | null; left: Left | nul
   const wins = useGame((s) => (view?.kind === "defi" && view.place ? hostStory(s.player?.hostWins, view.place).wins : 0));
   const rereading = usePoker((s) => s.lobbyBusy);
   const stage = host && (won || lost) ? playedStage(view?.level, wins, won) : null;
-  const stake = view?.kind === "defi" ? view.maxBuyIn : 0;
+  // La mise de la manche. Une table d'avant les trois manches n'en avait pas : on n'annonce alors aucun montant.
+  const stake = view?.kind === "defi" && view.level !== undefined ? view.maxBuyIn : 0;
   const ending = stage === null || !host ? null : won ? duelWon(stage, stake, host) : duelLost(stage, stake);
   const suite = ending?.suite && !rereading ? ending.suite : null;
 
@@ -888,6 +889,8 @@ export function Table({ code }: { code: string }) {
   const view = usePoker((s) => (s.code === code ? s.view : null));
   const left = usePoker((s) => (s.code === code ? s.left : null));
   const gone = usePoker((s) => s.code === code && s.gone);
+  // La table vient de fermer, et ce qu'elle rend au joueur arrive par la relecture suivante : on l'attend.
+  const settling = usePoker((s) => s.code === code && s.settling && s.left === null && !s.gone);
   const offline = useTableOffline();
 
   useEffect(() => watchTable(code), [code]);
@@ -923,7 +926,7 @@ export function Table({ code }: { code: string }) {
     toHall();
   }, [left, quit, onTop]);
 
-  if (quit) return <main className="ecran poker-table" aria-busy="true" />;
+  if (quit || settling) return <main className="ecran poker-table" aria-busy="true" />;
   if (left && end) {
     return (
       <SortieMaitres

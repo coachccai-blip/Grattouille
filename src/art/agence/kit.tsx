@@ -71,9 +71,9 @@ export interface Mouvement {
 /** Les mouvements de film.css. */
 export type Geste =
   | "va" | "sort" | "passe" | "apparait" | "disparait" | "pop" | "chute" | "eclat" | "etire"
-  | "flotte" | "tourne" | "defile" | "pulse" | "clignote" | "saut" | "bat";
+  | "flotte" | "tourne" | "defile" | "pulse" | "clignote" | "saut" | "bat" | "secoue";
 
-const BOUCLES: ReadonlySet<Geste> = new Set(["flotte", "tourne", "defile", "pulse", "clignote", "saut", "bat"]);
+const BOUCLES: ReadonlySet<Geste> = new Set(["flotte", "tourne", "defile", "pulse", "clignote", "saut", "bat", "secoue"]);
 const ALLERS_RETOURS: ReadonlySet<Geste> = new Set(["flotte", "pulse", "clignote", "bat"]);
 const COURBES: Record<string, string> = {
   lin: "linear",
@@ -351,13 +351,15 @@ interface CorpsProps extends Voyageur {
   jambes?: readonly [number, number];
   /** Le bras de droite à l'image salue : il s'agite. */
   salut?: boolean;
+  /** Ce qu'il tient dans la main de droite à l'image, dessiné autour de (0, 0) : un sandwich, un verre. Suit le bras. */
+  tient?: ReactNode;
 }
 
 /**
  * Le joueur en pied : son buste, et ce que le Domaine ne montre jamais, deux bras et deux
  * jambes de son pelage. Même repère que le buste ; les pieds touchent le sol vers y = 610.
  */
-export function Perso({ espece, look, bras = [14, 14], jambes = [4, 4], salut = false }: CorpsProps) {
+export function Perso({ espece, look, bras = [14, 14], jambes = [4, 4], salut = false, tient }: CorpsProps) {
   const pelage = speciesArt(espece).colors.pelage;
   const sombre = shade(pelage, -0.22);
   const clair = shade(pelage, 0.18);
@@ -369,6 +371,7 @@ export function Perso({ espece, look, bras = [14, 14], jambes = [4, 4], salut = 
     <>
       <path d={`M304 360L${mainD[0]} ${mainD[1]}`} fill="none" stroke={sombre} strokeWidth="50" strokeLinecap="round" />
       <circle cx={mainD[0]} cy={mainD[1]} r="30" fill={clair} />
+      {tient && <g transform={`translate(${mainD[0]} ${mainD[1]})`}>{tient}</g>}
     </>
   );
   return (
@@ -394,7 +397,7 @@ const JOINT = "#8E979F";
  * Le joueur en scaphandre : sa tête (et son chapeau) dans une grande bulle de verre, le
  * reste dans du blanc. Même repère que le buste ; les bottes touchent le sol vers y = 620.
  */
-export function Astronaute({ espece, look, bras = [22, 22], jambes = [6, 6], salut = false }: CorpsProps) {
+export function Astronaute({ espece, look, bras = [22, 22], jambes = [6, 6], salut = false, tient }: CorpsProps) {
   const mainG = bout(84, 376, bras[0], 132, -1);
   const mainD = bout(316, 376, bras[1], 132, 1);
   const piedG = bout(152, 458, jambes[0], 112, -1);
@@ -403,6 +406,7 @@ export function Astronaute({ espece, look, bras = [22, 22], jambes = [6, 6], sal
     <>
       <path d={`M316 376L${mainD[0]} ${mainD[1]}`} fill="none" stroke={TISSU_OMBRE} strokeWidth="66" strokeLinecap="round" />
       <circle cx={mainD[0]} cy={mainD[1]} r="37" fill={JOINT} />
+      {tient && <g transform={`translate(${mainD[0]} ${mainD[1]})`}>{tient}</g>}
     </>
   );
   return (

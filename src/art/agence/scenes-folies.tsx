@@ -6,6 +6,7 @@
 // cadre, le style et le mouvement). Chaque élément est posé là où il sera sur la carte
 // postale : sans animation, le dessin est l'image de la fin.
 
+import type { ReactNode } from "react";
 import { C, METAL, shade } from "../kit";
 import {
   Astre, Buste, Ciel, Etoiles, Fenetre, Mer, Mouette, Perso, Tete, a, etoile5, etoiles, nuage, pelageDe, relief, ronds, tf,
@@ -35,54 +36,60 @@ function Porteur({ d = 0 }: { d?: number }) {
   );
 }
 
-/** Les fanions de prière : [x, y, couleur]. */
+/** Les fanions de prière, du mât jusqu'au bord du ciel : [x, y, couleur]. */
 const FANIONS: readonly (readonly [number, number, string])[] = [
-  [262, 316, C.azur], [282, 330, C.blanc], [302, 341, C.cerise], [322, 349, C.vert], [342, 354, C.mimosa],
+  [262, 258, C.azur], [226, 250, C.blanc], [190, 238, C.cerise], [154, 222, C.vert], [118, 204, C.mimosa], [82, 184, C.azur],
+  [46, 162, C.blanc], [10, 138, C.cerise],
 ];
+
+/** La pente de l'arête, en degrés : la chaise la monte penchée d'autant. */
+const PENTE = 48;
 
 const everest: SceneArt = ({ espece, look }) => (
   <>
     <Ciel id="everest" couleurs={["#2A68BC", "#7DB6E7", "#D6ECF7"]} bas={600} />
-    <Astre x={64} y={214} r={22} couleur={C.blanc} halo="#FFF3C8" />
+    <Astre x={318} y={196} r={20} couleur={C.blanc} halo="#FFF3C8" />
     {/* Les sommets voisins */}
-    <path d="M-20 600L70 430L120 500L170 410L250 600Z" fill="#A9C7E4" />
-    <path d="M70 430L96 480L80 474L66 492L52 468ZM170 410L196 462L180 454L166 474L150 450Z" fill={C.blanc} />
+    <path d="M150 620L236 452L276 510L322 430L400 620Z" fill="#A9C7E4" />
+    <path d="M236 452L258 494L244 488L232 504L220 484ZM322 430L346 478L332 470L318 488L304 466Z" fill={C.blanc} />
     {/* Le toit du monde : une longue arête, et tout en haut un replat */}
-    <path d="M-20 800V560L210 312H262L380 470V800Z" fill={C.blanc} />
-    <path d="M262 312L380 470V800H250L296 520L236 400Z" fill="#B9D5EC" />
-    <path d="M-20 640L70 548L96 580L150 500L170 540L130 640Z" fill="#DCEBF6" />
-    <path d="M120 800L190 640L230 700L270 620L330 800Z" fill="#DCEBF6" />
-    {/* Les fanions de prière, du sommet jusqu'au bord du ciel */}
-    <path d="M244 300Q300 344 380 358" fill="none" stroke={C.nuit} strokeWidth="1.2" />
+    <path d="M-20 800V500L150 312H300L380 430V800Z" fill={C.blanc} />
+    <path d="M300 312L380 430V800H262L312 540L260 420Z" fill="#B9D5EC" />
+    <path d="M-20 640L50 566L76 598L128 520L150 560L112 640Z" fill="#DCEBF6" />
+    <path d="M120 800L186 650L224 708L262 630L320 800Z" fill="#DCEBF6" />
+    {/* Le mât du sommet et ses fanions de prière */}
+    <path d="M300 312V232" fill="none" stroke={C.nuit} strokeWidth="3" strokeLinecap="round" />
+    <path d="M300 240Q160 238 -20 112" fill="none" stroke={C.nuit} strokeWidth="1.2" />
     {FANIONS.map(([x, y, couleur], i) => (
-      <path key={x} d={`M${x} ${y}h14l-2 16l-5 -4l-5 4Z`} fill={couleur} {...a("flotte", { r: 9, t: 0.4 + (i % 3) * 0.08, d: -i * 0.1, o: "50% 0%" })} />
+      <path key={x} d={`M${x} ${y}h16l-3 17l-5 -4l-5 4Z`} fill={couleur} {...a("flotte", { r: 9, t: 0.4 + (i % 3) * 0.08, d: -i * 0.1, o: "50% 0%" })} />
     ))}
-    {/* La chaise et ses porteurs : ils montent par l'arête */}
-    <g {...a("va", { dx: -214, dy: 232, r: -42, t: 5.6, e: "cubic-bezier(.35,0,.3,1)", o: [224, 312] })}>
-      <g transform="translate(224 288)">
-        <g transform="translate(-58 24)"><Porteur /></g>
-        <g transform="translate(54 24)"><Porteur d={-0.15} /></g>
-        <g {...a("flotte", { dy: 1.5, r: 1.2, t: 0.3 })}>
-          <path d="M-84 -8H86" fill="none" stroke={C.bois} strokeWidth="5" strokeLinecap="round" />
-          <path d="M-30 -62Q0 -80 30 -62V-58H-30Z" fill={METAL.or} />
-          <circle cx="0" cy="-74" r="4.500" fill={METAL.or} />
-          <rect x="-28" y="-60" width="56" height="66" rx="5" fill={C.bordeaux} />
-          <path d="M14 -60H23Q28 -60 28 -55V1Q28 6 23 6H14Z" fill={shade(C.bordeaux, -0.3)} />
-          <rect x="-28" y="-18" width="56" height="5" fill={METAL.or} />
-          <rect x="-20" y="-52" width="40" height="32" rx="4" fill={C.ciel} />
-          <Fenetre x={-20} y={-52} l={40} h={32} rx={4}>
-            <g transform={tf(-24.500, -66, 0.175)}><Tete espece={espece} look={look} /></g>
-          </Fenetre>
-          <path d="M-20 -52H-10Q-12 -40 -20 -34ZM20 -52H10Q12 -40 20 -34Z" fill={C.cerise} />
-          <path d={ronds(2.2, [[-18, -4], [-6, -4], [6, -4], [18, -4]])} fill={METAL.or} />
+    {/* La chaise et ses porteurs : ils montent par l'arête, puis se redressent sur le replat */}
+    <g {...a("va", { dx: -114, dy: 45, r: -PENTE, t: 1.4, d: 4.2, e: "cubic-bezier(.4,0,.2,1)", o: [224, 312] })}>
+      <g {...a("va", { dx: -250, t: 3.9, d: 0.3, e: "cubic-bezier(.3,0,.6,1)" })}>
+        <g transform="translate(224 288)">
+          <g transform="translate(-58 24)"><Porteur /></g>
+          <g transform="translate(54 24)"><Porteur d={-0.15} /></g>
+          <g {...a("flotte", { dy: 1.5, r: 1.2, t: 0.3 })}>
+            <path d="M-84 -8H86" fill="none" stroke={C.bois} strokeWidth="5" strokeLinecap="round" />
+            <path d="M-30 -62Q0 -80 30 -62V-58H-30Z" fill={METAL.or} />
+            <circle cx="0" cy="-74" r="4.5" fill={METAL.or} />
+            <rect x="-28" y="-60" width="56" height="66" rx="5" fill={C.bordeaux} />
+            <path d="M14 -60H23Q28 -60 28 -55V1Q28 6 23 6H14Z" fill={shade(C.bordeaux, -0.3)} />
+            <rect x="-28" y="-18" width="56" height="5" fill={METAL.or} />
+            <rect x="-20" y="-52" width="40" height="32" rx="4" fill={C.ciel} />
+            <Fenetre x={-20} y={-52} l={40} h={32} rx={4}>
+              <g transform={tf(-24.5, -66, 0.175)}><Tete espece={espece} look={look} /></g>
+            </Fenetre>
+            <path d="M-20 -52H-10Q-12 -40 -20 -34ZM20 -52H10Q12 -40 20 -34Z" fill={C.cerise} />
+            <path d={ronds(2.2, [[-18, -4], [-6, -4], [6, -4], [18, -4]])} fill={METAL.or} />
+          </g>
         </g>
       </g>
     </g>
-    {/* Le drapeau, planté au sommet */}
+    {/* Le drapeau, hissé au sommet */}
     <g {...a("pop", { t: 0.5, d: 5.9, o: "0% 100%" })}>
-      <path d="M244 312V236" fill="none" stroke={C.nuit} strokeWidth="3" strokeLinecap="round" />
-      <path d="M244 238L284 248L244 262Z" fill={C.mimosa} />
-      <path d={etoiles([[257, 249, 6]])} fill={C.bougainvillier} />
+      <path d="M300 234L340 245L300 260Z" fill={C.mimosa} />
+      <path d={etoiles([[313, 246, 6]])} fill={C.bougainvillier} />
     </g>
     {/* La mer de nuages, en dessous */}
     <g fill={C.blanc} {...a("defile", { dx: -360, t: 14 })}>
@@ -113,11 +120,11 @@ function Tortue() {
       <path d="M-6 -34L-2 -12M14 -33L12 -12M-16 -24H26" fill="none" stroke={C.persFonce} strokeWidth="2" />
       <path d="M-32 -8H38V-2H-32Z" fill={C.amande} />
       <path d="M-30 -14Q-48 -18 -54 -32Q-52 -46 -40 -44Q-30 -40 -30 -26Z" fill={C.vert} />
-      <circle cx="-46" cy="-34" r="1.900" fill={C.nuit} />
+      <circle cx="-46" cy="-34" r="1.9" fill={C.nuit} />
       <path d="M-34 -16L-44 -21V-9ZM-34 -16L-24 -21V-9Z" fill={C.nuit} />
       {/* Le plateau d'argent, à bout de nageoire */}
       <path d="M-22 -24Q-34 -44 -30 -64" fill="none" stroke={C.vert} strokeWidth="7" strokeLinecap="round" />
-      <ellipse cx="-30" cy="-67" rx="24" ry="4.500" fill={METAL.argent} />
+      <ellipse cx="-30" cy="-67" rx="24" ry="4.5" fill={METAL.argent} />
     </>
   );
 }
@@ -137,7 +144,7 @@ const ileDeserte: SceneArt = ({ espece, look }) => {
       <path d="M170 544Q286 548 330 600Q250 612 196 610Q252 580 170 544Z" fill={shade(C.sable, -0.1)} />
       {/* Le palmier, et le poteau du hamac */}
       <path d="M92 566Q76 470 108 372" fill="none" stroke={C.bois} strokeWidth="13" strokeLinecap="round" />
-      <path d="M88 540L98 536M86 506L97 504M88 472L99 472M92 438L103 440M98 404L109 408" fill="none" stroke={C.boisFonce} strokeWidth="2.400" />
+      <path d="M88 540L98 536M86 506L97 504M88 472L99 472M92 438L103 440M98 404L109 408" fill="none" stroke={C.boisFonce} strokeWidth="2.4" />
       <g {...a("flotte", { r: 2.5, t: 2.4, o: [108, 372] })}>
         <path d="M108 372Q60 346 16 368Q62 366 108 372ZM108 372Q84 318 38 306Q78 332 108 372ZM108 372Q118 310 168 290Q136 326 108 372ZM108 372Q166 344 206 372Q160 366 108 372ZM108 372Q150 388 172 426Q138 396 108 372ZM108 372Q70 392 56 430Q80 398 108 372Z" fill={C.feuille} />
         <path d={ronds(8, [[100, 380], [116, 384]])} fill={C.boisFonce} />
@@ -151,21 +158,21 @@ const ileDeserte: SceneArt = ({ espece, look }) => {
         <path d="M104 486Q182 566 266 492Q260 548 184 556Q112 548 104 486Z" fill={C.ivoire} />
         <path d="M104 486Q182 566 266 492" fill="none" stroke={C.cerise} strokeWidth="4" />
         <path d="M124 512Q182 566 246 516M144 532Q184 562 226 536" fill="none" stroke={C.cerise} strokeOpacity="0.6" strokeWidth="2" />
-        <path d="M98 470L104 486M270 482L266 492" fill="none" stroke={C.boisFonce} strokeWidth="2.400" />
+        <path d="M98 470L104 486M270 482L266 492" fill="none" stroke={C.boisFonce} strokeWidth="2.4" />
         {/* Le cocktail, enfin */}
         <g {...a("pop", { t: 0.5, d: 5.9, o: "50% 100%" })}>
           <path d="M232 504L246 486" fill="none" stroke={patte} strokeWidth="13" strokeLinecap="round" />
           <path d="M240 456H268L260 484H248Z" fill={C.corail} />
           <path d="M240 456H268L266 463H242Z" fill={C.mimosa} />
-          <path d="M254 484V496M246 497H262" fill="none" stroke={C.blanc} strokeWidth="2.600" strokeLinecap="round" />
-          <path d="M262 458L272 436" fill="none" stroke={C.nuit} strokeWidth="1.600" />
+          <path d="M254 484V496M246 497H262" fill="none" stroke={C.blanc} strokeWidth="2.6" strokeLinecap="round" />
+          <path d="M262 458L272 436" fill="none" stroke={C.nuit} strokeWidth="1.6" />
           <path d="M260 440Q272 426 286 438Z" fill={C.bougainvillier} />
           <path d={etoiles([[282, 462, 8], [228, 468, 6]])} fill={C.blanc} />
         </g>
       </g>
       {/* La sonnette de service, sur sa souche */}
       <path d="M296 580V562H316V580Z" fill={C.bois} />
-      <g {...a("flotte", { r: 12, t: 0.12, d: 2.3, n: 8, o: "50% 100%" })}>
+      <g {...a("secoue", { r: 14, t: 0.18, d: 2.3, n: 5, o: "50% 100%" })}>
         <path d="M298 562Q298 548 306 548Q314 548 314 562Z" fill={METAL.or} />
         <circle cx="306" cy="546" r="3" fill={METAL.or} />
       </g>
@@ -191,7 +198,7 @@ const ileDeserte: SceneArt = ({ espece, look }) => {
 // seule fenêtre allumée.
 
 /** Un wagon : bleu nuit, bandeau crème, liseré d'or. Posé sur le rail en (0, 0), long de 150. `allume` : la fenêtre du voyageur. */
-function Wagon({ children }: { children?: React.ReactNode }) {
+function Wagon({ children }: { children?: ReactNode }) {
   return (
     <>
       <rect x="2" y="-52" width="146" height="44" rx="6" fill={C.marine} />
@@ -228,7 +235,7 @@ const train: SceneArt = ({ espece, look }) => (
           <Wagon>
             <rect x="62" y="-42" width="26" height="16" rx="2" fill={C.mimosa} />
             <Fenetre x={62} y={-42} l={26} h={16} rx={2}>
-              <g transform={tf(58.200, -55, 0.12)}><Tete espece={espece} look={look} /></g>
+              <g transform={tf(58.2, -55, 0.12)}><Tete espece={espece} look={look} /></g>
             </Fenetre>
           </Wagon>
         </g>
@@ -238,7 +245,7 @@ const train: SceneArt = ({ espece, look }) => (
           <path d="M4 -52H40V-8H4Z" fill={C.marine} />
           <path d="M10 -46H34V-32H10Z" fill={C.mimosa} />
           <path d="M40 -42H92Q100 -42 100 -30V-8H40Z" fill="#1B2440" />
-          <path d="M40 -26H100" fill="none" stroke={METAL.or} strokeWidth="2.400" />
+          <path d="M40 -26H100" fill="none" stroke={METAL.or} strokeWidth="2.4" />
           <rect x="76" y="-60" width="12" height="20" fill="#1B2440" />
           <rect x="72" y="-64" width="20" height="6" rx="2" fill={METAL.or} />
           <path d="M100 -12L112 -4H100Z" fill={C.cerise} />
@@ -247,7 +254,7 @@ const train: SceneArt = ({ espece, look }) => (
             <g key={x} transform={`translate(${x} ${y})`}>
               <g {...a("tourne", { t: 0.46, n: 9 })}>
                 <circle r={r} fill={C.noir} />
-                <path d={`M${-r! + 2} 0H${r! - 2}M0 ${-r! + 2}V${r! - 2}`} fill="none" stroke={C.cerise} strokeWidth="2.400" />
+                <path d={`M${-r! + 2} 0H${r! - 2}M0 ${-r! + 2}V${r! - 2}`} fill="none" stroke={C.cerise} strokeWidth="2.4" />
               </g>
             </g>
           ))}
@@ -317,7 +324,7 @@ const film: SceneArt = ({ espece, look }) => {
             </g>
           </g>
         ))}
-        <circle cx="18" cy="-12" r="3.500" fill={C.cerise} {...a("clignote", { t: 0.5, o0: 0.2 })} />
+        <circle cx="18" cy="-12" r="3.5" fill={C.cerise} {...a("clignote", { t: 0.5, o0: 0.2 })} />
       </g>
       {/* Les flashs des photographes */}
       <path d={etoiles([[52, 300, 26]])} fill={C.blanc} {...a("eclat", { t: 0.45, d: 3.9, o: [52, 300] })} />
@@ -353,7 +360,7 @@ const NOIR_ABYSSE = "#030B1E";
 function Meduse({ couleur, d = 0 }: { couleur: string; d?: number }) {
   return (
     <g {...a("flotte", { dy: 7, t: 1.5, d })}>
-      <path d="M-10 4q-4 14 2 26M-2 4q4 16 -2 30M8 4q6 12 2 26" fill="none" stroke={couleur} strokeOpacity="0.7" strokeWidth="2.400" strokeLinecap="round" />
+      <path d="M-10 4q-4 14 2 26M-2 4q4 16 -2 30M8 4q6 12 2 26" fill="none" stroke={couleur} strokeOpacity="0.7" strokeWidth="2.4" strokeLinecap="round" />
       <path d="M-18 4Q-18 -18 0 -18Q18 -18 18 4Q9 9 0 5Q-9 9 -18 4Z" fill={couleur} fillOpacity="0.85" {...a("pulse", { s0: 0.9, s: 1.08, t: 0.75, d, o: "50% 100%" })} />
     </g>
   );
@@ -372,11 +379,11 @@ const abysses: SceneArt = ({ espece, look }) => (
     {/* La neige marine remonte : c'est nous qui descendons */}
     <g {...a("disparait", { t: 0.8, d: 5 })}>
       <g fill={C.blanc} fillOpacity="0.5">
-        <circle cx="50" cy="820" r="2.400" {...a("passe", { fy: -860, t: 1.3, n: "inf" })} />
-        <circle cx="130" cy="820" r="1.800" {...a("passe", { fy: -860, t: 1.1, d: 0.4, n: "inf" })} />
-        <circle cx="220" cy="820" r="2.600" {...a("passe", { fy: -860, t: 1.5, d: 0.2, n: "inf" })} />
+        <circle cx="50" cy="820" r="2.4" {...a("passe", { fy: -860, t: 1.3, n: "inf" })} />
+        <circle cx="130" cy="820" r="1.8" {...a("passe", { fy: -860, t: 1.1, d: 0.4, n: "inf" })} />
+        <circle cx="220" cy="820" r="2.6" {...a("passe", { fy: -860, t: 1.5, d: 0.2, n: "inf" })} />
         <circle cx="300" cy="820" r="2" {...a("passe", { fy: -860, t: 1.2, d: 0.7, n: "inf" })} />
-        <circle cx="340" cy="820" r="1.600" {...a("passe", { fy: -860, t: 1, d: 0.9, n: "inf" })} />
+        <circle cx="340" cy="820" r="1.6" {...a("passe", { fy: -860, t: 1, d: 0.9, n: "inf" })} />
       </g>
     </g>
     <path d={ronds(1.6, [[44, 250], [120, 330], [300, 290], [330, 420], [60, 470], [250, 200]])} fill={C.blanc} fillOpacity="0.35" />
@@ -398,11 +405,11 @@ const abysses: SceneArt = ({ espece, look }) => (
       <path d={ronds(3, [[36, 580], [44, 572], [52, 584]])} fill={C.bougClair} />
       {/* Le ticket */}
       <g transform="translate(188 596) rotate(-10) scale(1.5)">
-        <rect x="-15" y="-8.500" width="30" height="20" rx="2.500" fill={C.mimosaFonce} />
-        <rect x="-15" y="-10" width="30" height="20" rx="2.500" fill={C.mimosa} />
-        <rect x="-11" y="-6" width="15" height="12" rx="1.500" fill={C.creme} />
-        <path d="M8 -9V9" fill="none" stroke={C.nuit} strokeWidth="1" strokeDasharray="1.800 2" />
-        <circle cx="11.500" cy="0" r="1.600" fill={C.nuit} />
+        <rect x="-15" y="-8.5" width="30" height="20" rx="2.5" fill={C.mimosaFonce} />
+        <rect x="-15" y="-10" width="30" height="20" rx="2.5" fill={C.mimosa} />
+        <rect x="-11" y="-6" width="15" height="12" rx="1.5" fill={C.creme} />
+        <path d="M8 -9V9" fill="none" stroke={C.nuit} strokeWidth="1" strokeDasharray="1.8 2" />
+        <circle cx="11.5" cy="0" r="1.6" fill={C.nuit} />
       </g>
       <path d={etoiles([[216, 572, 9]])} fill={C.blanc} {...a("clignote", { t: 0.7, o0: 0.2 })} />
       {/* La baudroie, curieuse, sa lanterne au-dessus du ticket */}
@@ -411,8 +418,8 @@ const abysses: SceneArt = ({ espece, look }) => (
           <path d="M300 560L326 544V582Z" fill="#33405F" />
           <ellipse cx="282" cy="562" rx="30" ry="22" fill="#33405F" />
           <path d="M254 568L262 560L268 570L274 560L280 570L286 562L290 572Q270 584 254 568Z" fill={C.ivoire} />
-          <circle cx="268" cy="552" r="5.500" fill={C.ivoire} />
-          <circle cx="267" cy="552" r="2.400" fill={C.nuit} />
+          <circle cx="268" cy="552" r="5.5" fill={C.ivoire} />
+          <circle cx="267" cy="552" r="2.4" fill={C.nuit} />
           <path d="M276 542Q262 514 240 526" fill="none" stroke="#33405F" strokeWidth="3" strokeLinecap="round" />
           <circle cx="238" cy="528" r="14" fill={C.persClair} fillOpacity="0.3" {...a("pulse", { s0: 0.8, s: 1.2, t: 0.8 })} />
           <circle cx="238" cy="528" r="6" fill={C.persClair} />
@@ -444,7 +451,7 @@ const abysses: SceneArt = ({ espece, look }) => (
         {/* Ses bulles */}
         <g fill={C.blanc} fillOpacity="0.6">
           <circle cx="-66" cy="-30" r="5" {...a("passe", { fy: -160, fx: 8, t: 1.6, n: "inf" })} />
-          <circle cx="-60" cy="-30" r="3.500" {...a("passe", { fy: -180, fx: -10, t: 1.9, d: 0.6, n: "inf" })} />
+          <circle cx="-60" cy="-30" r="3.5" {...a("passe", { fy: -180, fx: -10, t: 1.9, d: 0.6, n: "inf" })} />
         </g>
       </g>
     </g>
@@ -481,8 +488,8 @@ const parc: SceneArt = ({ espece, look }) => {
         <circle cx={RX} cy={RY} r={RR - 20} fill="none" stroke={C.mimosa} strokeOpacity="0.6" strokeWidth="2" />
         {nacelles.map((angle, i) => (
           <g key={angle} transform={`rotate(${angle} ${RX} ${RY})`}>
-            <path d={`M${RX} ${RY}V${RY - RR}`} fill="none" stroke={C.mimosa} strokeWidth="2.400" />
-            <circle cx={RX} cy={RY - RR} r="4.500" fill={C.ivoire} {...a("clignote", { t: 0.5, d: -i * 0.12, o0: 0.3 })} />
+            <path d={`M${RX} ${RY}V${RY - RR}`} fill="none" stroke={C.mimosa} strokeWidth="2.4" />
+            <circle cx={RX} cy={RY - RR} r="4.5" fill={C.ivoire} {...a("clignote", { t: 0.5, d: -i * 0.12, o0: 0.3 })} />
             {/* La nacelle reste d'aplomb : elle tourne à l'envers de la roue */}
             <g transform={`rotate(${-angle} ${RX} ${RY - RR})`}>
               <g {...a("va", { r: TOUR, ...VITESSE_ROUE, o: [RX, RY - RR] })}>
@@ -496,7 +503,7 @@ const parc: SceneArt = ({ espece, look }) => {
         <circle cx={RX} cy={RY} r="12" fill={C.ivoire} />
       </g>
       {/* La guirlande d'ampoules */}
-      <path d="M-20 170Q90 230 180 180Q270 230 380 170" fill="none" stroke={C.nuit} strokeWidth="1.500" />
+      <path d="M-20 170Q90 230 180 180Q270 230 380 170" fill="none" stroke={C.nuit} strokeWidth="1.5" />
       {[[10, 187], [46, 200], [84, 204], [122, 199], [156, 188], [204, 188], [238, 199], [276, 204], [314, 200], [350, 187]].map(([x, y], i) => (
         <circle key={x} cx={x} cy={y! + 5} r="5" fill={teintes[i % 4]} {...a("clignote", { t: 0.6, d: -(i % 3) * 0.2, o0: 0.35 })} />
       ))}

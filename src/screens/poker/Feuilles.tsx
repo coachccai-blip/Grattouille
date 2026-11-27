@@ -358,7 +358,7 @@ function Creer() {
       <p className="poker-modes__regle" role="status">{modeRule(mode)}</p>
       <div className="poker-reglages">
         {tournament ? (
-          <Pas label={t("Blinde de départ")} aide={t("Elle monte au fil des mains")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
+          <Pas label={t("Blinde")} aide={t("Celle du départ : elle monte au fil des mains")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
         ) : (
           <>
             <Pas label={t("Blinde")} aide={t("La mise d'entrée de chaque main")} value={formatEuros(chosen)} onMinus={blindSteps.minus} onPlus={blindSteps.plus} />
@@ -405,7 +405,7 @@ function Creer() {
       <Alerte>{error}</Alerte>
       <div className="poker-feuille__action">
         <Bouton bloc data-geste="creer" disabled={short} attente={busy} onClick={() => void run(create)}>
-          {tournament ? t("Créer la table et poser {montant}", { montant: formatEuros(stake) }) : t("Créer la table")}
+          {t("Créer la table")}
         </Bouton>
       </div>
     </Feuille>

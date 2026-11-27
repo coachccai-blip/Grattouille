@@ -14,7 +14,8 @@ import { handle, type Deps } from "../server/app";
 import { cryptoRandom32 } from "../server/auth";
 import { MemoryStorage } from "../server/storage";
 
-const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "dist");
+// `DIST` permet de servir une autre construction que `dist/` (une recette à part, par exemple).
+const ROOT = process.env.DIST ?? join(fileURLToPath(new URL(".", import.meta.url)), "..", "dist");
 const PORT = Number(process.env.PORT ?? 4173);
 
 const TYPES: Record<string, string> = {

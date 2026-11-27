@@ -500,7 +500,7 @@ describe("la mise saisie à la main", () => {
     setLang("en");
     expect(boundsText(null, range).texte).toBe("Between €10T and €290T");
     expect(boundsText(typedBet(3 * BN, o, 0, 290 * BN), range, 3 * BN).texte).toBe("Below the minimum: it will be €10T.");
-    expect(boundsText(typedBet(900 * BN, o, 0, 290 * BN), range, 900 * BN).texte).toBe("More than your stack: it will be your whole stack.");
+    expect(boundsText(typedBet(900 * BN, o, 0, 290 * BN), range, 900 * BN).texte).toBe("More than your stack: you'll be all in.");
     expect(boundsText(typedBet(99, limited, 0, 500), limited.bet, 99).texte).toBe("Above the maximum: it will be €26.");
   });
 

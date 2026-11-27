@@ -239,6 +239,7 @@
 .xp-clignote { animation-name: xp-clignote; }
 .xp-saut { animation-name: xp-saut; }
 .xp-bat { animation-name: xp-bat; }
+.xp-secoue { animation-name: xp-secoue; }
 
 /* Arriver : d'un décalage jusqu'à sa place. */
 @keyframes xp-va {
@@ -328,6 +329,13 @@
 @keyframes xp-bat {
   from { transform: scaleY(1); }
   to { transform: scaleY(var(--s, -.5)); }
+}
+
+/* Se secouer, et revenir d'aplomb : une sonnette, une tête qui dit non. */
+@keyframes xp-secoue {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(var(--r, 10deg)); }
+  75% { transform: rotate(calc(var(--r, 10deg) * -1)); }
 }
 
 /* Bondir sur place. */
