@@ -28,9 +28,20 @@ function lecture(entry: BoardEntry, rank: number, me: boolean): string {
     etoiles: formatInt(entry.standing),
     fortune: formatEuros(entry.fortune),
   };
+  if (entry.legend) return t("{rang}. {nom}, Légende de Grattouille : {fortune}, {etoiles} étoiles.", vars);
   return entry.kiosk
     ? t("{rang}. {nom}, propriétaire du Kiosque : {fortune}, {etoiles} étoiles.", vars)
     : t("{rang}. {nom} : {fortune}, {etoiles} étoiles.", vars);
+}
+
+/** L'as de cœur des Légendes : ceux qui ont vu la vraie fin de l'histoire. */
+function AsDeCoeur({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 14 18" aria-hidden="true">
+      <rect x="0.75" y="0.75" width="12.5" height="16.5" rx="2.5" fill="#FFFDF5" stroke="#B88A14" strokeWidth="1.5" />
+      <path d="M7 13.4 C3.3 10.6 2.7 8.8 2.7 7.5 A2.15 2.15 0 0 1 7 6.8 A2.15 2.15 0 0 1 11.3 7.5 C11.3 8.8 10.7 10.6 7 13.4 Z" fill="#D7263D" />
+    </svg>
+  );
 }
 
 function Plaque({ entry, rank, me }: { entry: BoardEntry; rank: number; me: boolean }) {
@@ -43,7 +54,14 @@ function Plaque({ entry, rank, me }: { entry: BoardEntry; rank: number; me: bool
       </span>
       {/* Le nom d'abord, seul sur sa ligne ; dessous, le Standing et la fortune. */}
       <span className="plaque__qui" aria-hidden="true">
-        <span className="plaque__nom">{me ? t("Toi") : entry.pseudo}</span>
+        {entry.legend ? (
+          <span className="plaque__nom plaque__nom--legende">
+            <span className="plaque__pseudo">{me ? t("Toi") : entry.pseudo}</span>
+            <AsDeCoeur className="plaque__as" />
+          </span>
+        ) : (
+          <span className="plaque__nom">{me ? t("Toi") : entry.pseudo}</span>
+        )}
         <span className="plaque__chiffres">
           <span className="plaque__standing"><Etoile />{formatInt(entry.standing)}</span>
           <span className="plaque__fortune chiffres">{formatEuros(entry.fortune)}</span>
@@ -171,6 +189,7 @@ export function Classement() {
                 ref={me ? mine : undefined}>
                 <span className="invisible">{lecture(entry, i + 1, me)}</span>
                 <span className="podium__rang" aria-hidden="true">{i + 1}</span>
+                {entry.legend && <AsDeCoeur className="podium__as" />}
                 <span className="podium__avatar" aria-hidden="true">
                   <Avatar species={entry.species} look={entry.look} />
                 </span>

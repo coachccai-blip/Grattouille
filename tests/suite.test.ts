@@ -437,6 +437,38 @@ describe("POST /api/story/seen : la vraie fin", () => {
     expect(belongings(again.body.state)).toEqual(belongings(a.state));
   });
 
+  it("au classement, seule une Légende porte la marque, et les autres entrées gardent leur forme", async () => {
+    const w = makeWorld();
+    const a = await ready(w);
+    const other = await w.patron("Patronne");
+    w.advance(BOARD_PUBLISH_INTERVAL_MS);
+    // Une écriture ordinaire de chacune, pour publier leur fortune.
+    await w.call("POST", "/api/tickets/sow", { type: "tirelire" }, a.auth);
+    await w.call("POST", "/api/tickets/sow", { type: "tirelire" }, other.auth);
+    let board = (await w.call("GET", "/api/leaderboard")).body;
+    const KEYS = ["at", "fortune", "id", "kiosk", "look", "pseudo", "species", "standing"];
+    for (const entry of board.entries) expect(Object.keys(entry).sort()).toEqual(KEYS);
+    // La vraie fin vue : la marque est publiée avec l'écriture, sans attendre un changement de fortune.
+    w.advance(BOARD_PUBLISH_INTERVAL_MS);
+    await w.call("POST", "/api/story/seen", { id: "vraie-fin" }, a.auth);
+    board = (await w.call("GET", "/api/leaderboard")).body;
+    const mine = board.entries.find((e: { id: string }) => e.id === a.playerId);
+    const hers = board.entries.find((e: { id: string }) => e.id === other.playerId);
+    expect(mine.legend).toBe(true);
+    expect(Object.keys(hers).sort()).toEqual(KEYS);
+  });
+
+  it("la signature de publication d'un compte qui n'est pas une Légende est celle d'avant", async () => {
+    const w = makeWorld();
+    const a = await w.patron("Patronne");
+    w.advance(BOARD_PUBLISH_INTERVAL_MS);
+    await w.call("POST", "/api/tickets/sow", { type: "tirelire" }, a.auth);
+    const record = w.storage.peek(a.playerId)!;
+    // Neuf champs séparés par des barres, comme en 2.0 : fortune, Standing, espèce, quatre pièces de tenue, Kiosque, pseudo.
+    expect(record.boardSig.split("|")).toHaveLength(9);
+    expect(record.boardSig.endsWith("|1|Patronne")).toBe(true);
+  });
+
   it("refuse une page d'histoire inconnue", async () => {
     const w = makeWorld();
     const a = await ready(w);

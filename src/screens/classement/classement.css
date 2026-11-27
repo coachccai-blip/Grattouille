@@ -107,6 +107,18 @@
 /* Les propriétaires du Kiosque portent un liseré d'or. */
 .podium__place--kiosque { box-shadow: inset 0 0 0 3px #F2C94C; }
 
+/* Les Légendes portent en plus un as de cœur, dans le coin opposé au rang. */
+.podium__as {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: 20px;
+  height: 26px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .35));
+  transform: rotate(8deg);
+}
+
 /* ---------------------------------------------------------------- Plaques de rang */
 
 .plaques {
@@ -204,6 +216,25 @@
 
 /* Propriétaire du Kiosque : liseré d'or. */
 .plaque--kiosque { box-shadow: inset 0 0 0 3px #FFE9A6, 0 0 0 2px #B88A14; }
+
+/* Légende : un as de cœur après le nom. Le nom se coupe avant lui, jamais dessous. */
+.plaque__nom--legende {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.plaque__pseudo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plaque__as {
+  flex: none;
+  width: 14px;
+  height: 18px;
+}
 
 /* Ma ligne, épinglée au-dessus des onglets. Une bande pleine, d'un bord à l'autre : la
    liste qui défile derrière ne se lit pas par-dessous, et le bouton « Jouer », qui

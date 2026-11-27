@@ -205,8 +205,13 @@ export function applyAck(r: PlayerRecord, ack: readonly string[]): number {
   return paid;
 }
 
+/** Une Légende : le Kiosque est à lui, et il a vu la vraie fin de l'histoire. */
+function isLegend(r: Pick<PlayerRecord, "kiosk" | "vraieFin">): boolean {
+  return r.kiosk && r.vraieFin === true;
+}
+
 export function boardEntryOf(r: PlayerRecord, now: number): BoardEntry {
-  return {
+  const entry: BoardEntry = {
     id: r.id,
     pseudo: r.pseudo,
     species: r.species,
@@ -221,14 +226,20 @@ export function boardEntryOf(r: PlayerRecord, now: number): BoardEntry {
     kiosk: r.kiosk,
     at: now,
   };
+  // Seules les Légendes portent la marque : les entrées des autres gardent leur forme d'avant.
+  if (isLegend(r)) entry.legend = true;
+  return entry;
 }
 
 /** Tout ce qui se voit au classement. Si rien n'a changé, inutile de republier. */
 export function boardSignature(r: PlayerRecord): string {
   const l = r.look;
-  return [
+  const signature = [
     fortune(r), standingOf(r.owned, r.kiosk), r.species,
     l.chapeau ?? "", l.lunettes ?? "", l.tenue ?? "", l.accessoire ?? "",
     r.kiosk ? 1 : 0, r.pseudo,
   ].join("|");
+  // La marque ne s'ajoute que pour une Légende : la signature des autres comptes ne change pas,
+  // et personne n'est republié pour rien à la mise à jour.
+  return isLegend(r) ? `${signature}|legende` : signature;
 }

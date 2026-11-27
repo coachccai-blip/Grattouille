@@ -104,6 +104,8 @@ export interface BoardEntry {
   look: { chapeau: string | null; lunettes: string | null; tenue: string | null; accessoire: string | null };
   fortune: number; standing: number; kiosk: boolean;
   at: number; // date de la dernière publication
+  /** Présent seulement pour une Légende : le Kiosque est à lui et il a vu la vraie fin de l'histoire. */
+  legend?: true;
 }
 
 export interface Board {

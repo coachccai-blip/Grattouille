@@ -79,6 +79,8 @@ export const EN_BOUTIQUES: Record<string, string> = {
   "{rang}. {nom} : {fortune}, {etoiles} étoiles.": "{rang}. {nom}: {fortune}, {etoiles} stars.",
   "{rang}. {nom}, propriétaire du Kiosque : {fortune}, {etoiles} étoiles.":
     "{rang}. {nom}, owner of the Kiosk: {fortune}, {etoiles} stars.",
+  "{rang}. {nom}, Légende de Grattouille : {fortune}, {etoiles} étoiles.":
+    "{rang}. {nom}, Legend of Grattouille: {fortune}, {etoiles} stars.",
   "Tu n'es pas encore classé. Il te manque {montant} pour entrer dans les {n} premiers.":
     "You're not ranked yet. You need {montant} more to enter the top {n}.",
   "Tu n'es pas encore classé. Ta fortune y sera inscrite d'ici une minute.":
